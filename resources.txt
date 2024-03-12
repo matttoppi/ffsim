@@ -1,0 +1,5 @@
+https://api.sleeper.com/stats/nfl/player/6794?season_type=regular&season=2021&grouping=week
+
+
+
+https://api.sleeper.com/projections/nfl/player/6794?season_type=regular&season=2021&grouping=week
