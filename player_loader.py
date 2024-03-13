@@ -35,7 +35,6 @@ class PlayerLoader:
         else:
             need_to_update = True
 
-        # Moved CSV loading logic outside the condition to ensure they're always available
         self.csv_data = self.download_and_parse_csv(self.player_ids_csv_url)
         self.values_data = self.download_and_parse_csv(self.player_values_csv_url, index_col='fp_id')
 
@@ -51,18 +50,20 @@ class PlayerLoader:
         if response.status_code == 200:
             sleeper_players = response.json()
             for player_id, details in sleeper_players.items():
-                # Debugging: Print before merge
-                print(f"Before merge for {player_id}: {details}")
-                
-                # Attempt merge
                 if player_id in self.csv_data:
                     details.update(self.csv_data[player_id])
                 fp_id = details.get('fantasypros_id')
                 if fp_id and fp_id in self.values_data:
                     details.update(self.values_data[fp_id])
 
-                # Debugging: Print after merge
-                print(f"After merge for {player_id}: {details}")
+            # Update self.players with the fetched and merged data
+            self.players = sleeper_players
+
+            # Now that self.players has been updated, save it to file
+            self.save_players_to_file()
+        else:
+            print(f"Failed to fetch players data: HTTP {response.status_code}")
+
 
     def save_players_to_file(self):
         """Saves the current players dictionary to a file."""
@@ -70,12 +71,12 @@ class PlayerLoader:
             print("Warning: Attempting to save empty player data.")
         else:
             print(f"Saving {len(self.players)} players data to file...")
-        try:
-            with open(self.players_file, 'w', encoding='utf-8') as file:
-                json.dump(self.players, file, ensure_ascii=False, indent=4)
-                print(f"Player data saved to {self.players_file} successfully.")
-        except Exception as e:
-            print(f"Error saving players data to file: {e}")
+            try:
+                with open(self.players_file, 'w', encoding='utf-8') as file:
+                    json.dump(self.players, file, ensure_ascii=False, indent=4)
+                    print(f"Player data saved to {self.players_file} successfully.")
+            except Exception as e:
+                print(f"Error saving players data to file: {e}")
 
 
     def load_players_from_file(self):
