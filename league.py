@@ -39,7 +39,20 @@ class League:
         self.avatar = league_data.get("avatar")
         self.metadata = league_data.get("metadata", {})
         self.status = league_data.get("status")
+        self.rosters = None
 
+    def print_rosters(self):
+        for team in self.rosters:
+            print(f"Team: {team.name}")
+            for player in team.players:
+                print(f"  Player: {player.name} - {player.position} - {player.nfl_team} - {player.value_1qb}")
+            
+            print(f"  Total value 1QB: {team.total_value_1qb}")
+            print(f"  Total value 2QB: {team.total_value_2qb}")
+            print(f"  Average age: {team.average_age}") 
+                
+            
+            
 # # Example usage:
 # import json
 

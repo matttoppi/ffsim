@@ -1,3 +1,9 @@
+from sleeper_wrapper import League as SleeperLeague
+
+from league import League, ScoringSettings, LeagueSettings
+from fantasy_team import FantasyTeam
+from player import Player
+
 class LeagueLoader:
     def __init__(self, league_id, player_loader):
         self.sleeper_league = SleeperLeague(league_id)
@@ -6,39 +12,41 @@ class LeagueLoader:
 
     def load_league(self):
         league_data = self.sleeper_league.get_league()
-        league = League(league_data)
+        # Assuming league_data is a dictionary with league details
+        league = League(league_data)  # Pass entire league_data dictionary to League __init__
 
-        rosters = self.sleeper_league.get_rosters()
-        for roster_data in rosters:
-            fantasy_team = FantasyTeam(str(roster_data['owner_id']))
+        # Populate League with rosters, settings, and matchups
+        league.rosters = self.load_rosters()
+        league.settings = self.load_settings()
+        league.matchups = self.load_matchups()
 
-            fantasy_team.wins = roster_data['settings']['wins']
-            fantasy_team.losses = roster_data['settings']['losses']
-            fantasy_team.ties = roster_data['settings']['ties']
-            fantasy_team.fantasy_pts_total = roster_data['settings']['fpts']
-            fantasy_team.points_for = roster_data['settings']['fpts']
-            fantasy_team.points_against = roster_data['settings']['fpts_against']
+        return league
 
+    def load_rosters(self):
+        rosters = []
+        for roster_data in self.sleeper_league.get_rosters():
+            fantasy_team = FantasyTeam(str(roster_data['owner_id']))  # Assuming 'owner_id' as team name
+
+            # Set team settings from roster_data
+            fantasy_team.set_settings(roster_data['settings'])
+
+            # Load players into fantasy_team
             for player_id in roster_data.get('players', []):
                 player_details = self.player_loader.get_player(player_id)
                 if player_details:
-                    player = Player(player_details['first_name'] + " " + player_details['last_name'])
-                    # Map Sleeper API and CSV data to Player attributes
-                    for attr in ['nfl_team', 'position', 'age', 'draft_year', 'ecr_1qb', 'ecr_2qb', 'ecr_pos',
-                                'value_1qb', 'value_2qb', 'scrape_date', 'fp_id', 'mfl_id', 'sportradar_id',
-                                'fantasypros_id', 'gsis_id', 'pff_id', 'sleeper_id', 'nfl_id', 'espn_id',
-                                'yahoo_id', 'fleaflicker_id', 'cbs_id', 'pfr_id', 'cfbref_id', 'rotowire_id',
-                                'rotoworld_id', 'ktc_id', 'stats_id', 'stats_global_id', 'fantasy_data_id',
-                                'swish_id', 'merge_name', 'team', 'birthdate', 'draft_round', 'draft_pick',
-                                'draft_ovr', 'twitter_username', 'height', 'weight', 'college', 'db_season',
-                                'number', 'depth_chart_position', 'status', 'sport', 'fantasy_positions',
-                                'search_last_name', 'injury_start_date', 'practice_participation', 'last_name',
-                                'search_full_name', 'birth_country', 'search_rank', 'first_name', 'depth_chart_order',
-                                'search_first_name']:
-                        setattr(player, attr, player_details.get(attr))
-
+                    player = Player(player_details['name'])  # Initialize Player with name
+                    # Dynamically set Player attributes
+                    for key, value in player_details.items():
+                        setattr(player, key, value) if hasattr(player, key) else None
                     fantasy_team.players.append(player)
+            rosters.append(fantasy_team)
+        return rosters
 
-            league.fantasy_teams.append(fantasy_team)
+    def load_settings(self):
+        # Example placeholder, adjust according to how you wish to handle settings
+        return self.sleeper_league.get_league_settings()
 
-        return league
+    def load_matchups(self):
+        # Placeholder, adjust to fetch and return matchups data
+        return []
+

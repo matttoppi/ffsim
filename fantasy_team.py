@@ -12,5 +12,23 @@ class FantasyTeam:
         self.points_for = 0
         self.points_against = 0
         self.streak = 0
+        
+        self.total_value_1qb = round(sum([player.value_1qb for player in self.players if player.value_1qb]), 2)
+        self.total_value2qb = round(sum([player.value_2qb for player in self.players if player.value_2qb]), 2)
+        
+        # unless 0 players, calculate average age and ecr for 1qb and 2qb
+        if len(self.players) != 0:
+            self.average_age = round(sum([player.age for player in self.players if player.age]) / len(self.players), 2)
+            self.average_ecr_1qb = round(sum([player.ecr_1qb for player in self.players if player.ecr_1qb]) / len(self.players), 2)
+            self.average_ecr_2qb = round(sum([player.ecr_2qb for player in self.players if player.ecr_2qb]) / len(self.players), 2)
+        else:
+            self.average_age = 0
+            self.average_ecr_1qb = 0
+            self.average_ecr_2qb = 0
+            
+        
+        
+        
+        
 
         
