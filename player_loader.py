@@ -50,6 +50,10 @@ class PlayerLoader:
             for player_id, player_info in data.items():
                 player_info['player_id'] = player_id  # Add player_id to the dictionary
                 players_data.append(player_info)
+                
+            #write to file
+            with open('sleeper_players.json', 'w', encoding='utf-8') as file:
+                json.dump(players_data, file, ensure_ascii=False, indent=4)
             
             return players_data
         else:
@@ -101,4 +105,24 @@ class PlayerLoader:
     def load_players_from_file(self):
         with open(self.players_file, 'r') as file:
             self.enriched_players = json.load(file)
+            
+            
+    def load_player(self, sleeper_id):
+        
+        for player in self.enriched_players:
+            if player.get('sleeper_id') == sleeper_id or str(player.get('sleeper_id')).replace('.0', '') == sleeper_id:
+                # print(f"Player found: {player.get('first_name')} {player.get('last_name')}")
+                return Player(player)
+            
+        # print(f"Player not found with sleeper_id: {sleeper_id}")
+        
+        # search for it in the sleeper data file sleeper_players.json
+        with open('sleeper_players.json', 'r') as file:
+            sleeper_players = json.load(file)
+            for player in sleeper_players:
+                if player.get('player_id') == sleeper_id or str(player.get('player_id')).replace('.0', '') == sleeper_id:
+                    # print(f"Player found: {player.get('first_name')} {player.get('last_name')}")
+                    return Player(player)
+        
+        return None
             
