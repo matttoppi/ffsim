@@ -1,4 +1,3 @@
-# Make sure you've defined all necessary imports
 from sleeper_wrapper import League as SleeperLeague
 
 from league import League, ScoringSettings, LeagueSettings
@@ -14,11 +13,16 @@ class LeagueLoader:
 
     def load_league(self):
         league_data = self.sleeper_league.get_league()
+        
+        # print(league_data)
+        
         league = League(league_data)
+        
+        
 
-        league.rosters = self.load_rosters()
-        league.settings = self.load_settings()
-        league.matchups = self.load_matchups()
+        # league.rosters = self.load_rosters()
+        # league.settings = self.load_settings()
+        # league.matchups = self.load_matchups()
 
         return league
 

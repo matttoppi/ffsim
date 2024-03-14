@@ -2,11 +2,24 @@ class ScoringSettings:
     def __init__(self, scoring_data):
         for key, value in scoring_data.items():
             setattr(self, key, value)
+            
+    def print_scoring_settings(self):
+        print(f"\n\nScoring data:\n")
+        for key, value in self.__dict__.items():
+            print(f"{key}: {value}")
+        
 
 class LeagueSettings:
     def __init__(self, settings_data):
+        print(f"\n\nSettings data:\n")
         for key, value in settings_data.items():
             setattr(self, key, value)
+            
+            
+    def print_settings(self):
+        print(f"\n\nSettings data:\n")
+        for key, value in self.__dict__.items():
+            print(f"{key}: {value}")
 
 class League:
     def __init__(self, league_data):
@@ -40,6 +53,20 @@ class League:
         self.metadata = league_data.get("metadata", {})
         self.status = league_data.get("status")
         self.rosters = None
+            
+        
+    def print_league(self):
+        print(f"\n\nLeague data:\n")
+        for key, value in self.__dict__.items():
+            print(f"{key}: {value}")
+            
+        print(self.scoring_settings.print_scoring_settings())
+        print(self.settings.print_settings())
+        
+        
+        
+        
+    
 
     def print_rosters(self):
         for team in self.rosters:
