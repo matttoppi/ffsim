@@ -18,18 +18,14 @@ class LeagueLoader:
         
         league = League(league_data)
         
-        league.rosters = self.load_rosters()
+        league.rosters = self.load_rosters(league)
         # league.matchups = self.load_matchups()
         
         print(f"League {league.name} loaded.")
         
-        
-
-        
-
         return league
 
-    def load_rosters(self):
+    def load_rosters(self, league):
         rosters = []
         roster_data_list = self.sleeper_league.get_rosters()
         user_dict = self.load_users()  # Load user data for association with rosters
@@ -43,7 +39,7 @@ class LeagueLoader:
             team_name = user_data.get("metadata", {}).get("team_name", "Unknown")
             
             # Assuming FantasyTeam can store user data; adjust constructor as needed
-            fantasy_team = FantasyTeam(team_name, user_data)
+            fantasy_team = FantasyTeam(team_name, league, user_data)
             
             # Load the players on the roster
             player_ids = roster_data.get("players")
@@ -55,6 +51,7 @@ class LeagueLoader:
                     fantasy_team.players.append(player)
                     fantasy_team.player_sleeper_ids.append(player.sleeper_id)
                             
+            fantasy_team.calculate_stats()
             
             
             
