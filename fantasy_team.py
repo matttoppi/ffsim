@@ -24,8 +24,8 @@ class FantasyTeam:
         self.average_value_1qb = 0
         self.average_value_2qb = 0
         self.average_age = 0
-        self.average_ecr_1qb = 0
-        self.average_ecr_2qb = 0
+        self.average_starter_ecr_1qb = 0
+        self.average_starter_ecr_2qb = 0
         self.total_age = 0
         self.league = league
         
@@ -49,16 +49,16 @@ class FantasyTeam:
         print(f"Name: {self.name}")
         print(f"Owner: {self.owner_username}")
         print(f"Total Value 1QB: {self.total_value_1qb}")
-        print(f"Average ECR Starters: {self.average_ecr_1qb}")
+        print(f"Average ECR/ADP Starters: {self.average_starter_ecr_1qb}")
         
         
-        
-        # print(f"\nPlayers: ")
-        # for player in self.players:
-        #     # player.print_player()
-        #     player.print_player_short()
-            
-            
+    def print_fantasy_team_short(self):
+        print("|{:<16} | Value 1QB: {:<8} | AVG ECR: {:<8}|".format(
+            self.owner_username, "{:.2f}".format(self.total_value_1qb), "{:.2f}".format(self.average_starter_ecr_1qb)))
+
+
+                
+
             
     
     def calculate_stats(self):
@@ -70,10 +70,38 @@ class FantasyTeam:
         self.average_value_2qb = round(self.total_value_2qb / len(self.players), 2)
         self.average_age = round(self.total_age / len(self.players), 2)
         
-        self.average_ecr_1qb = round(sum([player.ecr_1qb for player in self.players if player.ecr_1qb]), 2)
-        self.average_ecr_2qb = round(sum([player.ecr_2qb for player in self.players if player.ecr_2qb]), 2)
-        self.average_ecr_pos = round(sum([player.ecr_pos for player in self.players if player.ecr_pos]), 2)        
+        total_starter_ecr_1qb = 0
         
+        sorted_players = sorted(self.players, key=lambda x: x.value_1qb, reverse=True)  # sort by value_1qb
+        
+        
+        # for the top n valued players, where n is the number of starters, sum their ecr_1qb
+        # then divide by the number of starters
+        starters = []
+        x = 0
+        for player in sorted_players:
+            # handle none values
+            if player.value_1qb is None:
+                player.value_1qb = 0
+                continue
+            if player.value_2qb is None:
+                player.value_2qb = 0
+                continue
+                
+            if player.value_1qb > 0:
+                starters.append(player)
+                # print(f"Starter: {player.first_name} {player.last_name} - {player.ecr_1qb}")
+                
+                x += 1
+            if x >= self.league.number_of_starters:
+                break
+                
+                
+        if len(starters) > 0:
+            for player in starters:
+                total_starter_ecr_1qb += player.ecr_1qb
+                
+            self.average_starter_ecr_1qb = round(total_starter_ecr_1qb / len(starters), 2)
         
         
         

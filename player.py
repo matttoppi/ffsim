@@ -34,6 +34,15 @@ class Player:
         for attribute in all_attributes:
             if not hasattr(self, attribute):
                 setattr(self, attribute, None)
+                
+        if self.position is None:
+            self.position = "UNKNOWN"
+            
+        if self.value_1qb is None:
+            self.value_1qb = 0
+        
+        if self.value_2qb is None:
+            self.value_2qb = 0
 
     def update_with_sleeper_data(self, sleeper_data):
         # This method should be called to update the player with Sleeper API data

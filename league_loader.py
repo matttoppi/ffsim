@@ -21,11 +21,12 @@ class LeagueLoader:
         league.rosters = self.load_rosters(league)
         # league.matchups = self.load_matchups()
         
-        print(f"League {league.name} loaded.")
+        print(f"\nLeague {league.name} loaded.")
         
         return league
 
     def load_rosters(self, league):
+        print(f"Loading rosters...")
         rosters = []
         roster_data_list = self.sleeper_league.get_rosters()
         user_dict = self.load_users()  # Load user data for association with rosters
@@ -55,7 +56,8 @@ class LeagueLoader:
             
             
             
-            fantasy_team.print_fantasy_team()
+            # fantasy_team.print_fantasy_team()
+            fantasy_team.print_fantasy_team_short()
                 
             
             rosters.append(fantasy_team)

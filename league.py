@@ -11,8 +11,10 @@ class ScoringSettings:
 
 class LeagueSettings:
     def __init__(self, settings_data):
+        print(f"Loading league settings...")
         for key, value in settings_data.items():
             setattr(self, key, value)
+        print(f"League settings loaded.\n")
             
             
     def print_settings(self):
@@ -52,6 +54,14 @@ class League:
         self.metadata = league_data.get("metadata", {})
         self.status = league_data.get("status")
         self.rosters = None
+        
+        #get the amount of starters from the roster_positions. anything not a bench slot is a starter
+        # example: ['QB', 'RB', 'RB', 'RB', 'WR', 'WR', 'WR', 'TE', 'FLEX', 'FLEX', 'FLEX', 'K', 'DEF', 'BN', 'BN', 'BN', 'BN', 'BN', 'BN', 'BN', 'BN', 'BN', 'BN', 'BN', 'BN', 'BN', 'BN', 'BN', 'BN', 'BN', 'BN', 'BN', 'BN']
+
+        self.number_of_starters = 0
+        for position in self.roster_positions:
+            if position != "BN" and position != "IR" and position != "TAXI" and position != "K" and position != "DEF":
+                self.number_of_starters += 1
             
         
     def print_league(self):

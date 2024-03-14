@@ -62,11 +62,12 @@ class PlayerLoader:
 
 
     def load_players(self):
+        print(f"\nLoading players...")
         if os.path.exists(self.players_file) and datetime.now() - datetime.fromtimestamp(os.path.getmtime(self.players_file)) <= self.refresh_interval:
-            print(f"Player data is up to date. Loading from {self.players_file}")
+            print(f"\nPlayer data is up to date. Loading from {self.players_file}\n")
             self.load_players_from_file()
         else:
-            print("Player data is outdated, fetching new data.")
+            print("Player data is outdated, fetching new data.\n")
             self.fetch_players()
 
     def fetch_players(self):
@@ -100,7 +101,7 @@ class PlayerLoader:
     def save_players_to_file(self, players_data):
         with open(self.players_file, 'w', encoding='utf-8') as file:
             json.dump(players_data, file, ensure_ascii=False, indent=4)
-            print("Player data saved successfully.")
+            print("Player data saved successfully.\n")
 
     def load_players_from_file(self):
         with open(self.players_file, 'r') as file:
