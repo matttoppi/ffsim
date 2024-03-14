@@ -8,6 +8,8 @@ import os
 import pandas as pd
 from datetime import datetime, timedelta
 from player import Player
+import numpy as np
+from functools import reduce
 
 import ssl
 ssl._create_default_https_context = ssl._create_unverified_context
@@ -19,7 +21,7 @@ from player import Player
 
 class PlayerLoader:
     def __init__(self):
-        self.players_file = 'players.json'
+        self.players_file = 'datarepo/players.json'
         self.refresh_interval = timedelta(days=3)
         self.player_ids_csv_url = "https://raw.githubusercontent.com/dynastyprocess/data/master/files/db_playerids.csv"
         self.player_values_csv_url = "https://raw.githubusercontent.com/dynastyprocess/data/master/files/values-players.csv"
@@ -66,6 +68,7 @@ class PlayerLoader:
         if os.path.exists(self.players_file) and datetime.now() - datetime.fromtimestamp(os.path.getmtime(self.players_file)) <= self.refresh_interval:
             print(f"\nPlayer data is up to date. Loading from {self.players_file}\n")
             self.load_players_from_file()
+            self.load_statistics_from_file()
         else:
             print("Player data is outdated, fetching new data.\n")
             self.fetch_players()
@@ -126,4 +129,128 @@ class PlayerLoader:
                     return Player(player)
         
         return None
+    
+    
+    def load_statistics_from_file(self):
+
+        
+
+        # Define renaming schemas to address overlapping columns
+        # Note: These are hypothetical and need to be adjusted according to your actual datasets' specifics
+        rename_schema_general = {
+            'YDS': 'GENERAL_YDS',  # Example for general yard stats, adjust based on context
+            'TD': 'GENERAL_TD',    # Adjust similarly
+        }
+
+        rename_schema_qb = {
+            'ATT': 'PASS_ATT',
+            'YDS': 'PASS_YDS',
+            'TD': 'PASS_TD'
+        }
+
+        rename_schema_rb_wr_te = {
+            'ATT': 'RUSH_ATT',
+            'YDS': 'RUSH_RECEIVE_YDS',  # Adjust if there's a need to distinguish between rushing and receiving yards
+            'TD': 'RUSH_RECEIVE_TD'
+        }
+
+        rename_schema_advanced = {
+            # Advanced stats might overlap with general stats but need specific distinction
+            'YDS': 'ADV_YDS',
+            'TD': 'ADV_TD'
+        }
+
+        rename_schema_target_leaders = {
+            'TGT': 'TARGETS',
+            'YDS': 'TARGET_YDS',
+            'REC': 'RECEPTIONS'
+        }
+
+        # Function to load and rename columns for clarity
+        # Function to load, normalize player names, and rename columns for clarity
+        def load_and_rename(filepath, rename_schema):
+            df = pd.read_csv(filepath)
             
+            # Normalize 'Player' names to ensure consistency
+            if 'Player' in df.columns:
+                df['Player'] = df['Player'].apply(normalize_player_name)
+            
+            df.rename(columns=rename_schema, inplace=True)
+            return df
+
+        
+        
+        def normalize_player_name(name):
+            # Check if name is a string instance before attempting to process it
+            if isinstance(name, str):
+                if '(' in name:
+                    # Remove team info and extra spaces
+                    name = name.split(' (')[0].strip()
+            return name
+
+
+        # Actual dataset paths
+        filepaths = [
+            'datarepo/23QB.csv',
+            'datarepo/23RB.csv',
+            'datarepo/23WR.csv',
+            'datarepo/23TE.csv',
+            'datarepo/23QBadvanced.csv',
+            'datarepo/23RBadvanced.csv',
+            'datarepo/23WRadvanced.csv',
+            'datarepo/23TEadvanced.csv',
+            'datarepo/23TargetLeaders.csv'
+        ]
+
+        # Renaming schemas for each dataset type
+        schemas = [
+            rename_schema_qb,
+            rename_schema_rb_wr_te,
+            rename_schema_rb_wr_te,
+            rename_schema_rb_wr_te,
+            rename_schema_advanced,
+            rename_schema_advanced,
+            rename_schema_advanced,
+            rename_schema_advanced,
+            rename_schema_target_leaders
+        ]
+
+            
+        def resolve_duplicates(combined_df):
+            # Identify all columns that have been duplicated with '_x' and '_y' suffixes
+            duplicated_cols = [col[:-2] for col in combined_df if col.endswith('_x')]
+            
+            for col in duplicated_cols:
+                col_x = f'{col}_x'
+                col_y = f'{col}_y'
+                
+                # Check if both versions of the column exist
+                if col_x in combined_df and col_y in combined_df:
+                    # Combine columns by prioritizing '_x' values but falling back to '_y' where '_x' is NaN
+                    combined_df[col] = combined_df[col_x].combine_first(combined_df[col_y])
+                    
+                    # Drop the now redundant '_x' and '_y' columns
+                    combined_df.drop(columns=[col_x, col_y], inplace=True)
+                elif col_x in combined_df:
+                    # If only '_x' version exists, rename it to the original column name
+                    combined_df.rename(columns={col_x: col}, inplace=True)
+                elif col_y in combined_df:
+                    # If only '_y' version exists, rename it to the original column name
+                    combined_df.rename(columns={col_y: col}, inplace=True)
+                    
+            return combined_df
+
+
+        # Load, rename, and store all datasets in a list
+        dfs = [load_and_rename(fp, schema) for fp, schema in zip(filepaths, schemas)]
+        # Merge all DataFrames on 'Player', using an outer join
+        combined_df = reduce(lambda left, right: resolve_duplicates(pd.merge(left, right, on='Player', how='outer', suffixes=('_x', '_y'))), dfs)
+
+        # Remove rows where all columns are NaN
+        combined_df.dropna(how='all', inplace=True)
+
+        # Save the merged DataFrame
+        combined_df.to_csv('merged_nfl_players_stats.csv', index=False)
+
+        print("Merging complete. The dataset is saved as 'datarepo/merged_nfl_players_stats.csv'.")
+

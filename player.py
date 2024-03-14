@@ -9,6 +9,8 @@ class Player:
             setattr(self, key, value)
         # Ensure all possible attributes are initialized
         self.initialize_missing_attributes()
+        
+        
 
     def initialize_missing_attributes(self):
         # Defines all potential attributes for a Player
@@ -87,3 +89,18 @@ class Player:
             
     def print_player_short(self):
         print(f"{self.first_name} {self.last_name} - {self.position} - {self.team} - {self.value_1qb}")
+        
+        
+    class SeasonStats:
+        def __init__(self, season, stats):
+            self.season = season
+            self.stats = {}
+            
+            
+            #fill in the stats dictionary
+            for key, value in stats.items():
+                self.stats[key] = value
+                
+                
+            
+                
