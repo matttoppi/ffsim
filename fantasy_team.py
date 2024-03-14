@@ -20,7 +20,9 @@ class FantasyTeam:
         self.points_against = 0
         self.streak = 0
         
-        self.owner_username = user_data.get('username', 'Unknown')
+        self.owner_username = user_data.get("display_name")
+        if self.name == "Unknown":
+            self.name =  self.owner_username
         
         
         self.total_value_1qb = round(sum([player.value_1qb for player in self.players if player.value_1qb]), 2)
