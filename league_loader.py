@@ -45,16 +45,4 @@ class LeagueLoader:
         # Placeholder for loading matchups
         return []
 
-# # Example Usage
-# # First, create an instance of PlayerLoader and load players
-# player_loader = PlayerLoader()
-# player_loader.load_players()
 
-# # Then, create an instance of LeagueLoader, passing in the league ID and player_loader
-# league_id = "your_league_id_here"
-# league_loader = LeagueLoader(league_id, player_loader)
-
-# # Now, you can load the league
-# league = league_loader.load_league()
-
-# # Access
