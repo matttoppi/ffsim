@@ -19,6 +19,7 @@ class LeagueLoader:
         league = League(league_data)
         
         league.rosters = self.load_rosters(league)
+        #TODO: matchups
         # league.matchups = self.load_matchups()
         
         print(f"\nLeague {league.name} loaded.")
