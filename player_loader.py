@@ -84,47 +84,28 @@ class PlayerLoader:
 
     def enrich_players_data(self):
         enriched_players = []
-        # Check if 'player_id' column exists
         if 'player_id' not in self.sleeper_players.columns:
             print("The 'player_id' column is missing from the sleeper_players DataFrame.")
             return enriched_players
 
         for fp_id, player_values in self.values_data.items():
-            # Attempt to get the sleeper_id using the mapping
+            # Ensure sleeper_id exists and matches
             sleeper_id = self.id_mapping.get(fp_id, {}).get('sleeper_id')
-            
-            # Convert sleeper_id to string and format it
-            sleeper_id = str(sleeper_id).replace('.0', '')
-            
-            if sleeper_id == 'None':
-                print(f"No sleeper_id found for fp_id: {fp_id}")
-                continue
-            
-            # Debugging output
-            # Attempt to filter the DataFrame with the formatted sleeper_id
-            if sleeper_id in self.sleeper_players['player_id'].values:
-                # Extract row as a dictionary
-                sleeper_player_dict = self.sleeper_players[self.sleeper_players['player_id'] == sleeper_id].iloc[0].to_dict()
-                # add the player_values to the sleeper_player_dict
-                
-                
-                # TODO: updating the dictionary with the player values and the IDs from the ID mapping
-                sleeper_player_dict.update(player_values) # ??????????
-                
-                #add ids to the sleeper_player_dict
-                #???????
-                
-                # Instantiate Player object
-                player = Player(sleeper_player_dict)
-            
-                
-                print(f"Enriched player: {player.print_player()}\n\n")
-                
+            if sleeper_id is None:
+                continue  # Skip if there's no corresponding sleeper_id
 
-                # Add to list as a dictionary
-                enriched_players.append(player.to_dict())
+            sleeper_id_str = str(sleeper_id).replace('.0', '')
+            if sleeper_id_str not in self.sleeper_players['player_id'].values:
+                continue  # Skip if there's no data in sleeper_players for this sleeper_id
+
+            # Fetch data, combine dictionaries, and create Player instance
+            sleeper_player_dict = self.sleeper_players[self.sleeper_players['player_id'] == sleeper_id_str].iloc[0].to_dict()
+            combined_dict = {**sleeper_player_dict, **player_values, **self.id_mapping[fp_id]}
+            player = Player(combined_dict)
+            enriched_players.append(player.to_dict())
 
         return enriched_players
+
 
 
 
