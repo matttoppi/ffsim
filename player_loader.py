@@ -20,7 +20,7 @@ from player import Player
 class PlayerLoader:
     def __init__(self):
         self.players_file = 'players.json'
-        self.refresh_interval = timedelta(days=7)
+        self.refresh_interval = timedelta(days=3)
         self.player_ids_csv_url = "https://raw.githubusercontent.com/dynastyprocess/data/master/files/db_playerids.csv"
         self.player_values_csv_url = "https://raw.githubusercontent.com/dynastyprocess/data/master/files/values-players.csv"
         self.sleeper_api_url = "https://api.sleeper.app/v1/players/nfl"
@@ -59,6 +59,7 @@ class PlayerLoader:
 
     def load_players(self):
         if os.path.exists(self.players_file) and datetime.now() - datetime.fromtimestamp(os.path.getmtime(self.players_file)) <= self.refresh_interval:
+            print(f"Player data is up to date. Loading from {self.players_file}")
             self.load_players_from_file()
         else:
             print("Player data is outdated, fetching new data.")
