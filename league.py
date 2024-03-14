@@ -11,7 +11,6 @@ class ScoringSettings:
 
 class LeagueSettings:
     def __init__(self, settings_data):
-        print(f"\n\nSettings data:\n")
         for key, value in settings_data.items():
             setattr(self, key, value)
             

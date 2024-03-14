@@ -18,28 +18,41 @@ class LeagueLoader:
         
         league = League(league_data)
         
+        league.rosters = self.load_rosters()
+        # league.matchups = self.load_matchups()
+        
+        print(f"League {league.name} loaded.")
+        
         
 
-        # league.rosters = self.load_rosters()
-        # league.settings = self.load_settings()
-        # league.matchups = self.load_matchups()
+        
 
         return league
 
     def load_rosters(self):
         rosters = []
         roster_data_list = self.sleeper_league.get_rosters()
+        user_dict = self.load_users()  # Load user data for association with rosters
+        
         for roster_data in roster_data_list:
-            fantasy_team = FantasyTeam(str(roster_data['owner_id']))  # Assuming 'owner_id' can serve as team name
-            fantasy_team.set_settings(roster_data['settings'])  # Make sure this method exists in FantasyTeam
-
-            for player_id in roster_data.get('players', []):
-                player_details = self.player_loader.get_player(player_id)
-                if player_details:
-                    player = Player(player_details)  # Pass the entire dictionary to Player __init__
-                    fantasy_team.players.append(player)
+            owner_id = roster_data.get("owner_id")
+            user_data = user_dict.get(owner_id, {})  # Fetch user data for the roster's owner
+            
+            
+            team_name = user_data.get("metadata", {}).get("team_name", "Unknown")
+            
+            # Assuming FantasyTeam can store user data; adjust constructor as needed
+            fantasy_team = FantasyTeam(team_name, user_data)
+            
+            fantasy_team.print_fantasy_team()
+                
+            
             rosters.append(fantasy_team)
+            
         return rosters
+
+
+        
 
     def load_settings(self):
         # Placeholder for loading settings
@@ -48,5 +61,11 @@ class LeagueLoader:
     def load_matchups(self):
         # Placeholder for loading matchups
         return []
+
+
+    def load_users(self):
+        users = self.sleeper_league.get_users()
+        user_dict = {user["user_id"]: user for user in users}
+        return user_dict
 
 

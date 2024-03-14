@@ -14,7 +14,7 @@ def main():
     # Load the league data
     league = league_loader.load_league()
     
-    league.print_league()
+    # league.print_league()
     
     
 
