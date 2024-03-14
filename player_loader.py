@@ -7,97 +7,179 @@ import json
 import os
 import pandas as pd
 from datetime import datetime, timedelta
+from player import Player
 
 import ssl
 ssl._create_default_https_context = ssl._create_unverified_context
 
-
+import requests
+import pandas as pd
+from datetime import datetime, timedelta
+from player import Player
 
 class PlayerLoader:
     def __init__(self):
         self.players_file = 'players.json'
-        # Initialize csv_data and values_data here to ensure they always exist
-        self.csv_data = {}
-        self.values_data = {}
-        self.players = {}
         self.refresh_interval = timedelta(days=7)
         self.player_ids_csv_url = "https://raw.githubusercontent.com/dynastyprocess/data/master/files/db_playerids.csv"
         self.player_values_csv_url = "https://raw.githubusercontent.com/dynastyprocess/data/master/files/values-players.csv"
-        self.load_players()
+        self.sleeper_api_url = "https://api.sleeper.app/v1/players/nfl"
 
-    def load_players(self):
-        """Loads players from the local file or fetches from the API if the file is outdated or doesn't exist. Also handles CSV data."""
-        need_to_update = False
-        if os.path.exists(self.players_file):
-            file_mod_time = datetime.fromtimestamp(os.path.getmtime(self.players_file))
-            if datetime.now() - file_mod_time > self.refresh_interval:
-                need_to_update = True
-        else:
-            need_to_update = True
-
-        self.csv_data = self.download_and_parse_csv(self.player_ids_csv_url)
+        # Download and parse CSVs with the correct indexing
+        self.id_mapping = self.download_and_parse_csv(self.player_ids_csv_url, index_col='fantasypros_id')
         self.values_data = self.download_and_parse_csv(self.player_values_csv_url, index_col='fp_id')
 
-        if need_to_update:
+        # Fetch sleeper data into a dataframe
+        self.sleeper_players = pd.DataFrame(self.fetch_sleeper_data())
+        if 'player_id' in self.sleeper_players.columns:
+            print("The 'player_id' column is now present in the DataFrame.")
+        else:
+            print("The 'player_id' column is still missing. Check the API response and DataFrame creation logic.")
+
+
+        print(self.sleeper_players)
+
+        self.load_players()
+
+    def download_and_parse_csv(self, csv_url, index_col=None):
+        df = pd.read_csv(csv_url, index_col=index_col)
+        
+        # Drop duplicates, keeping the first occurrence
+        df = df[~df.index.duplicated(keep='first')]
+        
+        return df.to_dict('index')
+
+    
+
+
+    def fetch_sleeper_data(self):
+        response = requests.get(self.sleeper_api_url)
+        if response.status_code == 200:
+            data = response.json()
+            # Convert the data into a list of dictionaries, including the player_id
+            players_data = []
+            for player_id, player_info in data.items():
+                player_info['player_id'] = player_id  # Add player_id to the dictionary
+                players_data.append(player_info)
+            
+            print("Sample of modified API response:", players_data[:5])  # Print a sample to verify
+            return players_data
+        else:
+            print(f"Failed to fetch Sleeper data: HTTP {response.status_code}")
+            return []
+
+
+
+
+    def load_players(self):
+        if os.path.exists(self.players_file) and datetime.now() - datetime.fromtimestamp(os.path.getmtime(self.players_file)) <= self.refresh_interval:
+            self.load_players_from_file()
+        else:
             print("Player data is outdated, fetching new data.")
             self.fetch_players()
-        else:
-            self.load_players_from_file()
 
     def fetch_players(self):
-        url = "https://api.sleeper.app/v1/players/nfl"
-        response = requests.get(url)
-        if response.status_code == 200:
-            sleeper_players = response.json()
-            for player_id, details in sleeper_players.items():
-                if player_id in self.csv_data:
-                    details.update(self.csv_data[player_id])
-                fp_id = details.get('fantasypros_id')
-                if fp_id and fp_id in self.values_data:
-                    details.update(self.values_data[fp_id])
+        enriched_players = self.enrich_players_data()
+        self.save_players_to_file(enriched_players)
 
-            # Update self.players with the fetched and merged data
-            self.players = sleeper_players
+    def enrich_players_data(self):
+        enriched_players = []
+        # Check if 'player_id' column exists
+        if 'player_id' not in self.sleeper_players.columns:
+            print("The 'player_id' column is missing from the sleeper_players DataFrame.")
+            return enriched_players
 
-            # Now that self.players has been updated, save it to file
-            self.save_players_to_file()
-        else:
-            print(f"Failed to fetch players data: HTTP {response.status_code}")
+        for fp_id, player_values in self.values_data.items():
+            # Attempt to get the sleeper_id using the mapping
+            sleeper_id = self.id_mapping.get(fp_id, {}).get('sleeper_id')
+            
+            # Convert sleeper_id to string and format it
+            sleeper_id = str(sleeper_id).replace('.0', '')
+            
+            if sleeper_id == 'None':
+                print(f"No sleeper_id found for fp_id: {fp_id}")
+                continue
+            
+            # Debugging output
+            # Attempt to filter the DataFrame with the formatted sleeper_id
+            if sleeper_id in self.sleeper_players['player_id'].values:
+                # Extract row as a dictionary
+                sleeper_player_dict = self.sleeper_players[self.sleeper_players['player_id'] == sleeper_id].iloc[0].to_dict()
+                # add the player_values to the sleeper_player_dict
+                
+                
+                # TODO: updating the dictionary with the player values and the IDs from the ID mapping
+                sleeper_player_dict.update(player_values) # ??????????
+                
+                #add ids to the sleeper_player_dict
+                #???????
+                
+                # Instantiate Player object
+                player = Player(sleeper_player_dict)
+            
+                
+                print(f"Enriched player: {player.print_player()}\n\n")
+                
+
+                # Add to list as a dictionary
+                enriched_players.append(player.to_dict())
+
+        return enriched_players
 
 
-    def save_players_to_file(self):
-        """Saves the current players dictionary to a file."""
-        if not self.players:
-            print("Warning: Attempting to save empty player data.")
-        else:
-            print(f"Saving {len(self.players)} players data to file...")
-            try:
-                with open(self.players_file, 'w', encoding='utf-8') as file:
-                    json.dump(self.players, file, ensure_ascii=False, indent=4)
-                    print(f"Player data saved to {self.players_file} successfully.")
-            except Exception as e:
-                print(f"Error saving players data to file: {e}")
 
+    def save_players_to_file(self, players_data):
+        with open(self.players_file, 'w', encoding='utf-8') as file:
+            json.dump(players_data, file, ensure_ascii=False, indent=4)
+            print("Player data saved successfully.")
 
     def load_players_from_file(self):
-        """Loads the players dictionary from a file."""
         with open(self.players_file, 'r') as file:
-            self.players = json.load(file)
+            self.enriched_players = json.load(file)
 
     def get_player(self, player_id):
-        """Gets a single player's details by ID."""
-        return self.players.get(player_id, None)
+        # Implement if needed
+        pass
+
     
-    def download_and_parse_csv(self, csv_url, index_col=None):
-        df = pd.read_csv(csv_url)
-        if index_col:
-            df.set_index(index_col, inplace=True)
-        return df.T.to_dict('dict')
-
-
-
-def download_and_parse_csv(csv_url):
-    df = pd.read_csv(csv_url)
-    # Convert DataFrame to a dictionary where the key is the 'sleeper_id' and the value is the rest of the player data
-    players_dict = df.set_index('sleeper_id').T.to_dict('dict')
-    return players_dict
+    
+    
+    
+    
+    
+    # initial_data = {
+    #             'name': sleeper_data.get('full_name', 'Null'),
+    #             'position': sleeper_data.get('position', 'Null'),
+    #             'team': sleeper_data.get('team', 'Null'),
+    #             'sleeper_id': player_id,
+    #             'age': sleeper_data.get('age', None),
+    #             'college': sleeper_data.get('college', 'Null'),
+    #             'birth_country': sleeper_data.get('birth_country', 'Null'),
+    #             'height': sleeper_data.get('height', 'Null'),
+    #             'weight': sleeper_data.get('weight', 'Null'),
+    #             'years_exp': sleeper_data.get('years_exp', None),
+    #             'search_rank': sleeper_data.get('search_rank', None),
+    #             'search_first_name': sleeper_data.get('search_first_name', 'Null'),
+    #             'search_last_name': sleeper_data.get('search_last_name', 'Null'),
+    #             'search_full_name': sleeper_data.get('search_full_name', 'Null'),
+    #             'hashtag': sleeper_data.get('hashtag', 'Null'),
+    #             'depth_chart_position': sleeper_data.get('depth_chart_position', None),
+    #             'status': sleeper_data.get('status', 'Null'),
+    #             'sport': sleeper_data.get('sport', 'Null'),
+    #             'fantasy_positions': sleeper_data.get('fantasy_positions', 'Null'),
+    #             'number': sleeper_data.get('number', None),
+    #             'injury_start_date': sleeper_data.get('injury_start_date', 'Null'),
+    #             'practice_participation': sleeper_data.get('practice_participation', 'Null'),
+    #             'sportradar_id': sleeper_data.get('sportradar_id', 'Null'),
+    #             'last_name': sleeper_data.get('last_name', 'Null'),
+    #             'fantasy_data_id': sleeper_data.get('fantasy_data_id', None),
+    #             'injury_status': sleeper_data.get('injury_status', 'Null'),
+    #             'stats_id': sleeper_data.get('stats_id', 'Null'),
+    #             'espn_id': sleeper_data.get('espn_id', 'Null'),
+    #             'first_name': sleeper_data.get('first_name', 'Null'),
+    #             'depth_chart_order': sleeper_data.get('depth_chart_order', None),
+    #             'rotowire_id': sleeper_data.get('rotowire_id', 'Null'),
+    #             'rotoworld_id': sleeper_data.get('rotoworld_id', None),
+    #             'yahoo_id': sleeper_data.get('yahoo_id', 'Null')
+                
+    #         }
