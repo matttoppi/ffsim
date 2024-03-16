@@ -7,10 +7,19 @@ class Player:
             if "id" in key and isinstance(value, str) and value.endswith('.0'):
                 value = value[:-2]  # Remove the trailing '.0'
             setattr(self, key, value)
+            
+        self.season_stats = {}  # Dictionary to hold SeasonStats objects
+
         # Ensure all possible attributes are initialized
         self.initialize_missing_attributes()
         
         
+    def add_season_stats(self, season, stats):
+        if season not in self.season_stats:
+            self.season_stats[season] = Player.SeasonStats(season, stats)
+        else:
+            # Update existing SeasonStats with new stats if needed
+            self.season_stats[season].update_stats(stats)
 
     def initialize_missing_attributes(self):
         # Defines all potential attributes for a Player
@@ -101,6 +110,10 @@ class Player:
             for key, value in stats.items():
                 self.stats[key] = value
                 
+                
+        def update_stats(self, new_stats):
+            for key, value in new_stats.items():
+                self.stats[key] = value
                 
             
                 

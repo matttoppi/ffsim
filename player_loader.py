@@ -68,10 +68,13 @@ class PlayerLoader:
         if os.path.exists(self.players_file) and datetime.now() - datetime.fromtimestamp(os.path.getmtime(self.players_file)) <= self.refresh_interval:
             print(f"\nPlayer data is up to date. Loading from {self.players_file}\n")
             self.load_players_from_file()
-            self.load_statistics_from_file()
+            self.load_statistics_from_file()  # Existing call to load stats
+            self.load_player_statistics()  # New call to load and attach player statistics
         else:
             print("Player data is outdated, fetching new data.\n")
             self.fetch_players()
+            self.load_player_statistics()  # Ensure stats are loaded for newly fetched players too
+
 
     def fetch_players(self):
         enriched_players = self.enrich_players_data()
@@ -131,6 +134,21 @@ class PlayerLoader:
         return None
     
     
+    def load_player_statistics(self, season='2023'):
+        stats_df = pd.read_csv('datarepo/merged_nfl_players_stats.csv')
+        # Filter for the 2023 season
+        stats_df_2023 = stats_df[stats_df['Season'] == season]
+        
+        for _, row in stats_df_2023.iterrows():
+            player_name = row['Player']  # Assuming 'Player' column holds the name
+            if player_name in [player['name'] for player in self.enriched_players]:  # Adjust based on your data structure
+                # Find the player and add or update their 2023 stats
+                for player in self.enriched_players:
+                    if player['name'] == player_name:  # Adjust the key based on your player data structure
+                        player_object = self.load_player(player['sleeper_id'])  # Adjust based on how you instantiate Player objects
+                        player_object.add_season_stats(season, row.to_dict())
+
+    
     def load_statistics_from_file(self):
 
         
@@ -168,15 +186,20 @@ class PlayerLoader:
 
         # Function to load and rename columns for clarity
         # Function to load, normalize player names, and rename columns for clarity
-        def load_and_rename(filepath, rename_schema):
+        def load_and_rename(filepath, rename_schema, season=None):
             df = pd.read_csv(filepath)
             
             # Normalize 'Player' names to ensure consistency
             if 'Player' in df.columns:
                 df['Player'] = df['Player'].apply(normalize_player_name)
             
+            # Add or reinforce the 'Season' column if a season is provided
+            if season is not None:
+                df['Season'] = season
+
             df.rename(columns=rename_schema, inplace=True)
             return df
+
 
         
         
