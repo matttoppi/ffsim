@@ -1,38 +1,121 @@
 import pandas as pd
+import csv
 
-# Assuming 'datarepo/NGS_2023Recieving.csv' is the correct path to your CSV file
-file_path = 'datarepo/NGS_2023Recieving.csv'
 
-# Read the CSV data from the file path
-data = pd.read_csv(file_path)
+def average_ngs_receiving():
+    file_path = 'datarepo/NGS/NGS_2023Recieving.csv'  # Adjust the file path as necessary
+    data = pd.read_csv(file_path)
 
-# Check if 'week' column exists before attempting to drop it
-if 'week' in data.columns:
-    data.drop('week', axis=1, inplace=True)
+    # Trim whitespace from column names
+    data.columns = data.columns.str.strip()
 
-# Group the data by 'player_gsis_id' and calculate the mean for numeric columns
-average_stats = data.groupby('player_gsis_id').mean()
+    # Group the data by 'player_gsis_id'
+    # Calculate the mean for numeric columns and aggregate weeks into a comma-separated string
+    aggregated_data = data.groupby('player_gsis_id').agg({
+        'season': 'first',
+        'season_type': 'first',
+        'player_display_name': 'first',
+        'player_position': 'first',
+        'team_abbr': 'first',
+        # Include other numeric fields as needed with 'mean' or 'sum'
+        'week': lambda x: ', '.join(x.astype(str))
+    }).reset_index()
 
-# For non-numeric columns that need to be preserved, grabbing them with a 'first' aggregation
-non_numeric = data.groupby('player_gsis_id').agg({
-    'season': 'first',
-    'season_type': 'first',
-    'player_display_name': 'first',
-    'player_position': 'first',
-    'team_abbr': 'first',
-    'player_first_name': 'first',
-    'player_last_name': 'first',
-    'player_jersey_number': 'first',
-    'player_short_name': 'first'
-}).reset_index()
+    # Specify the file path where you want to save the processed CSV
+    output_file_path = 'datarepo/NGS/NGS_2023Receiving_averaged.csv'  # Update this path as needed
 
-# Merging the numeric and non-numeric dataframes
-final_stats = pd.merge(non_numeric, average_stats, on='player_gsis_id')
+    # Saving the final DataFrame to a CSV file
+    aggregated_data.to_csv(output_file_path, index=False, quoting=csv.QUOTE_NONNUMERIC)
 
-# Specify the file path where you want to save the CSV
-output_file_path = 'datarepo/NGS_2023WR_averaged.csv'
+    print(f"File saved to {output_file_path}")
+def average_ngs_rushing():
+    file_path = 'datarepo/NGS/NGS_2023Rushing.csv'  # Update this path to your actual file path
+    data = pd.read_csv(file_path)
 
-# Saving the final DataFrame to a CSV file
-final_stats.to_csv(output_file_path, index=False)
+    # Trim whitespace from column names
+    data.columns = data.columns.str.strip()
 
-print(f"File saved to {output_file_path}")
+    # Group the data by 'player_gsis_id'
+    # Calculate the mean for numeric columns and aggregate weeks into a comma-separated string
+    aggregated_data = data.groupby('player_gsis_id').agg({
+        'season': 'first',
+        'season_type': 'first',
+        'player_display_name': 'first',
+        'player_position': 'first',
+        'team_abbr': 'first',
+        # Include other numeric fields as needed with 'mean' or 'sum'
+        'week': lambda x: ', '.join(x.astype(str))
+    }).reset_index()
+
+    # Specify the file path where you want to save the processed CSV
+    output_file_path = 'datarepo/NGS/NGS_2023Rushing_averaged.csv'  # Update this path as needed
+
+    # Saving the final DataFrame to a CSV file
+    aggregated_data.to_csv(output_file_path, index=False, quoting=csv.QUOTE_NONNUMERIC)
+
+    print(f"File saved to {output_file_path}")
+
+
+def average_ngs_passing():
+
+
+    # Adjust the file path to the location of your passing CSV file
+    file_path = 'datarepo/NGS/NGS_2023Passing.csv'  # Update this path to your actual file path
+
+    # Read the CSV data from the file path
+    data = pd.read_csv(file_path)
+
+    # Trim whitespace from column names
+    data.columns = data.columns.str.strip()
+
+    # Group the data by 'player_gsis_id'
+    # Calculate the mean for numeric columns only and aggregate weeks into a comma-separated string
+    aggregated_data = data.groupby('player_gsis_id').agg({
+        'season': 'first',
+        'season_type': 'first',
+        'player_display_name': 'first',
+        'player_position': 'first',
+        'team_abbr': 'first',
+        'avg_time_to_throw': 'mean',
+        'avg_completed_air_yards': 'mean',
+        'avg_intended_air_yards': 'mean',
+        'avg_air_yards_differential': 'mean',
+        'aggressiveness': 'mean',
+        'max_completed_air_distance': 'mean',
+        'avg_air_yards_to_sticks': 'mean',
+        'attempts': 'sum',
+        'pass_yards': 'sum',
+        'pass_touchdowns': 'sum',
+        'interceptions': 'sum',
+        'passer_rating': 'mean',
+        'completions': 'sum',
+        'completion_percentage': 'mean',
+        'expected_completion_percentage': 'mean',
+        'completion_percentage_above_expectation': 'mean',
+        'avg_air_distance': 'mean',
+        'max_air_distance': 'mean',
+        'player_first_name': 'first',
+        'player_last_name': 'first',
+        'player_jersey_number': 'first',
+        'player_short_name': 'first',
+        # Convert the list of weeks to a comma-separated string
+        'week': lambda x: ', '.join(x.astype(str))
+    })
+
+    # Reset the index to turn 'player_gsis_id' back into a column
+    aggregated_data.reset_index(inplace=True)
+
+    # Specify the file path where you want to save the processed CSV
+    output_file_path = 'datarepo/NGS/NGS_2023Passing_averaged.csv'  # Update this path as needed
+
+    # Saving the final DataFrame to a CSV file
+    aggregated_data.to_csv(output_file_path, index=False, quoting=csv.QUOTE_NONNUMERIC)
+
+    print(f"File saved to {output_file_path}")
+
+
+
+# average_ngs_rushing()
+average_ngs_passing()
+average_ngs_receiving()
+average_ngs_rushing()
