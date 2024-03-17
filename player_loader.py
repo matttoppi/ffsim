@@ -151,8 +151,6 @@ class PlayerLoader:
     
     def load_statistics_from_file(self):
 
-        
-
         # Define renaming schemas to address overlapping columns
         # Note: These are hypothetical and need to be adjusted according to your actual datasets' specifics
         rename_schema_general = {
@@ -184,8 +182,7 @@ class PlayerLoader:
             'REC': 'RECEPTIONS'
         }
 
-        # Function to load and rename columns for clarity
-        # Function to load, normalize player names, and rename columns for clarity
+
         def load_and_rename(filepath, rename_schema, season=None):
             df = pd.read_csv(filepath)
             
