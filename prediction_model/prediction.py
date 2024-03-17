@@ -187,5 +187,4 @@ def model():
             # use the adjusted stats to predict the WR's performance for that week
             # store the predictions in a new dataframe
             
-            
-            
+    return predictions
