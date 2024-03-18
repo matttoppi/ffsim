@@ -154,7 +154,15 @@ import json
 # }
     
     
+    
+    
+    
+    
+# add 23 projections to the WR feature vector
 
+# "Player","Team","REC","23PRecYDS","23PRecTDS","23PRushATT","23PRushYDS","23PRushTDS","FL","FPTS"
+
+# datarepo/projections/23WR_proj.csv
 
 # Load datasets
 targets_df = pd.read_csv("datarepo/Special/23TargetLeaders.csv")
@@ -162,67 +170,79 @@ qb_ngs_df = pd.read_csv("datarepo/NGS/NGS_2023Passing.csv")
 wr_ngs_df = pd.read_csv("datarepo/NGS/NGS_2023Receiving.csv")
 depth_chart_df = pd.read_csv("datarepo/Special/2023FULLDEPTHCHART_FILTERED.csv")
 overall_stats_df = pd.read_csv("datarepo/merged_nfl_players_stats.csv")
+proj23_df = pd.read_csv("datarepo/projections/23WR_proj.csv")
 
-print(f"Loaded in datasets")
-
+# Load and prepare players.json
 with open("datarepo/players.json") as f:
     players_json = json.load(f)
 players_df = pd.DataFrame(players_json)
 
-# Adjust column names by stripping whitespace and replacing spaces with underscores
-wr_ngs_df.columns = wr_ngs_df.columns.str.strip().str.replace(' ', '_')
-qb_ngs_df.columns = qb_ngs_df.columns.str.strip().str.replace(' ', '_')
-depth_chart_df.columns = depth_chart_df.columns.str.strip().str.replace(' ', '_')
+# Adjust column names
+for df in [targets_df, qb_ngs_df, wr_ngs_df, depth_chart_df, overall_stats_df, proj23_df]:
+    df.columns = df.columns.str.strip().str.replace(' ', '_')
 
-print(f"Adjusted column names")
-
-# Parse weeks and exclude week 0
+# Parse weeks for QB data
 def parse_weeks(weeks_str):
-    weeks_str = str(weeks_str)
-    return [int(week) for week in weeks_str.split(',') if int(week) != 0]
+    return [int(week) for week in str(weeks_str).split(',') if int(week) != 0]
 
-qb_ngs_df['weeks_played'] = qb_ngs_df['week'].apply(parse_weeks) # Parse weeks played
+qb_ngs_df['weeks_played'] = qb_ngs_df['week'].apply(parse_weeks)
 
+# Merge projection data for WRs
+# proj23_df.rename(columns={'Player': 'player_display_name', 'Team': 'team_abbr'}, inplace=True)
+# projection_columns = ['player_display_name', 'team_abbr', '23REC', '23RecYDS', '23RecTDS', '23RushATT', '23RushYDS', '23RushTDS']
+# proj23_df_selected = proj23_df[projection_columns]
+# wr_ngs_df = pd.merge(wr_ngs_df, proj23_df_selected, on=['player_display_name', 'team_abbr'], how='left')
 
-qb_ngs_df['week'] = qb_ngs_df['week'].astype(int)  # Convert to int if necessary
-qb_ngs_df = qb_ngs_df[qb_ngs_df['week'] != 0]
-wr_ngs_df['week'] = wr_ngs_df['week'].astype(int)  # Convert to int if necessary
-wr_ngs_df = wr_ngs_df[wr_ngs_df['week'] != 0]
-
-
-# drop week 0 from the depth chart dataframe
-depth_chart_df = depth_chart_df[depth_chart_df['week'] != '0']
-
-# Prepare the depth chart DataFrame
+# Further process depth chart data if necessary
 depth_chart_df['week'] = depth_chart_df['week'].astype(str)
 depth_chart_df['gsis_id'] = depth_chart_df['gsis_id'].astype(str)
 
-
-# Use position_depth_num for depth chart position
-depth_chart_df_simplified = depth_chart_df[['gsis_id', 'week', 'club_code', 'position_depth_num']]
-
-# Merge WR/TE DataFrame with depth chart DataFrame
+# Prepare and merge depth chart data for WR/TE DataFrame
 wr_ngs_df['week'] = wr_ngs_df['week'].astype(str)
+depth_chart_df_simplified = depth_chart_df[['gsis_id', 'week', 'club_code', 'position_depth_num']]
 wr_ngs_df = pd.merge(wr_ngs_df, depth_chart_df_simplified, how='left', left_on=['player_gsis_id', 'week', 'team_abbr'], right_on=['gsis_id', 'week', 'club_code'])
 
 
-# Example for WR/TE NGS stats (adjust according to your needs)
-wr_ngs_df = wr_ngs_df[['player_gsis_id', 'week', 'team_abbr', 'avg_cushion', 'avg_separation',
-                       'avg_intended_air_yards', 'percent_share_of_intended_air_yards',
-                       'receptions', 'targets', 'yards', 'rec_touchdowns', 'avg_yac',
-                       'avg_expected_yac', 'avg_yac_above_expectation', 'player_display_name', 'catch_percentage']]
+# sace the wr_ngs_df for review
+wr_ngs_df.to_csv("temp/wr_ngs_df.csv", index=False)
+#save the depth chart dataframe for review
+depth_chart_df.to_csv("temp/depth_chart_df.csv", index=False)
+
+# Ensure all needed columns are included for feature vector creation
+columns_needed = ['player_gsis_id', 'week', 'team_abbr', 'avg_cushion', 'avg_separation',
+                  'avg_intended_air_yards', 'percent_share_of_intended_air_yards',
+                  'receptions', 'targets', 'yards', 'rec_touchdowns', 'avg_yac',
+                  'avg_expected_yac', 'avg_yac_above_expectation', 'player_display_name',
+                  'catch_percentage', 'position_depth_num']
+wr_ngs_df = wr_ngs_df[columns_needed]
+
+
+#print depth chart dataframe
+print("Depth chart dataframe")
+print(depth_chart_df.columns)
+
+print("WR NGS dataframe")
+# print wr_ngs_df
+print(wr_ngs_df.columns)
 
 # save depth chart dataframe for review
 
-# Example function to find a QB for a WR/TE for a given week
 def find_qb_for_receiver(week, team):
-    filtered_qbs = qb_ngs_df[(qb_ngs_df['team_abbr'] == team) & (qb_ngs_df['weeks_played'].apply(lambda weeks: int(week) in weeks))]
-    if not filtered_qbs.empty:
-        return filtered_qbs.iloc[0]
-    else:
-        # print(f"No QB found for team {team} in week {week}")  # Debug print
-        return None
+    # Filter QBs based on team
     
+    
+    
+    # Find the QB who played in the given week
+    for index, qb_row in team_qbs.iterrows():
+        print(f"Checking QB: {qb_row['player_display_name']}, Weeks played: {qb_row['weeks_played']}")  # Debug print
+        if week in qb_row['weeks_played']:
+            return qb_row
+    
+    print(f"No QB found for team {team} in week {week}")
+    return None
+
+    
+
     
 def get_depth_chart_position(player_gsis_id, week, team):
     # Ensure inputs are properly formatted
@@ -242,41 +262,13 @@ def get_depth_chart_position(player_gsis_id, week, team):
         return position_depth_num.iloc[0]
     else:
         return 'Unknown'
-    
-def calculate_fantasy_points(rec_touchdowns, yards, receptions):
-    # Calculate fantasy points
-    # 0.1 points per receiving yard
-    # 6 points per receiving touchdown
-    # 0.5 points per reception
-    if rec_touchdowns is None:
-        rec_touchdowns = 0
-    if receptions is None:
-        receptions = 0
-        
-    # Check if yards is a valid numeric string before attempting to convert
-    if yards is not None and yards.strip().isdigit():
-        yards = int(yards.strip())
-    else:
-        # If yards is not a valid numeric string, set it to 0
-        yards = 0
-    
-    
-    # Calculate fantasy points
-    fantasy_points = (0.1 * yards) + (6 * rec_touchdowns) + (1.0 * receptions)
-    
-    # Round fantasy points to the hundredths place
-    rounded_fantasy_points = round(fantasy_points, 2)
-    
-    return rounded_fantasy_points
 
-
-# $print column names of the overall stats dataframe
-# print(overall_stats_df.columns)
-# print(wr_ngs_df.columns)
-# print(qb_ngs_df.columns)
-# print(depth_chart_df.columns)
 
 print(f"Dataframes are cleaned and ready for feature creation")
+
+#print column names of the wr_ngs_df
+print(wr_ngs_df.columns)
+
 
 # Create the feature vector dataframe
 feature_vectors = []
@@ -285,20 +277,23 @@ print(f"Creating feature vectors...")
 for index, row in wr_ngs_df.iterrows(): # for each receiver for each week
     # if week is 0 then skip
     if row['week'] == 0:
+        print(f"Skipping week 0 for {row['player_display_name']}")  # Debug print
         continue
     qb_info = find_qb_for_receiver(row['week'], row['team_abbr'])
-    depth_chart_postition = get_depth_chart_position(row['player_gsis_id'], row['week'], row['team_abbr'])
+    depth_chart_position = get_depth_chart_position(row['player_gsis_id'], row['week'], row['team_abbr'])
 
+    # if qb_info is None:
+        # print(f"No QB found for {row['team_abbr']} in week {row['week']}")
+        
 
 
     
     if qb_info is not None:
         vector = {
             "player_name": row['player_display_name'],
-            "fantay_points": calculate_fantasy_points(row['rec_touchdowns'], row['yards'], row['receptions']),
             "week": row['week'],
             "team": row['team_abbr'],
-            "depth_chart_position": depth_chart_postition,
+            "depth_chart_position": depth_chart_position,
             "players_qb_name": qb_info['player_display_name'],
             "targets": row['targets'],
             "catches": row['receptions'],
@@ -331,6 +326,16 @@ for index, row in wr_ngs_df.iterrows(): # for each receiver for each week
             "RecTD": row['rec_touchdowns'], # Receiving Touchdowns from wr_ngs_df
             "Catch percentage": row['catch_percentage'], # Catch percentage from wr_ngs_df
             "WR gsis id": row['player_gsis_id'],
+            "proj_23REC": row['23REC'],
+            "proj_23RecYDS": row['23RecYDS'],
+            "proj_23RecTDS": row['23RecTDS'],
+            "proj_23RushATT": row['23RushATT'],
+            "proj_23RushYDS": row['23RushYDS'],
+            "proj_23RushTDS": row['23RushTDS']
+            
+        
+            
+
         }
         feature_vectors.append(vector)
 
