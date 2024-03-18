@@ -96,6 +96,64 @@
 # datarepo/players.json
 
 
+#  feature vector for each week for a player
+# { 
+    # player name
+    # week
+    # team
+    # targets for that week
+    # depth chart position
+    # catches 
+    # yards
+    # position
+    # avg_cushion
+    # avg_separation
+    # avg_intended_air_yards
+    # percent_share_of_intended_air_yards
+    # avg_yac
+    # avg_expected_yac
+    # avg_yac_above_expectation
+    # agressiveness
+    # RecTD: Receiving Touchdowns - Important for wide receivers and tight ends, showing scoring ability.
+    # RUSH_ATT: Rushing Attempts - Reflects on a player's role in the running game.
+    # RushTD: Rushing Touchdowns - Indicates effectiveness in the running game.
+    # Y/A or Y/ATT: Yards per Attempt - Efficiency for both rushers and passers.
+    # FPTS/G: Fantasy Points per Game - A composite measure of a player's overall performance.
+    # QBs CMP% or PCT: Completion Percentage - Accuracy for quarterbacks.
+    # PassYDS: Passing Yards - Total offensive output for quarterbacks.
+    # RZ ATT: Red Zone Attempts - Scoring opportunity metrics for quarterbacks and skill position players.
+    # 20+: Number of 20+ yard gains - Big play ability.
+    # CATCHABLE percentage
+    # WR gsis id
+    
+    # below is for the qb of the reciever for that week
+    # Qb name
+    # Qb team
+    # Qb Time to throw
+    # Qb completed air yards
+    # Qb intended air yards
+    # Qb air yards differential
+    # Qb aggressiveness
+    # Qb max completed air distance
+    # Qb avg air yards to sticks
+    # Qb attempts
+    # Qb pass yards
+    # Qb pass touchdowns
+    # Qb interceptions
+    # Qb passer rating
+    # Qb completions
+    # Qb completion percentage
+    # Qb expected completion percentage
+    # Qb completion percentage above expectation
+    # QBs PassTD full seasonn: Passing Touchdowns - For quarterbacks, this indicates scoring efficiency.
+    # QBs INT full season: Interceptions - A measure of a quarterback's decision-making.
+    # Qb gsis id    
+# }
+    
+    
+    
+
+
 import pandas as pd
 import numpy as np
 
