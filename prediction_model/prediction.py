@@ -224,25 +224,191 @@ def fix_weeks(file_path):
 
 
 
-def model():
-    # get the WR data from the merged stats
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn.svm import SVR
+from sklearn.neural_network import MLPRegressor
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.metrics import mean_squared_error
+from xgboost import XGBRegressor
+from lightgbm import LGBMRegressor
+from catboost import CatBoostRegressor
+from sklearn.multioutput import MultiOutputRegressor
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+
+def scatter_plot_with_line_of_perfect_fit(actual, predicted, model_name):
+    plt.figure(figsize=(10, 6))
+    plt.scatter(actual, predicted, alpha=0.3)
+    plt.xlabel('Actual')
+    plt.ylabel('Predicted')
+    plt.title(f'{model_name} Predictions vs. Actual')
+    max_val = max(actual.max(), predicted.max())
+    min_val = min(actual.min(), predicted.min())
+    plt.plot([min_val, max_val], [min_val, max_val], 'k--')  # Line of perfect fit
+    plt.grid(True)
+    plt.show()
+
+def plot_residuals(actual, predicted, model_name):
+    residuals = actual - predicted
+    plt.figure(figsize=(10, 6))
+    plt.scatter(actual, residuals, alpha=0.5)
+    plt.xlabel('Actual')
+    plt.ylabel('Residuals')
+    plt.title(f'{model_name} Residuals')
+    plt.axhline(y=0, color='r', linestyle='--')
+    plt.grid(True)
+    plt.show()
+
+def plot_error_density(actual, predicted, model_name):
+    errors = predicted - actual
+    plt.figure(figsize=(10, 6))
+    plt.hist(errors, bins=30, density=True, alpha=0.6, color='b')
+    plt.xlabel('Error')
+    plt.ylabel('Density')
+    plt.title(f'Error Density for {model_name}')
+    plt.grid(True)
+    plt.show()
+
+
+def plot_error_boxplots(all_errors, model_names):
+    plt.figure(figsize=(12, 8))
+    plt.boxplot(all_errors, labels=model_names, showmeans=True)
+    plt.xlabel('Model')
+    plt.ylabel('Error')
+    plt.title('Model Error Comparison')
+    plt.grid(True, axis='y')
+    plt.show()
     
-    # for each WR in the data 
-    
-        # get the QB for next season 
-        
-        # for each week in the season
-            # get the QB data for that week
-            # get the depth chart for that week
-            # get the targets for that week
-            # get catches for that week
-            # get yards for that week
-            
-            # adjust the stats based on the QB, depth chart
-            # if the qb is good, the WR will get more targets
-            # if the WR is higher on the depth chart, they will get more targets
-            
-            # use the adjusted stats to predict the WR's performance for that week
-            # store the predictions in a new dataframe
-            
+import matplotlib.pyplot as plt
+import pickle
+
+def plot_model_errors(rmses):
+    """
+    Plots a bar chart of RMSE values for each model.
+
+    Parameters:
+    - rmses: A dictionary with model names as keys and RMSE values as values.
+    """
+    model_names = list(rmses.keys())
+    errors = list(rmses.values())
+
+    plt.figure(figsize=(14, 7))
+    bars = plt.bar(model_names, errors, color='skyblue')
+    plt.xlabel('Model', fontsize=14)
+    plt.ylabel('RMSE', fontsize=14)
+    plt.xticks(rotation=45, ha="right", fontsize=12)
+    plt.yticks(fontsize=12)
+    plt.title('Model Error Comparison (RMSE)', fontsize=16)
+
+    # Adding the text labels on the bars
+    for bar in bars:
+        yval = bar.get_height()
+        plt.text(bar.get_x() + bar.get_width()/2.0, yval, round(yval, 2), va='bottom')  # va: vertical alignment
+
+    plt.tight_layout()
+    plt.show()
+
+
+
+def predict_with_best_models(X_new, best_models_per_feature, trained_models):
+    predictions = pd.DataFrame(index=X_new.index, columns=best_models_per_feature.keys())
+
+    for feature, (model_name, _) in best_models_per_feature.items():
+        model = trained_models[model_name]
+        predictions[feature] = model.predict(X_new)[:, feature_names.get_loc(feature)]
+
     return predictions
+
+
+
+
+def train_and_evaluate_model(model, X_train, y_train, X_test, y_test):
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+    rmses_per_feature = np.sqrt(mean_squared_error(y_test, y_pred, multioutput='raw_values'))
+    return rmses_per_feature
+
+if __name__ == "__main__":
+    file_path = 'vectors/WR_feature_vector.csv'
+    
+    
+    def load_and_preprocess_data(file_path):
+        data = pd.read_csv(file_path)
+        data = data.map(replace_values)
+        data = data.apply(pd.to_numeric, errors='coerce')
+        
+        return data
+
+    def replace_values(val):
+        if isinstance(val, str):
+            stripped_val = val.strip()
+            if stripped_val == 'NA':
+                return 0
+            elif stripped_val.lower() == 'unknown':
+                return -1
+        return val
+
+    data = load_and_preprocess_data(file_path)
+
+    # Define features and labels
+    X = data[['qb_time_to_throw', 'qb_completed_air_yards', 'qb_intended_air_yards', 'qb_air_yards_differential', 'qb_aggressiveness', 'qb_max_completed_air_distance', 'qb_avg_air_yards_to_sticks', 'qb_attempts', 'qb_pass_yards', 'qb_pass_touchdowns', 'qb_interceptions', 'qb_passer_rating', 'qb_completions', 'qb_completion_percentage', 'qb_expected_completion_percentage', 'qb_completion_percentage_above_expectation']]
+    y = data[['targets', 'catches', 'yards', 'avg_cushion', 'avg_separation', 'avg_yac', 'RecTD', 'Catch percentage']]
+
+    # Splitting dataset into training and testing sets
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.12, random_state=42)
+
+    
+        
+    models = {
+    'Linear Regression': MultiOutputRegressor(LinearRegression()),
+    'Ridge': MultiOutputRegressor(Ridge()),
+    'Lasso': MultiOutputRegressor(Lasso()),
+    'ElasticNet': MultiOutputRegressor(ElasticNet()),
+    'Random Forest': RandomForestRegressor(n_estimators=1000, max_depth=None),
+    'Gradient Boosting': MultiOutputRegressor(GradientBoostingRegressor(n_estimators=500, learning_rate=0.01)),
+    'XGBoost': XGBRegressor(n_estimators=1000, learning_rate=0.01, max_depth=6, verbosity=0),  # XGBoost verbosity adjustment
+    'LightGBM': MultiOutputRegressor(LGBMRegressor(num_leaves=31, learning_rate=0.01, n_estimators=1000, verbose=-1)),  # LightGBM verbosity adjustment
+    'CatBoost': CatBoostRegressor(iterations=1000, learning_rate=0.01, depth=6, loss_function='MultiRMSE', verbose=0),  # CatBoost already adjusted
+    'SVR': MultiOutputRegressor(SVR()),
+    'MLPRegressor': MultiOutputRegressor(MLPRegressor(hidden_layer_sizes=(100, 100), max_iter=1000)),
+    'KNeighbors': KNeighborsRegressor(),
+    }
+
+
+    
+    model_rmses = {}
+    for name, model in models.items():
+        print(f'Training {name}...')
+        rmses_per_feature = train_and_evaluate_model(model, X_train, y_train, X_test, y_test)
+        model_rmses[name] = dict(zip(y.columns, rmses_per_feature))
+
+    best_models_per_feature = {}
+    for feature in y.columns:
+        best_model = min(model_rmses, key=lambda x: model_rmses[x][feature])
+        best_rmse = model_rmses[best_model][feature]
+        best_models_per_feature[feature] = (best_model, best_rmse)
+
+
+    std_devs = y.std()
+    means = y.mean()
+    
+    # Display the best model for each feature and compare RMSE to standard deviation
+    for feature, (model, rmse) in best_models_per_feature.items():
+        std_dev = std_devs[feature]
+        print(f"Best model for {feature}: {model} with RMSE = {rmse:.4f}")
+        print(f"Standard Deviation of {feature}: {std_dev:.4f}")
+        print(f"RMSE / Standard Deviation: {rmse / std_dev:.4f}")
+        print(f"RSME / Mean: {rmse / means[feature]:.4f}\n\n")
+        
+        
+    # save the best models to files to be used later
+    for feature, (model, rmse) in best_models_per_feature.items():
+        models[model].fit(X, y)
+        with open(f'models/{feature}_WR_model.pkl', 'wb') as file:
+            pickle.dump(models[model], file)
+        
