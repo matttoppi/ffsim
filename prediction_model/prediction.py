@@ -355,14 +355,20 @@ if __name__ == "__main__":
 
     data = load_and_preprocess_data(file_path)
 
+
+
+    #TODO: refine the features and labels to be used in the model. What data do we have and what do we want to predict?
+    # maybe we can add ADP/ECR data to the features to see if that helps the model
+    
+    
+    
     # Define features and labels
-    X = data[['qb_time_to_throw', 'qb_completed_air_yards', 'qb_intended_air_yards', 'qb_air_yards_differential', 'qb_aggressiveness', 'qb_max_completed_air_distance', 'qb_avg_air_yards_to_sticks', 'qb_attempts', 'qb_pass_yards', 'qb_pass_touchdowns', 'qb_interceptions', 'qb_passer_rating', 'qb_completions', 'qb_completion_percentage', 'qb_expected_completion_percentage', 'qb_completion_percentage_above_expectation']]
-    y = data[['targets', 'catches', 'yards', 'avg_cushion', 'avg_separation', 'avg_yac', 'RecTD', 'Catch percentage']]
+    X = data[['qb_time_to_throw', 'qb_completed_air_yards', 'qb_intended_air_yards', 'qb_air_yards_differential', 'qb_aggressiveness', 'qb_max_completed_air_distance', 'qb_avg_air_yards_to_sticks', 'qb_attempts', 'qb_pass_yards', 'qb_pass_touchdowns', 'qb_interceptions', 'qb_passer_rating', 'qb_completions', 'qb_completion_percentage', 'qb_expected_completion_percentage', 'qb_completion_percentage_above_expectation', 'avg_cushion', 'avg_separation','Catch percentage', 'avg_yac']]
+    y = data[['catches', 'yards', 'RecTD','targets']]
 
     # Splitting dataset into training and testing sets
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.12, random_state=42)
 
-    
         
     models = {
     'Linear Regression': MultiOutputRegressor(LinearRegression()),
@@ -400,10 +406,10 @@ if __name__ == "__main__":
     # Display the best model for each feature and compare RMSE to standard deviation
     for feature, (model, rmse) in best_models_per_feature.items():
         std_dev = std_devs[feature]
-        print(f"Best model for {feature}: {model} with RMSE = {rmse:.4f}")
+        print(f"\nBest model for {feature}: {model} with RMSE = {rmse:.4f}")
         print(f"Standard Deviation of {feature}: {std_dev:.4f}")
         print(f"RMSE / Standard Deviation: {rmse / std_dev:.4f}")
-        print(f"RSME / Mean: {rmse / means[feature]:.4f}\n\n")
+        print(f"RSME / Mean: {rmse / means[feature]:.4f}\n")
         
         
     # save the best models to files to be used later
@@ -412,3 +418,9 @@ if __name__ == "__main__":
         with open(f'models/{feature}_WR_model.pkl', 'wb') as file:
             pickle.dump(models[model], file)
         
+        
+        
+        
+# for utilizing the models later
+
+# we can find the average of the x data for the QBs and use that to predict the targets for the WRs
