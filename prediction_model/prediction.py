@@ -236,9 +236,18 @@ from xgboost import XGBRegressor
 from lightgbm import LGBMRegressor
 from catboost import CatBoostRegressor
 from sklearn.multioutput import MultiOutputRegressor
+from sklearn.pipeline import Pipeline
+from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.impute import SimpleImputer
+# Make sure to import other necessary classes and functions as well
+
 
 import numpy as np
 import matplotlib.pyplot as plt
+
+from sklearn.impute import SimpleImputer
+from sklearn.pipeline import make_pipeline
+import pickle
 
 
 def scatter_plot_with_line_of_perfect_fit(actual, predicted, model_name):
@@ -333,6 +342,19 @@ def train_and_evaluate_model(model, X_train, y_train, X_test, y_test):
     rmses_per_feature = np.sqrt(mean_squared_error(y_test, y_pred, multioutput='raw_values'))
     return rmses_per_feature
 
+class LowerQuartileImputer(BaseEstimator, TransformerMixin):
+    def fit(self, X, y=None):
+        # Calculate the 25th percentile (lower quartile) directly with numpy
+        self.fill_values_ = np.nanquantile(X, 0.25, axis=0)
+        return self
+
+    def transform(self, X):
+        # Use numpy's functionality to fill NaN values with the calculated quartiles
+        # np.where is used to replace NaN values with the corresponding fill value
+        for i in range(X.shape[1]):
+            X[:, i] = np.where(np.isnan(X[:, i]), self.fill_values_[i], X[:, i])
+        return X
+
 if __name__ == "__main__":
     file_path = 'vectors/WR_feature_vector.csv'
     
@@ -354,43 +376,85 @@ if __name__ == "__main__":
         return val
 
     data = load_and_preprocess_data(file_path)
-
-
-
+    
     #TODO: refine the features and labels to be used in the model. What data do we have and what do we want to predict?
     # maybe we can add ADP/ECR data to the features to see if that helps the model
     
-    
-    
-    # Define features and labels
-    X = data[['qb_time_to_throw', 'qb_completed_air_yards', 'qb_intended_air_yards', 'qb_air_yards_differential', 'qb_aggressiveness', 'qb_max_completed_air_distance', 'qb_avg_air_yards_to_sticks', 'qb_attempts', 'qb_pass_yards', 'qb_pass_touchdowns', 'qb_interceptions', 'qb_passer_rating', 'qb_completions', 'qb_completion_percentage', 'qb_expected_completion_percentage', 'qb_completion_percentage_above_expectation', 'avg_cushion', 'avg_separation','Catch percentage', 'avg_yac']]
+    # Define features and labels ProjRecTD_SZN,ProjRecYards_SZN,ProjRec_SZn,ProjRushTD_SZN,ProjRushYDS_SZN,ProjRushATT_SZN
+    X = data[['qb_time_to_throw', 'qb_completed_air_yards', 'qb_intended_air_yards', 'qb_air_yards_differential', 'qb_aggressiveness', 'qb_max_completed_air_distance', 'qb_avg_air_yards_to_sticks', 'qb_attempts', 'qb_pass_yards', 'qb_pass_touchdowns', 'qb_interceptions', 'qb_passer_rating', 'qb_completions', 'qb_completion_percentage', 'qb_expected_completion_percentage', 'qb_completion_percentage_above_expectation', 'avg_cushion', 'avg_separation','Catch percentage', 'avg_yac', 'depth_chart_position', 'ProjRecTD_SZN', 'ProjRecYards_SZN', 'ProjRec_SZn', 'ProjRushTD_SZN', 'ProjRushYDS_SZN', 'ProjRushATT_SZN']]
     y = data[['catches', 'yards', 'RecTD','targets']]
 
     # Splitting dataset into training and testing sets
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.12, random_state=42)
+    
+    imputer = SimpleImputer(strategy='median')
+    X_train_imputed = imputer.fit_transform(X_train)
+    X_test_imputed = imputer.transform(X_test)
 
-        
+    # Define your models, integrating LowerQuartileImputer in each pipeline
     models = {
-    'Linear Regression': MultiOutputRegressor(LinearRegression()),
-    'Ridge': MultiOutputRegressor(Ridge()),
-    'Lasso': MultiOutputRegressor(Lasso()),
-    'ElasticNet': MultiOutputRegressor(ElasticNet()),
-    'Random Forest': RandomForestRegressor(n_estimators=1000, max_depth=None),
-    'Gradient Boosting': MultiOutputRegressor(GradientBoostingRegressor(n_estimators=500, learning_rate=0.01)),
-    'XGBoost': XGBRegressor(n_estimators=1000, learning_rate=0.01, max_depth=6, verbosity=0),  # XGBoost verbosity adjustment
-    'LightGBM': MultiOutputRegressor(LGBMRegressor(num_leaves=31, learning_rate=0.01, n_estimators=1000, verbose=-1)),  # LightGBM verbosity adjustment
-    'CatBoost': CatBoostRegressor(iterations=1000, learning_rate=0.01, depth=6, loss_function='MultiRMSE', verbose=0),  # CatBoost already adjusted
-    'SVR': MultiOutputRegressor(SVR()),
-    'MLPRegressor': MultiOutputRegressor(MLPRegressor(hidden_layer_sizes=(100, 100), max_iter=1000)),
-    'KNeighbors': KNeighborsRegressor(),
+        'Linear Regression': Pipeline([
+            ('imputer', LowerQuartileImputer()),
+            ('model', MultiOutputRegressor(LinearRegression())),
+        ]),
+        'Ridge': Pipeline([
+            ('imputer', LowerQuartileImputer()),
+            ('model', MultiOutputRegressor(Ridge())),
+        ]),
+        'Lasso': Pipeline([
+            ('imputer', LowerQuartileImputer()),
+            ('model', MultiOutputRegressor(Lasso())),
+        ]),
+        'ElasticNet': Pipeline([
+            ('imputer', LowerQuartileImputer()),
+            ('model', MultiOutputRegressor(ElasticNet())),
+        ]),
+        'Random Forest': Pipeline([
+            ('imputer', LowerQuartileImputer()),
+            ('model', RandomForestRegressor(n_estimators=1000, max_depth=None)),
+        ]),
+        'Gradient Boosting': Pipeline([
+            ('imputer', LowerQuartileImputer()),
+            ('model', MultiOutputRegressor(GradientBoostingRegressor(n_estimators=500, learning_rate=0.01))),
+        ]),
+        'XGBoost': Pipeline([
+            ('imputer', LowerQuartileImputer()),
+            ('model', XGBRegressor(n_estimators=1000, learning_rate=0.01, max_depth=6, verbosity=0)),
+        ]),
+        'LightGBM': Pipeline([
+            ('imputer', LowerQuartileImputer()),
+            ('model', MultiOutputRegressor(LGBMRegressor(num_leaves=31, learning_rate=0.01, n_estimators=1000, verbose=-1))),
+        ]),
+        'CatBoost': Pipeline([
+            ('imputer', LowerQuartileImputer()),
+            ('model', CatBoostRegressor(iterations=1000, learning_rate=0.01, depth=6, loss_function='MultiRMSE', verbose=0)),
+        ]),
+        'SVR': Pipeline([
+            ('imputer', LowerQuartileImputer()),
+            ('model', MultiOutputRegressor(SVR())),
+        ]),
+        'MLPRegressor': Pipeline([
+            ('imputer', LowerQuartileImputer()),
+            ('model', MultiOutputRegressor(MLPRegressor(hidden_layer_sizes=(100, 100), max_iter=1000))),
+        ]),
+        'KNeighbors': Pipeline([
+            ('imputer', LowerQuartileImputer()),
+            ('model', KNeighborsRegressor()),
+        ]),
     }
 
-
-    
-    model_rmses = {}
+    # Update models to include an imputation step
     for name, model in models.items():
+        models[name] = Pipeline([
+            ('imputer', SimpleImputer(strategy='median')),  # Apply imputation
+            ('model', model),
+        ])
+
+    # Train and evaluate models
+    model_rmses = {}
+    for name, model_pipeline in models.items():
         print(f'Training {name}...')
-        rmses_per_feature = train_and_evaluate_model(model, X_train, y_train, X_test, y_test)
+        rmses_per_feature = train_and_evaluate_model(model_pipeline, X_train, y_train, X_test, y_test)
         model_rmses[name] = dict(zip(y.columns, rmses_per_feature))
 
     best_models_per_feature = {}
@@ -417,7 +481,6 @@ if __name__ == "__main__":
         models[model].fit(X, y)
         with open(f'models/{feature}_WR_model.pkl', 'wb') as file:
             pickle.dump(models[model], file)
-        
         
         
         
