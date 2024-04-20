@@ -477,10 +477,10 @@ if __name__ == "__main__":
         
         
     # save the best models to files to be used later
-    for feature, (model, rmse) in best_models_per_feature.items():
-        models[model].fit(X, y)
+    for feature, (model, rmse) in best_models_per_feature.items(): # for each feature
+        models[model].fit(X, y) # fit the model on the entire dataset
         with open(f'models/{feature}_WR_model.pkl', 'wb') as file:
-            pickle.dump(models[model], file)
+            pickle.dump(models[model], file) 
         
         
         
