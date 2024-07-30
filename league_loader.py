@@ -1,9 +1,10 @@
 from sleeper_wrapper import League as SleeperLeague
 
-from league import League, ScoringSettings, LeagueSettings
-from fantasy_team import FantasyTeam
-from player import Player
-from player_loader import PlayerLoader  # Assuming PlayerLoader is in player_loader.py
+from custom_dataclasses.fantasy_team import FantasyTeam
+from custom_dataclasses.player import Player
+from custom_dataclasses.player_loader import PlayerLoader, Player
+from custom_dataclasses.league import League
+from custom_dataclasses.fantasy_team import FantasyTeam
 
 class LeagueLoader:
     def __init__(self, league_id, player_loader):
@@ -54,11 +55,9 @@ class LeagueLoader:
                     fantasy_team.player_sleeper_ids.append(player.sleeper_id)
                             
             fantasy_team.calculate_stats()
-            
-            
-            
-            # fantasy_team.print_fantasy_team()
-            fantasy_team.print_fantasy_team_short()
+        
+            # # fantasy_team.print_fantasy_team()
+            # fantasy_team.print_fantasy_team_short()
                 
             
             rosters.append(fantasy_team)

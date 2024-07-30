@@ -3,3 +3,8 @@ https://api.sleeper.com/stats/nfl/player/6794?season_type=regular&season=2021&gr
 
 
 https://api.sleeper.com/projections/nfl/player/6794?season_type=regular&season=2021&grouping=week
+
+
+
+this will print the directory strucutre of the current directory
+find . -not \( -path '*/env*' -o -path '*/__pycache__*' -o -path '*/catbost_info*' -o -path '*/.git*' \) | sed -e "s/[^-][^\/]*\// |/g" -e "s/|\([^ ]\)/|-\1/"

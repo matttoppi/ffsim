@@ -141,7 +141,7 @@
     # Qb pass touchdowns
     # Qb interceptions
     # Qb passer rating
-    # Qb completions
+    # Qb completions 
     # Qb completion percentage
     # Qb expected completion percentage
     # Qb completion percentage above expectation
@@ -380,6 +380,8 @@ if __name__ == "__main__":
     #TODO: refine the features and labels to be used in the model. What data do we have and what do we want to predict?
     # maybe we can add ADP/ECR data to the features to see if that helps the model
     
+    
+    data.columns = data.columns.str.strip()
     # Define features and labels ProjRecTD_SZN,ProjRecYards_SZN,ProjRec_SZn,ProjRushTD_SZN,ProjRushYDS_SZN,ProjRushATT_SZN
     X = data[['qb_time_to_throw', 'qb_completed_air_yards', 'qb_intended_air_yards', 'qb_air_yards_differential', 'qb_aggressiveness', 'qb_max_completed_air_distance', 'qb_avg_air_yards_to_sticks', 'qb_attempts', 'qb_pass_yards', 'qb_pass_touchdowns', 'qb_interceptions', 'qb_passer_rating', 'qb_completions', 'qb_completion_percentage', 'qb_expected_completion_percentage', 'qb_completion_percentage_above_expectation', 'avg_cushion', 'avg_separation','Catch percentage', 'avg_yac', 'depth_chart_position', 'ProjRecTD_SZN', 'ProjRecYards_SZN', 'ProjRec_SZn', 'ProjRushTD_SZN', 'ProjRushYDS_SZN', 'ProjRushATT_SZN']]
     y = data[['catches', 'yards', 'RecTD','targets']]
