@@ -37,12 +37,13 @@ class LeagueLoader:
         for roster_data in roster_data_list:
             owner_id = roster_data.get("owner_id")
             user_data = user_dict.get(owner_id, {})  # Fetch user data for the roster's owner
-            
+            # print(f"RosterID: {roster_data.get('roster_id')} - Owner: {user_data.get('display_name')}")
             
             team_name = user_data.get("metadata", {}).get("team_name", "Unknown")
             
             # Assuming FantasyTeam can store user data; adjust constructor as needed
             fantasy_team = FantasyTeam(team_name, league, user_data)
+            fantasy_team.roster_id = roster_data.get("roster_id")
             
             # Load the players on the roster
             player_ids = roster_data.get("players")

@@ -23,6 +23,7 @@ class FantasyTeam:
         self.average_age = 0
         self.total_age = 0
         self.league = league
+        self.roster_id = None
         
         self.owner_username = user_data.get("display_name")
         if self.name == "Unknown":

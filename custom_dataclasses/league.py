@@ -1,7 +1,13 @@
 class ScoringSettings:
+    
     def __init__(self, scoring_data):
         for key, value in scoring_data.items():
             setattr(self, key, value)
+            
+        self.rec = scoring_data.get('rec', 0)  # Points per reception, default to 0
+        self.te_rec = scoring_data.get('te_rec', 2)  # Points per reception for TEs, default to 2
+
+
             
     def print_scoring_settings(self):
         print(f"\n\nScoring data:\n")
@@ -64,6 +70,12 @@ class League:
                 self.number_of_starters += 1
             
         
+    def get_all_players(self):
+        all_players = []
+        for team in self.rosters:
+            all_players.extend(team.players)
+        return all_players
+    
     def print_league(self):
         print(f"\n\nLeague data:\n")
         for key, value in self.__dict__.items():

@@ -92,8 +92,8 @@ class PlayerLoader:
             reader = csv.DictReader(csvfile)
             
             # Print out the column names
-            print("Available columns in PFF projections file:")
-            print(reader.fieldnames)
+
+            # print(reader.fieldnames)
             
             # Find the correct column name for player names
             name_column = next((col for col in reader.fieldnames if 'name' in col.lower()), None)
@@ -157,11 +157,11 @@ class PlayerLoader:
                 player['pff_projections'] = pff_projections_lower[player_name]
                 updated_count += 1
         
-        print(f"Updated PFF projections for {updated_count} players.")
+        # print(f"Updated PFF projections for {updated_count} players.")
 
     def fetch_players(self):
         self.enriched_players = self.enrich_players_data()
-        self.save_players_to_file(self.enriched_players)
+        # self.save_players_to_file(self.enriched_players)
         print(f"Fetched and enriched {len(self.enriched_players)} players.")
 
     def enrich_players_data(self):

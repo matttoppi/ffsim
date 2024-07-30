@@ -14,6 +14,8 @@ class Player:
         self.initialize_missing_attributes()
         
         self.pff_projections = initial_data.get('pff_projections')
+        
+        self.sleeper_id = str(initial_data.get('sleeper_id', '')).replace('.0', '')
 
     def add_pff_projections(self, projections):
         self.pff_projections = projections
