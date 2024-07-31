@@ -2,6 +2,9 @@ from collections import defaultdict
 import random
 import math
 import requests
+import os
+import json
+
 class LeagueSimulation:
     def __init__(self, league):
         self.league = league
@@ -10,17 +13,107 @@ class LeagueSimulation:
         self.starter_receptions = defaultdict(list)
         self.weekly_player_scores = defaultdict(lambda: defaultdict(list))
         self.matchups = {}  
+        self.matchups_file = f'datarepo/matchups_2024_{league.league_id}.json'
+        self.sleeper_players = self._load_sleeper_players()
+        
+    def _load_sleeper_players(self):
+        try:
+            with open('sleeper_players.json', 'r') as f:
+                players_list = json.load(f)
+                players_dict = {str(player['player_id']): player for player in players_list if 'player_id' in player}
+                print(f"Loaded {len(players_dict)} players from sleeper_players.json")
+                return players_dict
+        except FileNotFoundError:
+            print("sleeper_players.json not found. Player position lookup will not be available.")
+            return {}
+        except json.JSONDecodeError:
+            print("Error decoding sleeper_players.json. Please check if the file is valid JSON.")
+            return {}
+
+    def get_player_position(self, player_id):
+        player = self.sleeper_players.get(str(player_id))
+        if player:
+            return player.get('position') or player.get('fantasy_positions', ['UNKNOWN'])[0]
+        return 'UNKNOWN'
+
         
     def fetch_all_matchups(self):
-        print("Fetching matchups for all weeks...")
-        for week in range(1, self.weeks + 1):
-            url = f"https://api.sleeper.app/v1/league/{self.league.league_id}/matchups/{week}"
-            response = requests.get(url)
-            if response.status_code == 200:
-                self.matchups[week] = response.json()
+        if os.path.exists(self.matchups_file):
+            print("Loading matchups from local storage...")
+            try:
+                with open(self.matchups_file, 'r') as f:
+                    loaded_matchups = json.load(f)
+                    # Convert string keys back to integers
+                    self.matchups = {int(k): v for k, v in loaded_matchups.items()}
+                print(f"Finished loading matchups from local storage for {len(self.matchups)} weeks.")
+                
+                # Verify the loaded data
+                if not self.matchups:
+                    raise ValueError("Loaded matchups dictionary is empty")
+                sample_week = next(iter(self.matchups))
+                if not isinstance(self.matchups[sample_week], list):
+                    raise ValueError(f"Matchup data for week {sample_week} is not a list")
+                
+                # self._print_sample_matchup()
+            except (json.JSONDecodeError, ValueError) as e:
+                print(f"Error loading matchups from file: {e}. Fetching from API...")
+                self._fetch_matchups_from_api()
+        else:
+            print("Local matchups file not found. Fetching from API...")
+            self._fetch_matchups_from_api()
+
+    def fetch_all_matchups(self):
+        if os.path.exists(self.matchups_file):
+            print("Loading matchups from local storage...")
+            try:
+                with open(self.matchups_file, 'r') as f:
+                    loaded_matchups = json.load(f)
+                    # Convert string keys back to integers
+                    self.matchups = {int(k): v for k, v in loaded_matchups.items()}
+                print(f"Finished loading matchups from local storage for {len(self.matchups)} weeks.")
+                
+                # Verify the loaded data
+                if not self.matchups:
+                    raise ValueError("Loaded matchups dictionary is empty")
+                
+                # Print matchups for weeks 1 and 2
+                # self._print_matchups_for_weeks([1, 2])
+                
+            except (json.JSONDecodeError, ValueError) as e:
+                print(f"Error loading matchups from file: {e}. Fetching from API...")
+                self._fetch_matchups_from_api()
+        else:
+            print("Local matchups file not found. Fetching from API...")
+            self._fetch_matchups_from_api()
+
+    def _print_matchups_for_weeks(self, weeks):
+        for week in weeks:
+            if week in self.matchups:
+                print(f"\nMatchups for Week {week}:")
+                matchups = self.matchups[week]
+                matchup_pairs = {}
+                
+                for team in matchups:
+                    matchup_id = team['matchup_id']
+                    if matchup_id not in matchup_pairs:
+                        matchup_pairs[matchup_id] = []
+                    matchup_pairs[matchup_id].append(team)
+                
+                for matchup_id, teams in matchup_pairs.items():
+                    if len(teams) == 2:
+                        team1, team2 = teams
+                        roster1 = self.get_team_by_roster_id(team1['roster_id'])
+                        roster2 = self.get_team_by_roster_id(team2['roster_id'])
+                        team1_name = roster1.name if roster1 else f"Unknown Team (Roster ID: {team1['roster_id']})"
+                        team2_name = roster2.name if roster2 else f"Unknown Team (Roster ID: {team2['roster_id']})"
+                        
+                        print(f"  Matchup {matchup_id}: {team1_name} vs {team2_name}")
+                        print(f"    {team1_name}: Points - {team1.get('points', 'N/A')}, Starters - {len(team1.get('starters', []))}")
+                        print(f"    {team2_name}: Points - {team2.get('points', 'N/A')}, Starters - {len(team2.get('starters', []))}")
+                    else:
+                        print(f"  Invalid matchup data for matchup ID {matchup_id}")
             else:
-                print(f"Failed to fetch matchups for week {week}")
-        print("Finished fetching matchups.")
+                print(f"\nNo matchup data available for Week {week}")
         
     def run_simulation(self):
         for week in range(1, self.weeks + 1):
@@ -97,6 +190,8 @@ class LeagueSimulation:
         for player_id in starters:
             player = self.get_player_by_id(player_id)
             if player:
+                if player.position == 'UNKNOWN':
+                    player.position = self.get_player_position(player_id)
                 if player.position in required_positions or player.position in flex_eligible:
                     filled_starters.append(player_id)
                     if player.position in required_positions:
@@ -151,19 +246,21 @@ class LeagueSimulation:
         return score, total_receptions
         
     def get_player_by_id(self, player_id, player_name=None):
-        player_id = str(player_id).strip()  # Ensure player_id is a string and trimmed
+        player_id = str(player_id).strip()
         for team in self.league.rosters:
             for player in team.players:
                 if str(player.sleeper_id).strip() == player_id:
+                    if player.position == 'UNKNOWN':
+                        player.position = self.get_player_position(player_id)
                     return player
-        # print(f"Player not found by ID: {player_id}")  # Debug statement
         
         # Fallback to name-based lookup if player_name is provided
         if player_name:
             for team in self.league.rosters:
                 for player in team.players:
                     if player_name.lower() == (player.first_name + " " + player.last_name).lower():
-                        # print(f"Player found by name: {player.first_name} {player.last_name}")
+                        if player.position == 'UNKNOWN':
+                            player.position = self.get_player_position(player.sleeper_id)
                         return player
             print(f"Player not found by name: {player_name}")
 
@@ -192,28 +289,40 @@ class LeagueSimulation:
         avg_rec_yds = float(proj['recvYds']) / games
         avg_rec_td = float(proj['recvTd']) / games
         avg_receptions = float(proj.get('recvReceptions', 0)) / games
+        rush_att = float(proj.get('rushAtt', 0)) / games
 
         # Add randomness to projections
         pass_yds = max(0, random.gauss(avg_pass_yds, avg_pass_yds * 0.25))
         pass_td = max(0, random.gauss(avg_pass_td, avg_pass_td * 0.75))
         pass_int = max(0, random.gauss(avg_pass_int, avg_pass_int * 0.75))
-        rush_yds = max(0, random.gauss(avg_rush_yds, avg_rush_yds * 0.25))
-        rush_td = max(0, random.gauss(avg_rush_td, avg_rush_td * 0.75))
+        
+    
         
         # calculate receptions
-        receptions = max(0, random.gauss(avg_receptions, avg_receptions * 0.8))
+        receptions = max(0, random.gauss(avg_receptions, avg_receptions * 0.75))
+        rush_att = max (0, random.gauss(rush_att, rush_att * 0.75))
 
         # Calculate receiving yards based on receptions
         avg_yards_per_reception = avg_rec_yds / avg_receptions if avg_receptions > 0 else 0 # Avoid division by zero 
+        avg_yards_per_rush = avg_rush_yds / rush_att if rush_att > 0 else 0
 
         base_rec_yds = receptions * avg_yards_per_reception # Base receiving yards based on receptions
         rec_yds = max(0, random.gauss(base_rec_yds, base_rec_yds * 0.1))
-        rec_td = max(0, random.gauss(avg_rec_td, avg_rec_td * 0.75))
+        rec_td = max(0, random.gauss(avg_rec_td, avg_rec_td * 0.3))
+        
+        base_rush_yds = rush_att * avg_yards_per_rush
+        rush_yds = max(0, random.gauss(base_rush_yds, base_rush_yds * 0.1))
+        rush_td = max(0, random.gauss(avg_rush_td, avg_rush_td * 0.3))
         
         if receptions <= 0:
             receptions = 0
             rec_yds = 0
             rec_td = 0
+            
+        if rush_att <= 0:
+            rush_att = 0
+            rush_yds = 0
+            rush_td = 0
 
         # Round stats to realistic values
         pass_yds = round(pass_yds)
@@ -224,6 +333,7 @@ class LeagueSimulation:
         rec_yds = round(rec_yds)
         rec_td = round(rec_td)
         receptions = round(receptions)
+        
 
         score = (
             pass_yds * scoring.pass_yd +

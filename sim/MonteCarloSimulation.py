@@ -84,11 +84,10 @@ class MonteCarloSimulation:
                 
                 if all_scores:
                     avg_score = sum(all_scores) / len(all_scores)
-                    lowest_score = min(all_scores)  # This will now be the lowest non-zero score
+                    lowest_score = min(all_scores)
                     highest_score = max(all_scores)
                     player_stats.append((player, avg_score, lowest_score, highest_score))
                 else:
-                    # print(f"No scores for {player.full_name} (ID: {player.sleeper_id})")
                     pass
 
             print(f"Players with scores: {len(player_stats)}")
@@ -96,7 +95,7 @@ class MonteCarloSimulation:
             # Sort players by average weekly score
             sorted_players = sorted(player_stats, key=lambda x: x[1], reverse=True)[:top_n]
 
-            print(f"{'Rank':<5}{'Player':<30}{'Avg':<8}{'Low':<8}{'High':<8}")
+            print(f"{'Rank':<5}{'Player':<30}{'Avg':<8}{'Min':<8}{'Max':<8}")
             print("-" * 59)
             for i, (player, avg_score, lowest_score, highest_score) in enumerate(sorted_players, 1):
                 player_name = f"{player.first_name} {player.last_name}"

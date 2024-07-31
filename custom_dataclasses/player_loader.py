@@ -87,8 +87,9 @@ class PlayerLoader:
                 }
                 cleaned_data.append(cleaned_player)
             df = pd.DataFrame(cleaned_data)
-            print(f"FantasyCalc data fetched and cleaned for {len(df)} players.")
-            print(f"Columns in FantasyCalc data: {df.columns.tolist()}")  # Debug statement
+            # print(f"FantasyCalc data fetched and cleaned for {len(df)} players.")
+            # print(f"Columns in FantasyCalc data: {df.columns.tolist()}")  # Debug statement
+            print(f"FantasyCalc data...\n")
             return df
             
         else:
@@ -123,8 +124,9 @@ class PlayerLoader:
                 cleaned_data.append(cleaned_player)
         
         df = pd.DataFrame(cleaned_data)
-        print(f"Sleeper data cleaned for {len(df)} active players.")
-        print(f"Columns in Sleeper data: {df.columns.tolist()}")  # Debug statement
+        # print(f"Sleeper data cleaned for {len(df)} active players.")
+        # print(f"Columns in Sleeper data: {df.columns.tolist()}")  # Debug statement
+        print(f"Sleeper data...\n")
         return df
         
 
@@ -132,7 +134,8 @@ class PlayerLoader:
         df = pd.read_csv('datarepo/PFFProjections/24PFFProjections.csv')
         df = df[self.desired_pff_projections]
         df['playerName'] = df['playerName'].str.lower()
-        print(f"PFF projections cleaned for {len(df)} players.")
+        # print(f"PFF projections cleaned for {len(df)} players.")
+        print(f"PFF Projections...\n")
         return df
     
     def load_injury_data(self):
@@ -140,7 +143,8 @@ class PlayerLoader:
         try:
             injury_df = pd.read_csv(csv_file_path)
             injury_df.columns = injury_df.columns.str.strip().str.lower().str.replace(' ', '_')
-            print(f"Loaded injury data for {len(injury_df)} players from {csv_file_path}")
+            # print(f"Loaded injury data for {len(injury_df)} players from {csv_file_path}")
+            print(f"Injury data...\n")
             return injury_df
         except FileNotFoundError:
             print(f"Injury data file not found: {csv_file_path}")
@@ -153,12 +157,12 @@ class PlayerLoader:
         injury_df = self.load_injury_data()
 
         # Debug statements to check the presence of 'team' column
-        print(f"Columns before merging FantasyCalc and Sleeper:\nFantasyCalc: {fantasy_calc_df.columns.tolist()}\nSleeper: {sleeper_df.columns.tolist()}")
+        # print(f"Columns before merging FantasyCalc and Sleeper:\nFantasyCalc: {fantasy_calc_df.columns.tolist()}\nSleeper: {sleeper_df.columns.tolist()}")
 
         # Merge FantasyCalc and Sleeper data
         merged_df = pd.merge(fantasy_calc_df, sleeper_df, left_on='sleeper_id', right_on='player_id', how='outer', suffixes=('_fc', '_sl'))
-        print(f"Data after merging FantasyCalc and Sleeper:\n{merged_df[['full_name', 'team_fc', 'team_sl']].head()}")  # Debug statement
-        print(f"Columns after merging FantasyCalc and Sleeper: {merged_df.columns.tolist()}")  # Debug statement
+        # print(f"Data after merging FantasyCalc and Sleeper:\n{merged_df[['full_name', 'team_fc', 'team_sl']].head()}")  # Debug statement
+        # print(f"Columns after merging FantasyCalc and Sleeper: {merged_df.columns.tolist()}")  # Debug statement
 
         # Ensure team column exists and is filled correctly
         if 'team_fc' in merged_df.columns and 'team_sl' in merged_df.columns:
@@ -178,7 +182,7 @@ class PlayerLoader:
         pff_df['playerName'] = pff_df['playerName'].str.lower()
         
         final_df = pd.merge(merged_df, pff_df, left_on='name_lower', right_on='playerName', how='left', suffixes=('', '_pff'))
-        print(f"Data after merging with PFF projections:\n{final_df[['full_name', 'team', 'teamName']].head()}")  # Debug statement
+        # print(f"Data after merging with PFF projections:\n{final_df[['full_name', 'team', 'teamName']].head()}")  # Debug statement
         
         if 'position_pff' in final_df.columns:
             final_df['position'] = final_df['position'].fillna(final_df['position_pff'])
@@ -210,15 +214,8 @@ class PlayerLoader:
         final_df['byeWeek'] = final_df['byeWeek'].replace({0: None})
         final_df['sleeper_id'] = final_df['sleeper_id'].fillna(final_df['player_id'])
         
+        # print(f"Final data ready for use:\n{final_df[['full_name', 'team']].head()}")  # Debug statement
         return final_df
-
-    def load_players(self):
-        final_df = self.merge_player_data()
-        for index, row in final_df.iterrows():
-            player_data = row.to_dict()
-            player = Player(player_data)
-            self.enriched_players.append(player)
-        print(f"Total players loaded: {len(self.enriched_players)}")
                                           
                                           
                                           
@@ -234,7 +231,8 @@ class PlayerLoader:
             player_data = row.to_dict()
             player = Player(player_data)
             self.enriched_players.append(player)
-        print(f"Total players loaded: {len(self.enriched_players)}")
+        # print(f"Total players loaded: {len(self.enriched_players)}")
+        print(f"Players...")
 
     def load_players_from_file(self):
         if os.path.exists(self.players_file) and datetime.now() - datetime.fromtimestamp(os.path.getmtime(self.players_file)) <= self.refresh_interval:

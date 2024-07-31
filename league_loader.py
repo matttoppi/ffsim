@@ -29,7 +29,6 @@ class LeagueLoader:
         return league
 
     def load_rosters(self, league):
-        print(f"Loading rosters...")
         rosters = []
         roster_data_list = self.sleeper_league.get_rosters()
         user_dict = self.load_users()
@@ -55,7 +54,8 @@ class LeagueLoader:
             fantasy_team.calculate_stats()
             
             rosters.append(fantasy_team)
-            print(f"Loaded {fantasy_team.name}")
+            # print(f"Loaded {fantasy_team.name}")
+        print(f"Rosters...")
             
         return rosters
 

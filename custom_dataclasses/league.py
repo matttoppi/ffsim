@@ -17,10 +17,10 @@ class ScoringSettings:
 
 class LeagueSettings:
     def __init__(self, settings_data):
-        print(f"Loading league settings...")
         for key, value in settings_data.items():
             setattr(self, key, value)
-        print(f"League settings loaded.\n")
+        print(f"\nLeague settings...")
+        
             
             
     def print_settings(self):

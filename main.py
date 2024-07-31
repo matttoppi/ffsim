@@ -10,7 +10,7 @@ def main():
     # continue_prompt = input("Enter a Sleeper ID: ")
     sleeper_id = "1048288271089983488"
     
-    print("Using Sleeper ID: ", sleeper_id)
+    # print("Using Sleeper ID: ", sleeper_id)
     
     
     league_loader = LeagueLoader(sleeper_id, player_loader)
