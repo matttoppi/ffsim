@@ -7,6 +7,9 @@ import csv
 from custom_dataclasses.player import Player
 from functools import reduce
 import ssl
+from fuzzywuzzy import process
+
+import numpy as np
 ssl._create_default_https_context = ssl._create_unverified_context
 
 
@@ -143,7 +146,6 @@ class PlayerLoader:
         try:
             injury_df = pd.read_csv(csv_file_path)
             injury_df.columns = injury_df.columns.str.strip().str.lower().str.replace(' ', '_')
-            # print(f"Loaded injury data for {len(injury_df)} players from {csv_file_path}")
             print(f"Injury data...\n")
             return injury_df
         except FileNotFoundError:
@@ -156,13 +158,29 @@ class PlayerLoader:
         pff_df = self.get_and_clean_pff_projections()
         injury_df = self.load_injury_data()
 
-        # Debug statements to check the presence of 'team' column
-        # print(f"Columns before merging FantasyCalc and Sleeper:\nFantasyCalc: {fantasy_calc_df.columns.tolist()}\nSleeper: {sleeper_df.columns.tolist()}")
+        # Print heads and shapes of all DataFrames
+        print("\nFantasyCalc DataFrame:")
+        print(fantasy_calc_df.head())
+        print(f"Shape: {fantasy_calc_df.shape}")
+
+        print("\nSleeper DataFrame:")
+        print(sleeper_df.head())
+        print(f"Shape: {sleeper_df.shape}")
+
+        print("\nPFF DataFrame:")
+        print(pff_df.head())
+        print(f"Shape: {pff_df.shape}")
+
+        print("\nInjury DataFrame:")
+        print(injury_df.head())
+        print(f"Shape: {injury_df.shape}")
 
         # Merge FantasyCalc and Sleeper data
         merged_df = pd.merge(fantasy_calc_df, sleeper_df, left_on='sleeper_id', right_on='player_id', how='outer', suffixes=('_fc', '_sl'))
-        # print(f"Data after merging FantasyCalc and Sleeper:\n{merged_df[['full_name', 'team_fc', 'team_sl']].head()}")  # Debug statement
-        # print(f"Columns after merging FantasyCalc and Sleeper: {merged_df.columns.tolist()}")  # Debug statement
+        
+        print("\nMerged DataFrame (FantasyCalc + Sleeper):")
+        print(merged_df.head())
+        print(f"Shape: {merged_df.shape}")
 
         # Ensure team column exists and is filled correctly
         if 'team_fc' in merged_df.columns and 'team_sl' in merged_df.columns:
@@ -182,31 +200,72 @@ class PlayerLoader:
         pff_df['playerName'] = pff_df['playerName'].str.lower()
         
         final_df = pd.merge(merged_df, pff_df, left_on='name_lower', right_on='playerName', how='left', suffixes=('', '_pff'))
-        # print(f"Data after merging with PFF projections:\n{final_df[['full_name', 'team', 'teamName']].head()}")  # Debug statement
+        
+        print("\nFinal DataFrame (after merging with PFF):")
+        print(final_df.head())
+        print(f"Shape: {final_df.shape}")
         
         if 'position_pff' in final_df.columns:
             final_df['position'] = final_df['position'].fillna(final_df['position_pff'])
             final_df.drop('position_pff', axis=1, inplace=True)
         
-        injury_df['player'] = injury_df['player'].str.lower().str.strip()
+        # Prepare for merging with injury data
+        injury_df['player_lower'] = injury_df['player'].str.lower().str.strip()
+        final_df['name_lower'] = final_df['name'].str.lower().str.strip()
         
-        final_df = pd.merge(final_df, injury_df, left_on=['name_lower', 'position'], right_on=['player', 'position'], how='left', suffixes=('', '_injury'))
+        # Function to find the best match
+        def find_best_match(name, choices, cutoff=80):
+            if pd.isna(name):
+                return None
+            best_match = process.extractOne(name, choices)
+            return best_match[0] if best_match and best_match[1] >= cutoff else None
+
+        # Create a dictionary of injury data
+        injury_dict = injury_df.set_index('player_lower').to_dict('index')
         
-        final_df.drop(['name_lower', 'playerName', 'player'], axis=1, inplace=True)
-        final_df['name'] = final_df['full_name'].fillna(final_df['name'])
+        # Function to get injury data
+        def get_injury_data(row):
+            name = row['name_lower']
+            position = row['position'].upper() if pd.notna(row['position']) else ''
+            
+            if pd.isna(name):
+                return pd.Series({col: np.nan for col in injury_df.columns if col != 'player_lower'})
+            
+            # Try exact match first
+            if name in injury_dict and injury_dict[name]['position'].upper() == position:
+                return pd.Series({col: injury_dict[name].get(col, np.nan) for col in injury_df.columns if col != 'player_lower'})
+            
+            # If no exact match, try fuzzy matching
+            best_match = find_best_match(name, injury_dict.keys())
+            if best_match and injury_dict[best_match]['position'].upper() == position:
+                return pd.Series({col: injury_dict[best_match].get(col, np.nan) for col in injury_df.columns if col != 'player_lower'})
+            
+            # If still no match, return NaN
+            return pd.Series({col: np.nan for col in injury_df.columns if col != 'player_lower'})
+
+        # Apply the function to merge injury data
+        injury_columns = [col for col in injury_df.columns if col != 'player_lower']
+        injury_data = final_df.apply(get_injury_data, axis=1)
+        final_df = pd.concat([final_df, injury_data], axis=1)
+
+        # Print debugging information
+        print("\nPlayers with injury data:")
+        print(final_df[final_df['probability_of_injury_per_game'].notnull()][['name', 'position', 'probability_of_injury_per_game']])
         
+        print("\nPlayers without injury data (sample):")
+        print(final_df[final_df['probability_of_injury_per_game'].isnull()][['name', 'position']].head(20))
+
+        # Fill NaN values
         injury_columns = ['career_injuries', 'injury_risk', 'probability_of_injury_in_the_season', 
                         'projected_games_missed', 'probability_of_injury_per_game', 'durability']
-        for col in injury_columns:
-            if col in final_df.columns:
-                if final_df[col].dtype == 'object':
+        for col in final_df.columns:
+            if col in injury_columns:
+                if pd.api.types.is_object_dtype(final_df[col]):
                     final_df[col] = final_df[col].fillna('Unknown')
                 else:
                     final_df[col] = final_df[col].fillna(0)
-        
-        for col in final_df.columns:
-            if col not in injury_columns:
-                if final_df[col].dtype == 'object':
+            else:
+                if pd.api.types.is_object_dtype(final_df[col]):
                     final_df[col] = final_df[col].fillna('')
                 else:
                     final_df[col] = final_df[col].fillna(0)
@@ -214,9 +273,12 @@ class PlayerLoader:
         final_df['byeWeek'] = final_df['byeWeek'].replace({0: None})
         final_df['sleeper_id'] = final_df['sleeper_id'].fillna(final_df['player_id'])
         
-        # print(f"Final data ready for use:\n{final_df[['full_name', 'team']].head()}")  # Debug statement
+        # Print final debugging information
+        print("\nFinal DataFrame (after cleaning):")
+        print(final_df[['name', 'position', 'team', 'probability_of_injury_per_game']].head())
+        print(f"Shape: {final_df.shape}")
+
         return final_df
-                                          
                                           
                                           
     def get_player(self, sleeper_id):

@@ -8,7 +8,7 @@ class Player:
         self.full_name = initial_data.get('full_name', '')
         self.name = self.full_name or f"{self.first_name} {self.last_name}".strip()
         self.position = initial_data.get('position', '')
-        self.position = initial_data.get('position', '').upper()
+        self.position = initial_data.get('position', '')
         if not self.position:
             self.position = 'UNKNOWN'
         self.team = initial_data.get('team')  # Debug here
@@ -26,10 +26,19 @@ class Player:
         # Injury data
         self.career_injuries = initial_data.get('career_injuries', 0)
         self.injury_risk = initial_data.get('injury_risk', 'Medium')
-        self.injury_probability_season = initial_data.get('probability_of_injury_in_the_season', 10.0)
-        self.projected_games_missed = initial_data.get('projected_games_missed', 1.0)
-        self.injury_probability_game = initial_data.get('probability_of_injury_per_game', 2.5)
+        
         self.durability = initial_data.get('durability', 0)
+        
+        
+        
+        # Convert
+        # injury probabilities from percentage to decimal
+        self.injury_probability_season = float(initial_data.get('probability_of_injury_in_the_season', 10.0)) / 100
+        self.projected_games_missed = float(initial_data.get('projected_games_missed', 1.0))
+        self.injury_probability_game = float(initial_data.get('probability_of_injury_per_game', 2.5)) / 100
+        print(f"Player {self.full_name} injury probability per game: {self.injury_probability_game:.4f}")
+
+        self.simulation_injury = None
         
         # FantasyCalc data
         self.value_1qb = float(initial_data.get('value_1qb', 0)) if initial_data.get('value_1qb') not in ['', None] else 0.0

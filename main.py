@@ -27,9 +27,9 @@ def main():
     input("Press Enter to run Monte Carlo Simulation")
     # clear the console
     os.system('cls' if os.name == 'nt' else 'clear')   
-    monte_carlo = MonteCarloSimulation(league, num_simulations=500)
-    
+    monte_carlo = MonteCarloSimulation(league, num_simulations=500, debugging=False)
     monte_carlo.run()
+    
     monte_carlo.print_results()
     # monte_carlo.print_average_starter_scores()
     monte_carlo.print_top_players_by_position()
