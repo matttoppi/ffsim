@@ -8,6 +8,9 @@ class Player:
         self.full_name = initial_data.get('full_name', '')
         self.name = self.full_name or f"{self.first_name} {self.last_name}".strip()
         self.position = initial_data.get('position', '')
+        self.position = initial_data.get('position', '').upper()
+        if not self.position:
+            self.position = 'UNKNOWN'
         self.team = initial_data.get('team')  # Debug here
         self.age = initial_data.get('age')
         self.years_exp = initial_data.get('years_exp')

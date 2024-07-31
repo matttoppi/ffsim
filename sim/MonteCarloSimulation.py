@@ -24,6 +24,9 @@ class MonteCarloSimulation:
             team.points_for = 0
             team.points_against = 0
 
+        # Reset weekly player scores
+        self.season_sim.weekly_player_scores.clear()
+
         # Run a full season simulation
         self.season_sim.run_simulation()
 
@@ -55,7 +58,7 @@ class MonteCarloSimulation:
     def print_average_starter_scores(self):
         self.season_sim.print_average_starter_scores()
         
-    def print_top_players_by_position(self, top_n=10):
+    def print_top_players_by_position(self, top_n=30):
         print("\nTop Players by Position:")
         positions = ['QB', 'RB', 'WR', 'TE']
 
@@ -64,7 +67,7 @@ class MonteCarloSimulation:
             players = [player for team in self.league.rosters for player in team.players if player.position == position]
             
             print(f"Total {position}s: {len(players)}")
-
+            
             # Calculate average, lowest, and highest weekly score for each player
             player_stats = []
             for player in players:
@@ -73,11 +76,12 @@ class MonteCarloSimulation:
                 
                 if all_scores:
                     avg_score = sum(all_scores) / len(all_scores)
-                    lowest_score = min(all_scores)
+                    lowest_score = min(all_scores)  # This will now be the lowest non-zero score
                     highest_score = max(all_scores)
                     player_stats.append((player, avg_score, lowest_score, highest_score))
                 else:
-                    print(f"No scores for {player.name} (ID: {player.sleeper_id})")
+                    # print(f"No scores for {player.full_name} (ID: {player.sleeper_id})")
+                    pass
 
             print(f"Players with scores: {len(player_stats)}")
 
@@ -89,12 +93,7 @@ class MonteCarloSimulation:
             for i, (player, avg_score, lowest_score, highest_score) in enumerate(sorted_players, 1):
                 player_name = f"{player.first_name} {player.last_name}"
                 print(f"{i:<5}{player_name:<30}{avg_score:<8.2f}{lowest_score:<8.2f}{highest_score:<8.2f}")
-            print()  # Add a blank line after each position group
 
-        # Print a sample of weekly_player_scores
-        print("\nSample of weekly_player_scores:")
-        for player_id, scores in list(self.season_sim.weekly_player_scores.items())[:5]:
-            print(f"Player ID: {player_id}, Scores: {scores}")
         
     def print_projected_standings(self):
         print("\nProjected Final Standings:")

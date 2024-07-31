@@ -27,7 +27,7 @@ def main():
     input("Press Enter to run Monte Carlo Simulation")
     # clear the console
     os.system('cls' if os.name == 'nt' else 'clear')   
-    monte_carlo = MonteCarloSimulation(league, num_simulations=75)
+    monte_carlo = MonteCarloSimulation(league, num_simulations=10000)
     
     monte_carlo.run()
     monte_carlo.print_results()
@@ -47,3 +47,5 @@ if __name__ == "__main__":
 
 #  TODO: Fix defenses not being found in monte carlo
 # TODO: Fix kickers not being found in monte carlo
+# TODO: Fix no scores for players that werent in the pff projections. Give them random scoring 
+# TODO: Implement injuries

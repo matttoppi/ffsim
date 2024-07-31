@@ -2,8 +2,6 @@ from collections import defaultdict
 import random
 import math
 import requests
-
-
 class LeagueSimulation:
     def __init__(self, league):
         self.league = league
@@ -12,7 +10,6 @@ class LeagueSimulation:
         self.starter_receptions = defaultdict(list)
         self.weekly_player_scores = defaultdict(lambda: defaultdict(list))
         self.matchups = {}  
-        
         
     def fetch_all_matchups(self):
         print("Fetching matchups for all weeks...")
@@ -25,15 +22,6 @@ class LeagueSimulation:
                 print(f"Failed to fetch matchups for week {week}")
         print("Finished fetching matchups.")
         
-    def fetch_matchups(self, week):
-        url = f"https://api.sleeper.app/v1/league/{self.league.league_id}/matchups/{week}"
-        response = requests.get(url)
-        if (response.status_code == 200):
-            return response.json()
-        else:
-            print(f"Failed to fetch matchups for week {week}")
-            return None
-
     def run_simulation(self):
         for week in range(1, self.weeks + 1):
             self.simulate_week(week)
@@ -76,8 +64,6 @@ class LeagueSimulation:
         score1, receptions1 = self.calculate_team_score(team1, week, starters1)
         score2, receptions2 = self.calculate_team_score(team2, week, starters2)
         
-        # print(f"\nWeek {week}: {team1.name} vs {team2.name}")
-        
         if score1 > score2:
             team1.wins += 1
             team2.losses += 1
@@ -108,21 +94,17 @@ class LeagueSimulation:
     def calculate_team_score(self, team, week, starters):
         score = 0
         total_receptions = 0
-        for player_id in starters:
-            player = self.get_player_by_id(player_id)
+        for player in team.players:
             if player and player.pff_projections:
                 player_score, player_receptions = self.calculate_player_score(player, week)
-                score += player_score
-                total_receptions += player_receptions
-                if player_score > 0:  # Only record non-zero scores
-                    self.starter_scores[player_id].append(player_score)
-                    self.starter_receptions[player_id].append(player_receptions)
-                    if week not in self.weekly_player_scores[player_id]:
-                        self.weekly_player_scores[player_id][week] = []
-                    self.weekly_player_scores[player_id][week].append(player_score)
-                    print(f"Week {week}, Player {player.full_name}: Score {player_score}")  # Debug statement
+                if player.sleeper_id in starters:
+                    score += player_score
+                    total_receptions += player_receptions
+                if player.position not in ['DEF', 'K']:
+                    self.weekly_player_scores[player.sleeper_id][week].append(player_score)
+                    # print(f"Week {week}, Player {player.full_name}: Score {player_score}")  # Debug statement
         
-        # add defense and kicker scores
+        # Add defense and kicker scores
         score += self.add_defense_score()
         score += self.add_kicker_score()
         
@@ -141,23 +123,27 @@ class LeagueSimulation:
             for team in self.league.rosters:
                 for player in team.players:
                     if player_name.lower() == (player.first_name + " " + player.last_name).lower():
-                        print(f"Player found by name: {player.first_name} {player.last_name}")
+                        # print(f"Player found by name: {player.first_name} {player.last_name}")
                         return player
             print(f"Player not found by name: {player_name}")
 
         return None
+
     def calculate_player_score(self, player, week):
         proj = player.pff_projections
         scoring = self.league.scoring_settings
 
         if not proj:
+            print(f"No projections for {player.full_name}")
             return 0, 0  # Return 0 score and 0 receptions if no projections
 
         games = float(proj['games'])
         bye_week = int(proj.get('byeWeek', 0))
 
         if games == 0 or week == bye_week:
+            print(f"{player.full_name} not playing in week {week}")
             return 0, 0  # Player is not expected to play or it's their bye week
+
 
         # Calculate per-game averages
         avg_pass_yds = float(proj['passYds']) / games
@@ -170,14 +156,14 @@ class LeagueSimulation:
         avg_receptions = float(proj.get('recvReceptions', 0)) / games
 
         # Add randomness to projections
-        pass_yds = max(0, random.gauss(avg_pass_yds, avg_pass_yds * 0.2))
-        pass_td = max(0, random.gauss(avg_pass_td, avg_pass_td * 0.5))
-        pass_int = max(0, random.gauss(avg_pass_int, avg_pass_int * 0.5))
-        rush_yds = max(0, random.gauss(avg_rush_yds, avg_rush_yds * 0.3))
-        rush_td = max(0, random.gauss(avg_rush_td, avg_rush_td * 0.5))
-        rec_yds = max(0, random.gauss(avg_rec_yds, avg_rec_yds * 0.3))
-        rec_td = max(0, random.gauss(avg_rec_td, avg_rec_td * 0.5))
-        receptions = max(0, random.gauss(avg_receptions, avg_receptions * 0.3))
+        pass_yds = max(0, random.gauss(avg_pass_yds, avg_pass_yds * 0.25)) 
+        pass_td = max(0, random.gauss(avg_pass_td, avg_pass_td * 0.75))
+        pass_int = max(0, random.gauss(avg_pass_int, avg_pass_int * 0.75))
+        rush_yds = max(0, random.gauss(avg_rush_yds, avg_rush_yds * 0.75))
+        rush_td = max(0, random.gauss(avg_rush_td, avg_rush_td * 1))
+        rec_yds = max(0, random.gauss(avg_rec_yds, avg_rec_yds * 1.5))
+        rec_td = max(0, random.gauss(avg_rec_td, avg_rec_td * 1))
+        receptions = max(0, random.gauss(avg_receptions, avg_receptions * 1.2))
 
         # Round stats to realistic values
         pass_yds = round(pass_yds)
@@ -189,7 +175,6 @@ class LeagueSimulation:
         rec_td = round(rec_td)
         receptions = round(receptions)
 
-        # Calculate score based on league's scoring settings
         score = (
             pass_yds * scoring.pass_yd +
             pass_td * scoring.pass_td +
@@ -201,23 +186,19 @@ class LeagueSimulation:
             receptions * (scoring.te_rec if player.position == 'TE' else scoring.rec)
         )
 
+        if score == 0:
+            print(f"Zero score generated for {player.full_name} in week {week}")
+            print(f"Stats: Pass: {pass_yds}/{pass_td}/{pass_int}, Rush: {rush_yds}/{rush_td}, Rec: {rec_yds}/{rec_td}/{receptions}")
+
         return score, receptions
 
-
-    def print_average_starter_scores(self):
-        print("\nAverage scores and receptions for each starter:")
-        for player_id, scores in self.starter_scores.items():
-            average_score = sum(scores) / len(scores) if scores else 0
-            average_receptions = sum(self.starter_receptions[player_id]) / len(self.starter_receptions[player_id]) if self.starter_receptions[player_id] else 0
-            player = self.get_player_by_id(player_id)
-            player_name = f"{player.first_name} {player.last_name}" if player else "Unknown"
-            print(f"{player_name} (ID: {player_id}): {average_score:.2f} points, {average_receptions:.2f} receptions per week")
-
-            
     def add_defense_score(self):
         # randomly generate defense scores bell curve around 15 with min max at -5 and 35
         return max(-5, min(35, round(random.gauss(15, 10))))
-    
+        
+        
     def add_kicker_score(self):
         # randomly generate kicker scores bell curve around 10 with min max at  0 and 20
         return max(0, min(20, round(random.gauss(10, 5))))
+    
+    
