@@ -4,7 +4,7 @@ class Player:
         self.first_name = initial_data.get('first_name', '')
         self.last_name = initial_data.get('last_name', '')
         self.full_name = initial_data.get('full_name', '')
-        self.name = self.full_name or f"{self.first_name} {self.last_name}".strip()  # Add this line
+        self.name = self.full_name or f"{self.first_name} {self.last_name}".strip()
         self.position = initial_data.get('position', '')
         self.team = initial_data.get('team')
         self.age = initial_data.get('age')
@@ -17,6 +17,14 @@ class Player:
         self.number = initial_data.get('number')
         self.status = initial_data.get('status')
         self.birth_date = initial_data.get('birth_date')
+        
+        # Injury data
+        self.career_injuries = initial_data.get('career_injuries', 0)
+        self.injury_risk = initial_data.get('injury_risk', 'Medium')
+        self.injury_probability_season = initial_data.get('probability_of_injury_in_the_season', 10.0)
+        self.projected_games_missed = initial_data.get('projected_games_missed', 1.0)
+        self.injury_probability_game = initial_data.get('probability_of_injury_per_game', 2.5)
+        self.durability = initial_data.get('durability', 0)
         
         # FantasyCalc data
         self.value_1qb = float(initial_data.get('value_1qb', 0)) if initial_data.get('value_1qb') not in ['', None] else 0.0
@@ -38,4 +46,4 @@ class Player:
             print(f"{key}: {value}")
 
     def print_player_short(self):
-        print(f"{self.full_name} - {self.position} - {self.team} - Value: {self.value_1qb}")
+        print(f"{self.full_name} - {self.position} - {self.team} - Value: {self.value_1qb} - Redraft Value: {self.redraft_value}")

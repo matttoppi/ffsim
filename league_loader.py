@@ -49,12 +49,13 @@ class LeagueLoader:
                 player = self.player_loader.load_player(player_id)
                 
                 if player:
-                    print(f"Adding {player.full_name} to {fantasy_team.name}")
+                    # print(f"Adding {player.full_name} to {fantasy_team.name}")
                     fantasy_team.add_player(player)
             
             fantasy_team.calculate_stats()
             
             rosters.append(fantasy_team)
+            print(f"Loaded {fantasy_team.name}")
             
         return rosters
 

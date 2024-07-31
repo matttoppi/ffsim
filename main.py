@@ -27,7 +27,7 @@ def main():
     input("Press Enter to run Monte Carlo Simulation")
     # clear the console
     os.system('cls' if os.name == 'nt' else 'clear')   
-    monte_carlo = MonteCarloSimulation(league, num_simulations=250)
+    monte_carlo = MonteCarloSimulation(league, num_simulations=1000)
     
     monte_carlo.run()
     monte_carlo.print_results()

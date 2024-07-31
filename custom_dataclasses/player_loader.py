@@ -87,7 +87,7 @@ class PlayerLoader:
                 cleaned_data.append(cleaned_player)
             df = pd.DataFrame(cleaned_data)
             print(f"FantasyCalc data fetched and cleaned for {len(df)} players.")
-            print(f"Columns in FantasyCalc data: {df.columns.tolist()}")
+            # print(f"Columns in FantasyCalc data: {df.columns.tolist()}")
             return df
             
         else:
@@ -123,7 +123,7 @@ class PlayerLoader:
         
         df = pd.DataFrame(cleaned_data)
         print(f"Sleeper data cleaned for {len(df)} active players.")
-        print(f"Columns in Sleeper data: {df.columns.tolist()}")
+        # print(f"Columns in Sleeper data: {df.columns.tolist()}")
         return df
         
 
@@ -133,11 +133,25 @@ class PlayerLoader:
         df['playerName'] = df['playerName'].str.lower()
         print(f"PFF projections cleaned for {len(df)} players.")
         return df
-
+    
+    def load_injury_data(self):
+        csv_file_path = 'datarepo/Special/combined_injury_risk_data.csv'
+        try:
+            injury_df = pd.read_csv(csv_file_path)
+            # Clean up column names: strip whitespace and convert to lowercase
+            injury_df.columns = injury_df.columns.str.strip().str.lower().str.replace(' ', '_')
+            print(f"Loaded injury data for {len(injury_df)} players from {csv_file_path}")
+            # print(f"Columns in injury_df after cleaning: {injury_df.columns.tolist()}")
+            return injury_df
+        except FileNotFoundError:
+            print(f"Injury data file not found: {csv_file_path}")
+            return pd.DataFrame()
+        
     def merge_player_data(self):
         fantasy_calc_df = self.get_and_clean_fantasy_calc_api()
         sleeper_df = self.get_and_clean_sleeper_data()
         pff_df = self.get_and_clean_pff_projections()
+        injury_df = self.load_injury_data()
 
         # Merge FantasyCalc and Sleeper data
         merged_df = pd.merge(fantasy_calc_df, sleeper_df, left_on='sleeper_id', right_on='player_id', how='outer', suffixes=('_fc', '_sl'))
@@ -167,28 +181,43 @@ class PlayerLoader:
             final_df['position'] = final_df['position'].fillna(final_df['position_pff'])
             final_df.drop('position_pff', axis=1, inplace=True)
         
-        final_df.drop(['name_lower', 'playerName'], axis=1, inplace=True)
+        # Prepare injury data for merging
+        injury_df['player'] = injury_df['player'].str.lower().str.strip()
+        
+        # Merge with injury data
+        final_df = pd.merge(final_df, injury_df, left_on=['name_lower', 'position'], right_on=['player', 'position'], how='left', suffixes=('', '_injury'))
+        
+        final_df.drop(['name_lower', 'playerName', 'player'], axis=1, inplace=True)
         
         # Ensure 'name' column exists
         final_df['name'] = final_df['full_name'].fillna(final_df['name'])
         
-        # Handle NaN values
+        # Handle NaN values for injury data specifically
+        injury_columns = ['career_injuries', 'injury_risk', 'probability_of_injury_in_the_season', 
+                        'projected_games_missed', 'probability_of_injury_per_game', 'durability']
+        for col in injury_columns:
+            if col in final_df.columns:
+                if final_df[col].dtype == 'object':
+                    final_df[col] = final_df[col].fillna('Unknown')
+                else:
+                    final_df[col] = final_df[col].fillna(0)
+        
+        # Handle other NaN values
         for col in final_df.columns:
-            if final_df[col].dtype == 'object':
-                final_df[col] = final_df[col].fillna('')
-            else:
-                final_df[col] = final_df[col].fillna(0)
+            if col not in injury_columns:
+                if final_df[col].dtype == 'object':
+                    final_df[col] = final_df[col].fillna('')
+                else:
+                    final_df[col] = final_df[col].fillna(0)
         
         # Specifically handle byeWeek
         final_df['byeWeek'] = final_df['byeWeek'].replace({0: None})
 
         # Ensure sleeper_id is consistent
         final_df['sleeper_id'] = final_df['sleeper_id'].fillna(final_df['player_id'])
-
-        print(f"Final merged dataframe contains {len(final_df)} players.")
-        print(f"Columns in final dataframe: {final_df.columns.tolist()}")
+        
         return final_df
-
+    
     def get_player(self, sleeper_id):
         for player in self.enriched_players:
             if str(player.sleeper_id) == str(sleeper_id):
@@ -204,7 +233,7 @@ class PlayerLoader:
             player = Player(player_data)
             self.enriched_players.append(player)
 
-        print(f"Loaded {len(self.enriched_players)} players.")
+        # print(f"Loaded {len(self.enriched_players)} players.")
 
     def load_players_from_file(self):
         if os.path.exists(self.players_file) and datetime.now() - datetime.fromtimestamp(os.path.getmtime(self.players_file)) <= self.refresh_interval:
