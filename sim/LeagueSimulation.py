@@ -12,9 +12,6 @@ class LeagueSimulation:
     def __init__(self, league, debug=False):        
         self.league = league
         self.weeks = 17
-        self.starter_scores = defaultdict(list)
-        self.starter_receptions = defaultdict(list)
-        self.weekly_player_scores = defaultdict(lambda: defaultdict(list))
         self.matchups = {}  
         self.matchups_file = f'datarepo/matchups_2024_{league.league_id}.json'
         self.load_sleeper_players()  
@@ -124,25 +121,24 @@ class LeagueSimulation:
                 
                 
                 
-    def check_for_injuries(self, player, week):
+    def check_for_injuries(self, player, team, week):
         self.injury_checks += 1
         injury_roll = random.random()
         injury_probability = player.injury_probability_game
 
-        # if self.debug:
-        #     print(f"Checking {player.full_name} for injury in week {week}. Roll: {injury_roll:.4f}, Threshold: {injury_probability:.4f}")
-        
+        print(f"DEBUG: Checking injury for {player.full_name} (Probability: {injury_probability:.4f}, Roll: {injury_roll:.4f})")
+
         if injury_roll < injury_probability:
             self.injuries_occurred += 1
             injury_duration = self.generate_injury_duration(player)
-            injury_time = random.uniform(0, 1)  # Random point in the game when injury occurs
+            injury_time = random.uniform(0, 1)
             player.simulation_injury = {
                 'start_week': week,
                 'duration': injury_duration,
                 'injury_time': injury_time
             }
-            if self.debug:
-                print(f"{player.full_name} got injured in week {week} for {injury_duration:.1f} games")
+            self.tracker.record_injury(player, team.name, injury_duration)
+            print(f"DEBUG: Injury occurred for {player.full_name} on {team.name} in week {week} for {injury_duration:.1f} games")
             return True
         return False
     
@@ -164,10 +160,18 @@ class LeagueSimulation:
         return False
 
     def simulate_matchup(self, team1, team2, week, starters1, starters2):
+        print(f"DEBUG: Simulating matchup between {team1.name} and {team2.name} in week {week}")
+        
         # Check for injuries before simulating the matchup
-        for player in team1.players + team2.players:
-            if not self.is_player_injured(player, week):
-                self.check_for_injuries(player, week)
+        for player_id in starters1:
+            player = self.get_player_by_id(player_id)
+            if player:
+                self.check_for_injuries(player, team1, week)
+        
+        for player_id in starters2:
+            player = self.get_player_by_id(player_id)
+            if player:
+                self.check_for_injuries(player, team2, week)
 
         # Fill starters after injury check
         starters1 = self.fill_starters(team1, starters1, week)
@@ -175,6 +179,26 @@ class LeagueSimulation:
 
         score1, receptions1 = self.calculate_team_score(team1, week, starters1)
         score2, receptions2 = self.calculate_team_score(team2, week, starters2)
+        
+        if score1 > score2:
+            team1.wins += 1
+            team2.losses += 1
+        elif score2 > score1:
+            team2.wins += 1
+            team1.losses += 1
+        else:
+            team1.ties += 1
+            team2.ties += 1
+        
+        team1.points_for += score1
+        team1.points_against += score2
+        team2.points_for += score2
+        team2.points_against += score1
+
+        # Record weekly results
+        self.tracker.record_team_week(team1.name, week, score1)
+        self.tracker.record_team_week(team2.name, week, score2)
+
         
     def run_simulation(self):
         for week in range(1, self.weeks + 1):
@@ -215,38 +239,6 @@ class LeagueSimulation:
             if team.roster_id == roster_id:
                 return team
         return None
-
-    def simulate_matchup(self, team1, team2, week, starters1, starters2):
-        # Check for injuries before simulating the matchup
-        for player in team1.players + team2.players:
-            if not self.is_player_injured(player, week):
-                self.check_for_injuries(player, week)
-
-        # Fill starters after injury check
-        starters1 = self.fill_starters(team1, starters1, week)
-        starters2 = self.fill_starters(team2, starters2, week)
-
-        score1, receptions1 = self.calculate_team_score(team1, week, starters1)
-        score2, receptions2 = self.calculate_team_score(team2, week, starters2)
-        
-        if score1 > score2:
-            team1.wins += 1
-            team2.losses += 1
-        elif score2 > score1:
-            team2.wins += 1
-            team1.losses += 1
-        else:
-            team1.ties += 1
-            team2.ties += 1
-        
-        team1.points_for += score1
-        team1.points_against += score2
-        team2.points_for += score2
-        team2.points_against += score1
-
-        # Record weekly results
-        self.tracker.record_team_week(team1.name, week, score1)
-        self.tracker.record_team_week(team2.name, week, score2)
 
     def fill_starters(self, team, starters, week):
         required_positions = {
@@ -306,25 +298,22 @@ class LeagueSimulation:
     def calculate_team_score(self, team, week, starters):
         score = 0
         total_receptions = 0
+        points_lost_to_injury = 0
         for player in team.players:
-            if player and player.pff_projections:
-                player_score, player_receptions = self.calculate_player_score(player, week)
-                if player.sleeper_id in starters:
-                    if player.simulation_injury and player.simulation_injury['start_week'] == week:
-                        # Player got injured this week, apply partial score
-                        injury_time = player.simulation_injury['injury_time']
-                        player_score *= injury_time
-                        player_receptions *= injury_time
+            if player.sleeper_id in starters:
+                if self.is_player_injured(player, week):
+                    points_lost = self.calculate_points_lost_due_to_injury(player)
+                    points_lost_to_injury += points_lost
+                else:
+                    player_score, player_receptions = self.calculate_player_score(player, week)
                     score += player_score
                     total_receptions += player_receptions
-                if player.position not in ['DEF', 'K']:
-                    self.tracker.record_player_score(player.sleeper_id, week, player_score)
 
-        score += self.add_defense_score()
-        score += self.add_kicker_score()
+        # Record points lost to injury
+        self.tracker.record_points_lost_to_injury(team.name, week, points_lost_to_injury)
 
         return score, total_receptions
-        
+    
     def get_player_by_id(self, player_id, player_name=None):
         player_id = str(player_id).strip()
         for team in self.league.rosters:
@@ -442,5 +431,14 @@ class LeagueSimulation:
     def add_kicker_score(self):
         # randomly generate kicker scores bell curve around 10 with min max at  0 and 20
         return max(0, min(20, round(random.gauss(10, 5))))
+    
+    
+    def calculate_points_lost_due_to_injury(self, player):
+        # Calculate points lost due to injury for the given player
+        # This could be based on the player's average points per game or other metrics
+        if player.avg_points_per_game:
+            return max(0, random.gauss(player.avg_points_per_game, player.avg_points_per_game * 0.25))
+        else:
+            return max(0, random.gauss(player.pff_projections['fantasyPoints'], player.pff_projections['fantasyPoints'] * 0.25))
     
     

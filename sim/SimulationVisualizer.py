@@ -2,9 +2,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 class SimulationVisualizer:
-    def __init__(self, league, season_sim):
+    def __init__(self, league, tracker):
         self.league = league
-        self.season_sim = season_sim
+        self.tracker = tracker
 
     def plot_scoring_distributions(self):
         positions = ['QB', 'RB', 'WR', 'TE']
@@ -32,8 +32,8 @@ class SimulationVisualizer:
         for team in self.league.rosters:
             for player in team.players:
                 if player.position == position:
-                    scores = [score for week_scores in self.season_sim.weekly_player_scores.get(player.sleeper_id, {}).values() 
-                              for score in week_scores if score > 0]  # Only include non-zero scores
+                    scores = [score for week_scores in self.tracker.weekly_player_scores.get(player.sleeper_id, {}).values() 
+                            for score in week_scores]
                     all_scores.extend(scores)
         return all_scores
 

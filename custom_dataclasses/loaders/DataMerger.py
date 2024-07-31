@@ -36,6 +36,12 @@ class DataMerger:
         injury_df['player_lower'] = injury_df['player'].str.lower().str.strip()
         final_df['name_lower'] = final_df['name'].str.lower().str.strip()
         
+        # Ensure the column names match exactly
+        injury_df = injury_df.rename(columns={
+            'probability_of_injury_in_the_season': 'injury_probability_season',
+            'probability_of_injury_per_game': 'injury_probability_game'
+        })
+        
         # Merge injury data
         final_df = DataMerger.merge_injury_data(final_df, injury_df)
         

@@ -11,9 +11,35 @@ class SimulationTracker:
         self.worst_seasons = {}
         self.best_weeks = {}
         self.worst_weeks = {}
-
+        self.injury_stats = defaultdict(lambda: {'injuries': 0, 'total_injury_duration': 0, 'player_injuries': defaultdict(int), 'player_durations': defaultdict(int)})
+        self.injury_impact_stats = defaultdict(lambda: {'points_lost_per_week': [], 'total_points_lost': 0})
+        self.num_simulations = 0
+        self.points_lost_to_injury = defaultdict(lambda: defaultdict(list))
+        
+        
     def record_player_score(self, player_id, week, score):
         self.weekly_player_scores[player_id][week].append(score)
+        
+    def record_points_lost_to_injury(self, team_name, week, points_lost):
+        self.points_lost_to_injury[team_name][week].append(points_lost)
+        
+        
+    def get_injury_impact_stats(self, team_name):
+        weekly_averages = []
+        for week in range(1, 18):  # Assuming a 17-week season
+            week_losses = self.points_lost_to_injury[team_name][week]
+            print(week_losses)
+            if week_losses:
+                avg_loss = sum(week_losses) / len(week_losses)
+                weekly_averages.append(avg_loss)
+        
+        if weekly_averages:
+            return {
+                'avg_points_lost_per_week': sum(weekly_averages) / len(weekly_averages),
+                'max_points_lost_in_week': max(weekly_averages),
+                'total_points_lost_per_season': sum(weekly_averages)
+            }
+        return None
 
     def record_team_season(self, team_name, wins, losses, ties, points_for, points_against):
         self.team_season_results[team_name].append({
@@ -86,3 +112,62 @@ class SimulationTracker:
                 'worst_week': self.worst_weeks[team_name]
             }
         return None
+
+
+    def record_injury(self, player, team_name, injury_duration):
+        self.injury_stats[team_name]['injuries'] += 1
+        self.injury_stats[team_name]['total_injury_duration'] += injury_duration
+        self.injury_stats[team_name]['player_injuries'][player.sleeper_id] += 1
+        self.injury_stats[team_name]['player_durations'][player.sleeper_id] += injury_duration
+
+    def record_injury_impact(self, team_name, week, points_lost):
+        if len(self.injury_impact_stats[team_name]['points_lost_per_week']) <= week:
+            self.injury_impact_stats[team_name]['points_lost_per_week'].extend([0] * (week + 1 - len(self.injury_impact_stats[team_name]['points_lost_per_week'])))
+        self.injury_impact_stats[team_name]['points_lost_per_week'][week] += points_lost
+        self.injury_impact_stats[team_name]['total_points_lost'] += points_lost
+
+    def get_injury_stats(self):
+        overall_stats = {
+            'avg_injuries_per_season': 0,
+            'avg_injury_duration': 0,
+            'team_injury_stats': {}
+        }
+        total_injuries = 0
+        total_duration = 0
+        for team_name, stats in self.injury_stats.items():
+            total_injuries += stats['injuries']
+            total_duration += stats['total_injury_duration']
+            avg_duration = stats['total_injury_duration'] / stats['injuries'] if stats['injuries'] > 0 else 0
+            most_injured_player = max(stats['player_injuries'], key=stats['player_injuries'].get, default=None)
+            overall_stats['team_injury_stats'][team_name] = {
+                'avg_injury_duration': avg_duration,
+                'player_id': most_injured_player
+            }
+        overall_stats['avg_injuries_per_season'] = total_injuries / self.num_simulations
+        overall_stats['avg_injury_duration'] = total_duration / total_injuries if total_injuries > 0 else 0
+        return overall_stats
+    
+    def set_num_simulations(self, num_simulations):
+        self.num_simulations = num_simulations
+        
+        
+    def get_injury_impact_stats(self, team_name):
+        weekly_losses = self.points_lost_to_injury[team_name]
+        if not weekly_losses:
+            return {
+                'avg_points_lost_per_week': 0,
+                'max_points_lost_in_week': 0,
+                'total_points_lost_per_season': 0
+            }
+        
+        total_weeks = len(weekly_losses)
+        total_points_lost = sum(sum(week_losses) for week_losses in weekly_losses.values())
+        
+        avg_points_lost_per_week = total_points_lost / (total_weeks * self.num_simulations) if total_weeks > 0 else 0
+        max_points_lost_in_week = max(max(week_losses) for week_losses in weekly_losses.values()) if weekly_losses else 0
+        
+        return {
+            'avg_points_lost_per_week': avg_points_lost_per_week,
+            'max_points_lost_in_week': max_points_lost_in_week,
+            'total_points_lost_per_season': total_points_lost / self.num_simulations
+        }

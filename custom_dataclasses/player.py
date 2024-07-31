@@ -31,13 +31,23 @@ class Player:
         
         
         
-        # Convert
-        # injury probabilities from percentage to decimal
-        self.injury_probability_season = float(initial_data.get('probability_of_injury_in_the_season', 10.0)) / 100
+        # Injury data
+        self.career_injuries = initial_data.get('career_injuries', 0)
+        self.injury_risk = initial_data.get('injury_risk', 'Medium')
+        self.durability = initial_data.get('durability', 0)
+
+        # Convert injury probabilities from percentage to decimal
+        self.injury_probability_season = self.convert_to_decimal(initial_data.get('injury_probability_season', 10.0))
         self.projected_games_missed = float(initial_data.get('projected_games_missed', 1.0))
-        self.injury_probability_game = float(initial_data.get('probability_of_injury_per_game', 2.5)) / 100
+        self.injury_probability_game = self.convert_to_decimal(initial_data.get('injury_probability_game', 1.0))
+
 
         self.simulation_injury = None
+        self.simulation_injury_duration = None
+        self.avg_points_per_game = None
+        self.avg_points_per_season = None
+        self.simulation_game = None
+        self.simulation_points_current_season = None
         
         # FantasyCalc data
         self.value_1qb = float(initial_data.get('value_1qb', 0)) if initial_data.get('value_1qb') not in ['', None] else 0.0
@@ -60,3 +70,14 @@ class Player:
 
     def print_player_short(self):
          print(f"{self.full_name} - {self.position.upper()} - {self.team} - 1QB: {self.value_1qb} - Redraft: {self.redraft_value}")
+         
+         
+    @staticmethod
+    def convert_to_decimal(value):
+        if isinstance(value, str):
+            value = value.replace('%', '').strip()
+        try:
+            float_value = float(value)
+            return float_value / 100 if float_value > 1 else float_value
+        except ValueError:
+            return 0.01  # Default to 1% if conversion fails
