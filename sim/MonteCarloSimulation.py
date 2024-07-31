@@ -3,6 +3,8 @@ from collections import defaultdict
 from sim.LeagueSimulation import LeagueSimulation
 from tqdm import tqdm
 
+from sim.SimulationVisualizer import SimulationVisualizer
+
 class MonteCarloSimulation:
     def __init__(self, league, num_simulations=1000):
         self.league = league
@@ -10,10 +12,15 @@ class MonteCarloSimulation:
         self.results = defaultdict(list)
         self.season_sim = LeagueSimulation(self.league)
         self.season_sim.fetch_all_matchups()  # Fetch matchups once
+        self.visualizer = SimulationVisualizer(self.league, self.season_sim)
 
     def run(self):
         for _ in tqdm(range(self.num_simulations), desc="Running Simulations", unit="sim"):
             self.run_single_simulation()
+    
+        self.print_results()
+        self.print_top_players_by_position()
+        self.visualizer.plot_scoring_distributions()  # Use the visualizer here
 
     def run_single_simulation(self):
         # Reset league stats
@@ -47,7 +54,8 @@ class MonteCarloSimulation:
             avg_wins = sum(sim['wins'] for sim in simulations) / self.num_simulations
             avg_total_points = sum(sim['points_for'] for sim in simulations) / self.num_simulations
             avg_points_per_week = avg_total_points / weeks
-            playoff_appearances = sum(1 for sim in simulations if sim['wins'] >= 7) / self.num_simulations * 100
+            # makes playoffs if they are a top 6 team for that season
+            playoff_appearances = sum(sim['wins'] >= 6 for sim in simulations) / self.num_simulations * 100
 
             print(f"{team_name}:")
             print(f"  Average Wins: {avg_wins:.2f}")

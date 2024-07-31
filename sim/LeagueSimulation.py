@@ -80,16 +80,56 @@ class LeagueSimulation:
         team2.points_against += score1
 
     def fill_starters(self, team, starters):
-        if len(starters) < 11:  # assuming 9 starter slots
-            all_players = sorted(team.players, key=lambda player: player.value_1qb, reverse=True)
-            filled_starters = [p for p in starters if p]
-            for player in all_players:
-                if player.sleeper_id not in filled_starters and len(filled_starters) < 11:
+        required_positions = {
+            'QB': 1,
+            'WR': 3,
+            'RB': 3,
+            'FLEX': 3,
+            'K': 1,
+            'DEF': 1
+        }
+        
+        filled_starters = []
+        position_counts = defaultdict(int)
+        flex_eligible = ['WR', 'RB', 'TE']
+
+        # First, fill in the existing starters
+        for player_id in starters:
+            player = self.get_player_by_id(player_id)
+            if player:
+                if player.position in required_positions or player.position in flex_eligible:
+                    filled_starters.append(player_id)
+                    if player.position in required_positions:
+                        position_counts[player.position] += 1
+                    elif player.position in flex_eligible:
+                        if position_counts['FLEX'] < required_positions['FLEX']:
+                            position_counts['FLEX'] += 1
+                        else:
+                            position_counts[player.position] += 1
+
+        # Then fill the remaining slots
+        all_players = sorted(team.players, key=lambda p: p.value_1qb, reverse=True)
+        for player in all_players:
+            if len(filled_starters) >= sum(required_positions.values()):
+                break
+            
+            if player.sleeper_id not in filled_starters:
+                if player.position in required_positions and position_counts[player.position] < required_positions[player.position]:
                     filled_starters.append(player.sleeper_id)
-                    print(f"Added player {player.sleeper_id} to starters")
-            print(f"Filled starters for {team.name}: {filled_starters}")
-            return filled_starters[:11]
-        return starters
+                    position_counts[player.position] += 1
+                elif player.position in flex_eligible and position_counts['FLEX'] < required_positions['FLEX']:
+                    filled_starters.append(player.sleeper_id)
+                    position_counts['FLEX'] += 1
+
+        # If we still don't have enough starters, fill FLEX positions with best available players
+        if len(filled_starters) < sum(required_positions.values()):
+            for player in all_players:
+                if player.sleeper_id not in filled_starters and player.position in flex_eligible:
+                    filled_starters.append(player.sleeper_id)
+                    if len(filled_starters) >= sum(required_positions.values()):
+                        break
+
+        return filled_starters[:sum(required_positions.values())]
 
     def calculate_team_score(self, team, week, starters):
         score = 0
@@ -141,9 +181,7 @@ class LeagueSimulation:
         bye_week = int(proj.get('byeWeek', 0))
 
         if games == 0 or week == bye_week:
-            print(f"{player.full_name} not playing in week {week}")
             return 0, 0  # Player is not expected to play or it's their bye week
-
 
         # Calculate per-game averages
         avg_pass_yds = float(proj['passYds']) / games
@@ -156,14 +194,26 @@ class LeagueSimulation:
         avg_receptions = float(proj.get('recvReceptions', 0)) / games
 
         # Add randomness to projections
-        pass_yds = max(0, random.gauss(avg_pass_yds, avg_pass_yds * 0.25)) 
+        pass_yds = max(0, random.gauss(avg_pass_yds, avg_pass_yds * 0.25))
         pass_td = max(0, random.gauss(avg_pass_td, avg_pass_td * 0.75))
         pass_int = max(0, random.gauss(avg_pass_int, avg_pass_int * 0.75))
-        rush_yds = max(0, random.gauss(avg_rush_yds, avg_rush_yds * 0.75))
-        rush_td = max(0, random.gauss(avg_rush_td, avg_rush_td * 1))
-        rec_yds = max(0, random.gauss(avg_rec_yds, avg_rec_yds * 1.5))
-        rec_td = max(0, random.gauss(avg_rec_td, avg_rec_td * 1))
-        receptions = max(0, random.gauss(avg_receptions, avg_receptions * 1.2))
+        rush_yds = max(0, random.gauss(avg_rush_yds, avg_rush_yds * 0.25))
+        rush_td = max(0, random.gauss(avg_rush_td, avg_rush_td * 0.75))
+        
+        # calculate receptions
+        receptions = max(0, random.gauss(avg_receptions, avg_receptions * 0.8))
+
+        # Calculate receiving yards based on receptions
+        avg_yards_per_reception = avg_rec_yds / avg_receptions if avg_receptions > 0 else 0 # Avoid division by zero 
+
+        base_rec_yds = receptions * avg_yards_per_reception # Base receiving yards based on receptions
+        rec_yds = max(0, random.gauss(base_rec_yds, base_rec_yds * 0.1))
+        rec_td = max(0, random.gauss(avg_rec_td, avg_rec_td * 0.75))
+        
+        if receptions <= 0:
+            receptions = 0
+            rec_yds = 0
+            rec_td = 0
 
         # Round stats to realistic values
         pass_yds = round(pass_yds)
@@ -185,10 +235,6 @@ class LeagueSimulation:
             rec_td * scoring.rec_td +
             receptions * (scoring.te_rec if player.position == 'TE' else scoring.rec)
         )
-
-        if score == 0:
-            print(f"Zero score generated for {player.full_name} in week {week}")
-            print(f"Stats: Pass: {pass_yds}/{pass_td}/{pass_int}, Rush: {rush_yds}/{rush_td}, Rec: {rec_yds}/{rec_td}/{receptions}")
 
         return score, receptions
 
