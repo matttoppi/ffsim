@@ -3,6 +3,7 @@ import random
 import math
 import requests
 import os
+from itertools import combinations
 import json
 
 from sim.SimulationTracker import SimulationTracker
@@ -122,11 +123,12 @@ class LeagueSimulation:
                 
                 
     def check_for_injuries(self, player, team, week):
+        if player.position in ['DEF', 'K']:
+            return False
+        
         self.injury_checks += 1
         injury_roll = random.random()
         injury_probability = player.injury_probability_game
-
-        print(f"DEBUG: Checking injury for {player.full_name} (Probability: {injury_probability:.4f}, Roll: {injury_roll:.4f})")
 
         if injury_roll < injury_probability:
             self.injuries_occurred += 1
@@ -138,7 +140,8 @@ class LeagueSimulation:
                 'injury_time': injury_time
             }
             self.tracker.record_injury(player, team.name, injury_duration)
-            print(f"DEBUG: Injury occurred for {player.full_name} on {team.name} in week {week} for {injury_duration:.1f} games")
+            if team.name == "Toppi":
+                print(f"DEBUG: Week {week} - {player.full_name} ({player.position}) injury - {injury_duration:.2f} games")
             return True
         return False
     
@@ -148,30 +151,21 @@ class LeagueSimulation:
         # Ensure minimum duration of 0.5 games
         return max(0.5, base_duration)
 
-    def is_player_injured(self, player, week):
-        if player.simulation_injury:
-            injury_end = player.simulation_injury['start_week'] + player.simulation_injury['duration']
-            if week < injury_end:
-                return True
-            elif week == injury_end and random.random() < (injury_end % 1):
-                return True
-            else:
-                player.simulation_injury = None
-        return False
 
     def simulate_matchup(self, team1, team2, week, starters1, starters2):
-        print(f"DEBUG: Simulating matchup between {team1.name} and {team2.name} in week {week}")
+        if team1.name == "Toppi" or team2.name == "Toppi":
+            print(f"DEBUG: Simulating matchup between {team1.name} and {team2.name} in week {week}")
         
-        # Check for injuries before simulating the matchup
-        for player_id in starters1:
-            player = self.get_player_by_id(player_id)
-            if player:
-                self.check_for_injuries(player, team1, week)
-        
-        for player_id in starters2:
-            player = self.get_player_by_id(player_id)
-            if player:
-                self.check_for_injuries(player, team2, week)
+        # Print initial lineups
+        if team1.name == "Toppi":
+            self.fill_starters(team1, starters1, week)
+        if team2.name == "Toppi":
+            self.fill_starters(team2, starters2, week)
+
+        # Check for injuries after printing initial lineups
+        for team in [team1, team2]:
+            for player in team.players:
+                self.check_for_injuries(player, team, week)
 
         # Fill starters after injury check
         starters1 = self.fill_starters(team1, starters1, week)
@@ -210,6 +204,11 @@ class LeagueSimulation:
             print(f"Injury rate: {injury_rate:.2f}%")
 
     def simulate_week(self, week):
+        # Reset returning_from_injury flag for all players
+        for team in self.league.rosters:
+            for player in team.players:
+                player.returning_from_injury = False
+        
         matchups_data = self.matchups.get(week)
         if not matchups_data:
             print(f"No matchup data for week {week}")
@@ -240,60 +239,153 @@ class LeagueSimulation:
                 return team
         return None
 
+    def is_player_injured(self, player, week):
+        if player.simulation_injury:
+            injury_end = player.simulation_injury['start_week'] + player.simulation_injury['duration']
+            return week < injury_end
+        return False
+
     def fill_starters(self, team, starters, week):
-        required_positions = {
-            'QB': 1,
-            'WR': 3,
-            'RB': 3,
-            'FLEX': 3,
-            'K': 1,
-            'DEF': 1
+        if team.name == "Toppi":
+            print(f"\nDEBUG: Filling starters for {team.name} for week {week}")
+
+        slots = {
+            'QB': 1, 'RB': 3, 'WR': 3, 'TE': 1, 'FLEX': 3, 'K': 1, 'DEF': 1
         }
+        flex_eligible = ['RB', 'WR', 'TE']
+
+        current_starters = [self.get_player_by_id(pid) for pid in starters if self.get_player_by_id(pid)]
         
-        filled_starters = []
-        position_counts = defaultdict(int)
-        flex_eligible = ['WR', 'RB', 'TE']
+        if team.name == "Toppi":
+            self.print_current_lineup(team, current_starters, week)
+            self.print_injured_players(team, week)
 
-        # First, fill in the existing starters
-        for player_id in starters:
-            player = self.get_player_by_id(player_id)
-            if player and not self.is_player_injured(player, week):
-                if player.position == 'UNKNOWN':
-                    player.position = self.get_player_position(player_id)
-                if player.position in required_positions or player.position in flex_eligible:
-                    filled_starters.append(player_id)
-                    if player.position in required_positions:
-                        position_counts[player.position] += 1
-                    elif player.position in flex_eligible:
-                        if position_counts['FLEX'] < required_positions['FLEX']:
-                            position_counts['FLEX'] += 1
-                        else:
-                            position_counts[player.position] += 1
+        def is_player_available(player):
+            if not self.is_player_injured(player, week):
+                return True
+            if player.simulation_injury and player.simulation_injury['duration'] < 1:
+                return True
+            return False
 
-        # Then fill the remaining slots
-        all_players = sorted([p for p in team.players if not self.is_player_injured(p, week)], 
-                             key=lambda p: p.value_1qb, reverse=True)
-        for player in all_players:
-            if len(filled_starters) >= sum(required_positions.values()):
-                break
+        available_players = [p for p in team.players if is_player_available(p)]
+        new_lineup = {pos: [] for pos in slots.keys()}
+        
+        # Fill non-FLEX positions
+        for pos in slots.keys():
+            if pos != 'FLEX':
+                eligible = [p for p in available_players if p.position == pos]
+                eligible.sort(key=lambda p: p.redraft_value if hasattr(p, 'redraft_value') else 0, reverse=True)
+                new_lineup[pos] = eligible[:slots[pos]]
+                for player in new_lineup[pos]:
+                    available_players.remove(player)
+
+        # Fill FLEX positions
+        flex_eligible_players = [p for p in available_players if p.position in flex_eligible]
+        flex_eligible_players.sort(key=lambda p: p.redraft_value if hasattr(p, 'redraft_value') else 0, reverse=True)
+        new_lineup['FLEX'] = flex_eligible_players[:slots['FLEX']]
+
+        # Flatten the lineup
+        flat_lineup = [player for pos_list in new_lineup.values() for player in pos_list]
+
+        # Determine actual changes
+        changes = []
+        for old, new in zip(current_starters, flat_lineup):
+            if old != new and (not old or not self.is_player_injured(old, week) or old.simulation_injury['duration'] >= 1):
+                changes.append((old, new))
+
+        if team.name == "Toppi":
+            self.print_lineup(team, new_lineup, week)
+            self.print_lineup_changes(changes, team, week)
+
+        return [p.sleeper_id for p in flat_lineup]
+
+    def print_current_lineup(self, team, current_starters, week):
+        print(f"\nCurrent lineup for {team.name} in week {week} (before injury checks):")
+        positions = ['QB', 'RB', 'RB', 'RB', 'WR', 'WR', 'WR', 'TE', 'FLEX', 'FLEX', 'FLEX', 'K', 'DEF']
+        for pos, player in zip(positions, current_starters):
+            print(f"{pos}: {player.full_name} ({player.position})")
+
+
+    def print_lineup_changes(self, changes, team, week):
+        if changes:
+            print(f"\nLineup changes for {team.name} in week {week}:")
+            for old, new in changes:
+                if old and self.is_player_injured(old, week) and old.simulation_injury['duration'] >= 1:
+                    print(f"  Replaced injured {old.full_name} ({old.position}) with {new.full_name} ({new.position})")
+                elif old and new and old.position != new.position:
+                    print(f"  Replaced {old.full_name} ({old.position}) with {new.full_name} ({new.position}) at {new.position}")
+                elif new:
+                    print(f"  Added: {new.full_name} ({new.position})")
+        else:
+            print(f"\nNo lineup changes for {team.name} in week {week}")
+
+    def print_lineup(self, team, lineup, week):
+        print(f"\nLineup for {team.name} in week {week}:")
+        for pos, players in lineup.items():
+            print(f"{pos}: {', '.join([f'{p.full_name} ({p.position})' for p in players])}")
             
-            if player.sleeper_id not in filled_starters:
-                if player.position in required_positions and position_counts[player.position] < required_positions[player.position]:
-                    filled_starters.append(player.sleeper_id)
-                    position_counts[player.position] += 1
-                elif player.position in flex_eligible and position_counts['FLEX'] < required_positions['FLEX']:
-                    filled_starters.append(player.sleeper_id)
-                    position_counts['FLEX'] += 1
+    def print_injured_players(self, team, week):
+        injured_players = [p for p in team.players if self.is_player_injured(p, week)]
+        if injured_players:
+            print(f"\nInjured players for {team.name} in week {week}:")
+            for player in injured_players:
+                injury_end = player.simulation_injury['start_week'] + player.simulation_injury['duration']
+                games_remaining = max(0, injury_end - week)
+                print(f"  {player.full_name} ({player.position}): {games_remaining:.2f} games remaining")
+        else:
+            print(f"\nNo injured players for {team.name} in week {week}")
 
-        # If we still don't have enough starters, fill FLEX positions with best available players
-        if len(filled_starters) < sum(required_positions.values()):
-            for player in all_players:
-                if player.sleeper_id not in filled_starters and player.position in flex_eligible:
-                    filled_starters.append(player.sleeper_id)
-                    if len(filled_starters) >= sum(required_positions.values()):
-                        break
 
-        return filled_starters[:sum(required_positions.values())]
+    
+    def find_replacement(self, pos, available_players, flex_eligible):
+        if pos == 'FLEX':
+            return next((p for p in available_players if p.position in flex_eligible), None)
+        else:
+            return next((p for p in available_players if p.position == pos), None)
+
+    def refill_position(self, position_lists, non_starters, position, flex_eligible):
+        if position == 'FLEX':
+            for pos in flex_eligible:
+                if non_starters and non_starters[0].position == pos:
+                    position_lists['FLEX'].append(non_starters.pop(0))
+                    return
+        elif position in flex_eligible and position_lists['FLEX']:
+            # Move player from FLEX to required position
+            for i, player in enumerate(position_lists['FLEX']):
+                if player.position == position:
+                    position_lists[position].append(position_lists['FLEX'].pop(i))
+                    self.refill_position(position_lists, non_starters, 'FLEX', flex_eligible)
+                    return
+        
+        # If we can't fill from FLEX, try to fill from non_starters
+        for i, player in enumerate(non_starters):
+            if player.position == position or (position == 'FLEX' and player.position in flex_eligible):
+                position_lists[position].append(non_starters.pop(i))
+                return
+
+        print(f"WARNING: Unable to fill {position} position")
+        x = input("Press Enter to continue...") # Debugging
+
+    def is_valid_lineup(self, lineup, required_positions, flex_eligible):
+        position_counts = {pos: 0 for pos in required_positions}
+        
+        for player in lineup:
+            if player.position in required_positions:
+                position_counts[player.position] += 1
+        
+        # Check if all required non-FLEX positions are filled
+        for pos, count in required_positions.items():
+            if pos != 'FLEX' and position_counts[pos] < count:
+                return False
+        
+        # Count remaining flex-eligible players
+        remaining_flex = sum(position_counts[pos] for pos in flex_eligible) - sum(required_positions[pos] for pos in flex_eligible if pos != 'FLEX')
+        
+        # Check if we have enough players for FLEX
+        if remaining_flex >= required_positions['FLEX']:
+            print("Debug: Valid lineup found!")
+            return True
+        return False
 
     def calculate_team_score(self, team, week, starters):
         score = 0
@@ -420,8 +512,19 @@ class LeagueSimulation:
             rec_td * scoring.rec_td +
             receptions * (scoring.te_rec if player.position == 'TE' else scoring.rec)
         )
+        
+        if self.is_player_injured(player, week):
+            if player.simulation_injury['start_week'] == week:
+                # Player got injured this week
+                injury_factor = 1 - player.simulation_injury['duration']
+                score *= max(0, injury_factor)
+                receptions *= max(0, injury_factor)
+            else:
+                # Player was already injured before this week
+                return 0, 0
 
         return score, receptions
+
 
     def add_defense_score(self):
         # randomly generate defense scores bell curve around 15 with min max at -5 and 35

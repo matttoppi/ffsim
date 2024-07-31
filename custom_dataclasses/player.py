@@ -42,12 +42,14 @@ class Player:
         self.injury_probability_game = self.convert_to_decimal(initial_data.get('injury_probability_game', 1.0))
 
 
-        self.simulation_injury = None
         self.simulation_injury_duration = None
-        self.avg_points_per_game = None
         self.avg_points_per_season = None
         self.simulation_game = None
         self.simulation_points_current_season = None
+        
+        self.simulation_injury = None
+        self.returning_from_injury = False
+        self.avg_points_per_game = None
         
         # FantasyCalc data
         self.value_1qb = float(initial_data.get('value_1qb', 0)) if initial_data.get('value_1qb') not in ['', None] else 0.0
