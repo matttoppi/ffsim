@@ -67,16 +67,12 @@ class MonteCarloSimulation:
             player_stats = []
             for player in players:
                 weekly_scores = self.season_sim.weekly_player_scores[player.sleeper_id]
-                if weekly_scores:
-                    all_scores = [score for week_scores in weekly_scores.values() for score in week_scores if score > 0]
-                    if all_scores:
-                        avg_score = sum(all_scores) / len(all_scores)
-                        
-                        lowest_score = min(all_scores)
-                        highest_score = max(all_scores)
-                        player_stats.append((player, avg_score, lowest_score, highest_score))
-                if not all_scores:
-                    player_stats.append((player, 0, 0, 0))
+                all_scores = [score for week_scores in weekly_scores.values() for score in week_scores if score > 0]
+                if all_scores:
+                    avg_score = sum(all_scores) / len(all_scores)
+                    lowest_score = min(all_scores)
+                    highest_score = max(all_scores)
+                    player_stats.append((player, avg_score, lowest_score, highest_score))
 
             # Sort players by average weekly score
             sorted_players = sorted(player_stats, key=lambda x: x[1], reverse=True)[:top_n]
@@ -87,7 +83,6 @@ class MonteCarloSimulation:
                 player_name = f"{player.first_name} {player.last_name}"
                 print(f"{i:<5}{player_name:<30}{avg_score:<8.2f}{lowest_score:<8.2f}{highest_score:<8.2f}")
             print()  # Add a blank line after each position group
-
     def print_projected_standings(self):
         print("\nProjected Final Standings:")
         avg_results = []

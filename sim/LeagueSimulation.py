@@ -147,6 +147,9 @@ class LeagueSimulation:
         proj = player.pff_projections
         scoring = self.league.scoring_settings
 
+        if not proj:
+            return 0, 0  # Return 0 score and 0 receptions if no projections
+
         games = float(proj['games'])
         bye_week = int(proj.get('byeWeek', 0))
 
@@ -161,7 +164,7 @@ class LeagueSimulation:
         avg_rush_td = float(proj['rushTd']) / games
         avg_rec_yds = float(proj['recvYds']) / games
         avg_rec_td = float(proj['recvTd']) / games
-        avg_receptions = float(proj.get('recvReceptions', 0)) / games  # Changed to 'recvReceptions'
+        avg_receptions = float(proj.get('recvReceptions', 0)) / games
 
         # Add randomness to projections
         pass_yds = max(0, random.gauss(avg_pass_yds, avg_pass_yds * 0.2))
@@ -184,7 +187,6 @@ class LeagueSimulation:
         receptions = round(receptions)
 
         # Calculate score based on league's scoring settings
-        # Calculate score based on league's scoring settings
         score = (
             pass_yds * scoring.pass_yd +
             pass_td * scoring.pass_td +
@@ -193,9 +195,8 @@ class LeagueSimulation:
             rush_td * scoring.rush_td +
             rec_yds * scoring.rec_yd +
             rec_td * scoring.rec_td +
-            receptions * (scoring.te_rec if player.position == 'TE' else scoring.rec)  # Use TE-specific reception points if the player is a TE
+            receptions * (scoring.te_rec if player.position == 'TE' else scoring.rec)
         )
-
 
         return score, receptions
 

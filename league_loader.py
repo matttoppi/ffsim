@@ -10,7 +10,8 @@ class LeagueLoader:
     def __init__(self, league_id, player_loader):
         self.sleeper_league = SleeperLeague(league_id)
         self.league_id = league_id
-        self.player_loader = player_loader  # This is an instance of PlayerLoader
+        self.player_loader = player_loader
+        self.player_loader.ensure_players_loaded()  # Ensure players are loaded
 
     def load_league(self):
         league_data = self.sleeper_league.get_league()
@@ -31,35 +32,27 @@ class LeagueLoader:
         print(f"Loading rosters...")
         rosters = []
         roster_data_list = self.sleeper_league.get_rosters()
-        user_dict = self.load_users()  # Load user data for association with rosters
-        self.player_loader.load_players_from_file() # Load players from file
+        user_dict = self.load_users()
         
         for roster_data in roster_data_list:
             owner_id = roster_data.get("owner_id")
-            user_data = user_dict.get(owner_id, {})  # Fetch user data for the roster's owner
-            # print(f"RosterID: {roster_data.get('roster_id')} - Owner: {user_data.get('display_name')}")
+            user_data = user_dict.get(owner_id, {})
             
             team_name = user_data.get("metadata", {}).get("team_name", "Unknown")
             
-            # Assuming FantasyTeam can store user data; adjust constructor as needed
             fantasy_team = FantasyTeam(team_name, league, user_data)
             fantasy_team.roster_id = roster_data.get("roster_id")
             
-            # Load the players on the roster
             player_ids = roster_data.get("players")
             
             for player_id in player_ids:
                 player = self.player_loader.load_player(player_id)
                 
                 if player:
-                    fantasy_team.players.append(player)
-                    fantasy_team.player_sleeper_ids.append(player.sleeper_id)
-                            
+                    print(f"Adding {player.full_name} to {fantasy_team.name}")
+                    fantasy_team.add_player(player)
+            
             fantasy_team.calculate_stats()
-        
-            # # fantasy_team.print_fantasy_team()
-            # fantasy_team.print_fantasy_team_short()
-                
             
             rosters.append(fantasy_team)
             

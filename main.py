@@ -21,14 +21,13 @@ def main():
     # print the league data in order from highest to lowest value
     # league.print_league_value_rankings()
     league.print_rosters()
-    league.scoring_settings.print_scoring_settings()
-    
-    print(league.rosters[0].players[0].pff_projections)
+    # league.scoring_settings.print_scoring_settings()
+ 
     
     input("Press Enter to run Monte Carlo Simulation")
     # clear the console
     os.system('cls' if os.name == 'nt' else 'clear')   
-    monte_carlo = MonteCarloSimulation(league, num_simulations=10000)
+    monte_carlo = MonteCarloSimulation(league, num_simulations=250)
     
     monte_carlo.run()
     monte_carlo.print_results()

@@ -100,7 +100,7 @@ class League:
             sorted_players = sorted(team.players, key=lambda x: x.value_1qb, reverse=True)
             print(f"\n\nTeam: {team.name}")
             for player in sorted_players:
-                print(f"  Player: {player.first_name} {player.last_name} - {player.value_1qb} - {player.position}")
+                print(f"  Player: {player.name} - {player.value_1qb} - {player.position}")
             
             print(f"  Total value 1QB: {team.total_value_1qb}")
                 

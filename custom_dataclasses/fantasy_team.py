@@ -43,22 +43,17 @@ class FantasyTeam:
         
     def print_fantasy_team_short(self):
         print(f"|{self.owner_username:<16} | Value 1QB: {self.total_value_1qb:<8.2f} |")
+        
+    def add_player(self, player):
+        self.players.append(player)
+        self.player_sleeper_ids.append(player.sleeper_id)
 
     def calculate_stats(self):
         if len(self.players) <= 0:
             return
-        self.total_value_1qb = round(sum([player.value_1qb for player in self.players if player.value_1qb is not None]), 2)
-        self.total_value_2qb = round(sum([player.value_2qb for player in self.players if player.value_2qb is not None]), 2)
+        self.total_value_1qb = round(sum(player.value_1qb for player in self.players if player.value_1qb is not None), 2)
+        # self.total_value_2qb = round(sum(player.value_2qb for player in self.players if player.value_2qb is not None), 2)
         self.average_value_1qb = round(self.total_value_1qb / len(self.players), 2)
-        self.average_value_2qb = round(self.total_value_2qb / len(self.players), 2)
+        # self.average_value_2qb = round(self.total_value_2qb / len(self.players), 2)
+        self.total_age = sum(player.age for player in self.players if player.age is not None)
         self.average_age = round(self.total_age / len(self.players), 2) if self.total_age else 0
-
-        sorted_players = sorted(self.players, key=lambda x: x.value_1qb if x.value_1qb is not None else 0, reverse=True)
-        
-        for player in sorted_players:
-            if player.value_1qb is None:
-                player.value_1qb = 0
-            if player.value_2qb is None:
-                player.value_2qb = 0
-
-        # Removed the print statement from here

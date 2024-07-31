@@ -2,394 +2,238 @@ import requests
 import json
 import os
 from datetime import datetime, timedelta
-import requests
-import json
-import os
 import pandas as pd
-from datetime import datetime, timedelta
-import numpy as np
-from functools import reduce
 import csv
-
+from custom_dataclasses.player import Player
+from functools import reduce
 import ssl
 ssl._create_default_https_context = ssl._create_unverified_context
 
-import requests
-import pandas as pd
-from datetime import datetime, timedelta
-from custom_dataclasses.player import Player
-
 class PlayerLoader:
-
     def __init__(self):
         self.players_file = 'datarepo/players.json'
         self.refresh_interval = timedelta(days=3)
-        self.player_ids_csv_url = "https://raw.githubusercontent.com/dynastyprocess/data/master/files/db_playerids.csv"
-        self.player_values_csv_url = "https://raw.githubusercontent.com/dynastyprocess/data/master/files/values-players.csv"
-        self.sleeper_api_url = "https://api.sleeper.app/v1/players/nfl"
-
-        # Define renaming schemas
-        self.rename_schema_qb = {
-            'ATT': 'PASS_ATT',
-            'YDS': 'PASS_YDS',
-            'TD': 'PASS_TD'
-        }
-        self.rename_schema_rb_wr_te = {
-            'ATT': 'RUSH_ATT',
-            'YDS': 'RUSH_RECEIVE_YDS',
-            'TD': 'RUSH_RECEIVE_TD'
-        }
-        self.rename_schema_advanced = {
-            'YDS': 'ADV_YDS',
-            'TD': 'ADV_TD'
-        }
-        self.rename_schema_target_leaders = {
-            'TGT': 'TARGETS',
-            'YDS': 'TARGET_YDS',
-            'REC': 'RECEPTIONS'
-        }
-
-        # Define filepaths and schemas
-        self.filepaths = [
-            'datarepo/OLD/Traditional/23QB.csv',
-            'datarepo/OLD/Traditional/23RB.csv',
-            'datarepo/OLD/Traditional/23WR.csv',
-            'datarepo/OLD/Traditional/23TE.csv',
-            'datarepo/OLD/Advanced/23QBadvanced.csv',
-            'datarepo/OLD/Advanced/23RBadvanced.csv',
-            'datarepo/OLD/Advanced/23WRadvanced.csv',
-            'datarepo/OLD/Advanced/23TEadvanced.csv',
-            'datarepo/Special/23TargetLeaders.csv'
+        self.enriched_players = []
+        
+        
+        self.desired_from_fantasycalcapi = [
+            "sleeperID",
+            "name",
+            "value",
+            "redraft_value",
+            "position"
         ]
-        self.schemas = [
-            self.rename_schema_qb,
-            self.rename_schema_rb_wr_te,
-            self.rename_schema_rb_wr_te,
-            self.rename_schema_rb_wr_te,
-            self.rename_schema_advanced,
-            self.rename_schema_advanced,
-            self.rename_schema_advanced,
-            self.rename_schema_advanced,
-            self.rename_schema_target_leaders
+        
+        self.desired_pff_projections = [
+            "fantasyPointsRank",
+            "playerName",
+            "teamName",
+            "position",
+            "byeWeek",
+            "games",
+            "fantasyPoints",
+            "auctionValue",
+            "passComp",
+            "passAtt",
+            "passYds",
+            "passTd",
+            "passInt",
+            "passSacked",
+            "rushAtt",
+            "rushYds",
+            "rushTd",
+            "recvTargets",
+            "recvReceptions",
+            "recvYds",
+            "recvTd",
+            "fumbles",
+            "fumblesLost",
+            "twoPt",
+            "returnYds",
+            "returnTd",
         ]
 
-        # Download and parse CSVs with the correct indexing
-        self.id_mapping = self.download_and_parse_csv(self.player_ids_csv_url, index_col='fantasypros_id')
-        self.values_data = self.download_and_parse_csv(self.player_values_csv_url, index_col='fp_id')
-        
-        # Fetch sleeper data into a dataframe
-        self.sleeper_players = pd.DataFrame(self.fetch_sleeper_data())
-        
-        # Load PFF projections
-        self.pff_projections = self.load_pff_projections('datarepo/PFFProjections/24PFFProjections.csv')
+        self.sleeper_desired_columns = [
+            "full_name",
+            "position",
+            "team",
+            "age",
+            "years_exp",
+            "college",
+            "sleeper_id",  # Changed from "player_id" to "sleeper_id"
+            "depth_chart_order",
+            "injury_status",
+            "weight",
+            "height"
+        ]
         
         self.load_players()
 
-    @staticmethod
-    def load_pff_projections(file_path):
-        projections = {}
-        with open(file_path, 'r') as csvfile:
-            reader = csv.DictReader(csvfile)
-            
-            # Print out the column names
-
-            # print(reader.fieldnames)
-            
-            # Find the correct column name for player names
-            name_column = next((col for col in reader.fieldnames if 'name' in col.lower()), None)
-            
-            if not name_column:
-                print("Error: Could not find a column for player names in the PFF projections file.")
-                return projections
-
-            for row in reader:
-                player_name = row[name_column]
-                projections[player_name] = row
-        
-        print(f"Loaded {len(projections)} players from PFF projections.")
-        return projections
-    def download_and_parse_csv(self, csv_url, index_col=None):
-        df = pd.read_csv(csv_url, index_col=index_col)
-        
-        # Drop duplicates, keeping the first occurrence
-        df = df[~df.index.duplicated(keep='first')]
-        
-        return df.to_dict('index')
-
-    def fetch_sleeper_data(self):
-        response = requests.get(self.sleeper_api_url)
+    def get_and_clean_fantasy_calc_api(self):
+        response = requests.get("https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=1&numTeams=10&ppr=1")
         if response.status_code == 200:
             data = response.json()
-            # Convert the data into a list of dictionaries, including the player_id
-            players_data = []
-            for player_id, player_info in data.items():
-                player_info['player_id'] = player_id  # Add player_id to the dictionary
-                players_data.append(player_info)
-                
-            #write to file
-            with open('sleeper_players.json', 'w', encoding='utf-8') as file:
-                json.dump(players_data, file, ensure_ascii=False, indent=4)
+            cleaned_data = []
+            for player_info in data:
+                cleaned_player = {
+                    "sleeper_id": player_info['player'].get('sleeperId'),
+                    "name": player_info['player'].get('name'),
+                    "value_1qb": player_info.get('value'),
+                    "redraft_value": player_info.get('redraftValue'),
+                    "position": player_info['player'].get('position'),
+                    "team": player_info['player'].get('maybeTeam'),
+                    "age": player_info['player'].get('maybeAge')
+                }
+                cleaned_data.append(cleaned_player)
+            df = pd.DataFrame(cleaned_data)
+            print(f"FantasyCalc data fetched and cleaned for {len(df)} players.")
+            print(f"Columns in FantasyCalc data: {df.columns.tolist()}")
+            return df
             
-            return players_data
-        else:
-            print(f"Failed to fetch Sleeper data: HTTP {response.status_code}")
-            return []
-
-
-    def load_players(self):
-        print(f"\nLoading players...")
-        if os.path.exists(self.players_file) and datetime.now() - datetime.fromtimestamp(os.path.getmtime(self.players_file)) <= self.refresh_interval:
-            print(f"\nPlayer data is up to date. Loading from {self.players_file}\n")
-            self.load_players_from_file()
-        else:
-            print("Player data is outdated, fetching new data.\n")
-            self.fetch_players()
-        
-        self.load_statistics_from_file()  # Existing call to load stats
-        self.load_player_statistics()  # New call to load and attach player statistics
-    def update_pff_projections(self):
-        pff_projections_lower = {name.lower(): proj for name, proj in self.pff_projections.items()}
-        updated_count = 0
-        
-        for player in self.enriched_players:
-            player_name = f"{player['first_name']} {player['last_name']}".lower()
-            if player_name in pff_projections_lower:
-                player['pff_projections'] = pff_projections_lower[player_name]
-                updated_count += 1
-        
-        # print(f"Updated PFF projections for {updated_count} players.")
-
-    def fetch_players(self):
-        self.enriched_players = self.enrich_players_data()
-        # self.save_players_to_file(self.enriched_players)
-        print(f"Fetched and enriched {len(self.enriched_players)} players.")
-
-    def enrich_players_data(self):
-        enriched_players = []
-        if 'player_id' not in self.sleeper_players.columns:
-            print("The 'player_id' column is missing from the sleeper_players DataFrame.")
-            return enriched_players
-        
-        fantasycalc_api_url = "https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=1&numTeams=10&ppr=1"
-        
-        response = requests.get(fantasycalc_api_url)
-        if response.status_code == 200:
-            fantasy_calc_data = {player['player']['sleeperId']: player for player in response.json()}
-            print(f"FantasyCalc data fetched successfully for {len(fantasy_calc_data)} players.")
         else:
             print(f"Failed to fetch FantasyCalc data: HTTP {response.status_code}")
-            return enriched_players
+            return pd.DataFrame()
 
-        # Create a dictionary of PFF projections with lowercase names as keys
-        pff_projections_lower = {name.lower(): proj for name, proj in self.pff_projections.items()}
-
-        for _, sleeper_player in self.sleeper_players.iterrows():
-            sleeper_id = str(sleeper_player['player_id'])
-            
-            if sleeper_id in fantasy_calc_data:
-                fc_data = fantasy_calc_data[sleeper_id]
-                
-                # Prepare the combined dictionary
-                combined_dict = sleeper_player.to_dict()
-                combined_dict.update({
-                    'value_1qb': fc_data['value'],
-                    'value_2qb': fc_data.get('superflex_value', fc_data['value']),
-                    'first_name': fc_data['player']['name'].split()[0],
-                    'last_name': ' '.join(fc_data['player']['name'].split()[1:]),
-                    'position': fc_data['player']['position'],
-                    'team': fc_data['player']['maybeTeam'],
-                    'age': fc_data['player']['maybeAge']
-                })
-                
-                # Create Player instance
-                player = Player(combined_dict)
-                
-                # Add PFF projections
-                player_name = f"{player.first_name} {player.last_name}".lower()
-                if player_name in pff_projections_lower:
-                    # print(f"Adding PFF projections for {player.first_name} {player.last_name} - {pff_projections_lower[player_name]}")
-                    player.add_pff_projections(pff_projections_lower[player_name])
-                    
-                else:
-                    print(f"No PFF projections found for {player.first_name} {player.last_name}")
-                
-                # Add additional data from id_mapping if available
-                fp_id = next((k for k, v in self.id_mapping.items() if str(v.get('sleeper_id')).replace('.0', '') == sleeper_id), None)
-                if fp_id:
-                    player.apply_id_mapping(self.id_mapping[fp_id])
-                
-                enriched_players.append(player.to_dict())
-                print(f"Enriched player: {player.first_name} {player.last_name}, FantasyCalc value: {player.value_1qb}, PFF projections: {'Added' if player.pff_projections else 'Not found'}")
-
-        print(f"Enriched {len(enriched_players)} players with FantasyCalc data.")
-        print(f"Players with PFF projections: {sum(1 for p in enriched_players if p.get('pff_projections'))}")
-        
-        # Print a few examples of players with and without PFF projections
-        with_pff = next((p for p in enriched_players if p.get('pff_projections')), None)
-        without_pff = next((p for p in enriched_players if not p.get('pff_projections')), None)
-        
-        if with_pff:
-            print(f"Example player with PFF projections: {with_pff['first_name']} {with_pff['last_name']}")
-            print(f"PFF projections: {with_pff['pff_projections']}")
-        
-        if without_pff:
-            print(f"Example player without PFF projections: {without_pff['first_name']} {without_pff['last_name']}")
-
-        return enriched_players
-    def save_players_to_file(self, players_data):
-        with open(self.players_file, 'w', encoding='utf-8') as file:
-            json.dump(players_data, file, ensure_ascii=False, indent=4)
-            print("Player data saved successfully.\n")
-
-    def load_players_from_file(self):
-        with open(self.players_file, 'r') as file:
-            self.enriched_players = json.load(file)
-        print(f"Loaded {len(self.enriched_players)} players from file.")
-            
-    def load_player(self, sleeper_id):
-        
-        for player in self.enriched_players:
-            if player.get('sleeper_id') == sleeper_id or str(player.get('sleeper_id')).replace('.0', '') == sleeper_id:
-                # print(f"Player found: {player.get('first_name')} {player.get('last_name')}")
-                return Player(player)
-            
-        # print(f"Player not found with sleeper_id: {sleeper_id}")
-        
-        # search for it in the sleeper data file sleeper_players.json
+    def get_and_clean_sleeper_data(self):
         with open('sleeper_players.json', 'r') as file:
-            sleeper_players = json.load(file)
-            for player in sleeper_players:
-                if player.get('player_id') == sleeper_id or str(player.get('player_id')).replace('.0', '') == sleeper_id:
-                    # print(f"Player found: {player.get('first_name')} {player.get('last_name')}")
-                    return Player(player)
+            sleeper_data = json.load(file)
         
-        return None
-    
-    
-    def load_player_statistics(self, season='2023'):
-        stats_df = pd.read_csv('datarepo/merged_nfl_players_stats.csv')
+        cleaned_data = []
+        for player in sleeper_data:
+            if player.get('active', False):
+                cleaned_player = {
+                    'player_id': player.get('player_id'),
+                    'first_name': player.get('first_name'),
+                    'last_name': player.get('last_name'),
+                    'full_name': player.get('full_name'),
+                    'position': player.get('position'),
+                    'team': player.get('team'),
+                    'age': player.get('age'),
+                    'years_exp': player.get('years_exp'),
+                    'college': player.get('college'),
+                    'depth_chart_order': player.get('depth_chart_order'),
+                    'injury_status': player.get('injury_status'),
+                    'weight': player.get('weight'),
+                    'height': player.get('height'),
+                    'number': player.get('number'),
+                    'status': player.get('status'),
+                    'birth_date': player.get('birth_date')
+                }
+                cleaned_data.append(cleaned_player)
         
-        print(f"Loaded {len(stats_df)} player statistics.")
+        df = pd.DataFrame(cleaned_data)
+        print(f"Sleeper data cleaned for {len(df)} active players.")
+        print(f"Columns in Sleeper data: {df.columns.tolist()}")
+        return df
         
-        # Strip whitespace from column names
-        stats_df.columns = stats_df.columns.str.strip()
-        
-        updated_count = 0
-        
-        if not hasattr(self, 'enriched_players'):
-            print("Warning: enriched_players not found. Initializing as empty list.")
-            self.enriched_players = []
 
-        for _, row in stats_df.iterrows():
-            player_name = str(row['Player']).strip()  # Convert to string and remove whitespace
-            
-            # Iterate through all players in self.enriched_players
-            for player in self.enriched_players:
-                if player.get('full_name', '').strip() == player_name:
-                    player_object = self.load_player(player.get('sleeper_id'))
-                    
-                    if player_object:
-                        # Convert row to dict, handling potential NaN values
-                        stats_dict = row.where(pd.notnull(row), None).to_dict()
-                        
-                        # Remove the 'Player' key from stats_dict as it's not a stat
-                        stats_dict.pop('Player', None)
-                        
-                        player_object.add_season_stats(season, stats_dict)
-                        updated_count += 1
-                        break  # Stop searching once we've found a match
-
-        print(f"Updated statistics for {updated_count} players.")
-        
-    def load_players_from_file(self):
-        with open(self.players_file, 'r') as file:
-            self.enriched_players = json.load(file)
-        print(f"Loaded {len(self.enriched_players)} players from file.")
-        
-        # Reload PFF projections and update players
-        pff_projections_lower = {name.lower(): proj for name, proj in self.pff_projections.items()}
-        
-        updated_count = 0
-        for player in self.enriched_players:
-            player_name = f"{player['first_name']} {player['last_name']}".lower()
-            if player_name in pff_projections_lower:
-                player['pff_projections'] = pff_projections_lower[player_name]
-                updated_count += 1
-        
-        print(f"Updated PFF projections for {updated_count} players.")
-
-    def load_and_rename(filepath, rename_schema, season=None):
-        df = pd.read_csv(filepath)
-        
-        # Normalize 'Player' names to ensure consistency
-        if 'Player' in df.columns:
-            df['Player'] = df['Player'].apply(normalize_player_name)
-        
-        # Add or reinforce the 'Season' column if a season is provided
-        if season is not None:
-            df['Season'] = season
-
-        df.rename(columns=rename_schema, inplace=True)
+    def get_and_clean_pff_projections(self):
+        df = pd.read_csv('datarepo/PFFProjections/24PFFProjections.csv')
+        df = df[self.desired_pff_projections]
+        df['playerName'] = df['playerName'].str.lower()
+        print(f"PFF projections cleaned for {len(df)} players.")
         return df
 
+    def merge_player_data(self):
+        fantasy_calc_df = self.get_and_clean_fantasy_calc_api()
+        sleeper_df = self.get_and_clean_sleeper_data()
+        pff_df = self.get_and_clean_pff_projections()
 
+        # Merge FantasyCalc and Sleeper data
+        merged_df = pd.merge(fantasy_calc_df, sleeper_df, left_on='sleeper_id', right_on='player_id', how='outer', suffixes=('_fc', '_sl'))
         
+        # Ensure position column exists and is filled correctly
+        if 'position_fc' in merged_df.columns and 'position_sl' in merged_df.columns:
+            merged_df['position'] = merged_df['position_fc'].fillna(merged_df['position_sl'])
+        elif 'position_fc' in merged_df.columns:
+            merged_df['position'] = merged_df['position_fc']
+        elif 'position_sl' in merged_df.columns:
+            merged_df['position'] = merged_df['position_sl']
+        else:
+            print("Warning: No position data found in FantasyCalc or Sleeper data")
+            merged_df['position'] = 'Unknown'
         
-    def normalize_player_name(self, name):
-        if isinstance(name, str):
-            if '(' in name:
-                name = name.split(' (')[0].strip()
-        return name
-
-   
+        # Drop the redundant position columns
+        merged_df = merged_df.drop(columns=['position_fc', 'position_sl'], errors='ignore')
         
-    def resolve_duplicates(self, combined_df):
-        # Identify all columns that have been duplicated with '_x' and '_y' suffixes
-        duplicated_cols = [col[:-2] for col in combined_df if col.endswith('_x')]
+        # Prepare for merging with PFF data
+        merged_df['name_lower'] = merged_df['full_name'].str.lower()
+        pff_df['playerName'] = pff_df['playerName'].str.lower()
         
-        for col in duplicated_cols:
-            col_x = f'{col}_x'
-            col_y = f'{col}_y'
-            
-            # Check if both versions of the column exist
-            if col_x in combined_df and col_y in combined_df:
-                # Combine columns by prioritizing '_x' values but falling back to '_y' where '_x' is NaN
-                combined_df[col] = combined_df[col_x].combine_first(combined_df[col_y])
-                
-                # Drop the now redundant '_x' and '_y' columns
-                combined_df.drop(columns=[col_x, col_y], inplace=True)
-            elif col_x in combined_df:
-                # If only '_x' version exists, rename it to the original column name
-                combined_df.rename(columns={col_x: col}, inplace=True)
-            elif col_y in combined_df:
-                # If only '_y' version exists, rename it to the original column name
-                combined_df.rename(columns={col_y: col}, inplace=True)
-                
-        return combined_df
-
-    def load_statistics_from_file(self):
-        def load_and_rename(filepath, rename_schema, season=None):
-            df = pd.read_csv(filepath)
-            
-            if 'Player' in df.columns:
-                df['Player'] = df['Player'].apply(self.normalize_player_name)
-            
-            if season is not None:
-                df['Season'] = season
-
-            df.rename(columns=rename_schema, inplace=True)
-            return df
-
-        # Load, rename, and store all datasets in a list
-        dfs = [load_and_rename(fp, schema) for fp, schema in zip(self.filepaths, self.schemas)]
+        final_df = pd.merge(merged_df, pff_df, left_on='name_lower', right_on='playerName', how='left', suffixes=('', '_pff'))
         
-        # Merge all DataFrames on 'Player', using an outer join
-        combined_df = reduce(lambda left, right: self.resolve_duplicates(pd.merge(left, right, on='Player', how='outer', suffixes=('_x', '_y'))), dfs)
+        # Ensure position is preserved after merging with PFF data
+        if 'position_pff' in final_df.columns:
+            final_df['position'] = final_df['position'].fillna(final_df['position_pff'])
+            final_df.drop('position_pff', axis=1, inplace=True)
+        
+        final_df.drop(['name_lower', 'playerName'], axis=1, inplace=True)
+        
+        # Ensure 'name' column exists
+        final_df['name'] = final_df['full_name'].fillna(final_df['name'])
+        
+        # Handle NaN values
+        for col in final_df.columns:
+            if final_df[col].dtype == 'object':
+                final_df[col] = final_df[col].fillna('')
+            else:
+                final_df[col] = final_df[col].fillna(0)
+        
+        # Specifically handle byeWeek
+        final_df['byeWeek'] = final_df['byeWeek'].replace({0: None})
 
-        # Remove rows where all columns are NaN
-        combined_df.dropna(how='all', inplace=True)
+        # Ensure sleeper_id is consistent
+        final_df['sleeper_id'] = final_df['sleeper_id'].fillna(final_df['player_id'])
 
-        # Save the merged DataFrame
-        combined_df.to_csv('datarepo/merged_nfl_players_stats.csv', index=False)
+        print(f"Final merged dataframe contains {len(final_df)} players.")
+        print(f"Columns in final dataframe: {final_df.columns.tolist()}")
+        return final_df
 
-        print("Merging complete. The dataset is saved as 'datarepo/merged_nfl_players_stats.csv'.")
+    def get_player(self, sleeper_id):
+        for player in self.enriched_players:
+            if str(player.sleeper_id) == str(sleeper_id):
+                return player
+        return None
+    
+    def load_players(self):
+        merged_data = self.merge_player_data()
+        self.enriched_players = []
+
+        for _, row in merged_data.iterrows():
+            player_data = row.to_dict()
+            player = Player(player_data)
+            self.enriched_players.append(player)
+
+        print(f"Loaded {len(self.enriched_players)} players.")
+
+    def load_players_from_file(self):
+        if os.path.exists(self.players_file) and datetime.now() - datetime.fromtimestamp(os.path.getmtime(self.players_file)) <= self.refresh_interval:
+            print(f"Loading players from file: {self.players_file}")
+            with open(self.players_file, 'r') as file:
+                player_data = json.load(file)
+            self.enriched_players = [Player(data) for data in player_data]
+            print(f"Loaded {len(self.enriched_players)} players from file.")
+        else:
+            print("Player data file not found or outdated. Fetching new data...")
+            self.load_players()
+            self.save_players_to_file()
+
+    def save_players_to_file(self):
+        os.makedirs(os.path.dirname(self.players_file), exist_ok=True)
+        with open(self.players_file, 'w', encoding='utf-8') as file:
+            json.dump([player.to_dict() for player in self.enriched_players], file, ensure_ascii=False, indent=4)
+        print(f"Player data saved to {self.players_file}")
+
+    def load_player(self, sleeper_id):
+        if not self.enriched_players:
+            self.load_players_from_file()
+        
+        for player in self.enriched_players:
+            if str(player.sleeper_id) == str(sleeper_id):
+                return player
+        print(f"Player not found with sleeper_id: {sleeper_id}")
+        return None
+
+    def ensure_players_loaded(self):
+        if not self.enriched_players:
+            self.load_players_from_file()
