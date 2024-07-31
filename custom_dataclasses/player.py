@@ -11,7 +11,7 @@ class Player:
         self.position = initial_data.get('position', '')
         if not self.position:
             self.position = 'UNKNOWN'
-        self.team = initial_data.get('team')  # Debug here
+        self.team = initial_data.get('team')
         self.age = initial_data.get('age')
         self.years_exp = initial_data.get('years_exp')
         self.college = initial_data.get('college')
@@ -36,7 +36,6 @@ class Player:
         self.injury_probability_season = float(initial_data.get('probability_of_injury_in_the_season', 10.0)) / 100
         self.projected_games_missed = float(initial_data.get('projected_games_missed', 1.0))
         self.injury_probability_game = float(initial_data.get('probability_of_injury_per_game', 2.5)) / 100
-        print(f"Player {self.full_name} injury probability per game: {self.injury_probability_game:.4f}")
 
         self.simulation_injury = None
         

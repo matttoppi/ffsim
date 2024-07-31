@@ -26,6 +26,7 @@ class PlayerLoader:
         self.players_file = 'datarepo/players.json'
         self.refresh_interval = timedelta(days=3)
         self.enriched_players = []
+        self.search_name_to_player = {}  # New dictionary for search_full_name lookups
         self.desired_pff_projections = [
             "fantasyPointsRank", "playerName", "teamName", "position", "byeWeek", "games",
             "fantasyPoints", "auctionValue", "passComp", "passAtt", "passYds", "passTd",
@@ -43,8 +44,32 @@ class PlayerLoader:
 
         final_df = DataMerger.merge_data(fantasy_calc_df, sleeper_df, pff_df, injury_df)
 
+        self.load_sleeper_players()
+
         for _, row in final_df.iterrows():
             player_data = row.to_dict()
+            sleeper_id = str(player_data['sleeper_id'])
+            
+            sleeper_player = self.sleeper_players.get(sleeper_id)
+            if not sleeper_player or not sleeper_player.get('team'):
+                # Try to find player by search_full_name if ID lookup fails or team is missing
+                search_name = (player_data['first_name'] + player_data['last_name']).lower()
+                sleeper_player = self.search_name_to_player.get(search_name)
+
+            if sleeper_player:
+                # Update player data with Sleeper information
+                fantasy_positions = sleeper_player.get('fantasy_positions')
+                if fantasy_positions is None:
+                    fantasy_positions = []
+                
+                player_data['position'] = (sleeper_player.get('position') or 
+                                        (fantasy_positions + ['UNKNOWN'])[0])
+                player_data['team'] = sleeper_player.get('team') or player_data.get('team')
+                player_data['full_name'] = sleeper_player.get('full_name') or player_data.get('full_name')
+            
+            # if player_data['position'] == 'UNKNOWN':
+            #     print(f"Warning: Unknown position for player {player_data['full_name']} (Sleeper ID: {sleeper_id})")
+            
             player = Player(player_data)
             self.enriched_players.append(player)
 
@@ -87,3 +112,27 @@ class PlayerLoader:
     def ensure_players_loaded(self):
         if not self.enriched_players:
             self.load_players_from_file()
+            
+            
+    def load_sleeper_players(self):
+        try:
+            with open('sleeper_players.json', 'r') as f:
+                players_list = json.load(f)
+                self.sleeper_players = {
+                    str(player['player_id']): player for player in players_list
+                    if 'player_id' in player and player.get('active', False)
+                }
+                # Create a search_full_name-based lookup
+                self.search_name_to_player = {
+                    player['search_full_name']: player
+                    for player in players_list if 'search_full_name' in player
+                }
+            print(f"Loaded {len(self.sleeper_players)} active players from sleeper_players.json")
+        except FileNotFoundError:
+            print("sleeper_players.json not found. Player position lookup will not be available.")
+            self.sleeper_players = {}
+            self.search_name_to_player = {}
+        except json.JSONDecodeError:
+            print("Error decoding sleeper_players.json. Please check if the file is valid JSON.")
+            self.sleeper_players = {}
+            self.search_name_to_player = {}

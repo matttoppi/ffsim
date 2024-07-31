@@ -4,7 +4,7 @@ class ScoringSettings:
         for key, value in scoring_data.items():
             setattr(self, key, value)
             
-        self.rec = scoring_data.get('rec', 0)  # Points per reception, default to 0
+        self.rec = scoring_data.get('rec', 1)  # Points per reception, default to 0
         self.te_rec = scoring_data.get('te_rec', 2)  # Points per reception for TEs, default to 2
 
 

@@ -17,33 +17,32 @@ class LeagueSimulation:
         self.weekly_player_scores = defaultdict(lambda: defaultdict(list))
         self.matchups = {}  
         self.matchups_file = f'datarepo/matchups_2024_{league.league_id}.json'
-        self.sleeper_players = self._load_sleeper_players()
+        self.load_sleeper_players()  
         self.tracker = SimulationTracker(league)
         
         self.debug = debug
         self.injury_checks = 0
         self.injuries_occurred = 0
         
-    def _load_sleeper_players(self):
+    def load_sleeper_players(self):
         try:
             with open('sleeper_players.json', 'r') as f:
                 players_list = json.load(f)
-                players_dict = {str(player['player_id']): player for player in players_list if 'player_id' in player}
-                print(f"Loaded {len(players_dict)} players from sleeper_players.json")
-                return players_dict
+                self.sleeper_players = {str(player['player_id']): player for player in players_list if 'player_id' in player}
+                print(f"Loaded {len(self.sleeper_players)} players from sleeper_players.json")
         except FileNotFoundError:
             print("sleeper_players.json not found. Player position lookup will not be available.")
-            return {}
+            self.sleeper_players = {}
         except json.JSONDecodeError:
             print("Error decoding sleeper_players.json. Please check if the file is valid JSON.")
-            return {}
+            self.sleeper_players = {}
 
     def get_player_position(self, player_id):
         player = self.sleeper_players.get(str(player_id))
         if player:
             return player.get('position') or player.get('fantasy_positions', ['UNKNOWN'])[0]
         return 'UNKNOWN'
-
+        
         
     def fetch_all_matchups(self):
         if os.path.exists(self.matchups_file):
@@ -346,7 +345,7 @@ class LeagueSimulation:
             print(f"Player not found by name: {player_name}")
 
         return None
-
+    
     def calculate_player_score(self, player, week):
         proj = player.pff_projections
         scoring = self.league.scoring_settings
