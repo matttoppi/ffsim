@@ -2,7 +2,7 @@ from sleeper_wrapper import League as SleeperLeague
 
 from custom_dataclasses.fantasy_team import FantasyTeam
 from custom_dataclasses.player import Player
-from custom_dataclasses.player_loader import PlayerLoader, Player
+from custom_dataclasses.loaders.PlayerLoader import PlayerLoader, Player
 from custom_dataclasses.league import League
 from custom_dataclasses.fantasy_team import FantasyTeam
 
