@@ -117,7 +117,10 @@ class LeagueSimulation:
                 if player_score > 0:  # Only record non-zero scores
                     self.starter_scores[player_id].append(player_score)
                     self.starter_receptions[player_id].append(player_receptions)
+                    if week not in self.weekly_player_scores[player_id]:
+                        self.weekly_player_scores[player_id][week] = []
                     self.weekly_player_scores[player_id][week].append(player_score)
+                    print(f"Week {week}, Player {player.full_name}: Score {player_score}")  # Debug statement
         
         # add defense and kicker scores
         score += self.add_defense_score()
@@ -131,7 +134,7 @@ class LeagueSimulation:
             for player in team.players:
                 if str(player.sleeper_id).strip() == player_id:
                     return player
-        # print(f"Player not found by ID: {player_id}")
+        # print(f"Player not found by ID: {player_id}")  # Debug statement
         
         # Fallback to name-based lookup if player_name is provided
         if player_name:

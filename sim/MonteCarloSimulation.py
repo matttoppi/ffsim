@@ -63,16 +63,23 @@ class MonteCarloSimulation:
             print(f"\nTop {top_n} {position}s:")
             players = [player for team in self.league.rosters for player in team.players if player.position == position]
             
+            print(f"Total {position}s: {len(players)}")
+
             # Calculate average, lowest, and highest weekly score for each player
             player_stats = []
             for player in players:
-                weekly_scores = self.season_sim.weekly_player_scores[player.sleeper_id]
+                weekly_scores = self.season_sim.weekly_player_scores.get(player.sleeper_id, {})
                 all_scores = [score for week_scores in weekly_scores.values() for score in week_scores if score > 0]
+                
                 if all_scores:
                     avg_score = sum(all_scores) / len(all_scores)
                     lowest_score = min(all_scores)
                     highest_score = max(all_scores)
                     player_stats.append((player, avg_score, lowest_score, highest_score))
+                else:
+                    print(f"No scores for {player.name} (ID: {player.sleeper_id})")
+
+            print(f"Players with scores: {len(player_stats)}")
 
             # Sort players by average weekly score
             sorted_players = sorted(player_stats, key=lambda x: x[1], reverse=True)[:top_n]
@@ -83,6 +90,12 @@ class MonteCarloSimulation:
                 player_name = f"{player.first_name} {player.last_name}"
                 print(f"{i:<5}{player_name:<30}{avg_score:<8.2f}{lowest_score:<8.2f}{highest_score:<8.2f}")
             print()  # Add a blank line after each position group
+
+        # Print a sample of weekly_player_scores
+        print("\nSample of weekly_player_scores:")
+        for player_id, scores in list(self.season_sim.weekly_player_scores.items())[:5]:
+            print(f"Player ID: {player_id}, Scores: {scores}")
+        
     def print_projected_standings(self):
         print("\nProjected Final Standings:")
         avg_results = []

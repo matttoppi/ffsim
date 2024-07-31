@@ -1,12 +1,14 @@
+
 class Player:
     def __init__(self, initial_data):
+
         self.sleeper_id = initial_data.get('player_id') or initial_data.get('sleeper_id')
         self.first_name = initial_data.get('first_name', '')
         self.last_name = initial_data.get('last_name', '')
         self.full_name = initial_data.get('full_name', '')
         self.name = self.full_name or f"{self.first_name} {self.last_name}".strip()
         self.position = initial_data.get('position', '')
-        self.team = initial_data.get('team')
+        self.team = initial_data.get('team')  # Debug here
         self.age = initial_data.get('age')
         self.years_exp = initial_data.get('years_exp')
         self.college = initial_data.get('college')
@@ -46,4 +48,4 @@ class Player:
             print(f"{key}: {value}")
 
     def print_player_short(self):
-        print(f"{self.full_name} - {self.position} - {self.team} - Value: {self.value_1qb} - Redraft Value: {self.redraft_value}")
+         print(f"{self.full_name} - {self.position.upper()} - {self.team} - 1QB: {self.value_1qb} - Redraft: {self.redraft_value}")
