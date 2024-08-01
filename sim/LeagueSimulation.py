@@ -156,13 +156,13 @@ class LeagueSimulation:
         if team1.name == "Toppi" or team2.name == "Toppi":
             print(f"DEBUG: Simulating matchup between {team1.name} and {team2.name} in week {week}")
         
-        # Print initial lineups
+        # Generate injury report before checking for new injuries
         if team1.name == "Toppi":
-            self.fill_starters(team1, starters1, week)
+            self.generate_injury_report(team1, week)
         if team2.name == "Toppi":
-            self.fill_starters(team2, starters2, week)
-
-        # Check for injuries after printing initial lineups
+            self.generate_injury_report(team2, week)
+        
+        # Check for injuries
         for team in [team1, team2]:
             for player in team.players:
                 self.check_for_injuries(player, team, week)
@@ -170,7 +170,7 @@ class LeagueSimulation:
         # Fill starters after injury check
         starters1 = self.fill_starters(team1, starters1, week)
         starters2 = self.fill_starters(team2, starters2, week)
-
+        
         score1, receptions1 = self.calculate_team_score(team1, week, starters1)
         score2, receptions2 = self.calculate_team_score(team2, week, starters2)
         
@@ -205,6 +205,7 @@ class LeagueSimulation:
 
     def simulate_week(self, week):
         # Reset returning_from_injury flag for all players
+        print("-" * 40)
         for team in self.league.rosters:
             for player in team.players:
                 player.returning_from_injury = False
@@ -248,6 +249,7 @@ class LeagueSimulation:
     def fill_starters(self, team, starters, week):
         if team.name == "Toppi":
             print(f"\nDEBUG: Filling starters for {team.name} for week {week}")
+            self.generate_injury_report(team, week)
 
         slots = {
             'QB': 1, 'RB': 3, 'WR': 3, 'TE': 1, 'FLEX': 3, 'K': 1, 'DEF': 1
@@ -260,14 +262,7 @@ class LeagueSimulation:
             self.print_current_lineup(team, current_starters, week)
             self.print_injured_players(team, week)
 
-        def is_player_available(player):
-            if not self.is_player_injured(player, week):
-                return True
-            if player.simulation_injury and player.simulation_injury['duration'] < 1:
-                return True
-            return False
-
-        available_players = [p for p in team.players if is_player_available(p)]
+        available_players = [p for p in team.players if self.is_player_available(p, week)]
         new_lineup = {pos: [] for pos in slots.keys()}
         
         # Fill non-FLEX positions
@@ -284,18 +279,34 @@ class LeagueSimulation:
         flex_eligible_players.sort(key=lambda p: p.redraft_value if hasattr(p, 'redraft_value') else 0, reverse=True)
         new_lineup['FLEX'] = flex_eligible_players[:slots['FLEX']]
 
+        # Ensure all positions are filled
+        for pos in slots.keys():
+            while len(new_lineup[pos]) < slots[pos]:
+                replacement = self.find_replacement(pos, available_players, flex_eligible)
+                if replacement:
+                    new_lineup[pos].append(replacement)
+                    available_players.remove(replacement)
+                else:
+                    break
+
         # Flatten the lineup
         flat_lineup = [player for pos_list in new_lineup.values() for player in pos_list]
 
         # Determine actual changes
         changes = []
         for old, new in zip(current_starters, flat_lineup):
-            if old != new and (not old or not self.is_player_injured(old, week) or old.simulation_injury['duration'] >= 1):
+            if old != new:
                 changes.append((old, new))
 
         if team.name == "Toppi":
             self.print_lineup(team, new_lineup, week)
             self.print_lineup_changes(changes, team, week)
+            
+            # Print final lineup after changes
+            print(f"\nFinal lineup for {team.name} in week {week} (after injury checks and changes):")
+            for pos, players in new_lineup.items():
+                for player in players:
+                    print(f"{pos}: {player.full_name} ({player.position})")
 
         return [p.sleeper_id for p in flat_lineup]
 
@@ -310,15 +321,20 @@ class LeagueSimulation:
         if changes:
             print(f"\nLineup changes for {team.name} in week {week}:")
             for old, new in changes:
-                if old and self.is_player_injured(old, week) and old.simulation_injury['duration'] >= 1:
-                    print(f"  Replaced injured {old.full_name} ({old.position}) with {new.full_name} ({new.position})")
-                elif old and new and old.position != new.position:
-                    print(f"  Replaced {old.full_name} ({old.position}) with {new.full_name} ({new.position}) at {new.position}")
+                if old and self.is_player_injured(old, week):
+                    if old.simulation_injury['start_week'] < week:
+                        print(f"  Replaced: {old.full_name} ({old.position}, injured in Week {old.simulation_injury['start_week']}) with {new.full_name} ({new.position})")
+                    else:
+                        print(f"  {old.full_name} ({old.position}) injured this week, but remains in lineup with reduced points")
+                elif old and new:
+                    if old.position != new.position:
+                        print(f"  Replaced: {old.full_name} ({old.position}) with {new.full_name} ({new.position})")
+                    else:
+                        print(f"  Replaced: {old.full_name} with {new.full_name}")
                 elif new:
-                    print(f"  Added: {new.full_name} ({new.position})")
+                    print(f"  Added to lineup: {new.full_name} ({new.position})")
         else:
             print(f"\nNo lineup changes for {team.name} in week {week}")
-
     def print_lineup(self, team, lineup, week):
         print(f"\nLineup for {team.name} in week {week}:")
         for pos, players in lineup.items():
@@ -513,18 +529,21 @@ class LeagueSimulation:
             receptions * (scoring.te_rec if player.position == 'TE' else scoring.rec)
         )
         
-        if self.is_player_injured(player, week):
-            if player.simulation_injury['start_week'] == week:
+        if player.simulation_injury:
+            injury_start = player.simulation_injury['start_week']
+            injury_end = injury_start + player.simulation_injury['duration']
+            if week >= injury_end:
+                player.simulation_injury = None  # Player has recovered
+            elif injury_start == week:
                 # Player got injured this week
-                injury_factor = 1 - player.simulation_injury['duration']
-                score *= max(0, injury_factor)
-                receptions *= max(0, injury_factor)
+                injury_factor = 1 - player.simulation_injury['injury_time']
+                score *= injury_factor
+                receptions *= injury_factor
             else:
                 # Player was already injured before this week
                 return 0, 0
 
         return score, receptions
-
 
     def add_defense_score(self):
         # randomly generate defense scores bell curve around 15 with min max at -5 and 35
@@ -545,3 +564,52 @@ class LeagueSimulation:
             return max(0, random.gauss(player.pff_projections['fantasyPoints'], player.pff_projections['fantasyPoints'] * 0.25))
     
     
+    def generate_injury_report(self, team, week):
+        print(f"\nWeek {week} Injury Report for {team.name}:")
+        current_week_injuries = []
+        new_injuries = []
+        ongoing_injuries = []
+        returning_players = []
+
+        for player in team.players:
+            if player.simulation_injury:
+                injury_start = player.simulation_injury['start_week']
+                injury_duration = player.simulation_injury['duration']
+                injury_end = injury_start + injury_duration
+
+                if injury_start == week:
+                    current_week_injuries.append(f"  - {player.full_name} ({player.position}): Injured this week, expected to return Week {math.ceil(injury_end)}")
+                elif injury_start == week - 1:
+                    new_injuries.append(f"  - {player.full_name} ({player.position}): Injured last week, out until Week {math.ceil(injury_end)}")
+                elif week < injury_end:
+                    ongoing_injuries.append(f"  - {player.full_name} ({player.position}): Expected to return Week {math.ceil(injury_end)}")
+                elif week == math.ceil(injury_end):
+                    returning_players.append(f"  - {player.full_name} ({player.position})")
+                else:
+                    player.simulation_injury = None  # Clear the injury
+
+        if current_week_injuries:
+            print("  Injuries occurring this week (player still active):")
+            for injury in current_week_injuries:
+                print(injury)
+        if new_injuries:
+            print("  New Injuries (player inactive from this week):")
+            for injury in new_injuries:
+                print(injury)
+        if ongoing_injuries:
+            print("  Ongoing Injuries:")
+            for injury in ongoing_injuries:
+                print(injury)
+        if returning_players:
+            print("  Returning from Injury:")
+            for player in returning_players:
+                print(player)
+        if not (current_week_injuries or new_injuries or ongoing_injuries or returning_players):
+            print("  No injuries to report.")
+            
+    def is_player_available(self, player, week):
+        if not player.simulation_injury:
+            return True
+        injury_start = player.simulation_injury['start_week']
+        injury_end = injury_start + player.simulation_injury['duration']
+        return week >= injury_end or injury_start == week
