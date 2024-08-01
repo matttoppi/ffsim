@@ -551,19 +551,19 @@ class LeagueSimulation:
             receptions * (scoring.te_rec if player.position == 'TE' else scoring.rec)
         )
         
-        if player.simulation_injury:
-            injury_start = player.simulation_injury['start_week']
-            injury_end = injury_start + player.simulation_injury['duration']
-            if week >= injury_end:
-                player.simulation_injury = None  # Player has recovered
-            elif injury_start == week:
-                # Player got injured this week
-                injury_factor = 1 - player.simulation_injury['injury_time']
-                score *= injury_factor
-                receptions *= injury_factor
-            else:
-                # Player was already injured before this week
-                return 0, 0
+        # if player.simulation_injury:
+        #     injury_start = player.simulation_injury['start_week']
+        #     injury_end = injury_start + player.simulation_injury['duration']
+        #     if week >= injury_end:
+        #         player.simulation_injury = None  # Player has recovered
+        #     elif injury_start == week:
+        #         # Player got injured this week
+        #         injury_factor = 1 - player.simulation_injury['injury_time']
+        #         score *= injury_factor
+        #         receptions *= injury_factor
+        #     else:
+        #         # Player was already injured before this week
+        #         return 0, 0
             
         self.tracker.record_player_score(player.sleeper_id, week, score)
         # print(f"DEBUG: {player.full_name} scored {score:.2f} points in week {week}")

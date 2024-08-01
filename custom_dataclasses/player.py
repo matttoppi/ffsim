@@ -37,9 +37,9 @@ class Player:
         self.durability = initial_data.get('durability', 0)
 
         # Convert injury probabilities from percentage to decimal
-        self.injury_probability_season = self.convert_to_decimal(initial_data.get('injury_probability_season', 10.0))
-        self.projected_games_missed = float(initial_data.get('projected_games_missed', 1.0))
-        self.injury_probability_game = self.convert_to_decimal(initial_data.get('injury_probability_game', 1.0))
+        self.injury_probability_season = self.convert_to_decimal(initial_data.get('injury_probability_season', 12))
+        self.projected_games_missed = float(initial_data.get('projected_games_missed', 2))
+        self.injury_probability_game = self.convert_to_decimal(initial_data.get('injury_probability_game', 3))
 
 
         self.simulation_injury_duration = None

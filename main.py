@@ -45,7 +45,7 @@ if __name__ == "__main__":
 
 
 
-
+#GLARING ISSUE: INJURIES ARE LOPSIDED. SOME HAVE 500pts lost in a week
 
 #  TODO: Fix defenses not being found in monte carlo
 # TODO: Fix kickers not being found in monte carlo
