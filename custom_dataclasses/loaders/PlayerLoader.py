@@ -42,6 +42,15 @@ class PlayerLoader:
         pff_df = PFFLoader.get_and_clean_data(self.desired_pff_projections)
         injury_df = InjuryDataLoader.get_and_clean_data()
 
+        # Clean names in all dataframes
+        for df in [fantasy_calc_df, sleeper_df, pff_df, injury_df]:
+            if 'full_name' in df.columns:
+                df['full_name'] = df['full_name'].apply(Player.clean_name)
+            if 'first_name' in df.columns:
+                df['first_name'] = df['first_name'].apply(Player.clean_name)
+            if 'last_name' in df.columns:
+                df['last_name'] = df['last_name'].apply(Player.clean_name)
+
         final_df = DataMerger.merge_data(fantasy_calc_df, sleeper_df, pff_df, injury_df)
 
         self.load_sleeper_players()
@@ -53,7 +62,7 @@ class PlayerLoader:
             sleeper_player = self.sleeper_players.get(sleeper_id)
             if not sleeper_player or not sleeper_player.get('team'):
                 # Try to find player by search_full_name if ID lookup fails or team is missing
-                search_name = (player_data['first_name'] + player_data['last_name']).lower()
+                search_name = Player.clean_name(player_data['first_name'] + player_data['last_name'])
                 sleeper_player = self.search_name_to_player.get(search_name)
 
             if sleeper_player:
@@ -65,16 +74,20 @@ class PlayerLoader:
                 player_data['position'] = (sleeper_player.get('position') or 
                                         (fantasy_positions + ['UNKNOWN'])[0])
                 player_data['team'] = sleeper_player.get('team') or player_data.get('team')
-                player_data['full_name'] = sleeper_player.get('full_name') or player_data.get('full_name')
+                player_data['full_name'] = Player.clean_name(sleeper_player.get('full_name') or player_data.get('full_name'))
             
-            # if player_data['position'] == 'UNKNOWN':
-            #     print(f"Warning: Unknown position for player {player_data['full_name']} (Sleeper ID: {sleeper_id})")
-            
+            # Create PFF projections dictionary
+            pff_projections = {key: player_data.get(key) for key in self.desired_pff_projections if key in player_data}
+            player_data['pff_projections'] = pff_projections
+
             player = Player(player_data)
             self.enriched_players.append(player)
 
         print(f"Total players loaded: {len(self.enriched_players)}")
 
+        # Debug: Print some sample players with their PFF projections
+        for player in self.enriched_players[:5]:
+            print(f"DEBUG: {player.full_name} - PFF Projections: {player.pff_projections}")
     def get_player(self, sleeper_id):
         for player in self.enriched_players:
             if str(player.sleeper_id) == str(sleeper_id):

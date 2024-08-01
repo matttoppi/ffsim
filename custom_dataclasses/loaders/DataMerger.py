@@ -49,6 +49,47 @@ class DataMerger:
         final_df = DataMerger.clean_merged_data(final_df)
         
         return final_df
+    
+    @staticmethod
+    def merge_pff_data(merged_df, pff_df):
+        def clean_name(name):
+            name = str(name).lower()
+            for suffix in [' jr', ' sr', ' ii', ' iii', ' iv']:
+                name = name.replace(suffix, '')
+            return name.replace('.', '').replace("'", '').strip()
+
+        merged_df['clean_name'] = merged_df['full_name'].apply(clean_name)
+        pff_df['clean_name'] = pff_df['playerName'].apply(clean_name)
+
+        # First, try exact matching
+        exact_match = pd.merge(merged_df, pff_df, on='clean_name', how='left', suffixes=('', '_pff'))
+
+        # For unmatched players, try fuzzy matching
+        unmatched = exact_match[exact_match['playerName'].isna()]
+        matched = exact_match[~exact_match['playerName'].isna()]
+
+        def fuzzy_match(name, choices, cutoff=80):
+            match = process.extractOne(name, choices)
+            return match[2] if match and match[1] >= cutoff else None
+
+        pff_names = pff_df['clean_name'].tolist()
+        unmatched['pff_index'] = unmatched['clean_name'].apply(lambda x: fuzzy_match(x, pff_names))
+        
+        fuzzy_matched = unmatched[unmatched['pff_index'].notna()].merge(
+            pff_df, left_on='pff_index', right_index=True, how='left', suffixes=('', '_pff')
+        )
+
+        final_df = pd.concat([matched, fuzzy_matched], ignore_index=True)
+
+        # Clean up
+        final_df.drop(columns=['clean_name', 'pff_index', 'playerName'], inplace=True, errors='ignore')
+
+        print(f"Total players: {len(merged_df)}")
+        print(f"Exact matches: {len(matched)}")
+        print(f"Fuzzy matches: {len(fuzzy_matched)}")
+        print(f"Unmatched: {len(merged_df) - len(matched) - len(fuzzy_matched)}")
+
+        return final_df
 
     @staticmethod
     def merge_injury_data(final_df, injury_df):

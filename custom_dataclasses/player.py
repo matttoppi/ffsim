@@ -49,12 +49,15 @@ class Player:
         
         self.simulation_injury = None
         self.returning_from_injury = False
-        self.avg_points_per_game = None
+        self.avg_points_per_game = 0 
+        self.total_simulated_points = 0
+        self.total_simulated_games = 0
         
         # FantasyCalc data
         self.value_1qb = float(initial_data.get('value_1qb', 0)) if initial_data.get('value_1qb') not in ['', None] else 0.0
         self.redraft_value = float(initial_data.get('redraft_value', 0)) if initial_data.get('redraft_value') not in ['', None] else 0.0
 
+        self.pff_projections = initial_data.get('pff_projections', {})
         # PFF projections
         self.pff_projections = {key: initial_data.get(key) for key in [
             "fantasyPointsRank", "teamName", "byeWeek", "games", "fantasyPoints", "auctionValue",
@@ -83,3 +86,41 @@ class Player:
             return float_value / 100 if float_value > 1 else float_value
         except ValueError:
             return 0.01  # Default to 1% if conversion fails
+        
+        
+
+    def matches_name(self, pff_name):
+        def clean_name(name):
+            name = name.lower()
+            for suffix in [' jr', ' sr', ' ii', ' iii', ' iv']:
+                name = name.replace(suffix, '')
+            return name.replace('.', '').replace("'", '').strip()
+
+        clean_self_name = clean_name(self.full_name)
+        clean_pff_name = clean_name(pff_name)
+
+        # Check for exact match
+        if clean_self_name == clean_pff_name:
+            return True
+
+        # Check if last name and first initial match
+        self_parts = clean_self_name.split()
+        pff_parts = clean_pff_name.split()
+        if len(self_parts) > 1 and len(pff_parts) > 1:
+            if self_parts[-1] == pff_parts[-1] and self_parts[0][0] == pff_parts[0][0]:
+                return True
+
+        return False
+    
+    
+    @staticmethod
+    def clean_name(name):
+        if name is None:
+            return ''
+        suffixes = [' jr', ' sr', ' ii', ' iii', ' iv']
+        name = str(name).lower()
+        for suffix in suffixes:
+            if name.endswith(suffix):
+                name = name[:-len(suffix)]
+        return name.replace('.', '').replace("'", '').strip().title()
+    

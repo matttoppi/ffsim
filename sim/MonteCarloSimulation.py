@@ -52,7 +52,7 @@ class MonteCarloSimulation:
 
     def run(self):
         for sim_num in tqdm(range(self.num_simulations), desc="Running Simulations", unit="sim"):
-            print(f"\nStarting simulation {sim_num + 1}")
+            # print(f"\nStarting simulation {sim_num + 1}")
             self.run_single_simulation()
         
         self.print_results()

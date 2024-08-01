@@ -18,6 +18,10 @@ class SimulationTracker:
         
         
     def record_player_score(self, player_id, week, score):
+        if player_id not in self.weekly_player_scores:
+            self.weekly_player_scores[player_id] = {}
+        if week not in self.weekly_player_scores[player_id]:
+            self.weekly_player_scores[player_id][week] = []
         self.weekly_player_scores[player_id][week].append(score)
         
     def record_points_lost_to_injury(self, team_name, week, points_lost):
