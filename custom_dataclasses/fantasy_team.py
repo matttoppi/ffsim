@@ -1,4 +1,5 @@
-from sim.SimulationClasses.TeamSimulation import TeamSimulation
+from sim.SimulationClasses.SimulationTeam import SimulationTeam
+
 class FantasyTeam:
 
     def __init__(self, name, league, user_data=None):
@@ -26,6 +27,8 @@ class FantasyTeam:
         self.league = league
         self.roster_id = None
         self.simulation = None  # We'll initialize this after adding players
+        
+        
         
         self.owner_username = user_data.get("display_name")
         if self.name == "Unknown":
@@ -61,4 +64,35 @@ class FantasyTeam:
         self.total_age = sum(player.age for player in self.players if player.age is not None)
         self.average_age = round(self.total_age / len(self.players), 2) if self.total_age else 0
         
-        self.simulation = TeamSimulation(self)
+        self.simulation = SimulationTeam(self)
+
+
+    def simulate_week(self, week, scoring_settings):
+        weekly_score = sum(player.simulate_week(week, scoring_settings) for player in self.players)
+        self.weekly_scores[week] = weekly_score
+        self.points_for += weekly_score
+        return weekly_score
+
+    def update_record(self, won, tied, points_against, week):
+        if won:
+            self.wins += 1
+        elif tied:
+            self.ties += 1
+        else:
+            self.losses += 1
+        self.points_against += points_against
+
+    def get_weekly_score(self, week):
+        return self.weekly_scores.get(week, 0)
+
+    def check_for_injuries(self, week):
+        for player in self.players:
+            player.check_for_injury(week)
+
+    def reset_stats(self):
+        self.wins = 0
+        self.losses = 0
+        self.ties = 0
+        self.points_for = 0
+        self.points_against = 0
+        self.weekly_scores = {}

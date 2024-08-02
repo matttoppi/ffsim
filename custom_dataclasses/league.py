@@ -48,7 +48,6 @@ class League:
         self.last_author_id = league_data.get("last_author_id")
         self.last_author_display_name = league_data.get("last_author_display_name")
         self.last_author_avatar = league_data.get("last_author_avatar")
-        self.scoring_settings = ScoringSettings(league_data.get("scoring_settings", {}))
         self.settings = LeagueSettings(league_data.get("settings", {}))
         self.sport = league_data.get("sport")
         self.season_type = league_data.get("season_type")
@@ -60,6 +59,8 @@ class League:
         self.metadata = league_data.get("metadata", {})
         self.status = league_data.get("status")
         self.rosters = None
+        self.scoring_settings = ScoringSettings(league_data.get("scoring_settings", {}))
+
         
         self.number_of_starters = 0
         for position in self.offensive_roster_positions:

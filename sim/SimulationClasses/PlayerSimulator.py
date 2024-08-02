@@ -1,3 +1,4 @@
+
 import random
 from sim.SimulationClasses.InjurySimulation import InjurySimulation
 
@@ -6,10 +7,22 @@ class PlayerSimulator:
         self.player = player
         self.simulation_injury = None
         self.returning_from_injury = False
-        self.avg_points_per_game = 0 
         self.total_simulated_points = 0
         self.total_simulated_games = 0
         self.current_week_score = 0
+        self.weekly_scores = {}  # Add this line to store weekly scores
+
+    def simulate_week(self, week, scoring_settings):
+        if InjurySimulation.is_player_injured(self, week):
+            self.current_week_score = 0
+        elif self.player.position in ['DEF', 'K']:
+            self.current_week_score = self.simulate_special_position()
+        else:
+            self.current_week_score = self.simulate_player_score(week, scoring_settings)
+
+        self.weekly_scores[week] = self.current_week_score  # Store the score for this week
+        self.update_stats(self.current_week_score)
+        return self.current_week_score
 
     def simulate_player_score(self, week, scoring_settings):
         if not self.player.pff_projections:
@@ -50,47 +63,18 @@ class PlayerSimulator:
         )
 
         return score
-
-    def simulate_week(self, week, scoring_settings):
-        if self.is_injured(week):
-            self.current_week_score = 0
-            return 0
-
-        if self.player.position in ['DEF', 'K']:
-            self.current_week_score = self.simulate_special_position()
-        else:
-            self.current_week_score = self.simulate_player_score(week, scoring_settings)
-
-        self.update_avg_points(self.current_week_score)
-        return self.current_week_score
-
-    def is_injured(self, week):
-        if self.simulation_injury:
-            injury_end = self.simulation_injury['start_week'] + self.simulation_injury['duration']
-            if week >= injury_end:
-                self.simulation_injury = None
-                self.returning_from_injury = True
-                return False
-            return True
-        return False
-
-    def check_for_injury(self, week):
-        if InjurySimulation.check_for_injuries(self, week):
-            return True
-        return False
-
     def simulate_special_position(self):
         if self.player.position == 'DEF':
             return max(-5, min(35, round(random.gauss(15, 10))))
         elif self.player.position == 'K':
             return max(0, min(20, round(random.gauss(10, 5))))
 
-
-
-    def update_avg_points(self, score):
+    def update_stats(self, score):
         self.total_simulated_games += 1
         self.total_simulated_points += score
-        self.avg_points_per_game = self.total_simulated_points / self.total_simulated_games
+
+    def check_for_injury(self, week):
+        return InjurySimulation.check_for_injuries(self, week)
 
     def get_current_week_score(self):
         return self.current_week_score
