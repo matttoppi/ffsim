@@ -1,3 +1,4 @@
+from sim.SimulationClasses.TeamSimulation import TeamSimulation
 class FantasyTeam:
 
     def __init__(self, name, league, user_data=None):
@@ -24,6 +25,7 @@ class FantasyTeam:
         self.total_age = 0
         self.league = league
         self.roster_id = None
+        self.simulation = None  # We'll initialize this after adding players
         
         self.owner_username = user_data.get("display_name")
         if self.name == "Unknown":
@@ -33,7 +35,7 @@ class FantasyTeam:
             if key in attributes:
                 setattr(self, key, value)    
                 
-        self.calculate_stats()
+        self.calculate_metadata()
 
     def print_fantasy_team(self):     
         print("\n")   
@@ -48,7 +50,8 @@ class FantasyTeam:
         self.players.append(player)
         self.player_sleeper_ids.append(player.sleeper_id)
 
-    def calculate_stats(self):
+
+    def calculate_metadata(self):
         if len(self.players) <= 0:
             return
         self.total_value_1qb = round(sum(player.value_1qb for player in self.players if player.value_1qb is not None), 2)
@@ -57,3 +60,5 @@ class FantasyTeam:
         # self.average_value_2qb = round(self.total_value_2qb / len(self.players), 2)
         self.total_age = sum(player.age for player in self.players if player.age is not None)
         self.average_age = round(self.total_age / len(self.players), 2) if self.total_age else 0
+        
+        self.simulation = TeamSimulation(self)

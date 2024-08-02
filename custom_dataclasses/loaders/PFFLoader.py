@@ -2,9 +2,8 @@ import pandas as pd
 
 class PFFLoader:
     @staticmethod
-    def get_and_clean_data(desired_columns):
+    def get_and_clean_data():
         df = pd.read_csv('datarepo/PFFProjections/24PFFProjections.csv')
-        print("Available columns:", df.columns.tolist())
         
         # Check which desired columns are actually present
         available_columns = [col for col in desired_columns if col in df.columns]
@@ -13,6 +12,7 @@ class PFFLoader:
         if not available_columns:
             raise ValueError("None of the desired columns are present in the dataframe")
         
+        
         # Clean playerName column
         if 'playerName' in df.columns:
             # Remove suffixes like Jr., Sr., III, etc.
@@ -20,4 +20,4 @@ class PFFLoader:
             # Remove dots inside names
             df['playerName'] = df['playerName'].str.replace(r'\.', '', regex=True)
         
-        return df  # Return the cleaned DataFrame
+        return df
