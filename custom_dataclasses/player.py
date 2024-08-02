@@ -32,27 +32,27 @@ class Player:
         
         
         
-        # Injury data
+    
+        # Injury data with careful defaulting
         self.career_injuries = initial_data.get('career_injuries', 0)
-        self.injury_risk = initial_data.get('injury_risk', 'Medium')
+        self.injury_risk = initial_data.get('injury_risk', 'Unknown')
         self.durability = initial_data.get('durability', 0)
+        self.injury_probability_season = self.convert_to_decimal(initial_data.get('injury_probability_season', 0))
+        self.projected_games_missed = float(initial_data.get('projected_games_missed', 0))
+        self.injury_probability_game = self.convert_to_decimal(initial_data.get('injury_probability_game', 0))
 
-        # Convert injury probabilities from percentage to decimal
-        self.injury_probability_season = self.convert_to_decimal(initial_data.get('injury_probability_season', 12))
-        self.projected_games_missed = float(initial_data.get('projected_games_missed', 2))
-        self.injury_probability_game = self.convert_to_decimal(initial_data.get('injury_probability_game', 3))
+        self.simulation_injury = None
+        self.returning_from_injury = False
+        self.avg_points_per_game = 0 
+        self.total_simulated_points = 0
+        self.total_simulated_games = 0
+
 
 
         self.simulation_injury_duration = None
         self.avg_points_per_season = None
         self.simulation_game = None
         self.simulation_points_current_season = None
-        
-        self.simulation_injury = None
-        self.returning_from_injury = False
-        self.avg_points_per_game = 0 
-        self.total_simulated_points = 0
-        self.total_simulated_games = 0
         
         # FantasyCalc data
         self.value_1qb = float(initial_data.get('value_1qb', 0)) if initial_data.get('value_1qb') not in ['', None] else 0.0
@@ -64,14 +64,40 @@ class Player:
         else:
             self.pff_projections = PFFProjections(pff_data) if pff_data else None
         
-        # self.print_weekly_projection()
+        self.print_weekly_projection()
         
+        self.update_from_dict(initial_data)
+
+    def update_from_dict(self, data):
+        if 'age' in data and data['age'] is not None:
+            self.age = data['age']
+        if 'position' in data and data['position'] is not None and data['position'] != 'UNKNOWN':
+            self.position = data['position']
+        if 'team' in data and data['team'] is not None:
+            self.team = data['team']
+            
+            
+    def update_injury_data(self, injury_data):
+        # Only update if the new value is not None and not 0
+        if injury_data.get('career_injuries'):
+            self.career_injuries = injury_data['career_injuries']
+        if injury_data.get('injury_risk') and injury_data['injury_risk'] != 'Unknown':
+            self.injury_risk = injury_data['injury_risk']
+        if injury_data.get('durability'):
+            self.durability = injury_data['durability']
+        if injury_data.get('injury_probability_season'):
+            self.injury_probability_season = self.convert_to_decimal(injury_data['injury_probability_season'])
+        if injury_data.get('projected_games_missed'):
+            self.projected_games_missed = float(injury_data['projected_games_missed'])
+        if injury_data.get('injury_probability_game'):
+            self.injury_probability_game = self.convert_to_decimal(injury_data['injury_probability_game'])
+
     def print_weekly_projection(self):
         if self.pff_projections:
             weekly_projection = self.pff_projections.get_weekly_projection()
             print(f"{self.full_name} ({self.position}) - Projected weekly points: {weekly_projection:.2f}")
         # else:
-        #     print(f"{self.full_name} ({self.position}) - No PFF projections available")
+            # print(f"{self.full_name} ({self.position}) - No PFF projections available")
 
 
     def to_dict(self):
@@ -87,13 +113,22 @@ class Player:
          
     @staticmethod
     def convert_to_decimal(value):
+        if value is None or value == '':
+            return 0
         if isinstance(value, str):
             value = value.replace('%', '').strip()
         try:
             float_value = float(value)
             return float_value / 100 if float_value > 1 else float_value
         except ValueError:
-            return 0.01  # Default to 1% if conversion fails
+            return 0
+        
+    def update_pff_projections(self, pff_data):
+        self.pff_projections = PFFProjections(pff_data)
+        # # Debug print
+        # print(f"Updated PFF projections for {self.full_name}")
+        # print(f"  Fantasy Points: {self.pff_projections.fantasy_points}")
+        # print(f"  Games: {self.pff_projections.games}")
         
         
 

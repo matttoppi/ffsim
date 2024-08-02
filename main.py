@@ -2,6 +2,8 @@ from custom_dataclasses.loaders.PlayerLoader import PlayerLoader
 from league_loader import LeagueLoader
 from sim.MonteCarloSimulation import MonteCarloSimulation
 import os
+import pprint
+
 
 
 def main():
@@ -12,6 +14,12 @@ def main():
     
     # Load the league data
     league = league_loader.load_league()
+    
+    print("\nPlayer data for the first 5 players in the first team:")
+    for player in league.rosters[0].players[:3]:
+    #    pretty print the dict
+        # print(player.to_dict())
+        pprint.pprint(player.to_dict())
     
     # Print league info
     league.print_rosters()

@@ -12,7 +12,6 @@ class MonteCarloSimulation:
         self.league = league
         self.num_simulations = num_simulations
         self.season_sim = LeagueSimulation(self.league)
-        self.season_sim.fetch_all_matchups()
         self.tracker = self.season_sim.tracker
         self.tracker.set_num_simulations(num_simulations)
         self.visualizer = SimulationVisualizer(self.league, self.tracker)  # Pass tracker directly
