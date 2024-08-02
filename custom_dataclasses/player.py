@@ -29,7 +29,6 @@ class Player:
         
         self.durability = initial_data.get('durability', 0)
         self.pff_projections = initial_data.get('pff_projections', {})
-        self.print_weekly_projection()
         
         
         
@@ -65,7 +64,7 @@ class Player:
         else:
             self.pff_projections = PFFProjections(pff_data) if pff_data else None
         
-        self.print_weekly_projection()
+        # self.print_weekly_projection()
         
     def print_weekly_projection(self):
         if self.pff_projections:

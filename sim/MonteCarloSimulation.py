@@ -11,7 +11,7 @@ class MonteCarloSimulation:
     def __init__(self, league, num_simulations=1000, debugging=False):
         self.league = league
         self.num_simulations = num_simulations
-        self.season_sim = LeagueSimulation(self.league, debug=debugging)
+        self.season_sim = LeagueSimulation(self.league)
         self.season_sim.fetch_all_matchups()
         self.tracker = self.season_sim.tracker
         self.tracker.set_num_simulations(num_simulations)

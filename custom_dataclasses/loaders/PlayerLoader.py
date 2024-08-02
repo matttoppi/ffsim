@@ -61,8 +61,6 @@ class PlayerLoader:
             player_data['pff_projections'] = pff_data
 
             player = Player(player_data)
-            if self.print_projections:
-                player.print_weekly_projection()
             self.enriched_players.append(player)
 
         print(f"Total players loaded: {len(self.enriched_players)}")
