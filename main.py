@@ -1,5 +1,5 @@
 from custom_dataclasses.loaders.PlayerLoader import PlayerLoader
-from league_loader import LeagueLoader
+from custom_dataclasses.loaders.league_loader import LeagueLoader
 from sim.MonteCarloSimulation import MonteCarloSimulation
 import os
 import pprint
