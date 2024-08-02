@@ -5,17 +5,18 @@ from sim.LeagueSimulation import LeagueSimulation
 from tqdm import tqdm
 
 from sim.SimulationVisualizer import SimulationVisualizer
+from sim.LeagueSimulation import LeagueSimulation
+
 
 
 class MonteCarloSimulation:
     def __init__(self, league, num_simulations=1000, debugging=False):
         self.league = league
         self.num_simulations = num_simulations
-        self.season_sim = LeagueSimulation(self.league)
-        self.tracker = self.season_sim.tracker
+        self.tracker = SimulationTracker(self.league)
+        self.season_sim = LeagueSimulation(self.league, self.tracker)
         self.tracker.set_num_simulations(num_simulations)
-        self.visualizer = SimulationVisualizer(self.league, self.tracker)  # Pass tracker directly
-
+        self.visualizer = SimulationVisualizer(self.league, self.tracker)
 
 
     def run_single_simulation(self):

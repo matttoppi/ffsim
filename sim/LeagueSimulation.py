@@ -10,10 +10,11 @@ from sim.SimulationTracker import SimulationTracker
 from sim.SimulationClasses.PlayerSimulator import PlayerSimulator
 
 class LeagueSimulation:
-    def __init__(self, league):
-            self.league = league
-            self.weeks = 18  # Or however many weeks you want to simulate
-
+    def __init__(self, league, tracker):
+        self.league = league
+        self.tracker = tracker
+        self.weeks = 18
+        
     def run_simulation(self):
         for week in range(1, self.weeks + 1):
             self.simulate_week(week)
