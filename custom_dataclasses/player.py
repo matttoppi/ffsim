@@ -223,6 +223,20 @@ class Player:
             rec_td * scoring_settings.rec_td +
             receptions * (scoring_settings.te_rec if self.position == 'TE' else scoring_settings.rec)
         )
+        
+        
+        # if self.simulation_injury is not None and self.simulation_injury.get('start_week') == week: # if player is injured
+        #     initial = self.simulation_injury.get('duration') #
+        #     injury_time = self.simulation_injury.get('injury_time', 0) - int(self.simulation_injury.get('injury_time', 0))
+        #     score = score * (1-injury_time)
+        #     self.simulation_injury['duration'] = initial - 1
+        #     print(f"{self.name} - Week {week} - Score: {score:.2f} - (got injured {score} insted of {initial} (injury time: {injury_time})")
+            
+            
+        print(f"{self.name} - Week {week} - Score: {score:.2f}")
+        
+            
+            
 
         return score
 
@@ -244,16 +258,7 @@ class Player:
         injury_adjustment = self.get_injury_adjustment(week)
         return base_score * injury_adjustment
 
-    def check_for_injury(self, week):
-        if random.random() < self.injury_probability_game:
-            injury_duration = self.generate_injury_duration()
-            self.simulation_injury = {
-                'start_week': week,
-                'duration': injury_duration,
-                'return_week': week + math.ceil(injury_duration)
-            }
-            return True
-        return False
+
 
     def generate_injury_duration(self):
         return max(0.5, random.gauss(self.projected_games_missed, 1))

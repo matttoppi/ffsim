@@ -3,7 +3,6 @@ import os
 import json
 import requests
 from datetime import datetime, timedelta
-from sim.SimulationClasses.SimulationTeam import SimulationTeam
 from sim.SimulationClasses.SimulationMatchup import SimulationMatchup
         
         
@@ -21,14 +20,18 @@ class SimulationSeason:
             self.simulate_week(week)
 
     def simulate_week(self, week):
+        print(f"DEBUG: Simulating week {week}")
         for team in self.league.rosters:
-            team.check_for_injuries(week)
             team.fill_starters(week)
+            team.roll_new_injuries(week)
         
         matchups = self.get_matchups(week)
         for matchup in matchups:
-            matchup.week = week  # Set the current week for the matchup
+            matchup.week = week
+            print(f"DEBUG: Simulating matchup between {matchup.home_team.name} and {matchup.away_team.name}")
             matchup.simulate(self.league.scoring_settings, self.tracker)
+            
+
 
 
     def get_matchups(self, week):

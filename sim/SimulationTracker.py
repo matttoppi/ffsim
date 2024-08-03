@@ -16,14 +16,10 @@ class SimulationTracker:
         self.num_simulations = 0
         self.points_lost_to_injury = defaultdict(lambda: defaultdict(list))
         self.player_scores = defaultdict(lambda: defaultdict(list))
+        self.player_weekly_scores = defaultdict(lambda: defaultdict(list))
         
         
-    def record_player_score(self, player_id, week, score):
-        if player_id not in self.weekly_player_scores:
-            self.weekly_player_scores[player_id] = {}
-        if week not in self.weekly_player_scores[player_id]:
-            self.weekly_player_scores[player_id][week] = []
-        self.weekly_player_scores[player_id][week].append(score)
+
         
     def record_points_lost_to_injury(self, team_name, week, points_lost):
         self.points_lost_to_injury[team_name][week].append(points_lost)
@@ -188,8 +184,6 @@ class SimulationTracker:
             'points_against': points_against
         })
 
-    def record_player_score(self, player_id, week, score):
-        self.player_scores[player_id][week].append(score)
 
     def get_team_stats(self, team_name):
         seasons = self.team_season_results[team_name]
@@ -218,3 +212,13 @@ class SimulationTracker:
 
     def set_num_simulations(self, num_simulations):
         self.num_simulations = num_simulations
+        
+        
+        
+    def record_player_score(self, player_id, week, score):
+        self.player_weekly_scores[player_id][week].append(score)
+
+    def get_player_average_score(self, player_id):
+        scores = [score for week_scores in self.player_weekly_scores[player_id].values() for score in week_scores]
+        avg = sum(scores) / len(scores) if scores else 0
+        return avg
