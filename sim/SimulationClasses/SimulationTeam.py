@@ -14,6 +14,7 @@ class SimulationTeam:
         self.weekly_scores = {}
         self.best_week = {'week': 0, 'score': 0}
         self.worst_week = {'week': 0, 'score': float('inf')}
+    
 
     def simulate_week(self, week, scoring_settings):
         weekly_score = sum(player_sim.simulate_week(week, scoring_settings) for player_sim in self.player_sims.values())

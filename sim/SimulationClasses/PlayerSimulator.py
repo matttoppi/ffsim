@@ -13,15 +13,13 @@ class PlayerSimulator:
         self.weekly_scores = {}  # Add this line to store weekly scores
 
     def simulate_week(self, week, scoring_settings):
-        if InjurySimulation.is_player_injured(self, week):
+        if self.player.is_injured(week):
             self.current_week_score = 0
-        elif self.player.position in ['DEF', 'K']:
-            self.current_week_score = self.simulate_special_position()
         else:
-            self.current_week_score = self.simulate_player_score(week, scoring_settings)
-
-        self.weekly_scores[week] = self.current_week_score  # Store the score for this week
-        self.update_stats(self.current_week_score)
+            self.current_week_score = self.calculate_score(scoring_settings)
+            self.check_for_injury(week)
+            
+        print(f"{self.player.name} scored {self.current_week_score} in week {week}")
         return self.current_week_score
 
     def simulate_player_score(self, week, scoring_settings):
@@ -74,7 +72,18 @@ class PlayerSimulator:
         self.total_simulated_points += score
 
     def check_for_injury(self, week):
-        return InjurySimulation.check_for_injuries(self, week)
+        if random.random() < self.player.injury_probability_game:
+            injury_duration = self.generate_injury_duration()
+            self.player.simulation_injury = {
+                'start_week': week,
+                'duration': injury_duration,
+                'return_week': week + math.ceil(injury_duration)
+            }
+            return True
+        return False
 
+    def generate_injury_duration(self):
+        return max(0.5, random.gauss(self.player.projected_games_missed, 1))
+    
     def get_current_week_score(self):
         return self.current_week_score

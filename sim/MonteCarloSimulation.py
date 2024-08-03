@@ -13,7 +13,7 @@ class MonteCarloSimulation:
         for _ in tqdm(range(self.num_simulations), desc="Running Simulations", unit="sim"):
             for team in self.league.rosters:
                 team.reset_stats()
-            season = SimulationSeason(self.league, year=2023)
+            season = SimulationSeason(self.league, self.tracker)
             season.simulate()
             self.record_season_results(season)
 

@@ -213,20 +213,24 @@ class Player:
         )
 
         return score
-    
-    
-    
-    def simulate_week(self, week, scoring_settings):
-        if self.is_injured(week):
-            return 0
-        score = self.calculate_score(scoring_settings, week)
-        self.weekly_scores[week] = score
-        return score
 
+    
     def is_injured(self, week):
         if self.simulation_injury:
             return week < self.simulation_injury['return_week']
         return False
+
+    def get_injury_adjustment(self, week):
+        if self.simulation_injury and self.simulation_injury['start_week'] == week:
+            return self.simulation_injury['injury_time']
+        return 1.0
+
+    def simulate_week(self, week, scoring_settings):
+        if self.is_injured(week):
+            return 0
+        base_score = self.calculate_score(scoring_settings, week)
+        injury_adjustment = self.get_injury_adjustment(week)
+        return base_score * injury_adjustment
 
     def check_for_injury(self, week):
         if random.random() < self.injury_probability_game:

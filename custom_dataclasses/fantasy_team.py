@@ -1,4 +1,7 @@
 from sim.SimulationClasses.SimulationTeam import SimulationTeam
+from sim.SimulationClasses.PlayerSimulator import PlayerSimulator
+import random
+import math
 
 class FantasyTeam:
 
@@ -28,6 +31,14 @@ class FantasyTeam:
         self.roster_id = None
         self.simulation = None  # We'll initialize this after adding players
         
+        self.player_simulators = {player.sleeper_id: PlayerSimulator(player) for player in self.players}
+        self.starters = {
+            'QB': [], 'RB': [], 'WR': [], 'TE': [], 'FLEX': [], 'K': [], 'DEF': []
+        }
+        self.bench = []
+        
+        self.sim_injured_players = []
+        self.weekly_scores = {}
         
         
         self.owner_username = user_data.get("display_name")
@@ -66,13 +77,6 @@ class FantasyTeam:
         
         self.simulation = SimulationTeam(self)
 
-
-    def simulate_week(self, week, scoring_settings):
-        weekly_score = sum(player.simulate_week(week, scoring_settings) for player in self.players)
-        self.weekly_scores[week] = weekly_score
-        self.points_for += weekly_score
-        return weekly_score
-
     def update_record(self, won, tied, points_against, week):
         if won:
             self.wins += 1
@@ -87,7 +91,25 @@ class FantasyTeam:
 
     def check_for_injuries(self, week):
         for player in self.players:
-            player.check_for_injury(week)
+            if player.position in ['DEF', 'K']:
+                continue
+            
+            injury_roll = random.random()
+            if injury_roll < player.injury_probability_game:
+                injury_duration = self.generate_injury_duration(player)
+                injury_time = random.uniform(0, 1)  # When during the game the injury occurred
+                player.simulation_injury = {
+                    'start_week': week,
+                    'duration': injury_duration,
+                    'return_week': week + injury_duration,
+                    'injury_time': injury_time
+                }
+                self.sim_injured_players.append(player)
+                print(f"New injury for {player.name} on {self.name} for {injury_duration:.2f} weeks")
+
+    def generate_injury_duration(self, player):
+        base_duration = random.uniform(0.5, player.projected_games_missed * 2)
+        return max(0.5, base_duration)
 
     def reset_stats(self):
         self.wins = 0
@@ -96,3 +118,133 @@ class FantasyTeam:
         self.points_for = 0
         self.points_against = 0
         self.weekly_scores = {}
+        
+        
+    def simulate_week(self, week, scoring_settings):
+        self.update_injury_status(week)
+        self.fill_starters(week)
+        
+        weekly_score = 0
+        all_player_scores = {}
+
+        for player in self.players:
+            if player.is_injured(week):
+                player_score = 0
+            else:
+                base_score = player.calculate_score(scoring_settings, week)
+                injury_adjustment = player.get_injury_adjustment(week)
+                player_score = base_score * injury_adjustment
+
+            all_player_scores[player.sleeper_id] = player_score
+            
+            if player in self.get_active_starters():
+                weekly_score += player_score
+
+            print(f"{player.name} scored {player_score:.2f} in week {week}")
+
+        self.weekly_scores[week] = weekly_score
+        self.points_for += weekly_score
+        
+        return weekly_score, all_player_scores
+
+    def get_active_starters(self, week):
+        return [player for pos, players in self.starters.items() for player in players if not player.is_injured(week)]
+
+    def update_injury_status(self, week):
+        recovered_players = [p for p in self.sim_injured_players if not p.is_injured(week)]
+        for player in recovered_players:
+            print(f"{player.name} has recovered from injury and is available to play.")
+            self.sim_injured_players.remove(player)
+
+    def simulate_player_week(self, player, week, scoring_settings):
+        print(f"Simulating week {week} for {player.name}")
+        base_score = player.calculate_score(scoring_settings)
+        
+        # Check for new injury
+        if random.random() < player.injury_probability_game:
+            injury_duration = max(0.5, random.gauss(player.projected_games_missed, 1))
+            player.simulation_injury = {
+                'start_week': week,
+                'duration': injury_duration,
+                'return_week': week + math.ceil(injury_duration)
+            }
+            # print(f"New injury for {player.name} on {self.name} for {injury_duration:.2f} weeks")
+            self.sim_injured_players.append(player)
+            print(f"New injury for {player.name} on {self.name} for {injury_duration:.2f} weeks")
+                
+                
+            # Adjust score based on when injury occurred during the game
+            injury_time = random.random()
+            adjusted_score = base_score * injury_time
+            return adjusted_score
+        
+        print(f"{player.name} scored {base_score} in week {week}")
+        
+        return base_score
+
+    def fill_starters(self, week):
+        slots = {
+            'QB': 1, 'RB': 3, 'WR': 3, 'TE': 1, 'FLEX': 3, 'K': 1, 'DEF': 1
+        }
+        flex_eligible = ['RB', 'WR', 'TE']
+
+        # Clear current starters
+        self.starters = {pos: [] for pos in slots.keys()}
+
+        # Get all available players (not on bye and not injured this week)
+        available_players = [
+            p for p in self.players 
+            if not p.is_injured(week) and (not hasattr(p, 'bye_week') or p.bye_week != week)
+        ]
+        
+        # if week == 2:
+        #     x = input("Press Enter to continue")
+            
+
+        # Sort available players by projected points for this week
+        available_players.sort(key=lambda p: p.calculate_score(self.league.scoring_settings, week), reverse=True)
+
+        print(f"Available players for {self.name} in week {week}: {[p.name for p in available_players]}")
+        print(f"Hurting players for {self.name} in week {week}: {[p.name for p in self.sim_injured_players]}")
+        # Fill mandatory positions first
+        for pos in ['QB', 'RB', 'WR', 'TE', 'K', 'DEF']:
+            position_players = [p for p in available_players if p.position == pos]
+            for _ in range(slots[pos]):
+                if position_players:
+                    player = position_players.pop(0)
+                    self.starters[pos].append(player)
+                    available_players.remove(player)
+
+        # Fill FLEX positions
+        flex_players = [p for p in available_players if p.position in flex_eligible]
+        for _ in range(slots['FLEX']):
+            if flex_players:
+                player = max(flex_players, key=lambda p: p.calculate_score(self.league.scoring_settings, week))
+                self.starters['FLEX'].append(player)
+                available_players.remove(player)
+                flex_players.remove(player)
+
+        # Set bench players
+        self.bench = [p for p in self.players if p not in [player for pos_list in self.starters.values() for player in pos_list]]
+        
+        # Set injured players
+        self.sim_injured_players = [p for p in self.players if p.is_injured(week)]
+
+        # Print roster for debugging
+        if self.name == "Toppi":
+            self.print_roster()
+        
+
+    
+    def print_roster(self):
+        print("Starters:")
+        for pos, players in self.starters.items():
+            for player in players:
+                print(f"{pos}: {player.name} (Redraft Value: {player.redraft_value})")
+        print("\nBench:")
+        for player in self.bench:
+            print(f"{player.name} (Redraft Value: {player.redraft_value})")
+        print("\nInjured:")
+        for player in self.sim_injured_players:
+            print(f"{player.name} (Redraft Value: {player.redraft_value})")
+        print("\n")

@@ -8,10 +8,10 @@ from sim.SimulationClasses.SimulationMatchup import SimulationMatchup
         
         
 class SimulationSeason:
-    def __init__(self, league, year):
+    def __init__(self, league, tracker):
         self.league = league
-        self.year = year
-        self.weeks = 18
+        self.tracker = tracker
+        self.weeks = 18  # Or however many weeks your season has        self.weeks = 18
         self.matchups = {}
         self.matchups_file = f'datarepo/matchups_{league.league_id}.json'
         self.matchups_refresh_interval = timedelta(days=1)
@@ -21,9 +21,14 @@ class SimulationSeason:
             self.simulate_week(week)
 
     def simulate_week(self, week):
+        for team in self.league.rosters:
+            team.check_for_injuries(week)
+        
         matchups = self.get_matchups(week)
         for matchup in matchups:
-            matchup.simulate(self.league.scoring_settings)
+            matchup.week = week  # Set the current week for the matchup
+            matchup.simulate(self.league.scoring_settings, self.tracker)
+
 
     def get_matchups(self, week):
         all_matchups = self.load_or_fetch_matchups()
