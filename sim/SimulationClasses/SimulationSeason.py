@@ -23,6 +23,7 @@ class SimulationSeason:
     def simulate_week(self, week):
         for team in self.league.rosters:
             team.check_for_injuries(week)
+            team.fill_starters(week)
         
         matchups = self.get_matchups(week)
         for matchup in matchups:

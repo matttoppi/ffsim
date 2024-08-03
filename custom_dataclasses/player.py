@@ -97,6 +97,18 @@ class Player:
             self.projected_games_missed = float(injury_data['projected_games_missed'])
         if injury_data.get('injury_probability_game'):
             self.injury_probability_game = self.convert_to_decimal(injury_data['injury_probability_game'])
+            
+    def update_injury_status(self, week):
+        if self.simulation_injury:
+            self.simulation_injury['duration'] -= 1
+            if self.simulation_injury['duration'] <= 0:
+                print(f"{self.name} has recovered from injury and is available to play.")
+                self.simulation_injury = None
+                return True
+        return False
+
+    def is_injured(self, week):
+        return self.simulation_injury is not None and self.simulation_injury['duration'] > 0
 
     def print_weekly_projection(self):
         if self.pff_projections:
@@ -214,10 +226,10 @@ class Player:
 
         return score
 
-    
-    def is_injured(self, week):
-        if self.simulation_injury:
-            return week < self.simulation_injury['return_week']
+    def clear_injury(self, week):
+        if self.simulation_injury and week >= self.simulation_injury['return_week']:
+            self.simulation_injury = None
+            return True
         return False
 
     def get_injury_adjustment(self, week):
