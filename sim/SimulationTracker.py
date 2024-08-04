@@ -17,6 +17,7 @@ class SimulationTracker:
         self.points_lost_to_injury = defaultdict(lambda: defaultdict(list))
         self.player_scores = defaultdict(lambda: defaultdict(list))
         self.player_weekly_scores = defaultdict(lambda: defaultdict(list))
+        self.player_games_played = defaultdict(int)  # Add this line
         
         
 
@@ -42,25 +43,12 @@ class SimulationTracker:
             }
         return None
 
-    def record_team_season(self, team_name, wins, losses, ties, points_for, points_against):
-        self.team_season_results[team_name].append({
-            'wins': wins,
-            'losses': losses,
-            'ties': ties,
-            'points_for': points_for,
-            'points_against': points_against
-        })
-        self.update_best_worst_seasons(team_name, wins, points_for)
+    
 
     def record_team_week(self, team_name, week, points):
         self.team_weekly_results[team_name][week].append(points)
         self.update_best_worst_weeks(team_name, week, points)
 
-    def update_best_worst_seasons(self, team_name, wins, points):
-        if team_name not in self.best_seasons or wins > self.best_seasons[team_name]['wins']:
-            self.best_seasons[team_name] = {'wins': wins, 'points': points}
-        if team_name not in self.worst_seasons or wins < self.worst_seasons[team_name]['wins']:
-            self.worst_seasons[team_name] = {'wins': wins, 'points': points}
 
     def update_best_worst_weeks(self, team_name, week, points):
         if team_name not in self.best_weeks or points > self.best_weeks[team_name]['points']:
@@ -68,16 +56,6 @@ class SimulationTracker:
         if team_name not in self.worst_weeks or points < self.worst_weeks[team_name]['points']:
             self.worst_weeks[team_name] = {'week': week, 'points': points}
 
-    def get_player_stats(self, player_id):
-        all_scores = [score for week_scores in self.player_scores[player_id].values() for score in week_scores if score > 0]
-        if all_scores:
-            return {
-                'avg_score': sum(all_scores) / len(all_scores),
-                'min_score': min(all_scores),
-                'max_score': max(all_scores),
-                'all_scores': all_scores  # Add this line to include all scores
-            }
-        return None
 
     def record_season_standings(self, standings):
         for position, team_data in enumerate(standings, 1):
@@ -85,33 +63,28 @@ class SimulationTracker:
             self.season_standings[team_name].append((position, wins, points))
 
     def update_best_worst_seasons(self, team_name, wins, points):
-        standings = self.season_standings[team_name]
-        if not standings:
-            return
-
-        current_season = standings[-1]  # Get the most recent season's data
-        position = current_season[0]
-
         if team_name not in self.best_seasons or wins > self.best_seasons[team_name]['wins'] or \
-           (wins == self.best_seasons[team_name]['wins'] and points > self.best_seasons[team_name]['points']):
-            self.best_seasons[team_name] = {'wins': wins, 'points': points, 'position': position}
-
+        (wins == self.best_seasons[team_name]['wins'] and points > self.best_seasons[team_name]['points']):
+            self.best_seasons[team_name] = {'wins': wins, 'points': points}
+        
         if team_name not in self.worst_seasons or wins < self.worst_seasons[team_name]['wins'] or \
-           (wins == self.worst_seasons[team_name]['wins'] and points < self.worst_seasons[team_name]['points']):
-            self.worst_seasons[team_name] = {'wins': wins, 'points': points, 'position': position}
-
+        (wins == self.worst_seasons[team_name]['wins'] and points < self.worst_seasons[team_name]['points']):
+            self.worst_seasons[team_name] = {'wins': wins, 'points': points}
+            
     def get_team_stats(self, team_name):
         seasons = self.team_season_results[team_name]
         if seasons:
             avg_wins = sum(season['wins'] for season in seasons) / len(seasons)
             avg_points = sum(season['points_for'] for season in seasons) / len(seasons)
+            best_season = max(seasons, key=lambda x: (x['wins'], x['points_for']))
+            worst_season = min(seasons, key=lambda x: (x['wins'], x['points_for']))
             return {
                 'avg_wins': avg_wins,
                 'avg_points': avg_points,
-                'best_season': self.best_seasons[team_name],
-                'worst_season': self.worst_seasons[team_name],
-                'best_week': self.best_weeks[team_name],
-                'worst_week': self.worst_weeks[team_name]
+                'best_season': best_season,
+                'worst_season': worst_season,
+                'best_week': self.best_weeks.get(team_name, {'week': 0, 'points': 0}),
+                'worst_week': self.worst_weeks.get(team_name, {'week': 0, 'points': 0})
             }
         return None
 
@@ -183,33 +156,24 @@ class SimulationTracker:
             'points_for': points_for,
             'points_against': points_against
         })
+        self.update_best_worst_seasons(team_name, wins, points_for)
 
 
-    def get_team_stats(self, team_name):
-        seasons = self.team_season_results[team_name]
-        if seasons:
-            avg_wins = sum(season['wins'] for season in seasons) / len(seasons)
-            avg_points = sum(season['points_for'] for season in seasons) / len(seasons)
-            best_season = max(seasons, key=lambda x: (x['wins'], x['points_for']))
-            worst_season = min(seasons, key=lambda x: (x['wins'], x['points_for']))
-            return {
-                'avg_wins': avg_wins,
-                'avg_points': avg_points,
-                'best_season': best_season,
-                'worst_season': worst_season
-            }
-        return None
-
-    def get_player_stats(self, player_id):
-        all_scores = [score for week_scores in self.player_scores[player_id].values() for score in week_scores if score > 0]
-        if all_scores:
-            return {
-                'avg_score': sum(all_scores) / len(all_scores),
-                'min_score': min(all_scores),
-                'max_score': max(all_scores)
-            }
-        return None
-
+    # def get_team_stats(self, team_name):
+    #     seasons = self.team_season_results[team_name]
+    #     if seasons:
+    #         avg_wins = sum(season['wins'] for season in seasons) / len(seasons)
+    #         avg_points = sum(season['points_for'] for season in seasons) / len(seasons)
+    #         best_season = max(seasons, key=lambda x: (x['wins'], x['points_for']))
+    #         worst_season = min(seasons, key=lambda x: (x['wins'], x['points_for']))
+    #         return {
+    #             'avg_wins': avg_wins,
+    #             'avg_points': avg_points,
+    #             'best_season': best_season,
+    #             'worst_season': worst_season
+    #         }
+    #     return None
+    
     def set_num_simulations(self, num_simulations):
         self.num_simulations = num_simulations
         
@@ -221,6 +185,19 @@ class SimulationTracker:
         if week not in self.player_scores[player_id]:
             self.player_scores[player_id][week] = []
         self.player_scores[player_id][week].append(score)
+        self.player_games_played[player_id] += 1
+
+    def get_player_stats(self, player_id):
+        all_scores = [score for week_scores in self.player_scores[player_id].values() for score in week_scores if score > 0]
+        games_played = self.player_games_played[player_id]
+        if all_scores:
+            return {
+                'avg_score': sum(all_scores) / len(all_scores),
+                'min_score': min(all_scores),
+                'max_score': max(all_scores),
+                'games_played': games_played
+            }
+        return None
         
     def get_player_average_score(self, player_id):
         # if player_id not in self.player_weekly_scores:
@@ -240,3 +217,61 @@ class SimulationTracker:
                     return player
         return None
     
+    
+    
+    def print_top_players_by_position(self, top_n=30):
+        print("\nTop Players by Position:")
+        positions = ['QB', 'RB', 'WR', 'TE']
+
+        for position in positions:
+            print(f"\nTop {top_n} {position}s:")
+            players = [player for team in self.league.rosters for player in team.players if player.position == position]
+            
+            player_stats = []
+            for player in players:
+                stats = self.get_player_stats(player.sleeper_id)  # Changed from self.tracker.get_player_stats
+                if stats:
+                    avg_games_per_season = stats['games_played'] / self.num_simulations
+                    player_stats.append((player, stats['avg_score'], stats['min_score'], stats['max_score'], avg_games_per_season))
+
+            sorted_players = sorted(player_stats, key=lambda x: x[1], reverse=True)[:top_n]
+
+            print(f"{'Rank':<5}{'Player':<30}{'Avg':<8}{'Min':<8}{'Max':<8}{'Avg Games':<10}")
+            print("-" * 69)
+            for i, (player, avg_score, min_score, max_score, avg_games) in enumerate(sorted_players, 1):
+                player_name = f"{player.first_name} {player.last_name}"
+                print(f"{i:<5}{player_name:<30}{avg_score:<8.2f}{min_score:<8.2f}{max_score:<8.2f}{avg_games:<10.2f}")
+
+    def print_projected_standings(self):
+        print("\nProjected Final Standings:")
+        avg_results = []
+        for team in self.league.rosters:
+            stats = self.get_team_stats(team.name)
+            if stats:
+                avg_wins = stats['avg_wins']
+                avg_points = stats['avg_points']
+                avg_results.append((team.name, avg_wins, avg_points))
+            else:
+                print(f"DEBUG: No stats found for {team.name}")
+
+        sorted_results = sorted(avg_results, key=lambda x: (x[1], x[2]), reverse=True)
+
+        for i, (team_name, avg_wins, avg_points) in enumerate(sorted_results, 1):
+            print(f"{i}. {team_name}: {avg_wins:.2f} wins | Points per week: {avg_points/18:.2f} points")
+            
+            
+    def print_player_average_scores(self):
+            print("\nAverage Scores Per Week for Each Player:")
+            for team in self.league.rosters:
+                print(f"\n{team.name}:")
+                for player in team.players:
+                    avg_score = self.get_player_average_score(player.sleeper_id)
+                    total_scores = sum(sum(week_scores) for week_scores in self.player_weekly_scores.get(player.sleeper_id, {}).values())
+                    total_weeks = sum(len(week_scores) for week_scores in self.player_weekly_scores.get(player.sleeper_id, {}).values())
+                    print(f"  {player.name} ({player.position}): Avg: {avg_score:.2f}, Total: {total_scores:.2f}, Weeks: {total_weeks}")
+                    
+                    
+    def print_results(self):
+        print("\nMonte Carlo Simulation Results:")
+        self.print_top_players_by_position()
+        self.print_projected_standings()

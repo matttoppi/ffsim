@@ -8,20 +8,21 @@ class MonteCarloSimulation:
         self.league = league
         self.num_simulations = num_simulations
         self.tracker = SimulationTracker(self.league)
+        self.tracker.set_num_simulations(num_simulations)
 
     def run(self):
         for _ in tqdm(range(self.num_simulations), desc="Running Simulations", unit="sim"):
-            for team in self.league.rosters:
+            for team in self.league.rosters:  # Changed from .values() to direct iteration
                 team.reset_stats()
             season = SimulationSeason(self.league, self.tracker)
             season.simulate()
             self.record_season_results(season)
-        self.print_results()
-        self.print_player_average_scores()
+        self.tracker.print_results()
+        self.tracker.print_player_average_scores()
             
     def record_season_results(self, season):
         print("DEBUG: Recording season results")
-        for team in self.league.rosters:
+        for team in self.league.rosters:  # Changed from .values() to direct iteration
             self.tracker.record_team_season(
                 team.name, team.wins, team.losses, team.ties, team.points_for, team.points_against
             )
@@ -29,13 +30,7 @@ class MonteCarloSimulation:
             for player in team.players:
                 for week, score in player.weekly_scores.items():
                     self.tracker.record_player_score(player.sleeper_id, week, score)
-
-
-    def print_results(self):
-        print("\nMonte Carlo Simulation Results:")
-        self.print_team_results()
-        self.print_top_players_by_position()
-        self.print_projected_standings()
+    
 
     def print_team_results(self):
         for team_name in self.league.rosters:
@@ -69,31 +64,7 @@ class MonteCarloSimulation:
                 player_name = f"{player.first_name} {player.last_name}"
                 print(f"{i:<5}{player_name:<30}{avg_score:<8.2f}{min_score:<8.2f}{max_score:<8.2f}")
 
-    def print_projected_standings(self):
-        print("\nProjected Final Standings:")
-        avg_results = []
-        for team in self.league.rosters:
-            stats = self.tracker.get_team_stats(team.name)
-            if stats:
-                avg_wins = stats['avg_wins']
-                avg_points = stats['avg_points']
-                avg_results.append((team.name, avg_wins, avg_points))
-            else:
-                print(f"DEBUG: No stats found for {team.name}")
-
-        sorted_results = sorted(avg_results, key=lambda x: (x[1], x[2]), reverse=True)
-
-        for i, (team_name, avg_wins, avg_points) in enumerate(sorted_results, 1):
-            print(f"{i}. {team_name}: {avg_wins:.2f} wins | Points per week: {avg_points/18:.2f} points")
+    
             
             
-            
-    def print_player_average_scores(self):
-        print("\nAverage Scores Per Week for Each Player:")
-        for team in self.league.rosters:
-            print(f"\n{team.name}:")
-            for player in team.players:
-                avg_score = self.tracker.get_player_average_score(player.sleeper_id)
-                total_scores = sum(sum(week_scores) for week_scores in self.tracker.player_weekly_scores.get(player.sleeper_id, {}).values())
-                total_weeks = sum(len(week_scores) for week_scores in self.tracker.player_weekly_scores.get(player.sleeper_id, {}).values())
-                print(f"  {player.name} ({player.position}): Avg: {avg_score:.2f}, Total: {total_scores:.2f}, Weeks: {total_weeks}")
+    

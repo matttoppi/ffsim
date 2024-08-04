@@ -30,10 +30,7 @@ def main():
     os.system('cls' if os.name == 'nt' else 'clear')
     monte_carlo = MonteCarloSimulation(league, num_simulations=25)
     monte_carlo.run()
-    
-    monte_carlo.print_results()
-    monte_carlo.print_top_players_by_position()
-    monte_carlo.print_projected_standings()
+
 
 if __name__ == "__main__":
     main()
