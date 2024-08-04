@@ -20,6 +20,7 @@ def main():
     #    pretty print the dict
         # print(player.to_dict())
         pprint.pprint(player.to_dict())
+        # pprint.pprint(player.pff_projections.to_dict())
     
     # Print league info
     league.print_rosters()

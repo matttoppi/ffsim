@@ -26,7 +26,7 @@ class Player:
         self.number = initial_data.get('number')
         self.status = initial_data.get('status')
         self.birth_date = initial_data.get('birth_date')
-        
+        self.on_fantasy_team = False
         # Injury data
         self.career_injuries = initial_data.get('career_injuries', 0)
         self.injury_risk = initial_data.get('injury_risk', 'Medium')
@@ -51,7 +51,12 @@ class Player:
         self.total_simulated_points = 0
         self.total_simulated_games = 0
         
-        self.weekly_scores = {}  # Add this to store weekly scores
+        self.weekly_scores = {}
+        
+        pff_data = initial_data.get('pff_projections', {})
+        self.pff_projections = PFFProjections(pff_data) if pff_data else None
+
+    
 
 
 
@@ -70,7 +75,9 @@ class Player:
         else:
             self.pff_projections = PFFProjections(pff_data) if pff_data else None
         
-        self.print_weekly_projection()
+        if self.pff_projections:
+            self.print_weekly_projection()
+    
         
         self.update_from_dict(initial_data)
 
@@ -126,7 +133,7 @@ class Player:
             print(f"{key}: {value}")
 
     def print_player_short(self):
-         print(f"{self.full_name} - {self.position.upper()} - {self.team} - 1QB: {self.value_1qb} - Redraft: {self.redraft_value}")
+         print(f"{self.full_name} - {self.position.upper()} - {self.team} - 1QB: {self.value_1qb} - Redraft: {self.redraft_value} - Has PFF Proj: {self.pff_projections is not None}")
          
          
     @staticmethod
@@ -144,9 +151,9 @@ class Player:
     def update_pff_projections(self, pff_data):
         self.pff_projections = PFFProjections(pff_data)
         # # Debug print
-        # print(f"Updated PFF projections for {self.full_name}")
-        # print(f"  Fantasy Points: {self.pff_projections.fantasy_points}")
-        # print(f"  Games: {self.pff_projections.games}")
+        print(f"Updated PFF projections for {self.full_name}")
+        print(f"  Fantasy Points: {self.pff_projections.fantasy_points}")
+        print(f"  Games: {self.pff_projections.games}")
         
         
 

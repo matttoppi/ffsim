@@ -16,8 +16,8 @@ class MonteCarloSimulation:
             season = SimulationSeason(self.league, self.tracker)
             season.simulate()
             self.record_season_results(season)
-            self.print_results()
-            self.print_player_average_scores()  # Add this line
+        self.print_results()
+        self.print_player_average_scores()
             
     def record_season_results(self, season):
         for team in self.league.rosters:
@@ -89,4 +89,6 @@ class MonteCarloSimulation:
             print(f"\n{team.name}:")
             for player in team.players:
                 avg_score = self.tracker.get_player_average_score(player.sleeper_id)
-                print(f"  {player.name} ({player.position}): {avg_score:.2f}")
+                total_scores = sum(sum(week_scores) for week_scores in self.tracker.player_weekly_scores.get(player.sleeper_id, {}).values())
+                total_weeks = sum(len(week_scores) for week_scores in self.tracker.player_weekly_scores.get(player.sleeper_id, {}).values())
+                print(f"  {player.name} ({player.position}): Avg: {avg_score:.2f}, Total: {total_scores:.2f}, Weeks: {total_weeks}")

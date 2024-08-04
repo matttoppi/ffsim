@@ -6,10 +6,8 @@ import numpy as np
 class DataMerger:
     @staticmethod
     def merge_data(fantasy_calc_df, sleeper_df, pff_df, injury_df):
-        # Merge FantasyCalc and Sleeper data
         merged_df = pd.merge(fantasy_calc_df, sleeper_df, left_on='sleeper_id', right_on='player_id', how='outer', suffixes=('_fc', '_sl'))
         
-        # Ensure team column exists and is filled correctly
         if 'team_fc' in merged_df.columns and 'team_sl' in merged_df.columns:
             merged_df['team'] = merged_df['team_fc'].fillna(merged_df['team_sl'])
         elif 'team_fc' in merged_df.columns:
@@ -22,31 +20,39 @@ class DataMerger:
         
         merged_df = merged_df.drop(columns=['team_fc', 'team_sl'], errors='ignore')
         
-        # Prepare for merging with PFF data
         merged_df['name_lower'] = merged_df['full_name'].str.lower()
         pff_df['playerName'] = pff_df['playerName'].str.lower()
         
-        final_df = pd.merge(merged_df, pff_df, left_on='name_lower', right_on='playerName', how='left', suffixes=('', '_pff'))
+        # Fuzzy matching for PFF data
+        def fuzzy_match(name, choices, cutoff=80):
+            match = process.extractOne(name, choices)
+            return match[2] if match and match[1] >= cutoff else None
+
+        pff_names = pff_df['playerName'].tolist()
+        merged_df['pff_index'] = merged_df['name_lower'].apply(lambda x: fuzzy_match(x, pff_names))
+        
+        final_df = pd.merge(merged_df, pff_df, left_on='pff_index', right_index=True, how='left', suffixes=('', '_pff'))
         
         if 'position_pff' in final_df.columns:
-            final_df['position'] = final_df['position'].fillna(final_df['position_pff'])
+            final_df['position'] = final_df.apply(lambda row: row['position_pff'] if pd.isna(row['position']) or row['position'] == 'UNKNOWN' else row['position'], axis=1)
             final_df.drop('position_pff', axis=1, inplace=True)
         
-        # Prepare for merging with injury data
         injury_df['player_lower'] = injury_df['player'].str.lower().str.strip()
         final_df['name_lower'] = final_df['name'].str.lower().str.strip()
         
-        # Ensure the column names match exactly
         injury_df = injury_df.rename(columns={
             'probability_of_injury_in_the_season': 'injury_probability_season',
             'probability_of_injury_per_game': 'injury_probability_game'
         })
         
-        # Merge injury data
         final_df = DataMerger.merge_injury_data(final_df, injury_df)
         
-        # Clean up the data
         final_df = DataMerger.clean_merged_data(final_df)
+        
+        # Debug: Print players without PFF projections
+        no_pff = final_df[final_df['fantasyPoints'].isna()]
+        print("Players without PFF projections:")
+        print(no_pff[['full_name', 'position', 'team']])
         
         return final_df
     

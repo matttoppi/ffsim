@@ -43,6 +43,7 @@ class LeagueLoader:
                 player = self.player_loader.load_player(player_id)
                 if player:
                     fantasy_team.add_player(player)
+                    player.on_fantasy_team = True
             
             fantasy_team.calculate_metadata()
             rosters.append(fantasy_team)

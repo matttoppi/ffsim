@@ -142,13 +142,19 @@ class PlayerLoader:
             self.search_name_to_player = {Player.clean_name(p.full_name): p for p in self.enriched_players}
             print(f"Loaded {len(self.enriched_players)} players from file.")
             
+            # Update with Sleeper data
+            self.update_with_sleeper_data()
+            x = input("Press Enter to continue...")
+            
             # Load and update PFF and injury data
             self.load_and_update_pff_data()
             
-            # Update with Sleeper data
-            self.update_with_sleeper_data()
+            x= input("Press Enter to continue...")
+            
+            
             
             # Apply default values to players with no injury data
+
             self.apply_default_injury_values()
         else:
             print("Player data file not found or outdated. Fetching new data...")
@@ -165,20 +171,27 @@ class PlayerLoader:
         injury_dict = {Player.clean_name(row['player']): row.to_dict() for _, row in injury_df.iterrows()}
         
         players_updated = 0
+        players_with_pff = 0
         for player_name, player in player_dict.items():
             # Update PFF data
-            pff_row = self.pff_projections[self.pff_projections['playerName'] == player_name]
+            pff_row = self.pff_projections[self.pff_projections['playerName'].str.lower() == player_name.lower()]
             if not pff_row.empty:
-                player.update_pff_projections(pff_row.iloc[0].to_dict())
+                pff_data = pff_row.iloc[0].to_dict()
+                player.pff_projections = PFFProjections(pff_data)
+                players_with_pff += 1
+                print(f"PFF data assigned to: {player.full_name} ({player.position})")
+            # else:
+            #     print(f"No PFF data found for: {player.full_name} ({player.position})")
             
             # Update injury data
-            if player_name in injury_dict:
-                player.update_injury_data(injury_dict[player_name])
+            injury_key = player_name.lower()
+            if injury_key in injury_dict:
+                player.update_injury_data(injury_dict[injury_key])
             
             players_updated += 1
         
-        print(f"Updated PFF and injury data for {players_updated} players")
-  
+        print(f"Updated data for {players_updated} players")
+        print(f"PFF data assigned to {players_with_pff} players")
         
     def update_with_sleeper_data(self):
         print("Updating players with Sleeper data...")

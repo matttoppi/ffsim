@@ -216,9 +216,29 @@ class SimulationTracker:
         
         
     def record_player_score(self, player_id, week, score):
+        if player_id not in self.player_weekly_scores:
+            self.player_weekly_scores[player_id] = {}
+        if week not in self.player_weekly_scores[player_id]:
+            self.player_weekly_scores[player_id][week] = []
         self.player_weekly_scores[player_id][week].append(score)
+        player = self.get_player_from_sleeper_id(player_id)
+        print(f"DEBUG: Recorded score {score} for player {player.full_name} ({player.position}) in week {week}")
 
     def get_player_average_score(self, player_id):
+        if player_id not in self.player_weekly_scores:
+            player = self.get_player_from_sleeper_id(player_id)
+            print(f"DEBUG: No scores recorded for player {player.full_name} ({player.position})")
+            return 0
         scores = [score for week_scores in self.player_weekly_scores[player_id].values() for score in week_scores]
         avg = sum(scores) / len(scores) if scores else 0
+        player = self.get_player_from_sleeper_id(player_id)
+        print(f"DEBUG: Player {player.full_name} ({player.position}) average score: {avg:.2f} from {len(scores)} recorded scores")
         return avg
+
+    def get_player_from_sleeper_id(self, sleeper_id):
+        for team in self.league.rosters:
+            for player in team.players:
+                if str(player.sleeper_id) == str(sleeper_id):
+                    return player
+        return None
+    
