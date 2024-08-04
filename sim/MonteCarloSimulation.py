@@ -20,10 +20,12 @@ class MonteCarloSimulation:
         self.print_player_average_scores()
             
     def record_season_results(self, season):
+        print("DEBUG: Recording season results")
         for team in self.league.rosters:
             self.tracker.record_team_season(
                 team.name, team.wins, team.losses, team.ties, team.points_for, team.points_against
             )
+            print(f"DEBUG: Recorded season for {team.name} - W: {team.wins}, L: {team.losses}, T: {team.ties}, PF: {team.points_for}, PA: {team.points_against}")
             for player in team.players:
                 for week, score in player.weekly_scores.items():
                     self.tracker.record_player_score(player.sleeper_id, week, score)
@@ -76,6 +78,9 @@ class MonteCarloSimulation:
                 avg_wins = stats['avg_wins']
                 avg_points = stats['avg_points']
                 avg_results.append((team.name, avg_wins, avg_points))
+                print(f"DEBUG: {team.name} - Avg Wins: {avg_wins:.2f}, Avg Points: {avg_points:.2f}")
+            else:
+                print(f"DEBUG: No stats found for {team.name}")
 
         sorted_results = sorted(avg_results, key=lambda x: (x[1], x[2]), reverse=True)
 
