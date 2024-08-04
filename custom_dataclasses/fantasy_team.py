@@ -82,7 +82,7 @@ class FantasyTeam:
             self.losses += 1
         self.points_against += points_against
         self.points_for += points_for
-        self.weekly_scores[week] = points_for  # Set the weekly score here
+        self.weekly_scores[week] = points_for
 
     
     def roll_new_injuries(self, week):
@@ -143,16 +143,6 @@ class FantasyTeam:
     def set_weekly_score(self, week, score):
         self.weekly_scores[week] = score
         self.points_for += score
-
-    def update_record(self, won, tied, points_against, week):
-        if won:
-            self.wins += 1
-        elif tied:
-            self.ties += 1
-        else:
-            self.losses += 1
-        self.points_against += points_against
-
 
 
     def update_injury_status(self, week):

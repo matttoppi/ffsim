@@ -78,14 +78,14 @@ class MonteCarloSimulation:
                 avg_wins = stats['avg_wins']
                 avg_points = stats['avg_points']
                 avg_results.append((team.name, avg_wins, avg_points))
-                print(f"DEBUG: {team.name} - Avg Wins: {avg_wins:.2f}, Avg Points: {avg_points:.2f}")
             else:
                 print(f"DEBUG: No stats found for {team.name}")
 
         sorted_results = sorted(avg_results, key=lambda x: (x[1], x[2]), reverse=True)
 
         for i, (team_name, avg_wins, avg_points) in enumerate(sorted_results, 1):
-            print(f"{i}. {team_name}: {avg_wins:.2f} wins, {avg_points:.2f} points")
+            print(f"{i}. {team_name}: {avg_wins:.2f} wins | Points per week: {avg_points/18:.2f} points")
+            
             
             
     def print_player_average_scores(self):

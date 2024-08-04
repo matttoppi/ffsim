@@ -32,10 +32,8 @@ class SimulationMatchup:
 
 
     def simulate(self, scoring_settings, tracker):
-        self.home_score, home_player_scores = self.simulate_all_players(self.home_team, scoring_settings, self.week)
-        self.away_score, away_player_scores = self.simulate_all_players(self.away_team, scoring_settings, self.week)
-        
-        print(f"DEBUG: Matchup result - {self.home_team.name}: {self.home_score} vs {self.away_team.name}: {self.away_score}")
+        self.home_score, home_player_scores = self.simulate_team(self.home_team, scoring_settings, self.week)
+        self.away_score, away_player_scores = self.simulate_team(self.away_team, scoring_settings, self.week)
         
         for player_id, score in home_player_scores.items():
             tracker.record_player_score(player_id, self.week, score)
@@ -46,14 +44,12 @@ class SimulationMatchup:
         self.update_records()
 
     def update_records(self):
-        print (f"DEBUG: Records before update - {self.home_team.name}: {self.home_team.wins}-{self.home_team.losses}, {self.away_team.name}: {self.away_team.wins}-{self.away_team.losses}")
         if self.home_score > self.away_score:
-            self.home_team.update_record(True, False, self.away_score, self.week)
-            self.away_team.update_record(False, False, self.home_score, self.week)
+            self.home_team.update_record(True, False, self.away_score, self.home_score, self.week)
+            self.away_team.update_record(False, False, self.home_score, self.away_score, self.week)
         elif self.away_score > self.home_score:
-            self.home_team.update_record(False, False, self.away_score, self.week)
-            self.away_team.update_record(True, False, self.home_score, self.week)
+            self.home_team.update_record(False, False, self.away_score, self.home_score, self.week)
+            self.away_team.update_record(True, False, self.home_score, self.away_score, self.week)
         else:
-            self.home_team.update_record(False, True, self.away_score, self.week)
-            self.away_team.update_record(False, True, self.home_score, self.week)
-        print(f"DEBUG: Updated records - {self.home_team.name}: {self.home_team.wins}-{self.home_team.losses}, {self.away_team.name}: {self.away_team.wins}-{self.away_team.losses}")
+            self.home_team.update_record(False, True, self.away_score, self.home_score, self.week)
+            self.away_team.update_record(False, True, self.home_score, self.away_score, self.week)
