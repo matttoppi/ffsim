@@ -30,10 +30,9 @@ class SimulationMatchup:
                 total_score += score
         return total_score, player_scores
 
-
     def simulate(self, scoring_settings, tracker):
-        self.home_score, home_player_scores = self.simulate_team(self.home_team, scoring_settings, self.week)
-        self.away_score, away_player_scores = self.simulate_team(self.away_team, scoring_settings, self.week)
+        self.home_score, home_player_scores = self.simulate_all_players(self.home_team, scoring_settings, self.week)
+        self.away_score, away_player_scores = self.simulate_all_players(self.away_team, scoring_settings, self.week)
         
         for player_id, score in home_player_scores.items():
             tracker.record_player_score(player_id, self.week, score)

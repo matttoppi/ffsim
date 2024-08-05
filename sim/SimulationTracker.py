@@ -176,16 +176,6 @@ class SimulationTracker:
     
     def set_num_simulations(self, num_simulations):
         self.num_simulations = num_simulations
-        
-        
-        
-    def record_player_score(self, player_id, week, score):
-        if player_id not in self.player_scores:
-            self.player_scores[player_id] = {}
-        if week not in self.player_scores[player_id]:
-            self.player_scores[player_id][week] = []
-        self.player_scores[player_id][week].append(score)
-        self.player_games_played[player_id] += 1
 
     def get_player_stats(self, player_id):
         all_scores = [score for week_scores in self.player_scores[player_id].values() for score in week_scores if score > 0]
@@ -260,18 +250,37 @@ class SimulationTracker:
             print(f"{i}. {team_name}: {avg_wins:.2f} wins | Points per week: {avg_points/18:.2f} points")
             
             
-    def print_player_average_scores(self):
-            print("\nAverage Scores Per Week for Each Player:")
-            for team in self.league.rosters:
-                print(f"\n{team.name}:")
-                for player in team.players:
-                    avg_score = self.get_player_average_score(player.sleeper_id)
-                    total_scores = sum(sum(week_scores) for week_scores in self.player_weekly_scores.get(player.sleeper_id, {}).values())
-                    total_weeks = sum(len(week_scores) for week_scores in self.player_weekly_scores.get(player.sleeper_id, {}).values())
-                    print(f"  {player.name} ({player.position}): Avg: {avg_score:.2f}, Total: {total_scores:.2f}, Weeks: {total_weeks}")
-                    
-                    
+
+
     def print_results(self):
         print("\nMonte Carlo Simulation Results:")
         self.print_top_players_by_position()
         self.print_projected_standings()
+        
+        
+        
+    def record_player_score(self, player_id, week, score):
+        if player_id not in self.player_scores:
+            self.player_scores[player_id] = {}
+        if week not in self.player_scores[player_id]:
+            self.player_scores[player_id][week] = []
+        self.player_scores[player_id][week].append(score)
+
+    def get_player_average_score(self, player_id):
+        if player_id not in self.player_scores:
+            return 0, 0, 0
+        
+        all_scores = [score for week_scores in self.player_scores[player_id].values() for score in week_scores]
+        total_scores = sum(all_scores)
+        total_weeks = sum(len(week_scores) for week_scores in self.player_scores[player_id].values())
+        avg_score = total_scores / len(all_scores) if all_scores else 0
+        
+        return avg_score, total_scores, total_weeks
+
+    def print_player_average_scores(self):
+        print("\nAverage Scores Per Week for Each Player:")
+        for team in self.league.rosters:
+            print(f"\n{team.name}:")
+            for player in team.players:
+                avg_score, total_scores, total_weeks = self.get_player_average_score(player.sleeper_id)
+                print(f"  {player.name} ({player.position}): Avg: {avg_score:.2f}, Total: {total_scores:.2f}, Weeks: {total_weeks}")
