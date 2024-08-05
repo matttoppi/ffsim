@@ -22,12 +22,14 @@ class SimulationMatchup:
     def simulate_all_players(self, team, scoring_settings, week):
         total_score = 0
         player_scores = {}
-        print(f"DEBUG: Simulating all players for team {team.name} for week {week}")
         for player in team.players:
-            score = player.calculate_score(scoring_settings, week)
-            player_scores[player.sleeper_id] = score
-            if player in team.get_active_starters(week):
-                total_score += score
+            if not player.is_injured(week):
+                score = player.calculate_score(scoring_settings, week)
+                player_scores[player.sleeper_id] = score
+                if player in team.get_active_starters(week):
+                    total_score += score
+            else:
+                player_scores[player.sleeper_id] = 0
         return total_score, player_scores
 
     def simulate(self, scoring_settings, tracker):

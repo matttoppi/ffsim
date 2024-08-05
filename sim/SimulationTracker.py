@@ -21,6 +21,7 @@ class SimulationTracker:
         self.player_games_played = defaultdict(int)
         self.player_games_missed = defaultdict(list)  # Add this line
         self.player_injuries = defaultdict(list)  # Add this line
+        
 
 
     def get_player_avg_injured_games(self, player_id):
@@ -187,16 +188,35 @@ class SimulationTracker:
         self.num_simulations = num_simulations
 
     def get_player_stats(self, player_id):
-        all_scores = [score for week_scores in self.player_scores[player_id].values() for score in week_scores if score > 0]
-        games_played = self.player_games_played[player_id]
-        if all_scores:
+        if player_id not in self.player_scores:
+            print(f"DEBUG: No scores recorded for player ID {player_id}")
+            return None
+        
+        all_scores = [score for week_scores in self.player_scores[player_id].values() for score in week_scores]
+        games_played = self.player_games_played.get(player_id, 0)
+        
+        if not all_scores:
+            print(f"DEBUG: No scores recorded for player ID {player_id}")
+            return None
+        
+        non_zero_scores = [score for score in all_scores if score > 0]
+        
+        if not non_zero_scores:
+            player = self.get_player_from_sleeper_id(player_id)
+            print(f"DEBUG: All scores are zero for player ID {player_id} ({player.full_name})")
             return {
-                'avg_score': sum(all_scores) / len(all_scores),
-                'min_score': min(all_scores),
-                'max_score': max(all_scores),
+                'avg_score': 0,
+                'min_score': 0,
+                'max_score': 0,
                 'games_played': games_played
             }
-        return None
+        
+        return {
+            'avg_score': sum(non_zero_scores) / len(non_zero_scores),
+            'min_score': min(non_zero_scores),
+            'max_score': max(non_zero_scores),
+            'games_played': games_played
+        }
         
     def get_player_average_score(self, player_id):
         # if player_id not in self.player_weekly_scores:
@@ -217,7 +237,6 @@ class SimulationTracker:
         return None
     
     
-    
     def print_top_players_by_position(self, top_n=30):
         print("\nTop Players by Position:")
         positions = ['QB', 'RB', 'WR', 'TE']
@@ -230,8 +249,10 @@ class SimulationTracker:
             for player in players:
                 stats = self.get_player_stats(player.sleeper_id)
                 avg_games_missed = self.get_player_avg_games_missed(player.sleeper_id)
-                if stats:
+                if stats is not None:
                     player_stats.append((player, stats['avg_score'], stats['min_score'], stats['max_score'], avg_games_missed))
+                else:
+                    print(f"DEBUG: No stats for {player.first_name} {player.last_name} (ID: {player.sleeper_id})")
 
             sorted_players = sorted(player_stats, key=lambda x: x[1], reverse=True)[:top_n]
 
@@ -240,6 +261,7 @@ class SimulationTracker:
             for i, (player, avg_score, min_score, max_score, avg_missed) in enumerate(sorted_players, 1):
                 player_name = f"{player.first_name} {player.last_name}"
                 print(f"{i:<5}{player_name:<30}{avg_score:<8.2f}{min_score:<8.2f}{max_score:<8.2f}{avg_missed:<8.2f}")
+                
                 
     def print_projected_standings(self):
         print("\nProjected Final Standings:")
@@ -294,15 +316,23 @@ class SimulationTracker:
                 avg_score, total_scores, total_weeks = self.get_player_average_score(player.sleeper_id)
                 print(f"  {player.name} ({player.position}): Avg: {avg_score:.2f}, Total: {total_scores:.2f}, Weeks: {total_weeks}")
                 
-            
+        
 
     def record_player_games_missed(self, player_id, games_missed):
         self.player_games_missed[player_id].append(games_missed)
 
+    
+    
+    
+    def record_player_injury(self, player_id, games_missed):
+        self.player_injuries[player_id].append(games_missed)
+
     def get_player_avg_games_missed(self, player_id):
         if player_id not in self.player_games_missed:
             return 0
-        return sum(self.player_games_missed[player_id]) / len(self.player_games_missed[player_id])
-
-    def record_player_injury(self, player_id, injured_weeks):
-        self.player_injuries[player_id].append(injured_weeks)
+        total_missed = sum(self.player_games_missed[player_id])
+        avg_missed = total_missed / self.num_simulations
+        # Add a print statement here for debugging
+        player = self.get_player_from_sleeper_id(player_id)
+        print(f"Player {player.name} missed total of {total_missed} games over {self.num_simulations} simulations. Average: {avg_missed:.2f}")
+        return avg_missed

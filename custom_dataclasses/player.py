@@ -50,6 +50,8 @@ class Player:
         self.avg_points_per_game = 0 
         self.total_simulated_points = 0
         self.total_simulated_games = 0
+        self.last_missed_week = 0  # Add this line
+        
         
         self.weekly_scores = {}
         
@@ -82,15 +84,27 @@ class Player:
     
         
         self.update_from_dict(initial_data)
+        
+
+    def update_injury_status(self, week):
+        if self.simulation_injury:
+            if week < self.simulation_injury['return_week'] and week > self.last_missed_week:
+                self.games_missed_this_season += 1
+                self.last_missed_week = week
+                print(f"{self.name} missed week {week} due to injury. Total games missed: {self.games_missed_this_season}")
+            elif week >= self.simulation_injury['return_week']:
+                self.simulation_injury = None
+                self.last_missed_week = 0
+
+    def reset_injury_status(self):
+        self.games_missed_this_season = 0
+        self.simulation_injury = None
+        self.last_missed_week = 0  # Add this line
 
     def is_injured(self, week):
         if self.simulation_injury and self.simulation_injury['start_week'] <= week < self.simulation_injury['return_week']:
             return True
         return False
-
-    def reset_injury_status(self):
-        self.games_missed_this_season = 0
-        self.simulation_injury = None
 
 
     def update_from_dict(self, data):
@@ -116,15 +130,7 @@ class Player:
             self.projected_games_missed = float(injury_data['projected_games_missed'])
         if injury_data.get('injury_probability_game'):
             self.injury_probability_game = self.convert_to_decimal(injury_data['injury_probability_game'])
-            
-    def update_injury_status(self, week):
-        if self.simulation_injury:
-            self.simulation_injury['duration'] -= 1
-            if self.simulation_injury['duration'] <= 0:
-                print(f"{self.name} has recovered from injury and is available to play.")
-                self.simulation_injury = None
-                return True
-        return False
+        
 
     def print_weekly_projection(self):
         if self.pff_projections:
@@ -319,3 +325,7 @@ class PFFProjections:
 
     def __str__(self):
         return f"PFF Projections: {self.fantasy_points} points over {self.games} games"
+    
+    
+    
+ 

@@ -28,7 +28,7 @@ def main():
     # Run Monte Carlo Simulation
     input("Press Enter to run Monte Carlo Simulation")
     os.system('cls' if os.name == 'nt' else 'clear')
-    monte_carlo = MonteCarloSimulation(league, num_simulations=25)
+    monte_carlo = MonteCarloSimulation(league, num_simulations=50)
     monte_carlo.run()
 
 

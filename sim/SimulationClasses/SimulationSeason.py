@@ -19,15 +19,12 @@ class SimulationSeason:
         for team in self.league.rosters:
             for player in team.players:
                 player.update_injury_status(week)
-                if player.is_injured(week):
-                    self.tracker.record_player_injury(player.sleeper_id, 1)
             team.fill_starters(week)
             team.roll_new_injuries(week)
         
         matchups = self.get_matchups(week)
         for matchup in matchups:
             matchup.week = week
-            print(f"DEBUG: Simulating matchup between {matchup.home_team.name} and {matchup.away_team.name}")
             matchup.simulate(self.league.scoring_settings, self.tracker)
 
     def simulate(self):
@@ -37,10 +34,10 @@ class SimulationSeason:
         # Record games missed at the end of the season
         for team in self.league.rosters:
             for player in team.players:
-                self.tracker.record_player_games_missed(player.sleeper_id, player.games_missed_this_season)
+                if player.games_missed_this_season > 0:
+                    self.tracker.record_player_games_missed(player.sleeper_id, player.games_missed_this_season)
+                    print(f"Recorded {player.games_missed_this_season} missed games for {player.name} in this season")
                 player.reset_injury_status()
-
-
 
     def get_matchups(self, week):
         all_matchups = self.load_or_fetch_matchups()
