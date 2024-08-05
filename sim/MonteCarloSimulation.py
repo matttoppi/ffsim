@@ -42,29 +42,3 @@ class MonteCarloSimulation:
                 print(f"  Best Season: {stats['best_season']['wins']} wins, {stats['best_season']['points_for']:.2f} points")
                 print(f"  Worst Season: {stats['worst_season']['wins']} wins, {stats['worst_season']['points_for']:.2f} points")
 
-    def print_top_players_by_position(self, top_n=30):
-        print("\nTop Players by Position:")
-        positions = ['QB', 'RB', 'WR', 'TE']
-
-        for position in positions:
-            print(f"\nTop {top_n} {position}s:")
-            players = [player for team in self.league.rosters for player in team.players if player.position == position]
-            
-            player_stats = []
-            for player in players:
-                stats = self.tracker.get_player_stats(player.sleeper_id)
-                if stats:
-                    player_stats.append((player, stats['avg_score'], stats['min_score'], stats['max_score']))
-
-            sorted_players = sorted(player_stats, key=lambda x: x[1], reverse=True)[:top_n]
-
-            print(f"{'Rank':<5}{'Player':<30}{'Avg':<8}{'Min':<8}{'Max':<8}")
-            print("-" * 59)
-            for i, (player, avg_score, min_score, max_score) in enumerate(sorted_players, 1):
-                player_name = f"{player.first_name} {player.last_name}"
-                print(f"{i:<5}{player_name:<30}{avg_score:<8.2f}{min_score:<8.2f}{max_score:<8.2f}")
-
-    
-            
-            
-    

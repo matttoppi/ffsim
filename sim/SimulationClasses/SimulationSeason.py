@@ -15,13 +15,12 @@ class SimulationSeason:
         self.matchups_file = f'datarepo/matchups_{league.league_id}.json'
         self.matchups_refresh_interval = timedelta(days=1)
 
-    def simulate(self):
-        for week in range(1, self.weeks + 1):
-            self.simulate_week(week)
-
     def simulate_week(self, week):
-        print(f"DEBUG: Simulating week {week}")
         for team in self.league.rosters:
+            for player in team.players:
+                player.update_injury_status(week)
+                if player.is_injured(week):
+                    self.tracker.record_player_injury(player.sleeper_id, 1)
             team.fill_starters(week)
             team.roll_new_injuries(week)
         
@@ -30,7 +29,16 @@ class SimulationSeason:
             matchup.week = week
             print(f"DEBUG: Simulating matchup between {matchup.home_team.name} and {matchup.away_team.name}")
             matchup.simulate(self.league.scoring_settings, self.tracker)
-            
+
+    def simulate(self):
+        for week in range(1, self.weeks + 1):
+            self.simulate_week(week)
+        
+        # Record games missed at the end of the season
+        for team in self.league.rosters:
+            for player in team.players:
+                self.tracker.record_player_games_missed(player.sleeper_id, player.games_missed_this_season)
+                player.reset_injury_status()
 
 
 

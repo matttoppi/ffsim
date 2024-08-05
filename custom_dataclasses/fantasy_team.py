@@ -122,6 +122,8 @@ class FantasyTeam:
         self.points_for = 0
         self.points_against = 0
         self.weekly_scores = {}
+        for player in self.players:
+            player.reset_injury_status()
     
     
     def get_active_starters(self, week):
@@ -131,6 +133,7 @@ class FantasyTeam:
                 if not player.is_injured(week):
                     active_starters.append(player)
         return active_starters
+    
     
 
 

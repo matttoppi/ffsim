@@ -1,5 +1,6 @@
 from collections import defaultdict
 
+
 class SimulationTracker:
     def __init__(self, league):
         self.league = league
@@ -17,7 +18,15 @@ class SimulationTracker:
         self.points_lost_to_injury = defaultdict(lambda: defaultdict(list))
         self.player_scores = defaultdict(lambda: defaultdict(list))
         self.player_weekly_scores = defaultdict(lambda: defaultdict(list))
-        self.player_games_played = defaultdict(int)  # Add this line
+        self.player_games_played = defaultdict(int)
+        self.player_games_missed = defaultdict(list)  # Add this line
+        self.player_injuries = defaultdict(list)  # Add this line
+
+
+    def get_player_avg_injured_games(self, player_id):
+        if player_id not in self.player_injuries:
+            return 0
+        return sum(self.player_injuries[player_id]) / len(self.player_injuries[player_id])
         
         
 
@@ -219,19 +228,19 @@ class SimulationTracker:
             
             player_stats = []
             for player in players:
-                stats = self.get_player_stats(player.sleeper_id)  # Changed from self.tracker.get_player_stats
+                stats = self.get_player_stats(player.sleeper_id)
+                avg_games_missed = self.get_player_avg_games_missed(player.sleeper_id)
                 if stats:
-                    avg_games_per_season = stats['games_played'] / self.num_simulations
-                    player_stats.append((player, stats['avg_score'], stats['min_score'], stats['max_score'], avg_games_per_season))
+                    player_stats.append((player, stats['avg_score'], stats['min_score'], stats['max_score'], avg_games_missed))
 
             sorted_players = sorted(player_stats, key=lambda x: x[1], reverse=True)[:top_n]
 
-            print(f"{'Rank':<5}{'Player':<30}{'Avg':<8}{'Min':<8}{'Max':<8}{'Avg Games':<10}")
-            print("-" * 69)
-            for i, (player, avg_score, min_score, max_score, avg_games) in enumerate(sorted_players, 1):
+            print(f"{'Rank':<5}{'Player':<30}{'Avg':<8}{'Min':<8}{'Max':<8}{'Avg Miss':<8}")
+            print("-" * 67)
+            for i, (player, avg_score, min_score, max_score, avg_missed) in enumerate(sorted_players, 1):
                 player_name = f"{player.first_name} {player.last_name}"
-                print(f"{i:<5}{player_name:<30}{avg_score:<8.2f}{min_score:<8.2f}{max_score:<8.2f}{avg_games:<10.2f}")
-
+                print(f"{i:<5}{player_name:<30}{avg_score:<8.2f}{min_score:<8.2f}{max_score:<8.2f}{avg_missed:<8.2f}")
+                
     def print_projected_standings(self):
         print("\nProjected Final Standings:")
         avg_results = []
@@ -284,3 +293,16 @@ class SimulationTracker:
             for player in team.players:
                 avg_score, total_scores, total_weeks = self.get_player_average_score(player.sleeper_id)
                 print(f"  {player.name} ({player.position}): Avg: {avg_score:.2f}, Total: {total_scores:.2f}, Weeks: {total_weeks}")
+                
+            
+
+    def record_player_games_missed(self, player_id, games_missed):
+        self.player_games_missed[player_id].append(games_missed)
+
+    def get_player_avg_games_missed(self, player_id):
+        if player_id not in self.player_games_missed:
+            return 0
+        return sum(self.player_games_missed[player_id]) / len(self.player_games_missed[player_id])
+
+    def record_player_injury(self, player_id, injured_weeks):
+        self.player_injuries[player_id].append(injured_weeks)

@@ -58,12 +58,14 @@ class Player:
 
     
 
-
+        self.games_missed_this_season = 0
 
         self.simulation_injury_duration = None
         self.avg_points_per_season = None
         self.simulation_game = None
         self.simulation_points_current_season = None
+        self.injured_weeks = 0
+
         
         # FantasyCalc data
         self.value_1qb = float(initial_data.get('value_1qb', 0)) if initial_data.get('value_1qb') not in ['', None] else 0.0
@@ -80,6 +82,16 @@ class Player:
     
         
         self.update_from_dict(initial_data)
+
+    def is_injured(self, week):
+        if self.simulation_injury and self.simulation_injury['start_week'] <= week < self.simulation_injury['return_week']:
+            return True
+        return False
+
+    def reset_injury_status(self):
+        self.games_missed_this_season = 0
+        self.simulation_injury = None
+
 
     def update_from_dict(self, data):
         if 'age' in data and data['age'] is not None:
@@ -113,9 +125,6 @@ class Player:
                 self.simulation_injury = None
                 return True
         return False
-
-    def is_injured(self, week):
-        return self.simulation_injury is not None and self.simulation_injury['duration'] > 0
 
     def print_weekly_projection(self):
         if self.pff_projections:
