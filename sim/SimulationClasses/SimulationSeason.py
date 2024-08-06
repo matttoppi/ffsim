@@ -34,10 +34,9 @@ class SimulationSeason:
         # Record games missed at the end of the season
         for team in self.league.rosters:
             for player in team.players:
-                if player.games_missed_this_season > 0:
-                    self.tracker.record_player_games_missed(player.sleeper_id, player.games_missed_this_season)
-                    print(f"Recorded {player.games_missed_this_season} missed games for {player.name} in this season")
-                player.reset_injury_status()
+                self.tracker.record_player_games_missed(player.sleeper_id, player.games_missed_this_season)
+                print(f"Recorded {player.games_missed_this_season} missed games for {player.name} in this season")
+            player.reset_injury_status()
 
     def get_matchups(self, week):
         all_matchups = self.load_or_fetch_matchups()

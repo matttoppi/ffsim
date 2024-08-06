@@ -31,7 +31,6 @@ class Player:
         self.career_injuries = initial_data.get('career_injuries', 0)
         self.injury_risk = initial_data.get('injury_risk', 'Medium')
         
-        self.durability = initial_data.get('durability', 0)
         self.pff_projections = initial_data.get('pff_projections', {})
         
         
@@ -41,9 +40,9 @@ class Player:
         self.career_injuries = initial_data.get('career_injuries', 0)
         self.injury_risk = initial_data.get('injury_risk', 'Unknown')
         self.durability = initial_data.get('durability', 0)
-        self.injury_probability_season = self.convert_to_decimal(initial_data.get('injury_probability_season', 0))
-        self.projected_games_missed = float(initial_data.get('projected_games_missed', 0))
-        self.injury_probability_game = self.convert_to_decimal(initial_data.get('injury_probability_game', 0))
+        self.injury_probability_season = self.convert_to_decimal(initial_data.get('injury_probability_season', 10))
+        self.projected_games_missed = float(initial_data.get('projected_games_missed', 1))
+        self.injury_probability_game = self.convert_to_decimal(initial_data.get('injury_probability_game', 2))
 
         self.simulation_injury = None
         self.returning_from_injury = False
@@ -105,13 +104,11 @@ class Player:
 
     def update_injury_status(self, week):
         if self.simulation_injury:
-            if week < self.simulation_injury['return_week'] and week > self.last_missed_week:
+            if week < self.simulation_injury['return_week']:
                 self.games_missed_this_season += 1
-                self.last_missed_week = week
                 print(f"{self.name} missed week {week} due to injury. Total games missed: {self.games_missed_this_season}")
             elif week >= self.simulation_injury['return_week']:
                 self.simulation_injury = None
-                self.last_missed_week = 0
 
     def reset_injury_status(self):
         self.games_missed_this_season = 0
