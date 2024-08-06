@@ -18,16 +18,85 @@ import os
 from datetime import datetime, timedelta
 import json
 from custom_dataclasses.player import Player
+
+
+
 class PlayerLoader:
     def __init__(self, print_projections=False):
         self.players_file = 'datarepo/players.json'
+        self.sleeper_players_file = 'sleeper_players.json'
         self.refresh_interval = timedelta(days=3)
         self.enriched_players = []
         self.search_name_to_player = {}
         self.pff_projections = None
-        
-        # 
         self.print_projections = print_projections
+        self.sleeper_players = self.load_sleeper_players()
+
+    def load_sleeper_players(self):
+        try:
+            with open(self.sleeper_players_file, 'r') as f:
+                players_list = json.load(f)
+                return {str(player['player_id']): player for player in players_list if 'player_id' in player}
+        except FileNotFoundError:
+            print(f"{self.sleeper_players_file} not found. Player position updates will not be available.")
+            return {}
+        except json.JSONDecodeError:
+            print(f"Error decoding {self.sleeper_players_file}. Please check if the file is valid JSON.")
+            return {}
+
+    def load_players_from_file(self):
+        if os.path.exists(self.players_file) and datetime.now() - datetime.fromtimestamp(os.path.getmtime(self.players_file)) <= self.refresh_interval:
+            print(f"Loading players from file: {self.players_file}")
+            with open(self.players_file, 'r') as file:
+                player_data = json.load(file)
+            
+            self.enriched_players = []
+            players_updated = 0
+            for data in player_data:
+                # Update position if necessary
+                sleeper_id = str(data.get('sleeper_id'))
+                if sleeper_id in self.sleeper_players:
+                    sleeper_player = self.sleeper_players[sleeper_id]
+                    current_position = data.get('position')
+                    if isinstance(current_position, int) or current_position == '0' or current_position == 'UNKNOWN':
+                        new_position = sleeper_player.get('position')
+                        if new_position:
+                            data['position'] = new_position
+                            players_updated += 1
+                
+                pff_data = data.get('pff_projections', {})
+                data['pff_projections'] = PFFProjections(pff_data) if pff_data else None
+                player = Player(data)
+                self.enriched_players.append(player)
+            
+            self.search_name_to_player = {Player.clean_name(p.full_name): p for p in self.enriched_players}
+            print(f"Loaded {len(self.enriched_players)} players from file.")
+            print(f"Updated positions for {players_updated} players.")
+            
+            if players_updated > 0:
+                self.save_players_to_file()
+            
+            # Rest of your method (update with Sleeper data, load PFF data, etc.)
+            self.update_with_sleeper_data()
+            self.load_and_update_pff_data()
+            self.apply_default_injury_values()
+        else:
+            print("Player data file not found or outdated. Fetching new data...")
+            self.load_players()
+            self.save_players_to_file()
+
+    def save_players_to_file(self):
+        os.makedirs(os.path.dirname(self.players_file), exist_ok=True)
+        with open(self.players_file, 'w', encoding='utf-8') as file:
+            player_data = []
+            for player in self.enriched_players:
+                player_dict = player.to_dict()
+                if player.pff_projections:
+                    player_dict['pff_projections'] = player.pff_projections.__dict__
+                player_data.append(player_dict)
+            json.dump(player_data, file, ensure_ascii=False, indent=4)
+        print(f"Player data saved to {self.players_file}")
+
 
     def load_pff_projections(self):
         pff_loader = PFFLoader()
@@ -65,6 +134,11 @@ class PlayerLoader:
             player = Player(player_data)
             self.enriched_players.append(player)
 
+            if player.full_name.lower() == 'lamar jackson':
+                print(f"DEBUG: Lamar Jackson data after creation:")
+                print(player.to_dict())
+                print(f"PFF Projections: {player.pff_projections}")
+
         print(f"Total players loaded: {len(self.enriched_players)}")
 
     def load_player(self, sleeper_id):
@@ -84,82 +158,11 @@ class PlayerLoader:
             if str(player.sleeper_id) == str(sleeper_id):
                 return player
         return None
-
-    def save_players_to_file(self):
-        os.makedirs(os.path.dirname(self.players_file), exist_ok=True)
-        with open(self.players_file, 'w', encoding='utf-8') as file:
-            player_data = []
-            for player in self.enriched_players:
-                player_dict = player.to_dict()
-                if player.pff_projections:
-                    player_dict['pff_projections'] = player.pff_projections.__dict__
-                player_data.append(player_dict)
-            json.dump(player_data, file, ensure_ascii=False, indent=4)
-        print(f"Player data saved to {self.players_file}")
-            
-    def load_sleeper_players(self):
-        try:
-            with open('sleeper_players.json', 'r') as f:
-                players_list = json.load(f)
-                self.sleeper_players = {
-                    str(player['player_id']): player for player in players_list
-                    if 'player_id' in player and player.get('active', False)
-                }
-                # Create a search_full_name-based lookup
-                self.search_name_to_player = {
-                    player['search_full_name']: player
-                    for player in players_list if 'search_full_name' in player
-                }
-            print(f"Loaded {len(self.sleeper_players)} active players from sleeper_players.json")
-        except FileNotFoundError:
-            print("sleeper_players.json not found. Player position lookup will not be available.")
-            self.sleeper_players = {}
-            self.search_name_to_player = {}
-        except json.JSONDecodeError:
-            print("Error decoding sleeper_players.json. Please check if the file is valid JSON.")
-            self.sleeper_players = {}
-            self.search_name_to_player = {}
-            
-            
-            
-            
+        
             
     def ensure_players_loaded(self):
         if not self.enriched_players:
             self.load_players_from_file()
-
-    def load_players_from_file(self):
-        if os.path.exists(self.players_file) and datetime.now() - datetime.fromtimestamp(os.path.getmtime(self.players_file)) <= self.refresh_interval:
-            print(f"Loading players from file: {self.players_file}")
-            with open(self.players_file, 'r') as file:
-                player_data = json.load(file)
-            self.enriched_players = []
-            for data in player_data:
-                pff_data = data.get('pff_projections', {})
-                data['pff_projections'] = PFFProjections(pff_data) if pff_data else None
-                player = Player(data)
-                self.enriched_players.append(player)
-            self.search_name_to_player = {Player.clean_name(p.full_name): p for p in self.enriched_players}
-            print(f"Loaded {len(self.enriched_players)} players from file.")
-            
-            # Update with Sleeper data
-            self.update_with_sleeper_data()
-            x = input("Press Enter to continue...")
-            
-            # Load and update PFF and injury data
-            self.load_and_update_pff_data()
-            
-            x= input("Press Enter to continue...")
-            
-            
-            
-            # Apply default values to players with no injury data
-
-            self.apply_default_injury_values()
-        else:
-            print("Player data file not found or outdated. Fetching new data...")
-            self.load_players()
-            self.save_players_to_file()
             
     def load_and_update_pff_data(self):
         print("Loading and updating PFF and injury data...")
@@ -167,32 +170,56 @@ class PlayerLoader:
         injury_df = InjuryDataLoader.get_and_clean_data()
         
         # Create dictionaries for quick player lookup
-        player_dict = {Player.clean_name(p.full_name): p for p in self.enriched_players}
+        player_dict = {p.sleeper_id: p for p in self.enriched_players}
         injury_dict = {Player.clean_name(row['player']): row.to_dict() for _, row in injury_df.iterrows()}
         
         players_updated = 0
         players_with_pff = 0
-        for player_name, player in player_dict.items():
+        players_with_injury = 0
+        
+        for sleeper_id, player in player_dict.items():
             # Update PFF data
-            pff_row = self.pff_projections[self.pff_projections['playerName'].str.lower() == player_name.lower()]
+            pff_row = self.pff_projections[
+                (self.pff_projections['playerName'].str.lower() == player.full_name.lower())
+            ]
             if not pff_row.empty:
                 pff_data = pff_row.iloc[0].to_dict()
-                player.pff_projections = PFFProjections(pff_data)
+                player.update_pff_projections(pff_data)
                 players_with_pff += 1
-                print(f"PFF data assigned to: {player.full_name} ({player.position})")
-            # else:
-            #     print(f"No PFF data found for: {player.full_name} ({player.position})")
+                print(f"DEBUG: PFF data assigned to {player.full_name} ({player.position})")
+            else:
+                print(f"DEBUG: No PFF data found for {player.full_name} ({player.position})")
             
             # Update injury data
-            injury_key = player_name.lower()
+            injury_key = Player.clean_name(player.full_name)
             if injury_key in injury_dict:
                 player.update_injury_data(injury_dict[injury_key])
+                players_with_injury += 1
+                print(f"DEBUG: Injury data assigned to {player.full_name}")
+            else:
+                print(f"DEBUG: No injury data found for {player.full_name}")
             
             players_updated += 1
         
         print(f"Updated data for {players_updated} players")
         print(f"PFF data assigned to {players_with_pff} players")
-        
+        print(f"Injury data assigned to {players_with_injury} players")
+
+        # Print players without PFF projections
+        print("\nPlayers without PFF projections:")
+        for player in self.enriched_players:
+            if player.pff_projections is None or player.pff_projections.fantasy_points == 0:
+                print(f"{player.full_name} ({player.position}) - Team: {player.team}")
+
+        # Print players without injury data
+        print("\nPlayers without injury data:")
+        for player in self.enriched_players:
+            if player.injury_risk == "Unknown":
+                print(f"{player.full_name} ({player.position}) - Team: {player.team}")
+
+        # Save the updated players to file
+        self.save_players_to_file()
+                
     def update_with_sleeper_data(self):
         print("Updating players with Sleeper data...")
         sleeper_loader = SleeperLoader()

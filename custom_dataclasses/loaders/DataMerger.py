@@ -7,6 +7,7 @@ class DataMerger:
     @staticmethod
     def merge_data(fantasy_calc_df, sleeper_df, pff_df, injury_df):
         merged_df = pd.merge(fantasy_calc_df, sleeper_df, left_on='sleeper_id', right_on='player_id', how='outer', suffixes=('_fc', '_sl'))
+
         
         if 'team_fc' in merged_df.columns and 'team_sl' in merged_df.columns:
             merged_df['team'] = merged_df['team_fc'].fillna(merged_df['team_sl'])
@@ -25,11 +26,16 @@ class DataMerger:
         
         # Fuzzy matching for PFF data
         def fuzzy_match(name, choices, cutoff=80):
+            if pd.isna(name):
+                return None
             match = process.extractOne(name, choices)
-            return match[2] if match and match[1] >= cutoff else None
+            if match and len(match) >= 2 and match[1] >= cutoff:
+                return choices.index(match[0])
+            return None
 
         pff_names = pff_df['playerName'].tolist()
         merged_df['pff_index'] = merged_df['name_lower'].apply(lambda x: fuzzy_match(x, pff_names))
+        
         
         final_df = pd.merge(merged_df, pff_df, left_on='pff_index', right_index=True, how='left', suffixes=('', '_pff'))
         
@@ -48,6 +54,14 @@ class DataMerger:
         final_df = DataMerger.merge_injury_data(final_df, injury_df)
         
         final_df = DataMerger.clean_merged_data(final_df)
+        
+        lamar_row = final_df[(final_df['full_name'].str.lower() == 'lamar jackson') & (final_df['team'] == 'BAL')]
+        if not lamar_row.empty:
+            print(f"DEBUG: Lamar Jackson (BAL) data after merge:")
+            print(lamar_row.iloc[0].to_dict())
+        else:
+            print("DEBUG: Lamar Jackson (BAL) not found in merged data")
+
         
         # Debug: Print players without PFF projections
         no_pff = final_df[final_df['fantasyPoints'].isna()]

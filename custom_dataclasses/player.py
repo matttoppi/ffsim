@@ -67,6 +67,10 @@ class Player:
         self.simulation_game = None
         self.simulation_points_current_season = None
         self.injured_weeks = 0
+        pff_data = initial_data.get('pff_projections')
+        self.pff_projections = PFFProjections(pff_data) if pff_data and isinstance(pff_data, dict) else None
+
+        
 
         
         # FantasyCalc data
@@ -84,6 +88,19 @@ class Player:
     
         
         self.update_from_dict(initial_data)
+        if 'pff_projections' in initial_data and isinstance(initial_data['pff_projections'], dict):
+            self.pff_projections = PFFProjections(initial_data['pff_projections'])
+        
+    def update_pff_projections(self, pff_data):
+        if pff_data and isinstance(pff_data, dict):
+            self.pff_projections = PFFProjections(pff_data)
+        
+    def to_dict(self):
+        player_dict = {attr: getattr(self, attr) for attr in self.__dict__ if not attr.startswith('_')}
+        if self.pff_projections:
+            player_dict['pff_projections'] = self.pff_projections.__dict__
+        return player_dict
+        
         
 
     def update_injury_status(self, week):
@@ -131,6 +148,8 @@ class Player:
         if injury_data.get('injury_probability_game'):
             self.injury_probability_game = self.convert_to_decimal(injury_data['injury_probability_game'])
         
+        if self.full_name.lower() == 'lamar jackson':
+            print(f"DEBUG: Lamar Jackson injury data updated: {injury_data}")
 
     def print_weekly_projection(self):
         if self.pff_projections:
@@ -140,15 +159,15 @@ class Player:
             # print(f"{self.full_name} ({self.position}) - No PFF projections available")
 
 
-    def to_dict(self):
-        return {attr: getattr(self, attr) for attr in self.__dict__ if not attr.startswith('_')}
+
 
     def print_player(self):
         for key, value in self.to_dict().items():
             print(f"{key}: {value}")
 
     def print_player_short(self):
-         print(f"{self.full_name} - {self.position.upper()} - {self.team} - 1QB: {self.value_1qb} - Redraft: {self.redraft_value} - Has PFF Proj: {self.pff_projections is not None}")
+        has_pff = self.pff_projections is not None and hasattr(self.pff_projections, 'fantasy_points')
+        print(f"{self.full_name} - {self.position.upper()} - {self.team} - 1QB: {self.value_1qb} - Redraft: {self.redraft_value} - Has PFF: {has_pff}")
          
          
     @staticmethod
@@ -162,14 +181,6 @@ class Player:
             return float_value / 100 if float_value > 1 else float_value
         except ValueError:
             return 0
-        
-    def update_pff_projections(self, pff_data):
-        self.pff_projections = PFFProjections(pff_data)
-        # # Debug print
-        print(f"Updated PFF projections for {self.full_name}")
-        print(f"  Fantasy Points: {self.pff_projections.fantasy_points}")
-        print(f"  Games: {self.pff_projections.games}")
-        
         
 
     def matches_name(self, pff_name):
@@ -286,6 +297,7 @@ class Player:
         return max(0.5, random.gauss(self.projected_games_missed, 1))
     
     
+    
 class PFFProjections:
     def __init__(self, projection_data):
         if isinstance(projection_data, PFFProjections): # if already a PFFProjections object
@@ -328,4 +340,5 @@ class PFFProjections:
     
     
     
- 
+    def __bool__(self):
+            return self.fantasy_points is not None 
