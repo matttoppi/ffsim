@@ -11,6 +11,7 @@ from custom_dataclasses.loaders.PFFLoader import PFFLoader
 from custom_dataclasses.loaders.InjuryDataLoader import InjuryDataLoader
 from custom_dataclasses.loaders.FantasyCalcLoader import FantasyCalcLoader
 from custom_dataclasses.loaders.DataMerger import DataMerger
+from sim.SimulationClasses.SpecialTeamScorer import SpecialTeamScorer
 
 
 
@@ -31,6 +32,7 @@ class PlayerLoader:
         self.pff_projections = None
         self.print_projections = print_projections
         self.sleeper_players = self.load_sleeper_players()
+        self.special_team_scorer = SpecialTeamScorer('datarepo/PFFProjections/kickers.csv', 'datarepo/PFFProjections/dsts.csv')
 
     def load_sleeper_players(self):
         try:
@@ -49,6 +51,7 @@ class PlayerLoader:
             print(f"Loading players from file: {self.players_file}")
             with open(self.players_file, 'r') as file:
                 player_data = json.load(file)
+                
             
             self.enriched_players = []
             players_updated = 0
@@ -67,6 +70,7 @@ class PlayerLoader:
                 pff_data = data.get('pff_projections', {})
                 data['pff_projections'] = PFFProjections(pff_data) if pff_data else None
                 player = Player(data)
+                player.initialize_st_scorer(self.special_team_scorer)
                 self.enriched_players.append(player)
             
             self.search_name_to_player = {Player.clean_name(p.full_name): p for p in self.enriched_players}

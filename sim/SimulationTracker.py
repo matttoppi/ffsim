@@ -23,6 +23,7 @@ class SimulationTracker:
         self.player_games_missed = defaultdict(list)
         self.player_total_games_missed = defaultdict(int)
         
+        self.special_team_scores = defaultdict(lambda: defaultdict(list))
 
 
     def get_player_avg_injured_games(self, player_id):
@@ -188,37 +189,7 @@ class SimulationTracker:
     def set_num_simulations(self, num_simulations):
         self.num_simulations = num_simulations
 
-    def get_player_stats(self, player_id):
-        if player_id not in self.player_scores:
-            print(f"DEBUG: No scores recorded for player ID {player_id}")
-            return None
-        
-        all_scores = [score for week_scores in self.player_scores[player_id].values() for score in week_scores]
-        games_played = self.player_games_played.get(player_id, 0)
-        
-        if not all_scores:
-            print(f"DEBUG: No scores recorded for player ID {player_id}")
-            return None
-        
-        non_zero_scores = [score for score in all_scores if score > 0]
-        
-        if not non_zero_scores:
-            player = self.get_player_from_sleeper_id(player_id)
-            print(f"DEBUG: All scores are zero for player ID {player_id} ({player.full_name})")
-            return {
-                'avg_score': 0,
-                'min_score': 0,
-                'max_score': 0,
-                'games_played': games_played
-            }
-        
-        return {
-            'avg_score': sum(non_zero_scores) / len(non_zero_scores),
-            'min_score': min(non_zero_scores),
-            'max_score': max(non_zero_scores),
-            'games_played': games_played
-        }
-        
+    
     def get_player_average_score(self, player_id):
         # if player_id not in self.player_weekly_scores:
         #     player = self.get_player_from_sleeper_id(player_id)
@@ -237,33 +208,6 @@ class SimulationTracker:
                     return player
         return None
     
-    
-    def print_top_players_by_position(self, top_n=30):
-        print("\nTop Players by Position:")
-        positions = ['QB', 'RB', 'WR', 'TE']
-
-        for position in positions:
-            print(f"\nTop {top_n} {position}s:")
-            players = [player for team in self.league.rosters for player in team.players if player.position == position]
-            
-            player_stats = []
-            for player in players:
-                stats = self.get_player_stats(player.sleeper_id)
-                avg_games_missed = self.get_player_avg_games_missed(player.sleeper_id)
-                if stats is not None:
-                    player_stats.append((player, stats['avg_score'], stats['min_score'], stats['max_score'], avg_games_missed))
-                else:
-                    print(f"DEBUG: No stats for {player.first_name} {player.last_name} (ID: {player.sleeper_id})")
-
-            sorted_players = sorted(player_stats, key=lambda x: x[1], reverse=True)[:top_n]
-
-           
-            print(f"{'Rank':<5}{'Player':<30}{'Avg':<8}{'Min':<8}{'Max':<8}{'Avg Miss':<12}")
-            print("-" * 71)  # Increased the line length to accommodate the longer 'Avg Miss' column
-            for i, (player, avg_score, min_score, max_score, avg_missed) in enumerate(sorted_players, 1):
-                player_name = f"{player.first_name} {player.last_name}"
-                print(f"{i:<5}{player_name:<30}{avg_score:<8.2f}{min_score:<8.2f}{max_score:<8.2f}{avg_missed:<12.5f}")
-                
                 
     def print_projected_standings(self):
         print("\nProjected Final Standings:")
@@ -354,3 +298,125 @@ class SimulationTracker:
         player = self.get_player_from_sleeper_id(player_id)
         # print(f"Player {player.name} missed total of {total_missed} games (all injuries) over {self.num_simulations} simulations. Average: {avg_missed:.5f}")
         return avg_missed
+    
+    
+    
+    def get_player_stats(self, player_id):
+        if player_id not in self.player_scores:
+            print(f"DEBUG: No scores recorded for player ID {player_id}")
+            return None
+        
+        all_scores = [score for week_scores in self.player_scores[player_id].values() for score in week_scores]
+        games_played = len(all_scores)
+        
+        if not all_scores:
+            print(f"DEBUG: No scores recorded for player ID {player_id}")
+            return None
+        
+        return {
+            'avg_score': sum(all_scores) / games_played,
+            'min_score': min(all_scores),
+            'max_score': max(all_scores),
+            'games_played': games_played
+        }
+
+    def print_top_players_by_position(self, top_n=30):
+        print("\nTop Players by Position:")
+        positions = ['QB', 'RB', 'WR', 'TE', 'KICKER', 'DEFENSE']
+
+        for position in positions:
+            print(f"\nTop {top_n} {position}s:")
+            if position in ['KICKER', 'DEFENSE']:
+                team_stats = []
+                for team in self.league.rosters:
+                    stats = self.get_special_team_stats(team.name, position)
+                    if stats:
+                        if position == 'DEFENSE':
+                            defense_names = self.get_defense_names(team.name)
+                            for defense_name in defense_names:
+                                team_stats.append((defense_name, stats['avg_score'], stats['min_score'], stats['max_score'], 0))
+                        else:
+                            team_name = f"{team.name} {position}"
+                            team_stats.append((team_name, stats['avg_score'], stats['min_score'], stats['max_score'], 0))
+                    else:
+                        print(f"DEBUG: No stats for {position} of {team.name}")
+
+                sorted_stats = sorted(team_stats, key=lambda x: x[1], reverse=True)[:top_n]
+
+                print(f"{'Rank':<5}{'Team':<30}{'Avg':<8}{'Min':<8}{'Max':<8}{'Avg Miss':<12}")
+                print("-" * 71)
+                for i, (team_name, avg_score, min_score, max_score, _) in enumerate(sorted_stats, 1):
+                    print(f"{i:<5}{team_name:<30}{avg_score:<8.2f}{min_score:<8.2f}{max_score:<8.2f}{'N/A':<12}")
+            else:
+                players = [player for team in self.league.rosters for player in team.players if player.position == position]
+                
+                player_stats = []
+                for player in players:
+                    stats = self.get_player_stats(player.sleeper_id)
+                    avg_games_missed = self.get_player_avg_games_missed(player.sleeper_id)
+                    if stats is not None:
+                        player_stats.append((player, stats['avg_score'], stats['min_score'], stats['max_score'], avg_games_missed))
+                    else:
+                        print(f"DEBUG: No stats for {player.first_name} {player.last_name} (ID: {player.sleeper_id})")
+
+                sorted_players = sorted(player_stats, key=lambda x: x[1], reverse=True)[:top_n]
+
+                print(f"{'Rank':<5}{'Player':<30}{'Avg':<8}{'Min':<8}{'Max':<8}{'Avg Miss':<12}")
+                print("-" * 71)
+                for i, (player, avg_score, min_score, max_score, avg_missed) in enumerate(sorted_players, 1):
+                    player_name = f"{player.first_name} {player.last_name}"
+                    print(f"{i:<5}{player_name:<30}{avg_score:<8.2f}{min_score:<8.2f}{max_score:<8.2f}{avg_missed:<12.5f}")
+                
+    def record_special_team_score(self, team_name, position, week, score):
+        key = f"{position}_{team_name}"
+        self.special_team_scores[key][week].append(score)
+
+        
+        
+        
+    def get_defense_names(self, team_name):
+        defenses = []
+        for team in self.league.rosters:
+            if team.name == team_name:
+                for player in team.players:
+                    if player.position.upper() == 'DEF':
+                        defenses.append(f"{player.team} {player.position}")
+        return defenses if defenses else [f"{team_name} DEF"]  # Fallback if not found
+    
+    
+    
+    def record_special_team_score(self, team_name, position, week, score):
+        if position == 'DEFENSE':
+            defenses = self.get_defense_names(team_name)
+            for defense in defenses:
+                key = f"{position}_{defense}"
+                self.special_team_scores[key][week].append(score)
+        else:
+            key = f"{position}_{team_name}"
+            self.special_team_scores[key][week].append(score)
+
+    def get_special_team_stats(self, team_name, position):
+        if position == 'DEFENSE':
+            defenses = self.get_defense_names(team_name)
+            all_scores = []
+            for defense in defenses:
+                key = f"{position}_{defense}"
+                if key in self.special_team_scores:
+                    all_scores.extend([score for week_scores in self.special_team_scores[key].values() for score in week_scores])
+        else:
+            key = f"{position}_{team_name}"
+            if key not in self.special_team_scores:
+                print(f"DEBUG: No scores recorded for {position} of {team_name}")
+                return None
+            all_scores = [score for week_scores in self.special_team_scores[key].values() for score in week_scores]
+        
+        if not all_scores:
+            print(f"DEBUG: No non-zero scores for {position} of {team_name}")
+            return None
+        
+        return {
+            'avg_score': sum(all_scores) / len(all_scores),
+            'min_score': min(all_scores),
+            'max_score': max(all_scores),
+            'games_played': len(all_scores)
+        }

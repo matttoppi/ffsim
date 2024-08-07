@@ -19,28 +19,37 @@ class SimulationMatchup:
             player_scores[player.sleeper_id] = score
         return total_score, player_scores
 
-    def simulate_all_players(self, team, scoring_settings, week):
+
+    def simulate_all_players(self, team, scoring_settings, week, tracker):
         total_score = 0
         player_scores = {}
         for player in team.players:
             if not player.is_injured(week):
-                score = player.calculate_score(scoring_settings, week)
+                if player.position.lower() in ['k', 'dst', 'def']:
+                    score = player.calculate_special_team_score()
+                    position = 'KICKER' if player.position.lower() == 'k' else 'DEFENSE'
+                    tracker.record_special_team_score(team.name, position, week, score)
+                else:
+                    score = player.calculate_score(scoring_settings, week)
                 player_scores[player.sleeper_id] = score
                 if player in team.get_active_starters(week):
                     total_score += score
             else:
                 player_scores[player.sleeper_id] = 0
+
         return total_score, player_scores
 
     def simulate(self, scoring_settings, tracker):
-        self.home_score, home_player_scores = self.simulate_all_players(self.home_team, scoring_settings, self.week)
-        self.away_score, away_player_scores = self.simulate_all_players(self.away_team, scoring_settings, self.week)
+        self.home_score, home_player_scores = self.simulate_all_players(self.home_team, scoring_settings, self.week, tracker)
+        self.away_score, away_player_scores = self.simulate_all_players(self.away_team, scoring_settings, self.week, tracker)
         
         for player_id, score in home_player_scores.items():
             tracker.record_player_score(player_id, self.week, score)
         
         for player_id, score in away_player_scores.items():
             tracker.record_player_score(player_id, self.week, score)
+        
+
         
         self.update_records()
 

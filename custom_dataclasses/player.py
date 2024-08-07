@@ -103,6 +103,9 @@ class Player:
     
     def to_dict(self):
         return {attr: getattr(self, attr) for attr in self.__dict__ if not attr.startswith('_')}
+    
+    def initialize_st_scorer(self, special_team_scorer):
+        self.special_team_scorer = special_team_scorer
         
         
 
@@ -224,6 +227,15 @@ class Player:
 
         return False
     
+    def calculate_special_team_score(self):
+        print(f"DEBUG: Calculating special team score for {self.full_name} ({self.position}) - Team: {self.team}")
+        if self.position.lower() in ['k', 'dst', 'def']:
+            score = self.special_team_scorer.get_player_score(self.full_name, self.position, self.team)
+            print(f"DEBUG: Special team score calculated: {score}")
+            return score
+        else:
+            print(f"DEBUG: Not a special teams player: {self.full_name}")
+            return 0
     
     @staticmethod
     def clean_name(name):
