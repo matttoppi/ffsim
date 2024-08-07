@@ -277,16 +277,24 @@ class Player:
         avg_rec_td = max(0, float(proj.recv_td or 0) / games)
 
         # Define the shift amount and the adjustment factor
-        shift_amount = 2.0  # Adjust this value as needed
+        shift_amount = 0.0  # Adjust this value as needed
         adjustment_factor = 1.5  # Adjust this factor to control the steepness
 
         # Generate stats using log-normal distribution with adjustment factor
-        pass_yds = random.gauss(avg_pass_yds, avg_pass_yds * 0.2) if avg_pass_yds > 0 else 0
-        rush_yds = random.gauss(avg_rush_yds, avg_rush_yds * 0.2) if avg_rush_yds > 0 else 0
-        receptions = random.gauss(avg_receptions, avg_receptions * 0.2) if avg_receptions > 0 else 0
+        pass_yds = self.log_normal(avg_pass_yds, avg_pass_yds * 0.2, shift_amount, adjustment_factor)
+        rush_yds = self.log_normal(avg_rush_yds, avg_rush_yds * 0.2, shift_amount, adjustment_factor)
+        receptions = self.log_normal(avg_receptions, avg_receptions * 0.2, shift_amount, adjustment_factor)
         rec_yds = random.gauss(avg_rec_yds, avg_rec_yds * 0.2) if avg_rec_yds > 0 else 0
         
         receptions = math.ceil(receptions)  # Round receptions to whole numbers
+        
+        # Generate receiving yards based on receptions
+        if receptions > 0:
+            avg_yards_per_reception = avg_rec_yds / avg_receptions if avg_receptions > 0 else 10  # Default to 10 yards per reception if no data
+            yards_per_reception = random.gauss(avg_yards_per_reception, avg_yards_per_reception * 0.2)
+            rec_yds = max(0, receptions * yards_per_reception)
+        else:
+            rec_yds = 0
         
         avg_pass_td = float(proj.pass_td or 0) / games
         pass_td = random.choices([0, 1, 2, 3, 4], 
