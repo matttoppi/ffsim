@@ -283,18 +283,10 @@ class Player:
         # Generate stats using log-normal distribution with adjustment factor
         pass_yds = random.gauss(avg_pass_yds, avg_pass_yds * 0.2) if avg_pass_yds > 0 else 0
         rush_yds = random.gauss(avg_rush_yds, avg_rush_yds * 0.2) if avg_rush_yds > 0 else 0
-        receptions = 2 + random.gauss(avg_receptions, avg_receptions * 0.2) if avg_receptions > 0 else 0
+        receptions = random.gauss(avg_receptions, avg_receptions * 0.2) if avg_receptions > 0 else 0
         rec_yds = random.gauss(avg_rec_yds, avg_rec_yds * 0.2) if avg_rec_yds > 0 else 0
         
         receptions = math.ceil(receptions)  # Round receptions to whole numbers
-
-        # Generate whole number touchdowns based on probabilities
-        # pass_td = random.choices([0, 1, 2, 3, 4], 
-        #                         weights=[max(0.1, 1-avg_pass_td), avg_pass_td, avg_pass_td/3, avg_pass_td/9, avg_pass_td/27])[0]
-        # rush_td = random.choices([0, 1, 2], 
-        #                         weights=[max(0.1, 1-avg_rush_td), avg_rush_td, avg_rush_td/3])[0]
-        # rec_td = random.choices([0, 1, 2], 
-        #                         weights=[max(0.1, 1-avg_rec_td), avg_rec_td, avg_rec_td/3])[0]
         
         avg_pass_td = float(proj.pass_td or 0) / games
         pass_td = random.choices([0, 1, 2, 3, 4], 
