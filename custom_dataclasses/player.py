@@ -1,5 +1,6 @@
 import random
 import math
+from custom_dataclasses.loaders.InjuryDataLoader import InjuryDataLoader
 
 
 
@@ -34,15 +35,16 @@ class Player:
         self.pff_projections = initial_data.get('pff_projections', {})
         
         
+        self.current_injury_games_missed = 0
+        self.total_games_missed_this_season = 0
+        
         
     
         # Injury data with careful defaulting
         self.career_injuries = initial_data.get('career_injuries', 0)
         self.injury_risk = initial_data.get('injury_risk', 'Unknown')
         self.durability = initial_data.get('durability', 0)
-        self.injury_probability_season = self.convert_to_decimal(initial_data.get('injury_probability_season', 10))
-        self.projected_games_missed = float(initial_data.get('projected_games_missed', 1))
-        self.injury_probability_game = self.convert_to_decimal(initial_data.get('injury_probability_game', 2))
+
 
         self.simulation_injury = None
         self.returning_from_injury = False
@@ -68,7 +70,11 @@ class Player:
         self.injured_weeks = 0
         pff_data = initial_data.get('pff_projections')
         self.pff_projections = PFFProjections(pff_data) if pff_data and isinstance(pff_data, dict) else None
-
+        
+        
+        self.projected_games_missed = float(initial_data.get('projected_games_missed', 0))
+        self.injury_probability_game = float(initial_data.get('injury_probability_game', 0))    
+        
         
 
         
@@ -94,32 +100,56 @@ class Player:
         if pff_data and isinstance(pff_data, dict):
             self.pff_projections = PFFProjections(pff_data)
         
+    
     def to_dict(self):
-        player_dict = {attr: getattr(self, attr) for attr in self.__dict__ if not attr.startswith('_')}
-        if self.pff_projections:
-            player_dict['pff_projections'] = self.pff_projections.__dict__
-        return player_dict
+        return {attr: getattr(self, attr) for attr in self.__dict__ if not attr.startswith('_')}
         
         
 
     def update_injury_status(self, week):
         if self.simulation_injury:
             if week < self.simulation_injury['return_week']:
-                self.games_missed_this_season += 1
-                print(f"{self.name} missed week {week} due to injury. Total games missed: {self.games_missed_this_season}")
-            elif week >= self.simulation_injury['return_week']:
+                self.current_injury_games_missed += 1
+                self.total_games_missed_this_season += 1
+                # print(f"DEBUG: {self.full_name} missed game in week {week} due to ongoing injury")
+            elif week == self.simulation_injury['return_week']:
+                if self.current_injury_games_missed > 1:
+                    # print(f"DEBUG: {self.full_name} injury ended, missed {self.current_injury_games_missed} games")
+                    pass
+                else:
+                    print(f"DEBUG: {self.full_name} recovered from minor injury")
                 self.simulation_injury = None
+                self.current_injury_games_missed = 0
+        else:
+            injury_roll = random.random()
+            if injury_roll < self.injury_probability_game:
+                injury_duration = self.generate_injury_duration()
+                self.simulation_injury = {
+                    'start_week': week,
+                    'duration': injury_duration,
+                    'return_week': week + math.ceil(injury_duration)
+                }
+                self.current_injury_games_missed = 1
+                self.total_games_missed_this_season += 1
+                print(f"DEBUG: {self.full_name} injured in week {week} for {injury_duration:.1f} weeks")
 
-    def reset_injury_status(self):
-        self.games_missed_this_season = 0
-        self.simulation_injury = None
-        self.last_missed_week = 0  # Add this line
+    def generate_injury_duration(self):
+        # return max(1, random.gauss(self.projected_games_missed, 0.5))
+        if self.full_name.lower() == 'josh allen':
+            print(f"DEBUG: Josh Allen projected games missed: {self.projected_games_missed}")
+            dur = max(1, random.gauss(self.projected_games_missed, 0.5))
+            print(f"DEBUG: Josh Allen injury duration: {dur}")
+            # x = input("Press Enter to continue")
+            return dur
+        return max(1, random.gauss(self.projected_games_missed, 0.5))
+            
+
+
+    def generate_injury_duration(self):
+        return max(1, random.gauss(self.projected_games_missed, 0.5))
 
     def is_injured(self, week):
-        if self.simulation_injury and self.simulation_injury['start_week'] <= week < self.simulation_injury['return_week']:
-            return True
-        return False
-
+        return self.simulation_injury and self.simulation_injury['start_week'] <= week < self.simulation_injury['return_week']
 
     def update_from_dict(self, data):
         if 'age' in data and data['age'] is not None:
@@ -131,22 +161,26 @@ class Player:
             
             
     def update_injury_data(self, injury_data):
-        # Only update if the new value is not None and not 0
-        if injury_data.get('career_injuries'):
-            self.career_injuries = injury_data['career_injuries']
-        if injury_data.get('injury_risk') and injury_data['injury_risk'] != 'Unknown':
-            self.injury_risk = injury_data['injury_risk']
-        if injury_data.get('durability'):
-            self.durability = injury_data['durability']
-        if injury_data.get('injury_probability_season'):
-            self.injury_probability_season = self.convert_to_decimal(injury_data['injury_probability_season'])
-        if injury_data.get('projected_games_missed'):
-            self.projected_games_missed = float(injury_data['projected_games_missed'])
-        if injury_data.get('injury_probability_game'):
-            self.injury_probability_game = self.convert_to_decimal(injury_data['injury_probability_game'])
-        
-        if self.full_name.lower() == 'lamar jackson':
-            print(f"DEBUG: Lamar Jackson injury data updated: {injury_data}")
+        self.career_injuries = injury_data.get('career_injuries', 0)
+        self.injury_risk = injury_data.get('injury_risk', 'Unknown')
+        self.injury_probability_season = injury_data.get('probability_of_injury_in_the_season')
+        self.projected_games_missed = float(injury_data.get('projected_games_missed', 0.5))
+        self.injury_probability_game = injury_data.get('probability_of_injury_per_game')
+        self.durability = float(injury_data.get('durability', 5))
+
+        print(f"DEBUG: {self.full_name} - Updated injury data:")
+        print(f"  Career injuries: {self.career_injuries}")
+        print(f"  Injury risk: {self.injury_risk}")
+        print(f"  Injury probability (season): {self.injury_probability_season}")
+        print(f"  Projected games missed: {self.projected_games_missed}")
+        print(f"  Injury probability (game): {self.injury_probability_game}")
+        print(f"  Durability: {self.durability}")
+
+    def normalize_injury_probability(self):
+        if self.injury_probability_game is None or self.injury_probability_game == 0:
+            self.injury_probability_game = 0.006  # Default value if no data available
+
+        print(f"Normalized injury probability for {self.full_name}: {self.injury_probability_game:.6f}")
 
     def print_weekly_projection(self):
         if self.pff_projections:
@@ -165,19 +199,6 @@ class Player:
     def print_player_short(self):
         has_pff = self.pff_projections is not None and hasattr(self.pff_projections, 'fantasy_points')
         print(f"{self.full_name} - {self.position.upper()} - {self.team} - 1QB: {self.value_1qb} - Redraft: {self.redraft_value} - Has PFF: {has_pff}")
-         
-         
-    @staticmethod
-    def convert_to_decimal(value):
-        if value is None or value == '':
-            return 0
-        if isinstance(value, str):
-            value = value.replace('%', '').strip()
-        try:
-            float_value = float(value)
-            return float_value / 100 if float_value > 1 else float_value
-        except ValueError:
-            return 0
         
 
     def matches_name(self, pff_name):
@@ -218,6 +239,7 @@ class Player:
     
     def calculate_score(self, scoring_settings, week):
         if not self.pff_projections:
+            print(f"DEBUG: No PFF projections for {self.full_name}")
             return 0
 
         proj = self.pff_projections
@@ -225,6 +247,7 @@ class Player:
         bye_week = int(proj.bye_week or 0)
 
         if games == 0 or week == bye_week:
+            print(f"DEBUG: {self.full_name} - No games projected or bye week")
             return 0
 
         # Calculate per-game averages and add randomness
@@ -236,11 +259,6 @@ class Player:
         receptions = max(0, random.gauss(float(proj.recv_receptions or 0) / games, float(proj.recv_receptions or 0) / games * 0.75))
         rec_yds = max(0, random.gauss(float(proj.recv_yds or 0) / games, float(proj.recv_yds or 0) / games * 0.25))
         rec_td = max(0, random.gauss(float(proj.recv_td or 0) / games, float(proj.recv_td or 0) / games * 0.75))
-        
-        # Round stats to realistic values
-        pass_yds, pass_td, pass_int = round(pass_yds), round(pass_td), round(pass_int)
-        rush_yds, rush_td = round(rush_yds), round(rush_td)
-        receptions, rec_yds, rec_td = round(receptions), round(rec_yds), round(rec_td)
 
         # Calculate score based on league scoring settings
         score = (
@@ -253,23 +271,11 @@ class Player:
             rec_td * scoring_settings.rec_td +
             receptions * (scoring_settings.te_rec if self.position == 'TE' else scoring_settings.rec)
         )
-        
-        
-        # if self.simulation_injury is not None and self.simulation_injury.get('start_week') == week: # if player is injured
-        #     initial = self.simulation_injury.get('duration') #
-        #     injury_time = self.simulation_injury.get('injury_time', 0) - int(self.simulation_injury.get('injury_time', 0))
-        #     score = score * (1-injury_time)
-        #     self.simulation_injury['duration'] = initial - 1
-        #     print(f"{self.name} - Week {week} - Score: {score:.2f} - (got injured {score} insted of {initial} (injury time: {injury_time})")
-            
-            
-        print(f"{self.name} - Week {week} - Score: {score:.2f}")
-        
-            
-            
 
+        # print(f"DEBUG: {self.full_name} - Week {week} - Score: {score:.2f}")
         return score
-
+    
+    
     def clear_injury(self, week):
         if self.simulation_injury and week >= self.simulation_injury['return_week']:
             self.simulation_injury = None
@@ -287,13 +293,17 @@ class Player:
         base_score = self.calculate_score(scoring_settings, week)
         injury_adjustment = self.get_injury_adjustment(week)
         return base_score * injury_adjustment
-
-
-
-    def generate_injury_duration(self):
-        return max(0.5, random.gauss(self.projected_games_missed, 1))
     
-    
+    def get_games_missed_for_tracking(self):
+        if self.current_injury_games_missed > 1:
+            return self.current_injury_games_missed
+        return 0
+
+    def reset_injury_status(self):
+        self.simulation_injury = None
+        self.current_injury_games_missed = 0
+        self.total_games_missed_this_season = 0
+
     
 class PFFProjections:
     def __init__(self, projection_data):

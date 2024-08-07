@@ -15,18 +15,6 @@ class SimulationSeason:
         self.matchups_file = f'datarepo/matchups_{league.league_id}.json'
         self.matchups_refresh_interval = timedelta(days=1)
 
-    def simulate_week(self, week):
-        for team in self.league.rosters:
-            for player in team.players:
-                player.update_injury_status(week)
-            team.fill_starters(week)
-            team.roll_new_injuries(week)
-        
-        matchups = self.get_matchups(week)
-        for matchup in matchups:
-            matchup.week = week
-            matchup.simulate(self.league.scoring_settings, self.tracker)
-
     def simulate(self):
         for week in range(1, self.weeks + 1):
             self.simulate_week(week)
@@ -34,10 +22,23 @@ class SimulationSeason:
         # Record games missed at the end of the season
         for team in self.league.rosters:
             for player in team.players:
-                self.tracker.record_player_games_missed(player.sleeper_id, player.games_missed_this_season)
-                print(f"Recorded {player.games_missed_this_season} missed games for {player.name} in this season")
-            player.reset_injury_status()
+                games_missed = player.get_games_missed_for_tracking()
+                if games_missed > 0:
+                    self.tracker.record_player_games_missed(player.sleeper_id, games_missed)
+                self.tracker.record_total_games_missed(player.sleeper_id, player.total_games_missed_this_season)
+                player.reset_injury_status()
 
+    def simulate_week(self, week):
+        for team in self.league.rosters:
+            for player in team.players:
+                player.update_injury_status(week)
+            team.fill_starters(week)
+        
+        matchups = self.get_matchups(week)
+        for matchup in matchups:
+            matchup.simulate(self.league.scoring_settings, self.tracker)
+
+    
     def get_matchups(self, week):
         all_matchups = self.load_or_fetch_matchups()
         

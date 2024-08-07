@@ -19,8 +19,9 @@ class SimulationTracker:
         self.player_scores = defaultdict(lambda: defaultdict(list))
         self.player_weekly_scores = defaultdict(lambda: defaultdict(list))
         self.player_games_played = defaultdict(int)
-        self.player_games_missed = defaultdict(list)  # Add this line
         self.player_injuries = defaultdict(list)  # Add this line
+        self.player_games_missed = defaultdict(list)
+        self.player_total_games_missed = defaultdict(int)
         
 
 
@@ -256,11 +257,12 @@ class SimulationTracker:
 
             sorted_players = sorted(player_stats, key=lambda x: x[1], reverse=True)[:top_n]
 
-            print(f"{'Rank':<5}{'Player':<30}{'Avg':<8}{'Min':<8}{'Max':<8}{'Avg Miss':<8}")
-            print("-" * 67)
+           
+            print(f"{'Rank':<5}{'Player':<30}{'Avg':<8}{'Min':<8}{'Max':<8}{'Avg Miss':<12}")
+            print("-" * 71)  # Increased the line length to accommodate the longer 'Avg Miss' column
             for i, (player, avg_score, min_score, max_score, avg_missed) in enumerate(sorted_players, 1):
                 player_name = f"{player.first_name} {player.last_name}"
-                print(f"{i:<5}{player_name:<30}{avg_score:<8.2f}{min_score:<8.2f}{max_score:<8.2f}{avg_missed:<8.2f}")
+                print(f"{i:<5}{player_name:<30}{avg_score:<8.2f}{min_score:<8.2f}{max_score:<8.2f}{avg_missed:<12.5f}")
                 
                 
     def print_projected_standings(self):
@@ -316,10 +318,7 @@ class SimulationTracker:
                 avg_score, total_scores, total_weeks = self.get_player_average_score(player.sleeper_id)
                 print(f"  {player.name} ({player.position}): Avg: {avg_score:.2f}, Total: {total_scores:.2f}, Weeks: {total_weeks}")
                 
-        
-
-    def record_player_games_missed(self, player_id, games_missed):
-        self.player_games_missed[player_id].append(games_missed)
+    
 
     
     
@@ -327,12 +326,31 @@ class SimulationTracker:
     def record_player_injury(self, player_id, games_missed):
         self.player_injuries[player_id].append(games_missed)
 
+    
+    
+    
+    def record_player_games_missed(self, player_id, games_missed):
+        if games_missed > 1:
+            self.player_games_missed[player_id].append(games_missed)
+            player = self.get_player_from_sleeper_id(player_id)
+            print(f"DEBUG: Recorded {games_missed} missed games for {player.full_name}")
+
+    def record_total_games_missed(self, player_id, total_games_missed):
+        self.player_total_games_missed[player_id] += total_games_missed
+
     def get_player_avg_games_missed(self, player_id):
         if player_id not in self.player_games_missed:
             return 0
         total_missed = sum(self.player_games_missed[player_id])
-        avg_missed = total_missed / self.num_simulations
-        # Add a print statement here for debugging
+        num_simulations = self.num_simulations
+        avg_missed = total_missed / num_simulations
         player = self.get_player_from_sleeper_id(player_id)
-        print(f"Player {player.name} missed total of {total_missed} games over {self.num_simulations} simulations. Average: {avg_missed:.2f}")
+        # print(f"Player {player.name} missed total of {total_missed} games (injuries > 1 game) over {num_simulations} simulations. Average: {avg_missed:.5f}")
+        return avg_missed
+
+    def get_player_total_avg_games_missed(self, player_id):
+        total_missed = self.player_total_games_missed[player_id]
+        avg_missed = total_missed / self.num_simulations
+        player = self.get_player_from_sleeper_id(player_id)
+        # print(f"Player {player.name} missed total of {total_missed} games (all injuries) over {self.num_simulations} simulations. Average: {avg_missed:.5f}")
         return avg_missed

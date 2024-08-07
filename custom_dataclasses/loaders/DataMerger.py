@@ -1,14 +1,13 @@
 import pandas as pd
 from fuzzywuzzy import process
 import numpy as np
-
+from custom_dataclasses.loaders.InjuryDataLoader import InjuryDataLoader
 
 class DataMerger:
     @staticmethod
     def merge_data(fantasy_calc_df, sleeper_df, pff_df, injury_df):
         merged_df = pd.merge(fantasy_calc_df, sleeper_df, left_on='sleeper_id', right_on='player_id', how='outer', suffixes=('_fc', '_sl'))
 
-        
         if 'team_fc' in merged_df.columns and 'team_sl' in merged_df.columns:
             merged_df['team'] = merged_df['team_fc'].fillna(merged_df['team_sl'])
         elif 'team_fc' in merged_df.columns:
@@ -24,7 +23,6 @@ class DataMerger:
         merged_df['name_lower'] = merged_df['full_name'].str.lower()
         pff_df['playerName'] = pff_df['playerName'].str.lower()
         
-        # Fuzzy matching for PFF data
         def fuzzy_match(name, choices, cutoff=80):
             if pd.isna(name):
                 return None
@@ -35,7 +33,6 @@ class DataMerger:
 
         pff_names = pff_df['playerName'].tolist()
         merged_df['pff_index'] = merged_df['name_lower'].apply(lambda x: fuzzy_match(x, pff_names))
-        
         
         final_df = pd.merge(merged_df, pff_df, left_on='pff_index', right_index=True, how='left', suffixes=('', '_pff'))
         
@@ -51,6 +48,11 @@ class DataMerger:
             'probability_of_injury_per_game': 'injury_probability_game'
         })
         
+        # Convert injury probabilities to proper decimals
+        injury_df['injury_probability_season'] = injury_df['injury_probability_season']
+        injury_df['injury_probability_game'] = injury_df['injury_probability_game']
+        # ['injury_probability_game'].apply(DataMerger.convert_to_decimal)
+        
         final_df = DataMerger.merge_injury_data(final_df, injury_df)
         
         final_df = DataMerger.clean_merged_data(final_df)
@@ -61,14 +63,24 @@ class DataMerger:
             print(lamar_row.iloc[0].to_dict())
         else:
             print("DEBUG: Lamar Jackson (BAL) not found in merged data")
-
         
-        # Debug: Print players without PFF projections
         no_pff = final_df[final_df['fantasyPoints'].isna()]
         print("Players without PFF projections:")
         print(no_pff[['full_name', 'position', 'team']])
         
         return final_df
+
+    @staticmethod
+    def convert_to_decimal(value):
+        if value is None or value == '':
+            return 0
+        if isinstance(value, str):
+            value = value.replace('%', '').strip()
+        try:
+            float_value = float(value)
+            return float_value / 100 if float_value > 1 else float_value
+        except ValueError:
+            return 0
     
     @staticmethod
     def merge_pff_data(merged_df, pff_df):

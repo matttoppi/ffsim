@@ -79,7 +79,6 @@ class PlayerLoader:
             # Rest of your method (update with Sleeper data, load PFF data, etc.)
             self.update_with_sleeper_data()
             self.load_and_update_pff_data()
-            self.apply_default_injury_values()
         else:
             print("Player data file not found or outdated. Fetching new data...")
             self.load_players()
@@ -90,14 +89,11 @@ class PlayerLoader:
         with open(self.players_file, 'w', encoding='utf-8') as file:
             player_data = []
             for player in self.enriched_players:
-                player_dict = player.to_dict()
-                if player.pff_projections:
-                    player_dict['pff_projections'] = player.pff_projections.__dict__
+                player_dict = self.to_serializable(player.to_dict())
                 player_data.append(player_dict)
             json.dump(player_data, file, ensure_ascii=False, indent=4)
         print(f"Player data saved to {self.players_file}")
-
-
+        
     def load_pff_projections(self):
         pff_loader = PFFLoader()
         self.pff_projections = pff_loader.get_and_clean_data()
@@ -125,13 +121,8 @@ class PlayerLoader:
 
         for _, row in final_df.iterrows():
             player_data = row.to_dict()
-            
-            # Extract PFF projections
-            pff_columns = [col for col in row.index if col.startswith('pff_')]
-            pff_data = {col.replace('pff_', ''): row[col] for col in pff_columns}
-            player_data['pff_projections'] = pff_data
-
             player = Player(player_data)
+            player.normalize_injury_probability()  # Add this line
             self.enriched_players.append(player)
 
             if player.full_name.lower() == 'lamar jackson':
@@ -169,15 +160,7 @@ class PlayerLoader:
         self.load_pff_projections()
         injury_df = InjuryDataLoader.get_and_clean_data()
         
-        # Create dictionaries for quick player lookup
-        player_dict = {p.sleeper_id: p for p in self.enriched_players}
-        injury_dict = {Player.clean_name(row['player']): row.to_dict() for _, row in injury_df.iterrows()}
-        
-        players_updated = 0
-        players_with_pff = 0
-        players_with_injury = 0
-        
-        for sleeper_id, player in player_dict.items():
+        for player in self.enriched_players:
             # Update PFF data
             pff_row = self.pff_projections[
                 (self.pff_projections['playerName'].str.lower() == player.full_name.lower())
@@ -185,39 +168,19 @@ class PlayerLoader:
             if not pff_row.empty:
                 pff_data = pff_row.iloc[0].to_dict()
                 player.update_pff_projections(pff_data)
-                players_with_pff += 1
                 print(f"DEBUG: PFF data assigned to {player.full_name} ({player.position})")
             else:
                 print(f"DEBUG: No PFF data found for {player.full_name} ({player.position})")
             
             # Update injury data
             injury_key = Player.clean_name(player.full_name)
-            if injury_key in injury_dict:
-                player.update_injury_data(injury_dict[injury_key])
-                players_with_injury += 1
+            if injury_key in injury_df.index:
+                injury_data = injury_df.loc[injury_key].to_dict()
+                player.update_injury_data(injury_data)
                 print(f"DEBUG: Injury data assigned to {player.full_name}")
             else:
                 print(f"DEBUG: No injury data found for {player.full_name}")
-            
-            players_updated += 1
         
-        print(f"Updated data for {players_updated} players")
-        print(f"PFF data assigned to {players_with_pff} players")
-        print(f"Injury data assigned to {players_with_injury} players")
-
-        # Print players without PFF projections
-        print("\nPlayers without PFF projections:")
-        for player in self.enriched_players:
-            if player.pff_projections is None or player.pff_projections.fantasy_points == 0:
-                print(f"{player.full_name} ({player.position}) - Team: {player.team}")
-
-        # Print players without injury data
-        print("\nPlayers without injury data:")
-        for player in self.enriched_players:
-            if player.injury_risk == "Unknown":
-                print(f"{player.full_name} ({player.position}) - Team: {player.team}")
-
-        # Save the updated players to file
         self.save_players_to_file()
                 
     def update_with_sleeper_data(self):
@@ -242,15 +205,28 @@ class PlayerLoader:
         print(f"Updated {players_updated} players with Sleeper data")
         
         
-    def apply_default_injury_values(self):
-        default_values = {
-            'injury_risk': 'Medium',
-            'durability': 5,
-            'injury_probability_season': 0.1,
-            'projected_games_missed': 1,
-            'injury_probability_game': 0.08
-        }
+    # def apply_default_injury_values(self):
+    #     default_values = {
+    #         'injury_risk': 'Medium',
+    #         'durability': 5,
+    #         'injury_probability_season': 10,  # 10% chance per season
+    #         'projected_games_missed': 1.5,
+    #         'injury_probability_game':   # Approx. 10% chance per season (10 / 17 weeks)
+    #     }
         
-        for player in self.enriched_players:
-            if player.injury_risk == 'Unknown':
-                player.update_injury_data(default_values)
+    #     for player in self.enriched_players:
+    #         if player.injury_risk == 'Unknown':
+    #             player.update_injury_data(default_values)
+                
+                
+    def to_serializable(self, obj):
+        if isinstance(obj, (int, float, str, bool, type(None))):
+            return obj
+        elif isinstance(obj, dict):
+            return {k: self.to_serializable(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [self.to_serializable(item) for item in obj]
+        elif hasattr(obj, '__dict__'):
+            return self.to_serializable(obj.__dict__)
+        else:
+            return str(obj)
