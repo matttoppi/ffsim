@@ -38,8 +38,8 @@ if __name__ == "__main__":
     
 
 
-
-# FIX OUTPUT ISSUE: players at very last full team print have higher averages than they do in the top 30 players print
-
+# Add in season breakout players. (season long multipliers for players) based on years of experience and age
+# Add in season tracking so we can we each fantasy teams best and worst seasons 
+#       and breakdown of the wins and losses for those seasons as well as players averages for those seasons
 
 
