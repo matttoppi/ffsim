@@ -278,31 +278,35 @@ class Player:
 
         # Define the shift amount and the adjustment factor
         shift_amount = 0.0  # Adjust this value as needed
-        adjustment_factor = 1.5  # Adjust this factor to control the steepness
+        adjustment_factor = 1  # Adjust this factor to control the steepness. Lower values make the curve steeper
 
         # Generate stats using log-normal distribution with adjustment factor
         pass_yds = self.log_normal(avg_pass_yds, avg_pass_yds * 0.2, shift_amount, adjustment_factor)
         rush_yds = self.log_normal(avg_rush_yds, avg_rush_yds * 0.2, shift_amount, adjustment_factor)
         receptions = self.log_normal(avg_receptions, avg_receptions * 0.2, shift_amount, adjustment_factor)
-        rec_yds = random.gauss(avg_rec_yds, avg_rec_yds * 0.2) if avg_rec_yds > 0 else 0
         
-        receptions = math.ceil(receptions)  # Round receptions to whole numbers
         
-        # Generate receiving yards based on receptions
-        if receptions > 0:
-            avg_yards_per_reception = avg_rec_yds / avg_receptions if avg_receptions > 0 else 10  # Default to 10 yards per reception if no data
-            yards_per_reception = random.gauss(avg_yards_per_reception, avg_yards_per_reception * 0.2)
-            rec_yds = max(0, receptions * yards_per_reception)
-        else:
-            rec_yds = 0
+
         
         avg_pass_td = float(proj.pass_td or 0) / games
         pass_td = random.choices([0, 1, 2, 3, 4], 
-                                weights=[1-avg_pass_td, avg_pass_td, avg_pass_td/4, avg_pass_td/16, avg_pass_td/64])[0]
-        rush_td = random.choices([0, 1, 2], 
-                                weights=[1-avg_rush_td, avg_rush_td, avg_rush_td/4])[0]
-        rec_td = random.choices([0, 1, 2],
-                                weights=[1-avg_rec_td, avg_rec_td, avg_rec_td/4])[0]
+                                weights=[1-avg_pass_td, avg_pass_td, avg_pass_td/3, avg_pass_td/16, avg_pass_td/32])[0]
+        rush_td = random.choices([0, 1, 2, 3, 4], 
+                                weights=[1-avg_rush_td, avg_rush_td, avg_rush_td/10, avg_rush_td/20, avg_rush_td/40])[0]
+        rec_td = random.choices([0, 1, 2, 3, 4],
+                                weights=[1-avg_rec_td, avg_rec_td, avg_rec_td/8, avg_rec_td/16, avg_rec_td/32])[0]
+        
+        
+        if receptions < 1 and receptions > 0: # if generated receptions is less than 1, set receptions to 0
+            receptions = 0
+            rec_yds = 0
+            rec_td = 0
+        else: # if generated receptions is greater than 0, round up to the nearest whole number
+            receptions = math.ceil(receptions)  # Round receptions up to whole numbers (always round up for fun)
+            avg_yards_per_reception = avg_rec_yds / avg_receptions if avg_receptions > 0 else 10  # Default to 10 yards per reception if no data
+            yards_per_reception = self.log_normal(avg_yards_per_reception, avg_yards_per_reception * 0.2, shift_amount, adjustment_factor)
+            rec_yds = max(0, receptions * yards_per_reception) # Calculate receiving yards based on receptions and yards per reception
+        
 
         # Interceptions (using Poisson distribution)
         pass_int = np.random.poisson(avg_pass_int)
@@ -333,9 +337,9 @@ class Player:
         if mean <= 0 or sigma <= 0:
             return 0
         try:
-            mu = math.log(mean**2 / math.sqrt(mean**2 + sigma**2)) # gets the mu value for the lognormal distribution
-            sigma = math.sqrt(math.log(1 + (sigma**2 / mean**2))) * adjustment_factor # gets the sigma value for the lognormal distribution
-            return max(0, random.lognormvariate(mu, sigma)) + shift 
+            mu = math.log(mean**2 / math.sqrt(mean**2 + sigma**2)) # mu is what the mean would be if we were to take the log of the data
+            sigma = math.sqrt(math.log(1 + (sigma**2 / mean**2))) * adjustment_factor # adjustment is applied to the sigma value to control the steepness of the curve
+            return max(0, random.lognormvariate(mu, sigma)) + shift  # shift is applied to the final value to control the minimum value
         except (ValueError, ZeroDivisionError):
             return 0
 
