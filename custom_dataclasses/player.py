@@ -1,6 +1,8 @@
 import random
 import math
 from custom_dataclasses.loaders.InjuryDataLoader import InjuryDataLoader
+import numpy as np  # Add this import
+
 
 
 
@@ -249,28 +251,61 @@ class Player:
         return name.replace('.', '').replace("'", '').strip().title()
     
     
+
+
     def calculate_score(self, scoring_settings, week):
         if not self.pff_projections:
             print(f"DEBUG: No PFF projections for {self.full_name}")
             return 0
 
         proj = self.pff_projections
-        games = float(proj.games or 0)
+        games = float(proj.games or 1)
         bye_week = int(proj.bye_week or 0)
 
         if games == 0 or week == bye_week:
             print(f"DEBUG: {self.full_name} - No games projected or bye week")
             return 0
 
-        # Calculate per-game averages and add randomness
-        pass_yds = max(0, random.gauss(float(proj.pass_yds or 0) / games, float(proj.pass_yds or 0) / games * 0.25))
-        pass_td = max(0, random.gauss(float(proj.pass_td or 0) / games, float(proj.pass_td or 0) / games * 0.75))
-        pass_int = max(0, random.gauss(float(proj.pass_int or 0) / games, float(proj.pass_int or 0) / games * 0.75))
-        rush_yds = max(0, random.gauss(float(proj.rush_yds or 0) / games, float(proj.rush_yds or 0) / games * 0.25))
-        rush_td = max(0, random.gauss(float(proj.rush_td or 0) / games, float(proj.rush_td or 0) / games * 0.75))
-        receptions = max(0, random.gauss(float(proj.recv_receptions or 0) / games, float(proj.recv_receptions or 0) / games * 0.75))
-        rec_yds = max(0, random.gauss(float(proj.recv_yds or 0) / games, float(proj.recv_yds or 0) / games * 0.25))
-        rec_td = max(0, random.gauss(float(proj.recv_td or 0) / games, float(proj.recv_td or 0) / games * 0.75))
+        # Calculate per-game averages
+        avg_pass_yds = max(0, float(proj.pass_yds or 0) / games)
+        avg_pass_td = max(0, float(proj.pass_td or 0) / games)
+        avg_pass_int = max(0, float(proj.pass_int or 0) / games)
+        avg_rush_yds = max(0, float(proj.rush_yds or 0) / games)
+        avg_rush_td = max(0, float(proj.rush_td or 0) / games)
+        avg_receptions = max(0, float(proj.recv_receptions or 0) / games)
+        avg_rec_yds = max(0, float(proj.recv_yds or 0) / games)
+        avg_rec_td = max(0, float(proj.recv_td or 0) / games)
+
+        # Define the shift amount and the adjustment factor
+        shift_amount = 2.0  # Adjust this value as needed
+        adjustment_factor = 1.5  # Adjust this factor to control the steepness
+
+        # Generate stats using log-normal distribution with adjustment factor
+        pass_yds = random.gauss(avg_pass_yds, avg_pass_yds * 0.2) if avg_pass_yds > 0 else 0
+        rush_yds = random.gauss(avg_rush_yds, avg_rush_yds * 0.2) if avg_rush_yds > 0 else 0
+        receptions = 2 + random.gauss(avg_receptions, avg_receptions * 0.2) if avg_receptions > 0 else 0
+        rec_yds = random.gauss(avg_rec_yds, avg_rec_yds * 0.2) if avg_rec_yds > 0 else 0
+        
+        receptions = math.ceil(receptions)  # Round receptions to whole numbers
+
+        # Generate whole number touchdowns based on probabilities
+        # pass_td = random.choices([0, 1, 2, 3, 4], 
+        #                         weights=[max(0.1, 1-avg_pass_td), avg_pass_td, avg_pass_td/3, avg_pass_td/9, avg_pass_td/27])[0]
+        # rush_td = random.choices([0, 1, 2], 
+        #                         weights=[max(0.1, 1-avg_rush_td), avg_rush_td, avg_rush_td/3])[0]
+        # rec_td = random.choices([0, 1, 2], 
+        #                         weights=[max(0.1, 1-avg_rec_td), avg_rec_td, avg_rec_td/3])[0]
+        
+        avg_pass_td = float(proj.pass_td or 0) / games
+        pass_td = random.choices([0, 1, 2, 3, 4], 
+                                weights=[1-avg_pass_td, avg_pass_td, avg_pass_td/4, avg_pass_td/16, avg_pass_td/64])[0]
+        rush_td = random.choices([0, 1, 2], 
+                                weights=[1-avg_rush_td, avg_rush_td, avg_rush_td/4])[0]
+        rec_td = random.choices([0, 1, 2],
+                                weights=[1-avg_rec_td, avg_rec_td, avg_rec_td/4])[0]
+
+        # Interceptions (using Poisson distribution)
+        pass_int = np.random.poisson(avg_pass_int)
 
         # Calculate score based on league scoring settings
         score = (
@@ -284,9 +319,26 @@ class Player:
             receptions * (scoring_settings.te_rec if self.position == 'TE' else scoring_settings.rec)
         )
 
-        # print(f"DEBUG: {self.full_name} - Week {week} - Score: {score:.2f}")
+        # Debug output
+        if self.position == 'QB':
+            print(f"DEBUG: {self.full_name} - Week {week} - Passing: {pass_yds:.2f} yds, {pass_td} TD, {pass_int} INT - Score: {score:.2f}")
+        elif self.position == 'RB':
+            print(f"DEBUG: {self.full_name} - Week {week} - Rushing: {rush_yds:.2f} yds, {rush_td} TD, Receiving: {receptions:.2f} rec, {rec_yds:.2f} yds, {rec_td} TD - Score: {score:.2f}")
+        elif self.position in ['WR', 'TE']:
+            print(f"DEBUG: {self.full_name} - Week {week} - Receiving: {receptions:.2f} rec, {rec_yds:.2f} yds, {rec_td} TD - Score: {score:.2f}")
+
         return score
-    
+
+    def log_normal(self, mean, sigma, shift, adjustment_factor):
+        if mean <= 0 or sigma <= 0:
+            return 0
+        try:
+            mu = math.log(mean**2 / math.sqrt(mean**2 + sigma**2)) # gets the mu value for the lognormal distribution
+            sigma = math.sqrt(math.log(1 + (sigma**2 / mean**2))) * adjustment_factor # gets the sigma value for the lognormal distribution
+            return max(0, random.lognormvariate(mu, sigma)) + shift 
+        except (ValueError, ZeroDivisionError):
+            return 0
+
     
     def clear_injury(self, week):
         if self.simulation_injury and week >= self.simulation_injury['return_week']:

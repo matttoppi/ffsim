@@ -191,15 +191,21 @@ class SimulationTracker:
 
     
     def get_player_average_score(self, player_id):
-        # if player_id not in self.player_weekly_scores:
-        #     player = self.get_player_from_sleeper_id(player_id)
-        #     print(f"DEBUG: No scores recorded for player {player.full_name} ({player.position})")
-        #     return 0
-        scores = [score for week_scores in self.player_weekly_scores[player_id].values() for score in week_scores]
-        avg = sum(scores) / len(scores) if scores else 0
-        # player = self.get_player_from_sleeper_id(player_id)
-        # print(f"DEBUG: Player {player.full_name} ({player.position}) average score: {avg:.2f} from {len(scores)} recorded scores")
-        return avg
+        if player_id not in self.player_scores:
+            return 0, 0, 0, 0, 0
+
+        all_scores = [score for week_scores in self.player_scores[player_id].values() for score in week_scores if score > 0]
+        games_played = self.player_games_played.get(player_id, 0)
+
+        if not all_scores or games_played == 0:
+            return 0, 0, 0, 0, 0
+
+        avg_score = sum(all_scores) / games_played
+        total_scores = sum(all_scores)
+        min_score = min(all_scores) if all_scores else 0
+        max_score = max(all_scores) if all_scores else 0
+
+        return avg_score, total_scores, games_played, min_score, max_score
 
     def get_player_from_sleeper_id(self, sleeper_id):
         for team in self.league.rosters:
@@ -243,27 +249,20 @@ class SimulationTracker:
             self.player_scores[player_id][week] = []
         self.player_scores[player_id][week].append(score)
 
-    def get_player_average_score(self, player_id):
-        if player_id not in self.player_scores:
-            return 0, 0, 0
-        
-        all_scores = [score for week_scores in self.player_scores[player_id].values() for score in week_scores]
-        total_scores = sum(all_scores)
-        total_weeks = sum(len(week_scores) for week_scores in self.player_scores[player_id].values())
-        avg_score = total_scores / len(all_scores) if all_scores else 0
-        
-        return avg_score, total_scores, total_weeks
+        # Track that the player played this week (if score > 0)
+        if score > 0:
+            self.player_games_played[player_id] = self.player_games_played.get(player_id, 0) + 1
+
+
+    
 
     def print_player_average_scores(self):
         print("\nAverage Scores Per Week for Each Player:")
         for team in self.league.rosters:
             print(f"\n{team.name}:")
             for player in team.players:
-                avg_score, total_scores, total_weeks = self.get_player_average_score(player.sleeper_id)
-                print(f"  {player.name} ({player.position}): Avg: {avg_score:.2f}, Total: {total_scores:.2f}, Weeks: {total_weeks}")
-                
-    
-
+                avg_score, total_scores, total_weeks, min_score, max_score = self.get_player_average_score(player.sleeper_id)
+                print(f"  {player.name} ({player.position}): Avg: {avg_score:.2f}, Total: {total_scores:.2f}, Weeks: {total_weeks}, Min: {min_score:.2f}, Max: {max_score:.2f}")
     
     
     
@@ -305,19 +304,20 @@ class SimulationTracker:
         if player_id not in self.player_scores:
             print(f"DEBUG: No scores recorded for player ID {player_id}")
             return None
-        
+
         all_scores = [score for week_scores in self.player_scores[player_id].values() for score in week_scores]
         games_played = len(all_scores)
-        
+
         if not all_scores:
             print(f"DEBUG: No scores recorded for player ID {player_id}")
             return None
-        
+
         return {
             'avg_score': sum(all_scores) / games_played,
             'min_score': min(all_scores),
             'max_score': max(all_scores),
-            'games_played': games_played
+            'games_played': games_played,
+            'all_scores': all_scores  # Include all scores in the stats
         }
 
     def print_top_players_by_position(self, top_n=30):
@@ -326,6 +326,7 @@ class SimulationTracker:
 
         for position in positions:
             print(f"\nTop {top_n} {position}s:")
+            
             if position in ['KICKER', 'DEFENSE']:
                 team_stats = []
                 for team in self.league.rosters:
@@ -349,15 +350,13 @@ class SimulationTracker:
                     print(f"{i:<5}{team_name:<30}{avg_score:<8.2f}{min_score:<8.2f}{max_score:<8.2f}{'N/A':<12}")
             else:
                 players = [player for team in self.league.rosters for player in team.players if player.position == position]
-                
+
                 player_stats = []
                 for player in players:
-                    stats = self.get_player_stats(player.sleeper_id)
+                    avg_score, total_score, games_played, min_score, max_score = self.get_player_average_score(player.sleeper_id)
                     avg_games_missed = self.get_player_avg_games_missed(player.sleeper_id)
-                    if stats is not None:
-                        player_stats.append((player, stats['avg_score'], stats['min_score'], stats['max_score'], avg_games_missed))
-                    else:
-                        print(f"DEBUG: No stats for {player.first_name} {player.last_name} (ID: {player.sleeper_id})")
+                    if games_played > 0:
+                        player_stats.append((player, avg_score, min_score, max_score, avg_games_missed))
 
                 sorted_players = sorted(player_stats, key=lambda x: x[1], reverse=True)[:top_n]
 

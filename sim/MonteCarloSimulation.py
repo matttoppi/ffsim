@@ -9,6 +9,7 @@ class MonteCarloSimulation:
         self.num_simulations = num_simulations
         self.tracker = SimulationTracker(self.league)
         self.tracker.set_num_simulations(num_simulations)
+        self.visualizer = SimulationVisualizer(self.league)
 
     def run(self):
         for _ in tqdm(range(self.num_simulations), desc="Running Simulations", unit="sim"):
@@ -19,6 +20,8 @@ class MonteCarloSimulation:
             self.record_season_results(season)
         self.tracker.print_results()
         self.tracker.print_player_average_scores()
+        self.visualizer.plot_scoring_distributions(self.tracker)
+        
             
     def record_season_results(self, season):
         print("DEBUG: Recording season results")

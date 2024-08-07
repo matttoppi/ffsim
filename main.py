@@ -39,9 +39,7 @@ if __name__ == "__main__":
 
 
 
-#GLARING ISSUE: INJURIES ARE LOPSIDED. SOME HAVE 500pts lost in a week
+# FIX OUTPUT ISSUE: players at very last full team print have higher averages than they do in the top 30 players print
 
-#  TODO: Fix defenses not being found in monte carlo
-# TODO: Fix kickers not being found in monte carlo
-# TODO: Fix no scores for players that werent in the pff projections. Give them random scoring 
-# TODO: Implement injuries
+
+
