@@ -9,7 +9,7 @@ class MonteCarloSimulation:
         self.num_simulations = num_simulations
         self.tracker = SimulationTracker(self.league)
         self.tracker.set_num_simulations(num_simulations)
-        self.visualizer = SimulationVisualizer(self.league)
+        self.visualizer = SimulationVisualizer(self.league, self.tracker)
 
     def run(self):
         for _ in tqdm(range(self.num_simulations), desc="Running Simulations", unit="sim"):

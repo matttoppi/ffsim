@@ -196,7 +196,6 @@ class Player:
 
 
 
-
     def print_player(self):
         for key, value in self.to_dict().items():
             print(f"{key}: {value}")
@@ -250,20 +249,17 @@ class Player:
                 name = name[:-len(suffix)]
         return name.replace('.', '').replace("'", '').strip().title()
     
-    
-
-
     def calculate_score(self, scoring_settings, week):
         if not self.pff_projections:
             print(f"DEBUG: No PFF projections for {self.full_name}")
             return 0
 
         proj = self.pff_projections
-        games = float(proj.games or 1)
+        games = float(proj.games or 17)
         bye_week = int(proj.bye_week or 0)
 
-        if games == 0 or week == bye_week:
-            print(f"DEBUG: {self.full_name} - No games projected or bye week")
+        if week == bye_week:
+            print(f"DEBUG: {self.full_name} - Bye week")
             return 0
 
         # Calculate per-game averages
@@ -276,40 +272,27 @@ class Player:
         avg_rec_yds = max(0, float(proj.recv_yds or 0) / games)
         avg_rec_td = max(0, float(proj.recv_td or 0) / games)
 
-        # Define the shift amount and the adjustment factor
-        shift_amount = 0.0  # Adjust this value as needed
-        adjustment_factor = 1  # Adjust this factor to control the steepness. Lower values make the curve steeper
+        # Adjust log-normal parameters
+        shift_amount = 0.1
+        adjustment_factor = 0.8
 
-        # Generate stats using log-normal distribution with adjustment factor
-        pass_yds = self.log_normal(avg_pass_yds, avg_pass_yds * 0.2, shift_amount, adjustment_factor)
-        rush_yds = self.log_normal(avg_rush_yds, avg_rush_yds * 0.2, shift_amount, adjustment_factor)
-        receptions = self.log_normal(avg_receptions, avg_receptions * 0.2, shift_amount, adjustment_factor)
-        
-        
+        # Generate stats using log-normal distribution
+        pass_yds = self.log_normal(avg_pass_yds, avg_pass_yds * 0.3, shift_amount, adjustment_factor)
+        rush_yds = self.log_normal(avg_rush_yds, avg_rush_yds * 0.3, shift_amount, adjustment_factor)
+        receptions = round(self.log_normal(avg_receptions, avg_receptions * 0.3, shift_amount, adjustment_factor))
 
-        
-        avg_pass_td = float(proj.pass_td or 0) / games
-        pass_td = random.choices([0, 1, 2, 3, 4], 
-                                weights=[1-avg_pass_td, avg_pass_td, avg_pass_td/3, avg_pass_td/16, avg_pass_td/32])[0]
-        rush_td = random.choices([0, 1, 2, 3, 4], 
-                                weights=[1-avg_rush_td, avg_rush_td, avg_rush_td/10, avg_rush_td/20, avg_rush_td/40])[0]
-        rec_td = random.choices([0, 1, 2, 3, 4],
-                                weights=[1-avg_rec_td, avg_rec_td, avg_rec_td/8, avg_rec_td/16, avg_rec_td/32])[0]
-        
-        
-        if receptions < 1 and receptions > 0: # if generated receptions is less than 1, set receptions to 0
-            receptions = 0
-            rec_yds = 0
-            rec_td = 0
-        else: # if generated receptions is greater than 0, round up to the nearest whole number
-            receptions = math.ceil(receptions)  # Round receptions up to whole numbers (always round up for fun)
-            avg_yards_per_reception = avg_rec_yds / avg_receptions if avg_receptions > 0 else 10  # Default to 10 yards per reception if no data
-            yards_per_reception = self.log_normal(avg_yards_per_reception, avg_yards_per_reception * 0.2, shift_amount, adjustment_factor)
-            rec_yds = max(0, receptions * yards_per_reception) # Calculate receiving yards based on receptions and yards per reception
-        
+        # Calculate receiving yards based on receptions
+        avg_yards_per_reception = avg_rec_yds / avg_receptions if avg_receptions > 0 else 10
+        yards_per_reception = self.log_normal(avg_yards_per_reception, avg_yards_per_reception * 0.2, shift_amount, adjustment_factor)
+        rec_yds = max(0, receptions * yards_per_reception)
+
+        # Generate touchdowns using Poisson distribution
+        pass_td = max(0, np.random.poisson(avg_pass_td))
+        rush_td = max(0, np.random.poisson(avg_rush_td))
+        rec_td = max(0, np.random.poisson(avg_rec_td))
 
         # Interceptions (using Poisson distribution)
-        pass_int = np.random.poisson(avg_pass_int)
+        pass_int = max(0, np.random.poisson(avg_pass_int))
 
         # Calculate score based on league scoring settings
         score = (
@@ -323,13 +306,19 @@ class Player:
             receptions * (scoring_settings.te_rec if self.position == 'TE' else scoring_settings.rec)
         )
 
+        # Apply a very gentle cap to limit extreme outliers
+        max_score = 65
+        if score > max_score:
+            excess = score - max_score
+            score = max_score + (excess * 0.1)  # Allow scores to exceed max_score, but at a much slower rate
+
         # Debug output
         if self.position == 'QB':
             print(f"DEBUG: {self.full_name} - Week {week} - Passing: {pass_yds:.2f} yds, {pass_td} TD, {pass_int} INT - Score: {score:.2f}")
         elif self.position == 'RB':
-            print(f"DEBUG: {self.full_name} - Week {week} - Rushing: {rush_yds:.2f} yds, {rush_td} TD, Receiving: {receptions:.2f} rec, {rec_yds:.2f} yds, {rec_td} TD - Score: {score:.2f}")
+            print(f"DEBUG: {self.full_name} - Week {week} - Rushing: {rush_yds:.2f} yds, {rush_td} TD, Receiving: {receptions} rec, {rec_yds:.2f} yds, {rec_td} TD - Score: {score:.2f}")
         elif self.position in ['WR', 'TE']:
-            print(f"DEBUG: {self.full_name} - Week {week} - Receiving: {receptions:.2f} rec, {rec_yds:.2f} yds, {rec_td} TD - Score: {score:.2f}")
+            print(f"DEBUG: {self.full_name} - Week {week} - Receiving: {receptions} rec, {rec_yds:.2f} yds, {rec_td} TD - Score: {score:.2f}")
 
         return score
 
@@ -337,12 +326,11 @@ class Player:
         if mean <= 0 or sigma <= 0:
             return 0
         try:
-            mu = math.log(mean**2 / math.sqrt(mean**2 + sigma**2)) # mu is what the mean would be if we were to take the log of the data
-            sigma = math.sqrt(math.log(1 + (sigma**2 / mean**2))) * adjustment_factor # adjustment is applied to the sigma value to control the steepness of the curve
-            return max(0, random.lognormvariate(mu, sigma)) + shift  # shift is applied to the final value to control the minimum value
+            mu = math.log(mean**2 / math.sqrt(mean**2 + sigma**2))
+            sigma = math.sqrt(math.log(1 + (sigma**2 / mean**2))) * adjustment_factor
+            return max(0, random.lognormvariate(mu, sigma)) + shift
         except (ValueError, ZeroDivisionError):
             return 0
-
     
     def clear_injury(self, week):
         if self.simulation_injury and week >= self.simulation_injury['return_week']:
