@@ -32,7 +32,7 @@ class SimulationMatchup:
                 else:
                     score = player.calculate_score(scoring_settings, week)
                 player_scores[player.sleeper_id] = score
-                if player in team.get_active_starters(week):
+                if player in team.get_active_starters(week) or player.is_partially_injured(week):
                     total_score += score
             else:
                 player_scores[player.sleeper_id] = 0

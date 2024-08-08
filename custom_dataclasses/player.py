@@ -116,45 +116,61 @@ class Player:
             if week < self.simulation_injury['return_week']:
                 self.current_injury_games_missed += 1
                 self.total_games_missed_this_season += 1
-                # print(f"DEBUG: {self.full_name} missed game in week {week} due to ongoing injury")
             elif week == self.simulation_injury['return_week']:
-                if self.current_injury_games_missed > 1:
-                    # print(f"DEBUG: {self.full_name} injury ended, missed {self.current_injury_games_missed} games")
-                    pass
-                else:
-                    print(f"DEBUG: {self.full_name} recovered from minor injury")
                 self.simulation_injury = None
                 self.current_injury_games_missed = 0
         else:
             injury_roll = random.random()
             if injury_roll < self.injury_probability_game:
                 injury_duration = self.generate_injury_duration()
+                partial_week = injury_duration % 1
+                
+                # Ensure partial_week_factor is at least 0.25
+                partial_week_factor = max(0.25, 1 - partial_week)
+                
                 self.simulation_injury = {
                     'start_week': week,
-                    'duration': injury_duration,
-                    'return_week': week + math.ceil(injury_duration)
+                    'duration': math.ceil(injury_duration),
+                    'return_week': week + math.ceil(injury_duration),
+                    'partial_week_factor': partial_week_factor
                 }
                 self.current_injury_games_missed = 1
                 self.total_games_missed_this_season += 1
-                print(f"DEBUG: {self.full_name} injured in week {week} for {injury_duration:.1f} weeks")
+                print(f"DEBUG: {self.full_name} injured in week {week} for {injury_duration:.1f} weeks (partial week factor: {partial_week_factor:.2f})")
 
     def generate_injury_duration(self):
-        # return max(1, random.gauss(self.projected_games_missed, 0.5))
-        if self.full_name.lower() == 'josh allen':
-            print(f"DEBUG: Josh Allen projected games missed: {self.projected_games_missed}")
-            dur = max(1, random.gauss(self.projected_games_missed, 0.5))
-            print(f"DEBUG: Josh Allen injury duration: {dur}")
-            # x = input("Press Enter to continue")
-            return dur
-        return max(1, random.gauss(self.projected_games_missed, 0.5))
-            
+        severity_weights = self.calculate_severity_weights()
+        severity = random.choices(['Minor', 'Moderate', 'Major', 'Severe'], weights=severity_weights)[0]
+        
+        if severity == 'Minor':
+            return random.uniform(0.1, 1.5)  # 0.1 to 1.5 weeks
+        elif severity == 'Moderate':
+            return random.uniform(1.5, 4)    # 1.5 to 4 weeks
+        elif severity == 'Major':
+            return random.uniform(4, 8)      # 4 to 8 weeks
+        else:  # Severe
+            return random.uniform(8, 16)     # 8 to 16 weeks
 
-
-    def generate_injury_duration(self):
-        return max(1, random.gauss(self.projected_games_missed, 0.5))
+    def calculate_severity_weights(self):
+        # Base weights
+        base_weights = [0.5, 0.3, 0.15, 0.05]  # Minor, Moderate, Major, Severe
+        
+        # Adjust weights based on projected_games_missed
+        if self.projected_games_missed <= 1:
+            return [0.7, 0.2, 0.08, 0.02]
+        elif 1 < self.projected_games_missed <= 2:
+            return [0.5, 0.3, 0.15, 0.05]
+        elif 2 < self.projected_games_missed <= 4:
+            return [0.3, 0.4, 0.2, 0.1]
+        else:  # More than 4 games projected to be missed
+            return [0.2, 0.3, 0.3, 0.2]
 
     def is_injured(self, week):
-        return self.simulation_injury and self.simulation_injury['start_week'] <= week < self.simulation_injury['return_week']
+        return self.simulation_injury and self.simulation_injury['start_week'] < week < self.simulation_injury['return_week']
+
+    def is_partially_injured(self, week):
+        return self.simulation_injury and self.simulation_injury['start_week'] == week
+
 
     def update_from_dict(self, data):
         if 'age' in data and data['age'] is not None:
@@ -276,23 +292,36 @@ class Player:
         shift_amount = 0.1
         adjustment_factor = 0.8
 
-        # Generate stats using log-normal distribution
-        pass_yds = self.log_normal(avg_pass_yds, avg_pass_yds * 0.3, shift_amount, adjustment_factor)
-        rush_yds = self.log_normal(avg_rush_yds, avg_rush_yds * 0.3, shift_amount, adjustment_factor)
-        receptions = round(self.log_normal(avg_receptions, avg_receptions * 0.3, shift_amount, adjustment_factor))
+        # Check for partial week injury
+        partial_week_factor = 1.0
+        if self.simulation_injury and self.simulation_injury['start_week'] == week:
+            partial_week_factor = self.simulation_injury['partial_week_factor']
 
-        # Calculate receiving yards based on receptions
+        # Generate stats using log-normal distribution
+        pass_yds = self.log_normal(avg_pass_yds * partial_week_factor, avg_pass_yds * 0.3, shift_amount, adjustment_factor)
+        rush_yds = self.log_normal(avg_rush_yds * partial_week_factor, avg_rush_yds * 0.3, shift_amount, adjustment_factor)
+        
+        # Adjust receptions for partial week
+        full_receptions = round(self.log_normal(avg_receptions, avg_receptions * 0.3, shift_amount, adjustment_factor))
+        receptions = max(1, round(full_receptions * partial_week_factor))  # Ensure at least 1 reception if any
+
+        # Calculate receiving yards based on adjusted receptions
         avg_yards_per_reception = avg_rec_yds / avg_receptions if avg_receptions > 0 else 10
         yards_per_reception = self.log_normal(avg_yards_per_reception, avg_yards_per_reception * 0.2, shift_amount, adjustment_factor)
         rec_yds = max(0, receptions * yards_per_reception)
 
-        # Generate touchdowns using Poisson distribution
-        pass_td = max(0, np.random.poisson(avg_pass_td))
-        rush_td = max(0, np.random.poisson(avg_rush_td))
-        rec_td = max(0, np.random.poisson(avg_rec_td))
+        # Adjust touchdown probabilities for partial week
+        adj_avg_pass_td = avg_pass_td * partial_week_factor
+        adj_avg_rush_td = avg_rush_td * partial_week_factor
+        adj_avg_rec_td = avg_rec_td * partial_week_factor
 
-        # Interceptions (using Poisson distribution)
-        pass_int = max(0, np.random.poisson(avg_pass_int))
+        # Generate touchdowns using adjusted Poisson distribution
+        pass_td = max(0, np.random.poisson(adj_avg_pass_td))
+        rush_td = max(0, np.random.poisson(adj_avg_rush_td))
+        rec_td = max(0, np.random.poisson(adj_avg_rec_td))
+
+        # Interceptions (using Poisson distribution, adjusted for partial week)
+        pass_int = max(0, np.random.poisson(avg_pass_int * partial_week_factor))
 
         # Calculate score based on league scoring settings
         score = (
@@ -307,7 +336,7 @@ class Player:
         )
 
         # Apply a very gentle cap to limit extreme outliers
-        max_score = 65
+        max_score = 50
         if score > max_score:
             excess = score - max_score
             score = max_score + (excess * 0.1)  # Allow scores to exceed max_score, but at a much slower rate
@@ -319,6 +348,9 @@ class Player:
             print(f"DEBUG: {self.full_name} - Week {week} - Rushing: {rush_yds:.2f} yds, {rush_td} TD, Receiving: {receptions} rec, {rec_yds:.2f} yds, {rec_td} TD - Score: {score:.2f}")
         elif self.position in ['WR', 'TE']:
             print(f"DEBUG: {self.full_name} - Week {week} - Receiving: {receptions} rec, {rec_yds:.2f} yds, {rec_td} TD - Score: {score:.2f}")
+
+        if partial_week_factor < 1:
+            print(f"DEBUG: {self.full_name} - Partial week factor: {partial_week_factor:.2f} - Adjusted Score: {score:.2f} (original: {score / partial_week_factor:.2f})")
 
         return score
 
