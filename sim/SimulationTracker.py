@@ -1,4 +1,5 @@
 from collections import defaultdict
+import math
 
 
 class SimulationTracker:
@@ -24,6 +25,65 @@ class SimulationTracker:
         self.player_total_games_missed = defaultdict(int)
         
         self.special_team_scores = defaultdict(lambda: defaultdict(list))
+        self.division1_ids = league.division1_ids
+        self.division2_ids = league.division2_ids
+        self.division_standings = {1: defaultdict(list), 2: defaultdict(list)}
+
+    def record_team_season(self, team_name, wins, losses, ties, points_for, points_against):
+        self.team_season_results[team_name].append({
+            'wins': wins,
+            'losses': losses,
+            'ties': ties,
+            'points_for': points_for,
+            'points_against': points_against
+        })
+        self.update_best_worst_seasons(team_name, wins, points_for)
+        
+        # Record division standings
+        roster_id = next((team.roster_id for team in self.league.rosters if team.name == team_name), None)
+        if roster_id in self.division1_ids:
+            self.division_standings[1][team_name].append((wins, points_for))
+        elif roster_id in self.division2_ids:
+            self.division_standings[2][team_name].append((wins, points_for))
+
+    def get_division_standings(self, division):
+        standings = []
+        for team_name, results in self.division_standings[division].items():
+            avg_wins = sum(r[0] for r in results) / len(results)
+            avg_points = sum(r[1] for r in results) / len(results)
+            standings.append((team_name, avg_wins, avg_points))
+        return sorted(standings, key=lambda x: (x[1], x[2]), reverse=True)
+
+    def print_projected_standings(self):
+        print("\nProjected Overall Standings:")
+        self._print_standings(self.get_overall_standings())
+        
+        print("\nProjected Division 1 Standings:")
+        self._print_standings(self.get_division_standings(1))
+        
+        print("\nProjected Division 2 Standings:")
+        self._print_standings(self.get_division_standings(2))
+
+    def _print_standings(self, standings):
+        for i, (team_name, avg_wins, avg_points) in enumerate(standings, 1):
+            print(f"{i}. {team_name}: {avg_wins:.2f} wins | Points per week: {avg_points/18:.2f} points")
+
+    def get_overall_standings(self):
+        standings = []
+        for team in self.league.rosters:
+            stats = self.get_team_stats(team.name)
+            if stats:
+                standings.append((team.name, stats['avg_wins'], stats['avg_points']))
+        return sorted(standings, key=lambda x: (x[1], x[2]), reverse=True)
+    
+    
+    
+    
+    
+    
+    
+    
+    
 
 
     def get_player_avg_injured_games(self, player_id):
@@ -160,16 +220,6 @@ class SimulationTracker:
         }
         
         
-    def record_team_season(self, team_name, wins, losses, ties, points_for, points_against):
-        self.team_season_results[team_name].append({
-            'wins': wins,
-            'losses': losses,
-            'ties': ties,
-            'points_for': points_for,
-            'points_against': points_against
-        })
-        self.update_best_worst_seasons(team_name, wins, points_for)
-
 
     # def get_team_stats(self, team_name):
     #     seasons = self.team_season_results[team_name]
@@ -214,25 +264,6 @@ class SimulationTracker:
                     return player
         return None
     
-                
-    def print_projected_standings(self):
-        print("\nProjected Final Standings:")
-        avg_results = []
-        for team in self.league.rosters:
-            stats = self.get_team_stats(team.name)
-            if stats:
-                avg_wins = stats['avg_wins']
-                avg_points = stats['avg_points']
-                avg_results.append((team.name, avg_wins, avg_points))
-            else:
-                print(f"DEBUG: No stats found for {team.name}")
-
-        sorted_results = sorted(avg_results, key=lambda x: (x[1], x[2]), reverse=True)
-
-        for i, (team_name, avg_wins, avg_points) in enumerate(sorted_results, 1):
-            print(f"{i}. {team_name}: {avg_wins:.2f} wins | Points per week: {avg_points/18:.2f} points")
-            
-            
 
 
     def print_results(self):
@@ -256,15 +287,32 @@ class SimulationTracker:
 
     
 
-    def print_player_average_scores(self):
-        print("\nAverage Scores Per Week for Each Player:")
+    def print_player_average_scores(self, top_n=5):
+        print(f"\nTop {top_n} Players by Average Score for Each Team:")
+        
+        header = f"{'Player':<25}{'Pos':<5}{'Avg':<8}{'Wks/Ssn':<10}{'Min':<8}{'Max':<8}"
+        separator = "-" * 64
+
         for team in self.league.rosters:
             print(f"\n{team.name}:")
+            print(separator)
+            print(header)
+            print(separator)
+            
+            player_scores = []
             for player in team.players:
                 avg_score, total_scores, total_weeks, min_score, max_score = self.get_player_average_score(player.sleeper_id)
-                print(f"  {player.name} ({player.position}): Avg: {avg_score:.2f}, Total: {total_scores:.2f}, Weeks: {total_weeks}, Min: {min_score:.2f}, Max: {max_score:.2f}")
-    
-    
+                if total_weeks > 0:
+                    weeks_per_season = total_weeks / self.num_simulations
+                    player_scores.append((player, avg_score, weeks_per_season, min_score, max_score))
+            
+            top_players = sorted(player_scores, key=lambda x: x[1], reverse=True)
+            
+            for player, avg_score, weeks_per_season, min_score, max_score in top_players:
+                weeks_per_season = math.ceil(weeks_per_season)
+                print(f"{player.name:<25}{player.position:<5}{avg_score:<8.2f}{weeks_per_season:<10}{min_score:<8.2f}{max_score:<8.2f}")
+            
+            print(separator)
     
     def record_player_injury(self, player_id, games_missed):
         self.player_injuries[player_id].append(games_missed)

@@ -11,16 +11,18 @@ class MonteCarloSimulation:
         self.tracker.set_num_simulations(num_simulations)
         self.visualizer = SimulationVisualizer(self.league, self.tracker)
 
+    
     def run(self):
         for _ in tqdm(range(self.num_simulations), desc="Running Simulations", unit="sim"):
-            for team in self.league.rosters:  # Changed from .values() to direct iteration
+            for team in self.league.rosters:
                 team.reset_stats()
             season = SimulationSeason(self.league, self.tracker)
             season.simulate()
             self.record_season_results(season)
-        self.tracker.print_results()
+        self.tracker.print_results()  # This now includes overall and division standings
         self.tracker.print_player_average_scores()
         self.visualizer.plot_scoring_distributions(self.tracker)
+
         
             
     def record_season_results(self, season):

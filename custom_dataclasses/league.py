@@ -60,6 +60,9 @@ class League:
         self.status = league_data.get("status")
         self.rosters = None
         self.scoring_settings = ScoringSettings(league_data.get("scoring_settings", {}))
+        
+        self.division1_ids = [9,10,7,8,2]
+        self.division2_ids = [1,3,4,5,6]
 
         
         self.number_of_starters = 0
@@ -70,6 +73,12 @@ class League:
         self.bench_slots = self.offensive_roster_positions.count("BN")
         self.defense_slots = self.offensive_roster_positions.count("DEF")
         self.kicker_slots = self.offensive_roster_positions.count("K")
+        
+        
+        
+    def print_rosters_ids(self):
+        for team in self.rosters:
+            print(f"{team.name}: {team.roster_id}")
             
         
     def get_all_players(self):

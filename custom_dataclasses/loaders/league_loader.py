@@ -20,6 +20,7 @@ class LeagueLoader:
         league_data = self.sleeper_league.get_league()
         league = League(league_data)
         league.rosters = self.load_rosters(league)
+        league.print_rosters_ids()
         print(f"\nLeague {league.name} loaded with {len(league.rosters)} teams.")
         return league
 
@@ -47,6 +48,8 @@ class LeagueLoader:
             
             fantasy_team.calculate_metadata()
             rosters.append(fantasy_team)
+            
+        
             
         return rosters
 

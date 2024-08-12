@@ -207,11 +207,11 @@ Zach Wilson,5,Low,24.5,1.0,1.6,3.8,18.5,QB
 Taylor Heinicke,6,Low,29.2,1.6,2.0,2.4,17.0,QB
 Hendon Hooker,1,Very Low,21.2,1.1,1.4,5.0,11.7,QB
 Colt McCoy,1,Very Low,19.9,0.57,1.3,5.0,6.4,QB
-CeeDee Lamb,6,Medium,50.2,1.3,4.0,5.0,365.0,WR
+CeeDee Lamb,6,Medium,50.2,1.3,3.0,5.0,365.0,WR
 Tyreek Hill,8,Medium,58.9,1.8,5.1,5.0,328.9,WR
 Amon-Ra St. Brown,5,Low,39.9,1.4,3.0,5.0,309.5,WR
-Justin Jefferson,6,High,66.9,2.3,6.3,5.0,306.2,WR
-Ja'Marr Chase,4,High,75.1,1.8,7.9,5.0,304.2,WR
+Justin Jefferson,6,High,66.9,2.3,4.3,5.0,306.2,WR
+Ja'Marr Chase,4,High,75.1,1.8,5.9,5.0,304.2,WR
 Puka Nacua,6,Medium,68.2,1.8,6.5,3.5,287.9,WR
 Garrett Wilson,3,Low,38.1,0.7,2.8,5.0,278.8,WR
 A.J. Brown,7,High,70.5,2.0,6.9,5.0,263.0,WR
@@ -226,7 +226,7 @@ Marvin Harrison Jr.,3,Medium,42.8,1.3,3.2,5.0,238.7,WR
 Nico Collins,6,Very High,82.1,2.1,9.6,3.1,235.2,WR
 Malik Nabers,2,Low,29.2,1.0,2.0,5.0,232.8,WR
 Tee Higgins,11,Very High,89.2,2.4,12.3,5.0,231.6,WR
-Mike Evans,12,Very High,81.5,2.4,9.4,5.0,231.1,WR
+Mike Evans,12,Very High,81.5,3.4,9.4,5.0,231.1,WR
 Deebo Samuel,17,Very High,86.6,3.4,11.2,1.6,230.8,WR
 D.K. Metcalf,6,Low,31.1,0.8,2.2,4.9,230.6,WR
 Michael Pittman Jr.,8,High,70.1,1.6,6.9,5.0,227.3,WR
