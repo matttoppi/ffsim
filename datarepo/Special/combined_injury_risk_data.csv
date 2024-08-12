@@ -1,353 +1,353 @@
-player                   ,career_injuries ,injury_risk ,probability_of_injury_in_the_season ,projected_games_missed ,probability_of_injury_per_game ,durability ,ppr_points ,Position
-Christian McCaffrey      ,              8 ,High        ,                               63.6 ,                  3.0  ,                           5.8 ,       3.9 ,     326.8 ,RB
-Bijan Robinson           ,              1 ,Medium      ,                               41.9 ,                  1.4  ,                           3.1 ,       5.0 ,     300.2 ,RB
-Breece Hall              ,              2 ,Medium      ,                               48.1 ,                  1.6  ,                           3.8 ,       3.5 ,     293.0 ,RB
-Jahmyr Gibbs             ,              3 ,High        ,                               62.6 ,                  1.4  ,                           5.6 ,       5.0 ,     267.7 ,RB
-Saquon Barkley           ,             10 ,Medium      ,                               57.5 ,                  1.4  ,                           4.9 ,       5.0 ,     252.0 ,RB
-Jonathan Taylor          ,              6 ,Very High   ,                               65.3 ,                  1.6  ,                           6.0 ,       5.0 ,     251.0 ,RB
-Travis Etienne           ,              3 ,Low         ,                               39.6 ,                  0.8  ,                           2.9 ,       2.1 ,     248.8 ,RB
-Kyren Williams           ,              5 ,Very High   ,                               88.7 ,                  3.48 ,                          12.0 ,       2.9 ,     234.6 ,RB
-Derrick Henry            ,              5 ,Low         ,                               29.4 ,                  0.7  ,                           2.0 ,       5.0 ,     234.5 ,RB
-Joe Mixon                ,              8 ,Very High   ,                               68.4 ,                  1.3  ,                           6.6 ,       5.0 ,     231.8 ,RB
-De'Von Achane            ,              3 ,Very High   ,                               83.4 ,                  3.4  ,                          10.0 ,       4.7 ,     230.2 ,RB
-James Cook               ,              3 ,Low         ,                               31.5 ,                  0.7  ,                           2.2 ,       5.0 ,     229.6 ,RB
-Isiah Pacheco            ,              5 ,Very High   ,                               90.4 ,                  3.4  ,                          12.9 ,       5.0 ,     226.2 ,RB
-Josh Jacobs              ,              8 ,Very High   ,                               79.8 ,                  2.3  ,                           9.0 ,       5.0 ,     220.0 ,RB
-Kenneth Walker III       ,              6 ,Medium      ,                               41.8 ,                  1.9  ,                           3.1 ,       5.0 ,     219.4 ,RB
-Rachaad White            ,              1 ,Medium      ,                               43.2 ,                  1.6  ,                           3.3 ,       5.0 ,     217.2 ,RB
-Rhamondre Stevenson      ,              5 ,Medium      ,                               55.5 ,                  1.3  ,                           4.7 ,       5.0 ,     216.0 ,RB
-Alvin Kamara             ,              8 ,Very High   ,                               88.3 ,                  1.8  ,                          11.9 ,       4.3 ,     212.4 ,RB
-D'Andre Swift            ,              7 ,Very High   ,                               67.3 ,                  1.9  ,                           6.4 ,       5.0 ,     211.2 ,RB
-James Conner             ,             14 ,Very High   ,                               88.4 ,                  2.8  ,                          11.9 ,       5.0 ,     208.6 ,RB
-Tony Pollard             ,              3 ,Low         ,                               34.7 ,                  0.6  ,                           2.5 ,       5.0 ,     200.3 ,RB
-Jaylen Warren            ,              1 ,Medium      ,                               48.7 ,                  1.2  ,                           3.9 ,       5.0 ,     197.0 ,RB
-Aaron Jones              ,             12 ,Very High   ,                               87.6 ,                  3.1  ,                          11.6 ,       5.0 ,     196.9 ,RB
-David Montgomery         ,              7 ,Very High   ,                               80.5 ,                  3.4  ,                           9.2 ,       5.0 ,     196.3 ,RB
-Javonte Williams         ,              4 ,Very High   ,                               79.6 ,                  2.4  ,                           8.9 ,       2.5 ,     190.0 ,RB
-Raheem Mostert           ,             14 ,Very High   ,                               88.8 ,                  2.9  ,                          12.1 ,       1.8 ,     187.5 ,RB
-Najee Harris             ,              7 ,Low         ,                               28.2 ,                  0.9  ,                           1.9 ,       5.0 ,     185.9 ,RB
-Jonathon Brooks          ,              1 ,Low         ,                               29.9 ,                  0.8  ,                           2.1 ,       2.1 ,     184.6 ,RB
-Zamir White              ,              2 ,Low         ,                               29.5 ,                  0.8  ,                           2.0 ,       2.9 ,     182.9 ,RB
-Brian Robinson Jr.       ,              3 ,Medium      ,                               45.9 ,                  1.0  ,                           3.5 ,       5.0 ,     173.6 ,RB
-Austin Ekeler            ,             11 ,Low         ,                               36.3 ,                  1.3  ,                           2.6 ,       5.0 ,     169.4 ,RB
-Devin Singletary         ,              1 ,Low         ,                               38.5 ,                  1.8  ,                           2.8 ,       5.0 ,     163.7 ,RB
-Tyjae Spears             ,              3 ,Low         ,                               29.2 ,                  0.8  ,                           2.0 ,       5.0 ,     161.0 ,RB
-Chase Brown              ,              0 ,Low         ,                               23.5 ,                  0.8  ,                           1.6 ,       5.0 ,     157.8 ,RB
-Zack Moss                ,              8 ,Very High   ,                               68.7 ,                  2.6  ,                           6.6 ,       4.5 ,     152.6 ,RB
-Ezekiel Elliott          ,              8 ,Low         ,                               38.1 ,                  1.7  ,                           2.8 ,       5.0 ,     151.1 ,RB
-Jerome Ford              ,              5 ,Medium      ,                               41.2 ,                  0.7  ,                           3.1 ,       5.0 ,     136.2 ,RB
-Zach Charbonnet          ,              4 ,High        ,                               64.0 ,                  1.4  ,                           5.8 ,       5.0 ,     135.9 ,RB
-Ty Chandler              ,              1 ,Low         ,                               29.2 ,                  1.3  ,                           2.0 ,       5.0 ,     134.1 ,RB
-Nick Chubb               ,              5 ,Very High   ,                               74.1 ,                  3.0  ,                           7.6 ,       2.6 ,     134.1 ,RB
-Antonio Gibson           ,              8 ,Very High   ,                               81.0 ,                  2.9  ,                           9.3 ,       5.0 ,     129.4 ,RB
-Kendre Miller            ,              5 ,High        ,                               62.0 ,                  2.4  ,                           5.5 ,       4.4 ,     121.5 ,RB
-Jaleel McLaughlin        ,              0 ,Very Low    ,                               21.0 ,                  0.5  ,                           1.4 ,       5.0 ,     119.9 ,RB
-Trey Benson              ,              5 ,Low         ,                               23.3 ,                  1.1  ,                           1.5 ,       3.8 ,     115.6 ,RB
-Gus Edwards              ,              6 ,Medium      ,                               49.8 ,                  1.4  ,                           4.0 ,       1.8 ,     113.1 ,RB
-Blake Corum              ,              4 ,Low         ,                               31.3 ,                  0.9  ,                           2.2 ,       4.8 ,     108.9 ,RB
-Mar'Keise Irving         ,              1 ,Low         ,                               29.2 ,                  1.0  ,                           2.0 ,       5.0 ,     104.2 ,RB
-MarShawn Lloyd           ,              2 ,Very Low    ,                               21.0 ,                  1.0  ,                           1.4 ,       5.0 ,     102.0 ,RB
-Rico Dowdle              ,              0 ,Very Low    ,                               21.2 ,                  0.5  ,                           1.4 ,       5.0 ,      99.9 ,RB
-Khalil Herbert           ,              4 ,Very High   ,                               81.8 ,                  3.4  ,                           9.5 ,       5.0 ,      98.0 ,RB
-Kenneth Gainwell         ,              0 ,Very Low    ,                               21.2 ,                  1.1  ,                           1.4 ,       5.0 ,      92.7 ,RB
-J.K. Dobbins             ,              7 ,Low         ,                               24.0 ,                  1.3  ,                           1.6 ,       0.4 ,      90.9 ,RB
-Roschon Johnson          ,              1 ,Low         ,                               31.1 ,                  1.7  ,                           2.2 ,       5.0 ,      90.7 ,RB
-Chuba Hubbard            ,              3 ,Low         ,                               29.6 ,                  0.7  ,                           2.0 ,       5.0 ,      88.3 ,RB
-Alexander Mattison       ,              5 ,Low         ,                               33.5 ,                  0.8  ,                           2.4 ,       5.0 ,      88.1 ,RB
-Tyler Allgeier           ,              0 ,Very Low    ,                               20.5 ,                  0.8  ,                           1.3 ,       5.0 ,      87.8 ,RB
-Justice Hill             ,              5 ,Low         ,                               33.1 ,                  0.8  ,                           2.3 ,       2.9 ,      86.1 ,RB
-Jaylen Wright            ,              1 ,Low         ,                               28.2 ,                  1.1  ,                           1.9 ,       5.0 ,      82.1 ,RB
-Clyde Edwards-Helaire    ,              7 ,Low         ,                               39.8 ,                  0.7  ,                           2.9 ,       3.3 ,      81.5 ,RB
-Audric Estime            ,              1 ,Very Low    ,                               20.9 ,                  1.0  ,                           1.4 ,       5.0 ,      77.7 ,RB
-Samaje Perine            ,              4 ,Very Low    ,                               17.6 ,                  0.5  ,                           1.1 ,       5.0 ,      76.5 ,RB
-D'Onta Foreman           ,              1 ,Very Low    ,                               21.2 ,                  0.7  ,                           1.4 ,       5.0 ,      74.6 ,RB
-Braelon Allen            ,              3 ,Low         ,                               34.5 ,                  1.2  ,                           2.5 ,       5.0 ,      71.9 ,RB
-Keaton Mitchell          ,              1 ,Low         ,                               29.2 ,                  1.6  ,                           2.0 ,       5.0 ,      68.7 ,RB
-Miles Sanders            ,             10 ,Medium      ,                               42.2 ,                  1.1  ,                           3.2 ,       5.0 ,      68.6 ,RB
-Elijah Mitchell          ,             11 ,Very High   ,                               90.9 ,                  3.2  ,                          13.2 ,       1.6 ,      68.3 ,RB
-Dameon Pierce            ,              3 ,Low         ,                               35.0 ,                  1.0  ,                           2.5 ,       4.3 ,      67.3 ,RB
-A.J. Dillon              ,              7 ,Low         ,                               33.6 ,                  1.0  ,                           2.4 ,       5.0 ,      65.4 ,RB
-Kareem Hunt              ,              7 ,Low         ,                               31.0 ,                  2.0  ,                           2.2 ,       5.0 ,      62.0 ,RB
-Dylan Laube              ,              0 ,Very Low    ,                               17.4 ,                  0.8  ,                           1.1 ,       5.0 ,      61.3 ,RB
-Jamaal Williams          ,             11 ,Low         ,                               37.6 ,                  1.0  ,                           2.7 ,       5.0 ,      58.3 ,RB
-Will Shipley             ,              3 ,Low         ,                               29.2 ,                  1.1  ,                           2.0 ,       5.0 ,      56.9 ,RB
-Jerick McKinnon          ,              5 ,Very Low    ,                               20.1 ,                  0.6  ,                           1.3 ,       3.7 ,      52.5 ,RB
-Michael Carter           ,              4 ,Low         ,                               29.6 ,                  0.8  ,                           2.0 ,       5.0 ,      51.0 ,RB
-Tank Bigsby              ,              0 ,Very Low    ,                               14.9 ,                  0.3  ,                           0.9 ,       5.0 ,      50.2 ,RB
-Chase Edmonds            ,             11 ,Very High   ,                               69.0 ,                  2.4  ,                           6.7 ,       4.1 ,      50.2 ,RB
-Royce Freeman            ,              2 ,Very Low    ,                               12.3 ,                  0.2  ,                           0.8 ,       5.0 ,      48.8 ,RB
-Jeffery Wilson Jr.       ,              8 ,Low         ,                               29.7 ,                  2.0  ,                           2.1 ,       3.5 ,      48.2 ,RB
-Nyheim Hines             ,              5 ,Low         ,                               27.3 ,                  1.1  ,                           1.9 ,       4.4 ,      45.8 ,RB
-Leonard Fournette        ,             12 ,Low         ,                               38.2 ,                  1.4  ,                           2.8 ,       4.0 ,      45.5 ,RB
-Cordarrelle Patterson    ,             11 ,Low         ,                               34.6 ,                  1.3  ,                           2.5 ,       5.0 ,      43.7 ,RB
-Ameer Abdullah           ,              4 ,Very Low    ,                                5.7 ,                  0.4  ,                           0.3 ,       5.0 ,      43.7 ,RB
-Pierre Strong Jr.        ,              4 ,Low         ,                               29.2 ,                  1.1  ,                           2.0 ,       5.0 ,      42.8 ,RB
-Latavius Murray          ,              9 ,Very Low    ,                               21.2 ,                  1.3  ,                           1.4 ,       3.8 ,      41.4 ,RB
-Jordan Mason             ,              1 ,Very Low    ,                               13.6 ,                  0.8  ,                           0.9 ,       5.0 ,      40.2 ,RB
-Dalvin Cook              ,             13 ,Low         ,                               29.2 ,                  0.7  ,                           2.0 ,       3.5 ,      38.8 ,RB
-Joshua Kelley            ,              2 ,Low         ,                               29.9 ,                  1.2  ,                           2.1 ,       5.0 ,      37.3 ,RB
-Chris Rodriguez          ,              1 ,Low         ,                               38.3 ,                  1.1  ,                           2.8 ,       5.0 ,      35.4 ,RB
-Emari Demercado          ,              0 ,Very Low    ,                               17.6 ,                  0.3  ,                           1.1 ,       5.0 ,      30.1 ,RB
-Cam Akers                ,              5 ,Very Low    ,                               20.3 ,                  1.5  ,                           1.3 ,       1.9 ,      29.5 ,RB
-Kevin Harris             ,              4 ,Very Low    ,                               21.1 ,                  0.5  ,                           1.4 ,       4.7 ,      23.5 ,RB
-Isaiah Spiller           ,              4 ,Very Low    ,                               19.7 ,                  0.5  ,                           1.3 ,       5.0 ,      18.8 ,RB
-Ke'Shawn Vaughn          ,              1 ,Very Low    ,                               14.8 ,                  0.4  ,                           0.9 ,       5.0 ,      18.5 ,RB
-Myles Gaskin             ,              4 ,Very Low    ,                               21.0 ,                  0.38 ,                           1.4 ,       5.0 ,      13.0 ,RB
-Ty Johnson               ,              2 ,Very Low    ,                               21.0 ,                  2.1  ,                           1.4 ,       5.0 ,      11.8 ,RB
-Hassan Haskins           ,              2 ,Very Low    ,                               22.2 ,                  0.5  ,                           1.5 ,       5.0 ,      11.7 ,RB
-Kene Nwangwu             ,              0 ,Very Low    ,                               13.6 ,                  0.4  ,                           0.9 ,       5.0 ,       9.5 ,RB
-Rashaad Penny            ,              8 ,Low         ,                               36.8 ,                  1.1  ,                           2.7 ,       2.0 ,       4.7 ,RB
-Travis Kelce             ,             10 ,Low         ,                               35.6 ,                  0.6  ,                           2.6 ,       5.0 ,     233.7 ,TE
-Mark Andrews             ,              7 ,High        ,                               61.0 ,                  1.8  ,                           5.4 ,       5.0 ,     209.0 ,TE
-Sam LaPorta              ,              2 ,Medium      ,                               53.6 ,                  2.3  ,                           4.4 ,       5.0 ,     208.5 ,TE
-Trey McBride             ,              1 ,Medium      ,                               46.9 ,                  2.2  ,                           3.7 ,       5.0 ,     199.7 ,TE
-Evan Engram              ,              9 ,Low         ,                               33.1 ,                  0.9  ,                           2.3 ,       5.0 ,     190.2 ,TE
-Dalton Kincaid           ,              3 ,Medium      ,                               52.0 ,                  1.9  ,                           4.2 ,       5.0 ,     187.8 ,TE
-Jake Ferguson            ,              4 ,Low         ,                               40.9 ,                  1.9  ,                           3.0 ,       5.0 ,     181.9 ,TE
-David Njoku              ,              5 ,Medium      ,                               51.4 ,                  1.4  ,                           4.2 ,       5.0 ,     181.7 ,TE
-George Kittle            ,             13 ,Very High   ,                               80.6 ,                  2.0  ,                           9.2 ,       5.0 ,     177.7 ,TE
-Kyle Pitts               ,              6 ,High        ,                               61.6 ,                  1.9  ,                           5.5 ,       4.3 ,     174.8 ,TE
-Dallas Goedert           ,              8 ,High        ,                               76.4 ,                  3.1  ,                           8.1 ,       5.0 ,     163.1 ,TE
-Brock Bowers             ,              1 ,Low         ,                               29.2 ,                  0.9  ,                           2.0 ,       5.0 ,     157.6 ,TE
-Dalton Schultz           ,              3 ,Low         ,                               36.1 ,                  1.1  ,                           2.6 ,       5.0 ,     142.1 ,TE
-Pat Freiermuth           ,              7 ,Very High   ,                               88.3 ,                  3.1  ,                          11.9 ,       5.0 ,     137.9 ,TE
-Cole Kmet                ,              4 ,Medium      ,                               51.9 ,                  1.7  ,                           4.2 ,       5.0 ,     134.0 ,TE
-Tyler Conklin            ,              3 ,Low         ,                               29.2 ,                  0.4  ,                           2.0 ,       5.0 ,     128.9 ,TE
-Noah Fant                ,              7 ,High        ,                               63.6 ,                  2.3  ,                           5.8 ,       5.0 ,     128.9 ,TE
-Luke Musgrave            ,              4 ,Low         ,                               32.4 ,                  1.0  ,                           2.3 ,       2.0 ,     126.2 ,TE
-Hunter Henry             ,              8 ,Low         ,                               39.6 ,                  1.2  ,                           2.9 ,       3.8 ,     123.2 ,TE
-Juwan Johnson            ,              3 ,Low         ,                               39.2 ,                  0.9  ,                           2.9 ,       5.0 ,     116.2 ,TE
-Chigoziem Okonkwo        ,              1 ,Low         ,                               29.2 ,                  1.0  ,                           2.0 ,       5.0 ,     115.2 ,TE
-Jonnu Smith              ,             10 ,High        ,                               59.6 ,                  1.7  ,                           5.2 ,       5.0 ,     111.3 ,TE
-T.J. Hockenson           ,              8 ,Low         ,                               40.4 ,                  1.0  ,                           3.0 ,       5.0 ,     110.5 ,TE
-Greg Dulcich             ,              4 ,Very High   ,                               77.8 ,                  2.7  ,                           8.5 ,       1.0 ,      95.9 ,TE
-Cade Otton               ,              3 ,Low         ,                               29.8 ,                  0.9  ,                           2.1 ,       5.0 ,      95.0 ,TE
-Mike Gesicki             ,              3 ,Very Low    ,                               22.6 ,                  0.8  ,                           1.5 ,       5.0 ,      94.5 ,TE
-Michael Mayer            ,              2 ,High        ,                               76.9 ,                  2.0  ,                           8.3 ,       5.0 ,      93.2 ,TE
-Dawson Knox              ,              6 ,High        ,                               63.6 ,                  1.7  ,                           5.8 ,       5.0 ,      88.9 ,TE
-Zach Ertz                ,             14 ,Very High   ,                               83.6 ,                  3.4  ,                          10.1 ,       5.0 ,      86.5 ,TE
-Will Dissly              ,              4 ,Low         ,                               23.9 ,                  0.4  ,                           1.6 ,       3.3 ,      76.7 ,TE
-Jelani Woods             ,              5 ,Very High   ,                               77.7 ,                  2.4  ,                           8.4 ,       1.7 ,      75.7 ,TE
-Tucker Kraft             ,              2 ,Low         ,                               26.1 ,                  0.5  ,                           1.8 ,       2.8 ,      75.1 ,TE
-Isaiah Likely            ,              1 ,Low         ,                               26.3 ,                  0.5  ,                           1.8 ,       5.0 ,      74.7 ,TE
-Daniel Bellinger         ,              3 ,Low         ,                               29.2 ,                  0.3  ,                           2.0 ,       5.0 ,      67.4 ,TE
-Donald Parham            ,              4 ,Low         ,                               33.7 ,                  0.8  ,                           2.4 ,       5.0 ,      63.6 ,TE
-Theo Johnson             ,              0 ,Very Low    ,                               20.3 ,                  1.3  ,                           1.3 ,       5.0 ,      62.5 ,TE
-Gerald Everett           ,              7 ,Low         ,                               38.1 ,                  1.9  ,                           2.8 ,       5.0 ,      62.5 ,TE
-Logan Thomas             ,              7 ,Medium      ,                               45.7 ,                  2.4  ,                           3.5 ,       5.0 ,      53.8 ,TE
-Hayden Hurst             ,              8 ,Medium      ,                               44.1 ,                  1.8  ,                           3.4 ,       5.0 ,      50.6 ,TE
-Austin Hooper            ,              4 ,Very Low    ,                               19.9 ,                  0.5  ,                           1.3 ,       5.0 ,      49.6 ,TE
-Cade Stover              ,              0 ,Very Low    ,                               20.9 ,                  1.7  ,                           1.4 ,       5.0 ,      47.7 ,TE
-Adam Trautman            ,              3 ,Low         ,                               26.1 ,                  0.7  ,                           1.8 ,       5.0 ,      46.3 ,TE
-Kylen Granson            ,              0 ,Very Low    ,                               20.3 ,                  1.1  ,                           1.3 ,       5.0 ,      45.2 ,TE
-Taysom Hill              ,             14 ,Very High   ,                               81.2 ,                  1.9  ,                           9.4 ,       2.8 ,      44.2 ,TE
-Foster Moreau            ,              1 ,Very Low    ,                               19.9 ,                  0.7  ,                           1.3 ,       5.0 ,      40.9 ,TE
-Darnell Washington       ,              3 ,Low         ,                               25.7 ,                  0.7  ,                           1.7 ,       5.0 ,      38.8 ,TE
-C.J. Uzomah              ,              7 ,Low         ,                               26.1 ,                  0.4  ,                           1.8 ,       5.0 ,      36.8 ,TE
-Brevin Jordan            ,              6 ,Low         ,                               32.4 ,                  0.5  ,                           2.3 ,       4.4 ,      36.6 ,TE
-Josh Oliver              ,              3 ,Very Low    ,                               18.7 ,                  0.2  ,                           1.2 ,       2.4 ,      36.5 ,TE
-Irv Smith                ,              6 ,Medium      ,                               48.2 ,                  1.4  ,                           3.8 ,       1.6 ,      36.4 ,TE
-Mo Alie-Cox              ,              3 ,Low         ,                               24.0 ,                  0.6  ,                           1.6 ,       5.0 ,      36.3 ,TE
-Jordan Akins             ,              3 ,Very Low    ,                               21.0 ,                  0.4  ,                           1.4 ,       5.0 ,      33.2 ,TE
-Durham Smythe            ,              2 ,Very Low    ,                               21.2 ,                  0.9  ,                           1.4 ,       5.0 ,      31.5 ,TE
-Drew Sample              ,              3 ,Low         ,                               24.2 ,                  2.2  ,                           1.6 ,       3.6 ,      31.2 ,TE
-Luke Schoonmaker         ,              3 ,Low         ,                               29.2 ,                  0.6  ,                           2.0 ,       5.0 ,      29.2 ,TE
-Brenton Strange          ,              0 ,Very Low    ,                               19.9 ,                  1.22 ,                           1.3 ,       5.0 ,      26.6 ,TE
-Harrison Bryant          ,              1 ,Very Low    ,                               21.0 ,                  0.7  ,                           1.4 ,       5.0 ,      18.3 ,TE
-Charlie Kolar            ,              3 ,Very Low    ,                               16.8 ,                  1.1  ,                           1.1 ,       0.9 ,      13.9 ,TE
-Albert Okwuegbunam       ,              6 ,Very Low    ,                               21.0 ,                  0.6  ,                           1.4 ,       1.8 ,      13.1 ,TE
-Hunter Long              ,              1 ,Very Low    ,                               14.7 ,                  0.47 ,                           0.9 ,       5.0 ,      12.2 ,TE
-Jalen Hurts              ,              4 ,Medium      ,                               55.7 ,                  1.3  ,                           4.7 ,       5.0 ,     373.2 ,QB
-Josh Allen               ,              7 ,Very Low    ,                               11.8 ,                  0.5  ,                           0.7 ,       5.0 ,     362.3 ,QB
-Patrick Mahomes          ,              8 ,Very Low    ,                               11.4 ,                  0.5  ,                           0.7 ,       5.0 ,     352.8 ,QB
-Lamar Jackson            ,              6 ,Medium      ,                               42.5 ,                  1.7  ,                           3.2 ,       5.0 ,     335.1 ,QB
-C.J. Stroud              ,              2 ,Low         ,                               25.7 ,                  1.0  ,                           1.7 ,       5.0 ,     333.9 ,QB
-Joe Burrow               ,             11 ,High        ,                               63.3 ,                  2.4  ,                           5.7 ,       4.7 ,     331.3 ,QB
-Anthony Richardson       ,              5 ,Low         ,                               40.4 ,                  2.4  ,                           3.0 ,       2.3 ,     328.2 ,QB
-Dak Prescott             ,              7 ,Low         ,                               26.1 ,                  0.5  ,                           1.8 ,       5.0 ,     325.2 ,QB
-Jayden Daniels           ,              3 ,Low         ,                               28.3 ,                  1.0  ,                           1.9 ,       5.0 ,     318.1 ,QB
-Jordan Love              ,              2 ,Very Low    ,                               19.9 ,                  0.6  ,                           1.3 ,       5.0 ,     311.6 ,QB
-Kyler Murray             ,              7 ,Low         ,                               32.6 ,                  1.5  ,                           2.3 ,       3.4 ,     306.5 ,QB
-Jared Goff               ,              4 ,Very Low    ,                               20.1 ,                  0.4  ,                           1.3 ,       5.0 ,     301.6 ,QB
-Brock Purdy              ,              3 ,Low         ,                               25.3 ,                  1.0  ,                           1.7 ,       5.0 ,     301.0 ,QB
-Caleb Williams           ,              1 ,Low         ,                               26.0 ,                  1.4  ,                           1.8 ,       5.0 ,     297.2 ,QB
-Trevor Lawrence          ,              9 ,Low         ,                               38.1 ,                  2.0  ,                           2.8 ,       5.0 ,     295.3 ,QB
-Justin Herbert           ,              7 ,Very High   ,                               69.2 ,                  2.4  ,                           6.7 ,       5.0 ,     289.2 ,QB
-Tua Tagovailoa           ,             12 ,Medium      ,                               49.1 ,                  2.0  ,                           3.9 ,       4.1 ,     287.2 ,QB
-Deshaun Watson           ,              8 ,Very Low    ,                               20.8 ,                  1.1  ,                           1.4 ,       3.1 ,     284.4 ,QB
-Geno Smith               ,              6 ,Medium      ,                               52.5 ,                  1.5  ,                           4.3 ,       5.0 ,     281.9 ,QB
-Kirk Cousins             ,              2 ,Very Low    ,                               17.2 ,                  1.2  ,                           1.1 ,       5.0 ,     276.6 ,QB
-Aaron Rodgers            ,             14 ,Low         ,                               35.8 ,                  3.4  ,                           2.6 ,       4.2 ,     274.9 ,QB
-Daniel Jones             ,             10 ,Medium      ,                               43.8 ,                  2.1  ,                           3.3 ,       2.9 ,     272.7 ,QB
-Baker Mayfield           ,              9 ,Low         ,                               27.1 ,                  1.0  ,                           1.8 ,       5.0 ,     267.1 ,QB
-Will Levis               ,              6 ,Low         ,                               40.7 ,                  1.8  ,                           3.0 ,       5.0 ,     265.6 ,QB
-Matthew Stafford         ,             22 ,Very High   ,                               80.3 ,                  2.7  ,                           9.1 ,       4.6 ,     263.3 ,QB
-Derek Carr               ,             14 ,Low         ,                               29.2 ,                  1.0  ,                           2.0 ,       5.0 ,     252.8 ,QB
-Bo Nix                   ,              2 ,Very Low    ,                               21.2 ,                  1.1  ,                           1.4 ,       5.0 ,     250.7 ,QB
-Bryce Young              ,              2 ,Low         ,                               29.2 ,                  1.4  ,                           2.0 ,       5.0 ,     243.1 ,QB
-Drake Maye               ,              2 ,Very Low    ,                               20.1 ,                  1.0  ,                           1.3 ,       5.0 ,     234.3 ,QB
-J.J. McCarthy            ,              2 ,Very Low    ,                               17.5 ,                  1.2  ,                           1.1 ,       5.0 ,     223.6 ,QB
-Russell Wilson           ,              7 ,Low         ,                               38.4 ,                  1.0  ,                           2.8 ,       5.0 ,     205.1 ,QB
-Gardner Minshew          ,              0 ,Very Low    ,                               13.4 ,                  0.4  ,                           0.8 ,       5.0 ,     133.9 ,QB
-Justin Fields            ,              9 ,Very High   ,                               86.6 ,                  3.4  ,                          11.2 ,       5.0 ,     108.1 ,QB
-Sam Darnold              ,              8 ,Low         ,                               30.7 ,                  1.2  ,                           2.1 ,       3.4 ,      77.3 ,QB
-Ryan Tannehill           ,              7 ,Low         ,                               29.6 ,                  1.8  ,                           2.0 ,       5.0 ,      61.9 ,QB
-Drew Lock                ,              5 ,Very Low    ,                               21.0 ,                  0.7  ,                           1.4 ,       1.8 ,      36.7 ,QB
-Trey Lance               ,              5 ,Low         ,                               36.6 ,                  1.6  ,                           2.6 ,       1.5 ,      36.2 ,QB
-Desmond Ridder           ,              3 ,Very Low    ,                               21.2 ,                  0.4  ,                           1.4 ,       5.0 ,      34.2 ,QB
-Jacoby Brissett          ,              1 ,Very Low    ,                                6.3 ,                  0.4  ,                           0.4 ,       5.0 ,      33.5 ,QB
-Jameis Winston           ,              9 ,Low         ,                               29.2 ,                  1.4  ,                           2.0 ,       5.0 ,      30.5 ,QB
-Joe Flacco               ,              7 ,Very Low    ,                               14.7 ,                  0.2  ,                           0.9 ,       5.0 ,      29.9 ,QB
-Kenny Pickett            ,              7 ,Medium      ,                               41.5 ,                  1.3  ,                           3.1 ,       4.7 ,      27.9 ,QB
-Michael Penix Jr.        ,              4 ,Very Low    ,                               21.2 ,                  0.9  ,                           1.4 ,       0.9 ,      25.4 ,QB
-Andy Dalton              ,              6 ,Very Low    ,                               19.7 ,                  1.0  ,                           1.3 ,       5.0 ,      24.0 ,QB
-Spencer Rattler          ,              1 ,Very Low    ,                                5.8 ,                  0.3  ,                           0.4 ,       5.0 ,      21.8 ,QB
-Mitchell Trubisky        ,              2 ,Very Low    ,                               11.9 ,                  0.4  ,                           0.7 ,       5.0 ,      20.4 ,QB
-Zach Wilson              ,              5 ,Low         ,                               24.5 ,                  1.0  ,                           1.6 ,       3.8 ,      18.5 ,QB
-Taylor Heinicke          ,              6 ,Low         ,                               29.2 ,                  1.6  ,                           2.0 ,       2.4 ,      17.0 ,QB
-Hendon Hooker            ,              1 ,Very Low    ,                               21.2 ,                  1.1  ,                           1.4 ,       5.0 ,      11.7 ,QB
-Colt McCoy               ,              1 ,Very Low    ,                               19.9 ,                  0.57 ,                           1.3 ,       5.0 ,       6.4 ,QB
-CeeDee Lamb              ,              6 ,Medium      ,                               50.2 ,                  1.3  ,                           4.0 ,       5.0 ,     365.0 ,WR
-Tyreek Hill              ,              8 ,Medium      ,                               58.9 ,                  1.8  ,                           5.1 ,       5.0 ,     328.9 ,WR
-Amon-Ra St. Brown        ,              5 ,Low         ,                               39.9 ,                  1.4  ,                           3.0 ,       5.0 ,     309.5 ,WR
-Justin Jefferson         ,              6 ,High        ,                               66.9 ,                  2.3  ,                           6.3 ,       5.0 ,     306.2 ,WR
-Ja'Marr Chase            ,              4 ,High        ,                               75.1 ,                  1.8  ,                           7.9 ,       5.0 ,     304.2 ,WR
-Puka Nacua               ,              6 ,Medium      ,                               68.2 ,                  1.8  ,                           6.5 ,       3.5 ,     287.9 ,WR
-Garrett Wilson           ,              3 ,Low         ,                               38.1 ,                  0.7  ,                           2.8 ,       5.0 ,     278.8 ,WR
-A.J. Brown               ,              7 ,High        ,                               70.5 ,                  2.0  ,                           6.9 ,       5.0 ,     263.0 ,WR
-Chris Olave              ,              5 ,High        ,                               68.7 ,                  1.4  ,                           6.6 ,       5.0 ,     249.7 ,WR
-D.J. Moore               ,              5 ,Medium      ,                               44.8 ,                  1.1  ,                           3.4 ,       5.0 ,     248.3 ,WR
-Cooper Kupp              ,              9 ,Medium      ,                               53.8 ,                  1.4  ,                           4.4 ,       4.2 ,     248.1 ,WR
-Drake London             ,              4 ,Very High   ,                               86.6 ,                  2.4  ,                          11.2 ,       5.0 ,     246.0 ,WR
-Jaylen Waddle            ,              5 ,Medium      ,                               55.4 ,                  2.2  ,                           4.6 ,       4.3 ,     244.6 ,WR
-Davante Adams            ,             10 ,Medium      ,                               43.6 ,                  0.6  ,                           3.3 ,       5.0 ,     241.1 ,WR
-Stefon Diggs             ,              7 ,Low         ,                               31.5 ,                  0.6  ,                           2.2 ,       5.0 ,     239.0 ,WR
-Marvin Harrison Jr.      ,              3 ,Medium      ,                               42.8 ,                  1.3  ,                           3.2 ,       5.0 ,     238.7 ,WR
-Nico Collins             ,              6 ,Very High   ,                               82.1 ,                  2.1  ,                           9.6 ,       3.1 ,     235.2 ,WR
-Malik Nabers             ,              2 ,Low         ,                               29.2 ,                  1.0  ,                           2.0 ,       5.0 ,     232.8 ,WR
-Tee Higgins              ,             11 ,Very High   ,                               89.2 ,                  2.4  ,                          12.3 ,       5.0 ,     231.6 ,WR
-Mike Evans               ,             12 ,Very High   ,                               81.5 ,                  2.4  ,                           9.4 ,       5.0 ,     231.1 ,WR
-Deebo Samuel             ,             17 ,Very High   ,                               86.6 ,                  3.4  ,                          11.2 ,       1.6 ,     230.8 ,WR
-D.K. Metcalf             ,              6 ,Low         ,                               31.1 ,                  0.8  ,                           2.2 ,       4.9 ,     230.6 ,WR
-Michael Pittman Jr.      ,              8 ,High        ,                               70.1 ,                  1.6  ,                           6.9 ,       5.0 ,     227.3 ,WR
-DeVonta Smith            ,              8 ,Very High   ,                               81.8 ,                  2.4  ,                           9.5 ,       5.0 ,     218.8 ,WR
-Brandon Aiyuk            ,              5 ,Medium      ,                               45.3 ,                  2.9  ,                           3.5 ,       5.0 ,     214.8 ,WR
-DeAndre Hopkins          ,             15 ,High        ,                               73.7 ,                  2.1  ,                           7.6 ,       5.0 ,     214.6 ,WR
-Nathaniel Dell           ,              3 ,Low         ,                               36.2 ,                  2.0  ,                           2.6 ,       3.8 ,     213.9 ,WR
-Chris Godwin             ,              8 ,High        ,                               73.5 ,                  2.0  ,                           7.5 ,       5.0 ,     211.8 ,WR
-Terry McLaurin           ,              7 ,Medium      ,                               42.7 ,                  1.0  ,                           3.2 ,       5.0 ,     211.6 ,WR
-Christian Kirk           ,              4 ,Very High   ,                               86.1 ,                  2.8  ,                          11.0 ,       5.0 ,     209.8 ,WR
-Calvin Ridley            ,              3 ,Low         ,                               29.4 ,                  0.5  ,                           2.0 ,       5.0 ,     206.8 ,WR
-Diontae Johnson          ,              7 ,Very High   ,                               80.3 ,                  2.0  ,                           9.1 ,       5.0 ,     205.1 ,WR
-Jayden Reed              ,              5 ,Very High   ,                               82.8 ,                  2.2  ,                           9.8 ,       5.0 ,     203.9 ,WR
-Rashee Rice              ,              1 ,Low         ,                               37.3 ,                  1.1  ,                           2.7 ,       5.0 ,     203.4 ,WR
-Tyler Lockett            ,              6 ,Low         ,                               25.7 ,                  0.6  ,                           1.7 ,       5.0 ,     198.2 ,WR
-Keenan Allen             ,             15 ,High        ,                               74.9 ,                  3.1  ,                           7.8 ,       3.8 ,     198.2 ,WR
-George Pickens           ,              2 ,Low         ,                               34.7 ,                  1.6  ,                           2.5 ,       3.7 ,     197.9 ,WR
-Zay Flowers              ,              1 ,Low         ,                               35.6 ,                  1.9  ,                           2.6 ,       5.0 ,     197.9 ,WR
-Amari Cooper             ,             18 ,High        ,                               73.7 ,                  2.8  ,                           7.6 ,       5.0 ,     196.1 ,WR
-Marquise Brown           ,             12 ,Very High   ,                               78.0 ,                  2.4  ,                           8.5 ,       5.0 ,     194.7 ,WR
-Jaxon Smith-Njigba       ,              2 ,Low         ,                               39.9 ,                  1.2  ,                           3.0 ,       3.0 ,     192.7 ,WR
-Christian Watson         ,              6 ,High        ,                               74.9 ,                  2.1  ,                           7.8 ,       3.3 ,     189.3 ,WR
-Xavier Worthy            ,              3 ,Low         ,                               36.9 ,                  0.9  ,                           2.7 ,       5.0 ,     186.3 ,WR
-Courtland Sutton         ,              7 ,High        ,                               70.4 ,                  2.2  ,                           6.9 ,       2.9 ,     185.5 ,WR
-Jakobi Meyers            ,              4 ,High        ,                               67.3 ,                  1.4  ,                           6.4 ,       5.0 ,     180.1 ,WR
-Rome Odunze              ,              2 ,High        ,                               61.3 ,                  2.4  ,                           5.4 ,       5.0 ,     175.6 ,WR
-Curtis Samuel            ,              8 ,Very High   ,                               82.7 ,                  2.7  ,                           9.8 ,       4.7 ,     174.7 ,WR
-Ladd McConkey            ,              2 ,Medium      ,                               55.4 ,                  1.2  ,                           4.6 ,       4.3 ,     173.4 ,WR
-Jerry Jeudy              ,              9 ,Medium      ,                               45.2 ,                  1.2  ,                           3.5 ,       5.0 ,     172.3 ,WR
-Brian Thomas Jr.         ,              1 ,Low         ,                               30.1 ,                  1.3  ,                           2.1 ,       5.0 ,     169.6 ,WR
-Mike Williams            ,             10 ,Very High   ,                               79.7 ,                  3.4  ,                           9.0 ,       2.4 ,     168.4 ,WR
-Keon Coleman             ,              1 ,Low         ,                               37.6 ,                  1.4  ,                           2.7 ,       5.0 ,     168.3 ,WR
-Brandin Cooks            ,              7 ,Low         ,                               33.6 ,                  1.0  ,                           2.4 ,       5.0 ,     166.8 ,WR
-Gabriel Davis            ,              4 ,Medium      ,                               41.5 ,                  0.9  ,                           3.1 ,       5.0 ,     166.6 ,WR
-Rashid Shaheed           ,              2 ,High        ,                               65.9 ,                  1.3  ,                           6.1 ,       5.0 ,     164.2 ,WR
-Jordan Addison           ,              3 ,High        ,                               69.8 ,                  1.9  ,                           6.8 ,       5.0 ,     162.4 ,WR
-Jahan Dotson             ,              1 ,Medium      ,                               47.6 ,                  2.3  ,                           3.7 ,       5.0 ,     158.9 ,WR
-Jameson Williams         ,              3 ,Medium      ,                               43.4 ,                  1.3  ,                           3.3 ,       4.0 ,     158.4 ,WR
-Wan'Dale Robinson        ,              5 ,Low         ,                               39.4 ,                  1.0  ,                           2.9 ,       2.5 ,     154.3 ,WR
-Josh Downs               ,              2 ,Medium      ,                               57.6 ,                  1.5  ,                           4.9 ,       5.0 ,     150.0 ,WR
-Dontayvion Wicks         ,              2 ,Medium      ,                               44.2 ,                  1.7  ,                           3.4 ,       5.0 ,     146.0 ,WR
-Khalil Shakir            ,              4 ,Low         ,                               29.9 ,                  0.4  ,                           2.1 ,       5.0 ,     142.9 ,WR
-Joshua Palmer            ,              2 ,High        ,                               73.7 ,                  1.7  ,                           7.6 ,       5.0 ,     141.5 ,WR
-Darnell Mooney           ,              6 ,Very High   ,                               85.0 ,                  2.8  ,                          10.6 ,       5.0 ,     139.4 ,WR
-Marvin Mims Jr.          ,              0 ,Very Low    ,                               22.6 ,                  0.8  ,                           1.5 ,       5.0 ,     137.9 ,WR
-Malachi Corley           ,              1 ,Low         ,                               25.3 ,                  0.6  ,                           1.7 ,       5.0 ,     137.0 ,WR
-Demario Douglas          ,              2 ,High        ,                               62.6 ,                  1.6  ,                           5.6 ,       3.7 ,     136.0 ,WR
-Adam Thielen             ,              7 ,Medium      ,                               45.3 ,                  1.9  ,                           3.5 ,       5.0 ,     134.8 ,WR
-Michael Wilson           ,              5 ,Medium      ,                               44.8 ,                  1.6  ,                           3.4 ,       1.6 ,     133.0 ,WR
-Adonai Mitchell          ,              1 ,Low         ,                               28.1 ,                  0.8  ,                           1.9 ,       1.3 ,     129.4 ,WR
-Tyler Boyd               ,              4 ,Low         ,                               31.4 ,                  1.0  ,                           2.2 ,       5.0 ,     129.2 ,WR
-Quentin Johnston         ,              4 ,Low         ,                               37.6 ,                  0.7  ,                           2.7 ,       5.0 ,     127.8 ,WR
-Elijah Moore             ,              5 ,High        ,                               68.9 ,                  1.8  ,                           6.6 ,       5.0 ,     125.8 ,WR
-Xavier Legette           ,              3 ,Medium      ,                               44.4 ,                  1.5  ,                           3.4 ,       3.6 ,     124.6 ,WR
-Darius Slayton           ,              7 ,High        ,                               74.2 ,                  2.6  ,                           7.7 ,       5.0 ,     124.0 ,WR
-Roman Wilson             ,              1 ,Low         ,                               27.2 ,                  0.9  ,                           1.9 ,       5.0 ,     118.9 ,WR
-Kendrick Bourne          ,              1 ,Low         ,                               29.2 ,                  0.9  ,                           2.0 ,       5.0 ,     113.1 ,WR
-Jermaine Burton          ,              3 ,Medium      ,                               54.4 ,                  1.3  ,                           4.5 ,       5.0 ,     112.7 ,WR
-D.J. Chark Jr.           ,             12 ,Medium      ,                               54.9 ,                  1.5  ,                           4.6 ,       4.5 ,     110.5 ,WR
-Romeo Doubs              ,              5 ,Medium      ,                               43.2 ,                  1.1  ,                           3.3 ,       5.0 ,     109.1 ,WR
-Rashod Bateman           ,              4 ,High        ,                               64.7 ,                  1.1  ,                           5.9 ,       2.1 ,     107.9 ,WR
-Greg Dortch              ,              1 ,Low         ,                               36.3 ,                  1.4  ,                           2.6 ,       5.0 ,     107.1 ,WR
-Michael Thomas           ,              8 ,Medium      ,                               51.1 ,                  2.6  ,                           4.1 ,       2.4 ,     102.3 ,WR
-Jalin Hyatt              ,              3 ,Medium      ,                               45.4 ,                  1.4  ,                           3.5 ,       5.0 ,     101.1 ,WR
-Kadarius Toney           ,             13 ,Low         ,                               35.9 ,                  1.0  ,                           2.6 ,       1.5 ,      94.7 ,WR
-Treylon Burks            ,              7 ,High        ,                               59.1 ,                  2.2  ,                           5.1 ,       3.4 ,      94.0 ,WR
-Hunter Renfrow           ,              5 ,Low         ,                               29.2 ,                  0.8  ,                           2.0 ,       4.7 ,      93.4 ,WR
-Josh Reynolds            ,              0 ,Very Low    ,                               15.8 ,                  0.8  ,                           1.0 ,       5.0 ,      93.1 ,WR
-Odell Beckham Jr.        ,             18 ,Medium      ,                               54.1 ,                  2.6  ,                           4.5 ,       3.0 ,      91.1 ,WR
-Rondale Moore            ,              7 ,High        ,                               71.8 ,                  1.8  ,                           7.2 ,       1.4 ,      89.5 ,WR
-Troy Franklin            ,              1 ,Very Low    ,                               22.6 ,                  1.0  ,                           1.5 ,       5.0 ,      79.8 ,WR
-Kalif Raymond            ,              0 ,Very Low    ,                               13.4 ,                  0.9  ,                           0.8 ,       5.0 ,      78.5 ,WR
-Trey Palmer              ,              0 ,Very Low    ,                               21.0 ,                  0.7  ,                           1.4 ,       5.0 ,      77.7 ,WR
-Luke McCaffrey           ,              0 ,Very Low    ,                               10.8 ,                  1.7  ,                           0.7 ,       5.0 ,      76.5 ,WR
-Mecole Hardman           ,              3 ,Very High   ,                               86.2 ,                  2.7  ,                          11.0 ,       5.0 ,      76.4 ,WR
-Parris Campbell          ,              9 ,Low         ,                               32.4 ,                  0.7  ,                           2.3 ,       1.9 ,      75.0 ,WR
-Isaiah Hodgins           ,              1 ,Very Low    ,                               22.6 ,                  1.0  ,                           1.5 ,       5.0 ,      74.8 ,WR
-Alec Pierce              ,              3 ,Low         ,                               39.2 ,                  1.1  ,                           2.9 ,       5.0 ,      74.3 ,WR
-Zay Jones                ,              9 ,Medium      ,                               58.2 ,                  2.4  ,                           5.0 ,       5.0 ,      73.9 ,WR
-Donovan Peoples-Jones    ,              2 ,Low         ,                               29.2 ,                  0.9  ,                           2.0 ,       5.0 ,      72.9 ,WR
-Russell Gage             ,             11 ,Low         ,                               34.5 ,                  1.6  ,                           2.5 ,       3.3 ,      70.7 ,WR
-Nelson Agholor           ,              7 ,Medium      ,                               41.9 ,                  1.0  ,                           3.1 ,       5.0 ,      69.7 ,WR
-K.J. Osborn              ,              2 ,Medium      ,                               41.2 ,                  1.6  ,                           3.1 ,       5.0 ,      68.5 ,WR
-Devontez Walker          ,              1 ,Very Low    ,                               21.0 ,                  0.7  ,                           1.4 ,       1.3 ,      67.3 ,WR
-Skyy Moore               ,              3 ,Very High   ,                               83.5 ,                  2.4  ,                          10.1 ,       4.6 ,      66.3 ,WR
-Jonathan Mingo           ,              4 ,Medium      ,                               58.7 ,                  1.5  ,                           5.1 ,       5.0 ,      65.1 ,WR
-Allen Robinson           ,             11 ,Medium      ,                               47.1 ,                  1.5  ,                           3.7 ,       3.3 ,      64.8 ,WR
-Andrei Iosivas           ,              0 ,Very Low    ,                               13.9 ,                  0.4  ,                           0.9 ,       5.0 ,      64.3 ,WR
-Mack Hollins             ,              0 ,Very Low    ,                               11.8 ,                  0.7  ,                           0.7 ,       5.0 ,      63.8 ,WR
-Tim Patrick              ,              2 ,Very Low    ,                               18.4 ,                  0.4  ,                           1.2 ,       2.1 ,      63.5 ,WR
-Marquez Valdes-Scantling ,              8 ,Low         ,                               38.2 ,                  2.6  ,                           2.8 ,       5.0 ,      62.6 ,WR
-JuJu Smith-Schuster      ,             16 ,High        ,                               72.1 ,                  2.1  ,                           7.2 ,       4.4 ,      60.4 ,WR
-Van Jefferson            ,              6 ,Low         ,                               29.2 ,                  1.1  ,                           2.0 ,       5.0 ,      60.0 ,WR
-Tutu Atwell              ,              2 ,Low         ,                               35.9 ,                  0.91 ,                           2.6 ,       4.7 ,      59.3 ,WR
-Calvin Austin III        ,              2 ,Low         ,                               23.3 ,                  0.5  ,                           1.5 ,       1.7 ,      56.7 ,WR
-Brenden Rice             ,              0 ,Very Low    ,                               15.0 ,                  0.8  ,                           1.0 ,       5.0 ,      53.3 ,WR
-Justin Watson            ,              3 ,Low         ,                               29.2 ,                  1.2  ,                           2.0 ,       5.0 ,      53.2 ,WR
-Allen Lazard             ,              5 ,Low         ,                               29.4 ,                  0.7  ,                           2.0 ,       5.0 ,      52.1 ,WR
-Laviska Shenault         ,              7 ,Low         ,                               38.5 ,                  1.7  ,                           2.8 ,       4.7 ,      51.2 ,WR
-Jauan Jennings           ,              0 ,Very Low    ,                               13.5 ,                  0.7  ,                           0.8 ,       5.0 ,      50.3 ,WR
-Dyami Brown              ,              3 ,Low         ,                               29.2 ,                  0.6  ,                           2.0 ,       5.0 ,      49.9 ,WR
-Quez Watkins             ,              0 ,Very Low    ,                               13.4 ,                  0.8  ,                           0.8 ,       5.0 ,      48.8 ,WR
-Cedric Tillman           ,              2 ,Low         ,                               35.8 ,                  0.6  ,                           2.6 ,       4.4 ,      48.5 ,WR
-Deonte Harty             ,              4 ,Low         ,                               29.2 ,                  0.8  ,                           2.0 ,       5.0 ,      46.9 ,WR
-Richie James             ,              1 ,Low         ,                               29.8 ,                  0.8  ,                           2.1 ,       5.0 ,      44.6 ,WR
-Chase Claypool           ,              6 ,Low         ,                               38.1 ,                  1.4  ,                           2.8 ,       5.0 ,      44.3 ,WR
-Olamide Zaccheaus        ,              0 ,Very Low    ,                                9.1 ,                  0.8  ,                           0.6 ,       5.0 ,      43.5 ,WR
-Bo Melton                ,              2 ,Low         ,                               25.4 ,                  0.4  ,                           1.7 ,       3.3 ,      43.4 ,WR
-Terrace Marshall         ,              8 ,Low         ,                               25.2 ,                  0.6  ,                           1.7 ,       4.2 ,      41.0 ,WR
-Tyquan Thornton          ,              2 ,Very Low    ,                               21.0 ,                  0.9  ,                           1.4 ,       5.0 ,      41.0 ,WR
-John Metchie             ,              3 ,Low         ,                               29.2 ,                  0.9  ,                           2.0 ,       5.0 ,      39.1 ,WR
-Johnny Wilson            ,              1 ,Low         ,                               28.2 ,                  1.1  ,                           1.9 ,       4.9 ,      38.4 ,WR
-Devin Duvernay           ,              0 ,Very Low    ,                               11.8 ,                  0.9  ,                           0.7 ,       5.0 ,      37.2 ,WR
-Robert Woods             ,             14 ,Medium      ,                               58.5 ,                  1.7  ,                           5.0 ,       5.0 ,      37.1 ,WR
-Justyn Ross              ,              4 ,Low         ,                               27.2 ,                  0.6  ,                           1.9 ,       0.3 ,      20.8 ,WR
-Velus Jones              ,              5 ,Low         ,                               29.2 ,                  0.7  ,                           2.0 ,       5.0 ,      19.3 ,WR
-Danny Gray               ,              4 ,Low         ,                               40.7 ,                  1.04 ,                           3.0 ,       2.7 ,      15.1 ,WR
-Tylan Wallace            ,              2 ,Very Low    ,                               12.5 ,                  0.37 ,                           0.8 ,       5.0 ,      14.9 ,WR
-DeVante Parker           ,             21 ,Very High   ,                               89.1 ,                  3.4  ,                          12.2 ,       3.1 ,      13.8 ,WR
-D'Wayne Eskridge         ,              7 ,Low         ,                               39.9 ,                  0.5  ,                           3.0 ,       0.9 ,      12.7 ,WR
-Michael Gallup           ,              5 ,Very Low    ,                               20.9 ,                  0.9  ,                           1.4 ,       5.0 ,       3.6 ,WR
-Jakeem Grant Sr.         ,              4 ,Very Low    ,                               21.0 ,                  0.67 ,                           1.4 ,       1.9 ,       2.8 ,WR
-Laquon Treadwell         ,              5 ,            ,                                5.0 ,                  0.5  ,                           0.3 ,       5.0 ,       2.0 ,WR
-Andy Isabella            ,              1 ,Very Low    ,                               13.2 ,                  0.2  ,                           0.8 ,       5.0 ,       0.8 ,WR
+player,career_injuries,injury_risk,probability_of_injury_in_the_season,projected_games_missed,probability_of_injury_per_game,durability,ppr_points,Position
+Christian McCaffrey,8,High,63.6,3.0,5.8,3.9,326.8,RB
+Bijan Robinson,1,Medium,41.9,1.4,3.1,5.0,300.2,RB
+Breece Hall,2,Medium,48.1,1.6,3.8,3.5,293.0,RB
+Jahmyr Gibbs,3,High,62.6,1.4,5.6,5.0,267.7,RB
+Saquon Barkley,10,Medium,57.5,1.4,4.9,5.0,252.0,RB
+Jonathan Taylor,6,Very High,65.3,1.6,6.0,5.0,251.0,RB
+Travis Etienne,3,Low,39.6,0.8,2.9,2.1,248.8,RB
+Kyren Williams,5,Very High,88.7,3.48,12.0,2.9,234.6,RB
+Derrick Henry,5,Low,29.4,0.7,2.0,5.0,234.5,RB
+Joe Mixon,8,Very High,68.4,1.3,6.6,5.0,231.8,RB
+De'Von Achane,3,Very High,83.4,3.4,10.0,4.7,230.2,RB
+James Cook,3,Low,31.5,0.7,2.2,5.0,229.6,RB
+Isiah Pacheco,5,Very High,90.4,3.4,12.9,5.0,226.2,RB
+Josh Jacobs,8,Very High,79.8,2.3,9.0,5.0,220.0,RB
+Kenneth Walker III,6,Medium,41.8,1.9,3.1,5.0,219.4,RB
+Rachaad White,1,Medium,43.2,1.6,3.3,5.0,217.2,RB
+Rhamondre Stevenson,5,Medium,55.5,1.3,4.7,5.0,216.0,RB
+Alvin Kamara,8,Very High,88.3,1.8,11.9,4.3,212.4,RB
+D'Andre Swift,7,Very High,67.3,1.9,6.4,5.0,211.2,RB
+James Conner,14,Very High,88.4,2.8,11.9,5.0,208.6,RB
+Tony Pollard,3,Low,34.7,0.6,2.5,5.0,200.3,RB
+Jaylen Warren,1,Medium,48.7,1.2,3.9,5.0,197.0,RB
+Aaron Jones,12,Very High,87.6,3.1,11.6,5.0,196.9,RB
+David Montgomery,7,Very High,80.5,3.4,9.2,5.0,196.3,RB
+Javonte Williams,4,Very High,79.6,2.4,8.9,2.5,190.0,RB
+Raheem Mostert,14,Very High,88.8,2.9,12.1,1.8,187.5,RB
+Najee Harris,7,Low,28.2,0.9,1.9,5.0,185.9,RB
+Jonathon Brooks,1,Low,29.9,0.8,2.1,2.1,184.6,RB
+Zamir White,2,Low,29.5,0.8,2.0,2.9,182.9,RB
+Brian Robinson Jr.,3,Medium,45.9,1.0,3.5,5.0,173.6,RB
+Austin Ekeler,11,Low,36.3,1.3,2.6,5.0,169.4,RB
+Devin Singletary,1,Low,38.5,1.8,2.8,5.0,163.7,RB
+Tyjae Spears,3,Low,29.2,0.8,2.0,5.0,161.0,RB
+Chase Brown,0,Low,23.5,0.8,1.6,5.0,157.8,RB
+Zack Moss,8,Very High,68.7,2.6,6.6,4.5,152.6,RB
+Ezekiel Elliott,8,Low,38.1,1.7,2.8,5.0,151.1,RB
+Jerome Ford,5,Medium,41.2,0.7,3.1,5.0,136.2,RB
+Zach Charbonnet,4,High,64.0,1.4,5.8,5.0,135.9,RB
+Ty Chandler,1,Low,29.2,1.3,2.0,5.0,134.1,RB
+Nick Chubb,5,Very High,74.1,3.0,7.6,2.6,134.1,RB
+Antonio Gibson,8,Very High,81.0,2.9,9.3,5.0,129.4,RB
+Kendre Miller,5,High,62.0,2.4,5.5,4.4,121.5,RB
+Jaleel McLaughlin,0,Very Low,21.0,0.5,1.4,5.0,119.9,RB
+Trey Benson,5,Low,23.3,1.1,1.5,3.8,115.6,RB
+Gus Edwards,6,Medium,49.8,1.4,4.0,1.8,113.1,RB
+Blake Corum,4,Low,31.3,0.9,2.2,4.8,108.9,RB
+Mar'Keise Irving,1,Low,29.2,1.0,2.0,5.0,104.2,RB
+MarShawn Lloyd,2,Very Low,21.0,1.0,1.4,5.0,102.0,RB
+Rico Dowdle,0,Very Low,21.2,0.5,1.4,5.0,99.9,RB
+Khalil Herbert,4,Very High,81.8,3.4,9.5,5.0,98.0,RB
+Kenneth Gainwell,0,Very Low,21.2,1.1,1.4,5.0,92.7,RB
+J.K. Dobbins,7,Low,24.0,1.3,1.6,0.4,90.9,RB
+Roschon Johnson,1,Low,31.1,1.7,2.2,5.0,90.7,RB
+Chuba Hubbard,3,Low,29.6,0.7,2.0,5.0,88.3,RB
+Alexander Mattison,5,Low,33.5,0.8,2.4,5.0,88.1,RB
+Tyler Allgeier,0,Very Low,20.5,0.8,1.3,5.0,87.8,RB
+Justice Hill,5,Low,33.1,0.8,2.3,2.9,86.1,RB
+Jaylen Wright,1,Low,28.2,1.1,1.9,5.0,82.1,RB
+Clyde Edwards-Helaire,7,Low,39.8,0.7,2.9,3.3,81.5,RB
+Audric Estime,1,Very Low,20.9,1.0,1.4,5.0,77.7,RB
+Samaje Perine,4,Very Low,17.6,0.5,1.1,5.0,76.5,RB
+D'Onta Foreman,1,Very Low,21.2,0.7,1.4,5.0,74.6,RB
+Braelon Allen,3,Low,34.5,1.2,2.5,5.0,71.9,RB
+Keaton Mitchell,1,Low,29.2,1.6,2.0,5.0,68.7,RB
+Miles Sanders,10,Medium,42.2,1.1,3.2,5.0,68.6,RB
+Elijah Mitchell,11,Very High,90.9,3.2,13.2,1.6,68.3,RB
+Dameon Pierce,3,Low,35.0,1.0,2.5,4.3,67.3,RB
+A.J. Dillon,7,Low,33.6,1.0,2.4,5.0,65.4,RB
+Kareem Hunt,7,Low,31.0,2.0,2.2,5.0,62.0,RB
+Dylan Laube,0,Very Low,17.4,0.8,1.1,5.0,61.3,RB
+Jamaal Williams,11,Low,37.6,1.0,2.7,5.0,58.3,RB
+Will Shipley,3,Low,29.2,1.1,2.0,5.0,56.9,RB
+Jerick McKinnon,5,Very Low,20.1,0.6,1.3,3.7,52.5,RB
+Michael Carter,4,Low,29.6,0.8,2.0,5.0,51.0,RB
+Tank Bigsby,0,Very Low,14.9,0.3,0.9,5.0,50.2,RB
+Chase Edmonds,11,Very High,69.0,2.4,6.7,4.1,50.2,RB
+Royce Freeman,2,Very Low,12.3,0.2,0.8,5.0,48.8,RB
+Jeffery Wilson Jr.,8,Low,29.7,2.0,2.1,3.5,48.2,RB
+Nyheim Hines,5,Low,27.3,1.1,1.9,4.4,45.8,RB
+Leonard Fournette,12,Low,38.2,1.4,2.8,4.0,45.5,RB
+Cordarrelle Patterson,11,Low,34.6,1.3,2.5,5.0,43.7,RB
+Ameer Abdullah,4,Very Low,5.7,0.4,0.3,5.0,43.7,RB
+Pierre Strong Jr.,4,Low,29.2,1.1,2.0,5.0,42.8,RB
+Latavius Murray,9,Very Low,21.2,1.3,1.4,3.8,41.4,RB
+Jordan Mason,1,Very Low,13.6,0.8,0.9,5.0,40.2,RB
+Dalvin Cook,13,Low,29.2,0.7,2.0,3.5,38.8,RB
+Joshua Kelley,2,Low,29.9,1.2,2.1,5.0,37.3,RB
+Chris Rodriguez,1,Low,38.3,1.1,2.8,5.0,35.4,RB
+Emari Demercado,0,Very Low,17.6,0.3,1.1,5.0,30.1,RB
+Cam Akers,5,Very Low,20.3,1.5,1.3,1.9,29.5,RB
+Kevin Harris,4,Very Low,21.1,0.5,1.4,4.7,23.5,RB
+Isaiah Spiller,4,Very Low,19.7,0.5,1.3,5.0,18.8,RB
+Ke'Shawn Vaughn,1,Very Low,14.8,0.4,0.9,5.0,18.5,RB
+Myles Gaskin,4,Very Low,21.0,0.38,1.4,5.0,13.0,RB
+Ty Johnson,2,Very Low,21.0,2.1,1.4,5.0,11.8,RB
+Hassan Haskins,2,Very Low,22.2,0.5,1.5,5.0,11.7,RB
+Kene Nwangwu,0,Very Low,13.6,0.4,0.9,5.0,9.5,RB
+Rashaad Penny,8,Low,36.8,1.1,2.7,2.0,4.7,RB
+Travis Kelce,10,Low,35.6,0.6,2.6,5.0,233.7,TE
+Mark Andrews,7,High,61.0,1.8,5.4,5.0,209.0,TE
+Sam LaPorta,2,Medium,53.6,2.3,4.4,5.0,208.5,TE
+Trey McBride,1,Medium,46.9,2.2,3.7,5.0,199.7,TE
+Evan Engram,9,Low,33.1,0.9,2.3,5.0,190.2,TE
+Dalton Kincaid,3,Medium,52.0,1.9,4.2,5.0,187.8,TE
+Jake Ferguson,4,Low,40.9,1.9,3.0,5.0,181.9,TE
+David Njoku,5,Medium,51.4,1.4,4.2,5.0,181.7,TE
+George Kittle,13,Very High,80.6,2.0,9.2,5.0,177.7,TE
+Kyle Pitts,6,High,61.6,1.9,5.5,4.3,174.8,TE
+Dallas Goedert,8,High,76.4,3.1,8.1,5.0,163.1,TE
+Brock Bowers,1,Low,29.2,0.9,2.0,5.0,157.6,TE
+Dalton Schultz,3,Low,36.1,1.1,2.6,5.0,142.1,TE
+Pat Freiermuth,7,Very High,88.3,3.1,11.9,5.0,137.9,TE
+Cole Kmet,4,Medium,51.9,1.7,4.2,5.0,134.0,TE
+Tyler Conklin,3,Low,29.2,0.4,2.0,5.0,128.9,TE
+Noah Fant,7,High,63.6,2.3,5.8,5.0,128.9,TE
+Luke Musgrave,4,Low,32.4,1.0,2.3,2.0,126.2,TE
+Hunter Henry,8,Low,39.6,1.2,2.9,3.8,123.2,TE
+Juwan Johnson,3,Low,39.2,0.9,2.9,5.0,116.2,TE
+Chigoziem Okonkwo,1,Low,29.2,1.0,2.0,5.0,115.2,TE
+Jonnu Smith,10,High,59.6,1.7,5.2,5.0,111.3,TE
+T.J. Hockenson,8,Low,40.4,1.0,3.0,5.0,110.5,TE
+Greg Dulcich,4,Very High,77.8,2.7,8.5,1.0,95.9,TE
+Cade Otton,3,Low,29.8,0.9,2.1,5.0,95.0,TE
+Mike Gesicki,3,Very Low,22.6,0.8,1.5,5.0,94.5,TE
+Michael Mayer,2,High,76.9,2.0,8.3,5.0,93.2,TE
+Dawson Knox,6,High,63.6,1.7,5.8,5.0,88.9,TE
+Zach Ertz,14,Very High,83.6,3.4,10.1,5.0,86.5,TE
+Will Dissly,4,Low,23.9,0.4,1.6,3.3,76.7,TE
+Jelani Woods,5,Very High,77.7,2.4,8.4,1.7,75.7,TE
+Tucker Kraft,2,Low,26.1,0.5,1.8,2.8,75.1,TE
+Isaiah Likely,1,Low,26.3,0.5,1.8,5.0,74.7,TE
+Daniel Bellinger,3,Low,29.2,0.3,2.0,5.0,67.4,TE
+Donald Parham,4,Low,33.7,0.8,2.4,5.0,63.6,TE
+Theo Johnson,0,Very Low,20.3,1.3,1.3,5.0,62.5,TE
+Gerald Everett,7,Low,38.1,1.9,2.8,5.0,62.5,TE
+Logan Thomas,7,Medium,45.7,2.4,3.5,5.0,53.8,TE
+Hayden Hurst,8,Medium,44.1,1.8,3.4,5.0,50.6,TE
+Austin Hooper,4,Very Low,19.9,0.5,1.3,5.0,49.6,TE
+Cade Stover,0,Very Low,20.9,1.7,1.4,5.0,47.7,TE
+Adam Trautman,3,Low,26.1,0.7,1.8,5.0,46.3,TE
+Kylen Granson,0,Very Low,20.3,1.1,1.3,5.0,45.2,TE
+Taysom Hill,14,Very High,81.2,1.9,9.4,2.8,44.2,TE
+Foster Moreau,1,Very Low,19.9,0.7,1.3,5.0,40.9,TE
+Darnell Washington,3,Low,25.7,0.7,1.7,5.0,38.8,TE
+C.J. Uzomah,7,Low,26.1,0.4,1.8,5.0,36.8,TE
+Brevin Jordan,6,Low,32.4,0.5,2.3,4.4,36.6,TE
+Josh Oliver,3,Very Low,18.7,0.2,1.2,2.4,36.5,TE
+Irv Smith,6,Medium,48.2,1.4,3.8,1.6,36.4,TE
+Mo Alie-Cox,3,Low,24.0,0.6,1.6,5.0,36.3,TE
+Jordan Akins,3,Very Low,21.0,0.4,1.4,5.0,33.2,TE
+Durham Smythe,2,Very Low,21.2,0.9,1.4,5.0,31.5,TE
+Drew Sample,3,Low,24.2,2.2,1.6,3.6,31.2,TE
+Luke Schoonmaker,3,Low,29.2,0.6,2.0,5.0,29.2,TE
+Brenton Strange,0,Very Low,19.9,1.22,1.3,5.0,26.6,TE
+Harrison Bryant,1,Very Low,21.0,0.7,1.4,5.0,18.3,TE
+Charlie Kolar,3,Very Low,16.8,1.1,1.1,0.9,13.9,TE
+Albert Okwuegbunam,6,Very Low,21.0,0.6,1.4,1.8,13.1,TE
+Hunter Long,1,Very Low,14.7,0.47,0.9,5.0,12.2,TE
+Jalen Hurts,4,Medium,55.7,1.3,4.7,5.0,373.2,QB
+Josh Allen,7,Very Low,11.8,0.5,0.7,5.0,362.3,QB
+Patrick Mahomes,8,Very Low,11.4,0.5,0.7,5.0,352.8,QB
+Lamar Jackson,6,Medium,42.5,1.7,3.2,5.0,335.1,QB
+C.J. Stroud,2,Low,25.7,1.0,1.7,5.0,333.9,QB
+Joe Burrow,11,High,63.3,2.4,5.7,4.7,331.3,QB
+Anthony Richardson,5,Low,40.4,2.4,3.0,2.3,328.2,QB
+Dak Prescott,7,Low,26.1,0.5,1.8,5.0,325.2,QB
+Jayden Daniels,3,Low,28.3,1.0,1.9,5.0,318.1,QB
+Jordan Love,2,Very Low,19.9,0.6,1.3,5.0,311.6,QB
+Kyler Murray,7,Low,32.6,1.5,2.3,3.4,306.5,QB
+Jared Goff,4,Very Low,20.1,0.4,1.3,5.0,301.6,QB
+Brock Purdy,3,Low,25.3,1.0,1.7,5.0,301.0,QB
+Caleb Williams,1,Low,26.0,1.4,1.8,5.0,297.2,QB
+Trevor Lawrence,9,Low,38.1,2.0,2.8,5.0,295.3,QB
+Justin Herbert,7,Very High,69.2,2.4,6.7,5.0,289.2,QB
+Tua Tagovailoa,12,Medium,49.1,2.0,3.9,4.1,287.2,QB
+Deshaun Watson,8,Very Low,20.8,1.1,1.4,3.1,284.4,QB
+Geno Smith,6,Medium,52.5,1.5,4.3,5.0,281.9,QB
+Kirk Cousins,2,Very Low,17.2,1.2,1.1,5.0,276.6,QB
+Aaron Rodgers,14,Low,35.8,3.4,2.6,4.2,274.9,QB
+Daniel Jones,10,Medium,43.8,2.1,3.3,2.9,272.7,QB
+Baker Mayfield,9,Low,27.1,1.0,1.8,5.0,267.1,QB
+Will Levis,6,Low,40.7,1.8,3.0,5.0,265.6,QB
+Matthew Stafford,22,Very High,80.3,2.7,9.1,4.6,263.3,QB
+Derek Carr,14,Low,29.2,1.0,2.0,5.0,252.8,QB
+Bo Nix,2,Very Low,21.2,1.1,1.4,5.0,250.7,QB
+Bryce Young,2,Low,29.2,1.4,2.0,5.0,243.1,QB
+Drake Maye,2,Very Low,20.1,1.0,1.3,5.0,234.3,QB
+J.J. McCarthy,2,Very Low,17.5,1.2,1.1,5.0,223.6,QB
+Russell Wilson,7,Low,38.4,1.0,2.8,5.0,205.1,QB
+Gardner Minshew,0,Very Low,13.4,0.4,0.8,5.0,133.9,QB
+Justin Fields,9,Very High,86.6,3.4,11.2,5.0,108.1,QB
+Sam Darnold,8,Low,30.7,1.2,2.1,3.4,77.3,QB
+Ryan Tannehill,7,Low,29.6,1.8,2.0,5.0,61.9,QB
+Drew Lock,5,Very Low,21.0,0.7,1.4,1.8,36.7,QB
+Trey Lance,5,Low,36.6,1.6,2.6,1.5,36.2,QB
+Desmond Ridder,3,Very Low,21.2,0.4,1.4,5.0,34.2,QB
+Jacoby Brissett,1,Very Low,6.3,0.4,0.4,5.0,33.5,QB
+Jameis Winston,9,Low,29.2,1.4,2.0,5.0,30.5,QB
+Joe Flacco,7,Very Low,14.7,0.2,0.9,5.0,29.9,QB
+Kenny Pickett,7,Medium,41.5,1.3,3.1,4.7,27.9,QB
+Michael Penix Jr.,4,Very Low,21.2,0.9,1.4,0.9,25.4,QB
+Andy Dalton,6,Very Low,19.7,1.0,1.3,5.0,24.0,QB
+Spencer Rattler,1,Very Low,5.8,0.3,0.4,5.0,21.8,QB
+Mitchell Trubisky,2,Very Low,11.9,0.4,0.7,5.0,20.4,QB
+Zach Wilson,5,Low,24.5,1.0,1.6,3.8,18.5,QB
+Taylor Heinicke,6,Low,29.2,1.6,2.0,2.4,17.0,QB
+Hendon Hooker,1,Very Low,21.2,1.1,1.4,5.0,11.7,QB
+Colt McCoy,1,Very Low,19.9,0.57,1.3,5.0,6.4,QB
+CeeDee Lamb,6,Medium,50.2,1.3,3.0,5.0,365.0,WR
+Tyreek Hill,8,Medium,58.9,1.8,5.1,5.0,328.9,WR
+Amon-Ra St. Brown,5,Low,39.9,1.4,3.0,5.0,309.5,WR
+Justin Jefferson,6,High,66.9,2.3,4.3,5.0,306.2,WR
+Ja'Marr Chase,4,High,75.1,1.8,5.9,5.0,304.2,WR
+Puka Nacua,6,Medium,68.2,1.8,6.5,3.5,287.9,WR
+Garrett Wilson,3,Low,38.1,0.7,2.8,5.0,278.8,WR
+A.J. Brown,7,High,70.5,2.0,6.9,5.0,263.0,WR
+Chris Olave,5,High,68.7,1.4,6.6,5.0,249.7,WR
+D.J. Moore,5,Medium,44.8,1.1,3.4,5.0,248.3,WR
+Cooper Kupp,9,Medium,53.8,1.4,4.4,4.2,248.1,WR
+Drake London,4,Medium,60.5,2.4,5.2,5.0,246.0,WR
+Jaylen Waddle,5,Medium,55.4,2.2,4.6,4.3,244.6,WR
+Davante Adams,10,Medium,43.6,0.6,3.3,5.0,241.1,WR
+Stefon Diggs,7,Low,31.5,0.6,2.2,5.0,239.0,WR
+Marvin Harrison Jr.,3,Medium,42.8,1.3,3.2,5.0,238.7,WR
+Nico Collins,6,Very High,82.1,2.1,9.6,3.1,235.2,WR
+Malik Nabers,2,Low,29.2,1.0,2.0,5.0,232.8,WR
+Tee Higgins,11,Very High,89.2,2.4,12.3,5.0,231.6,WR
+Mike Evans,12,Very High,81.5,3.4,9.4,5.0,231.1,WR
+Deebo Samuel,17,Very High,86.6,3.4,11.2,1.6,230.8,WR
+D.K. Metcalf,6,Low,31.1,0.8,2.2,4.9,230.6,WR
+Michael Pittman Jr.,8,High,70.1,1.6,6.9,5.0,227.3,WR
+DeVonta Smith,8,Very High,81.8,2.4,9.5,5.0,218.8,WR
+Brandon Aiyuk,5,Medium,45.3,2.9,3.5,5.0,214.8,WR
+DeAndre Hopkins,15,High,73.7,2.1,7.6,5.0,214.6,WR
+Nathaniel Dell,3,Low,36.2,2.0,2.6,3.8,213.9,WR
+Chris Godwin,8,High,73.5,2.0,7.5,5.0,211.8,WR
+Terry McLaurin,7,Medium,42.7,1.0,3.2,5.0,211.6,WR
+Christian Kirk,4,Very High,86.1,2.8,11.0,5.0,209.8,WR
+Calvin Ridley,3,Low,29.4,0.5,2.0,5.0,206.8,WR
+Diontae Johnson,7,Very High,80.3,2.0,9.1,5.0,205.1,WR
+Jayden Reed,5,Very High,82.8,2.2,9.8,5.0,203.9,WR
+Rashee Rice,1,Low,37.3,1.1,2.7,5.0,203.4,WR
+Tyler Lockett,6,Low,25.7,0.6,1.7,5.0,198.2,WR
+Keenan Allen,15,High,74.9,3.1,7.8,3.8,198.2,WR
+George Pickens,2,Low,34.7,1.6,2.5,3.7,197.9,WR
+Zay Flowers,1,Low,35.6,1.9,2.6,5.0,197.9,WR
+Amari Cooper,18,High,73.7,2.8,7.6,5.0,196.1,WR
+Hollywood Brown,12,Very High,78.0,2.4,8.5,5.0,194.7,WR
+Jaxon Smith-Njigba,2,Low,39.9,1.2,3.0,3.0,192.7,WR
+Christian Watson,6,High,74.9,2.1,7.8,3.3,189.3,WR
+Xavier Worthy,3,Low,36.9,0.9,2.7,5.0,186.3,WR
+Courtland Sutton,7,High,70.4,2.2,6.9,2.9,185.5,WR
+Jakobi Meyers,4,High,67.3,1.4,6.4,5.0,180.1,WR
+Rome Odunze,2,High,61.3,2.4,5.4,5.0,175.6,WR
+Curtis Samuel,8,Very High,82.7,2.7,9.8,4.7,174.7,WR
+Ladd McConkey,2,Medium,55.4,1.2,4.6,4.3,173.4,WR
+Jerry Jeudy,9,Medium,45.2,1.2,3.5,5.0,172.3,WR
+Brian Thomas Jr.,1,Low,30.1,1.3,2.1,5.0,169.6,WR
+Mike Williams,10,Very High,79.7,3.4,9.0,2.4,168.4,WR
+Keon Coleman,1,Low,37.6,1.4,2.7,5.0,168.3,WR
+Brandin Cooks,7,Low,33.6,1.0,2.4,5.0,166.8,WR
+Gabriel Davis,4,Medium,41.5,0.9,3.1,5.0,166.6,WR
+Rashid Shaheed,2,High,65.9,1.3,6.1,5.0,164.2,WR
+Jordan Addison,3,High,69.8,1.9,6.8,5.0,162.4,WR
+Jahan Dotson,1,Medium,47.6,2.3,3.7,5.0,158.9,WR
+Jameson Williams,3,Medium,43.4,1.3,3.3,4.0,158.4,WR
+Wan'Dale Robinson,5,Low,39.4,1.0,2.9,2.5,154.3,WR
+Josh Downs,2,Medium,57.6,1.5,4.9,5.0,150.0,WR
+Dontayvion Wicks,2,Medium,44.2,1.7,3.4,5.0,146.0,WR
+Khalil Shakir,4,Low,29.9,0.4,2.1,5.0,142.9,WR
+Joshua Palmer,2,High,73.7,1.7,7.6,5.0,141.5,WR
+Darnell Mooney,6,Very High,85.0,2.8,10.6,5.0,139.4,WR
+Marvin Mims Jr.,0,Very Low,22.6,0.8,1.5,5.0,137.9,WR
+Malachi Corley,1,Low,25.3,0.6,1.7,5.0,137.0,WR
+Demario Douglas,2,High,62.6,1.6,5.6,3.7,136.0,WR
+Adam Thielen,7,Medium,45.3,1.9,3.5,5.0,134.8,WR
+Michael Wilson,5,Medium,44.8,1.6,3.4,1.6,133.0,WR
+Adonai Mitchell,1,Low,28.1,0.8,1.9,1.3,129.4,WR
+Tyler Boyd,4,Low,31.4,1.0,2.2,5.0,129.2,WR
+Quentin Johnston,4,Low,37.6,0.7,2.7,5.0,127.8,WR
+Elijah Moore,5,High,68.9,1.8,6.6,5.0,125.8,WR
+Xavier Legette,3,Medium,44.4,1.5,3.4,3.6,124.6,WR
+Darius Slayton,7,High,74.2,2.6,7.7,5.0,124.0,WR
+Roman Wilson,1,Low,27.2,0.9,1.9,5.0,118.9,WR
+Kendrick Bourne,1,Low,29.2,0.9,2.0,5.0,113.1,WR
+Jermaine Burton,3,Medium,54.4,1.3,4.5,5.0,112.7,WR
+D.J. Chark Jr.,12,Medium,54.9,1.5,4.6,4.5,110.5,WR
+Romeo Doubs,5,Medium,43.2,1.1,3.3,5.0,109.1,WR
+Rashod Bateman,4,High,64.7,1.1,5.9,2.1,107.9,WR
+Greg Dortch,1,Low,36.3,1.4,2.6,5.0,107.1,WR
+Michael Thomas,8,Medium,51.1,2.6,4.1,2.4,102.3,WR
+Jalin Hyatt,3,Medium,45.4,1.4,3.5,5.0,101.1,WR
+Kadarius Toney,13,Low,35.9,1.0,2.6,1.5,94.7,WR
+Treylon Burks,7,High,59.1,2.2,5.1,3.4,94.0,WR
+Hunter Renfrow,5,Low,29.2,0.8,2.0,4.7,93.4,WR
+Josh Reynolds,0,Very Low,15.8,0.8,1.0,5.0,93.1,WR
+Odell Beckham Jr.,18,Medium,54.1,2.6,4.5,3.0,91.1,WR
+Rondale Moore,7,High,71.8,1.8,7.2,1.4,89.5,WR
+Troy Franklin,1,Very Low,22.6,1.0,1.5,5.0,79.8,WR
+Kalif Raymond,0,Very Low,13.4,0.9,0.8,5.0,78.5,WR
+Trey Palmer,0,Very Low,21.0,0.7,1.4,5.0,77.7,WR
+Luke McCaffrey,0,Very Low,10.8,1.7,0.7,5.0,76.5,WR
+Mecole Hardman,3,Very High,86.2,2.7,11.0,5.0,76.4,WR
+Parris Campbell,9,Low,32.4,0.7,2.3,1.9,75.0,WR
+Isaiah Hodgins,1,Very Low,22.6,1.0,1.5,5.0,74.8,WR
+Alec Pierce,3,Low,39.2,1.1,2.9,5.0,74.3,WR
+Zay Jones,9,Medium,58.2,2.4,5.0,5.0,73.9,WR
+Donovan Peoples-Jones,2,Low,29.2,0.9,2.0,5.0,72.9,WR
+Russell Gage,11,Low,34.5,1.6,2.5,3.3,70.7,WR
+Nelson Agholor,7,Medium,41.9,1.0,3.1,5.0,69.7,WR
+K.J. Osborn,2,Medium,41.2,1.6,3.1,5.0,68.5,WR
+Devontez Walker,1,Very Low,21.0,0.7,1.4,1.3,67.3,WR
+Skyy Moore,3,Very High,83.5,2.4,10.1,4.6,66.3,WR
+Jonathan Mingo,4,Medium,58.7,1.5,5.1,5.0,65.1,WR
+Allen Robinson,11,Medium,47.1,1.5,3.7,3.3,64.8,WR
+Andrei Iosivas,0,Very Low,13.9,0.4,0.9,5.0,64.3,WR
+Mack Hollins,0,Very Low,11.8,0.7,0.7,5.0,63.8,WR
+Tim Patrick,2,Very Low,18.4,0.4,1.2,2.1,63.5,WR
+Marquez Valdes-Scantling,8,Low,38.2,2.6,2.8,5.0,62.6,WR
+JuJu Smith-Schuster,16,High,72.1,2.1,7.2,4.4,60.4,WR
+Van Jefferson,6,Low,29.2,1.1,2.0,5.0,60.0,WR
+Tutu Atwell,2,Low,35.9,0.91,2.6,4.7,59.3,WR
+Calvin Austin III,2,Low,23.3,0.5,1.5,1.7,56.7,WR
+Brenden Rice,0,Very Low,15.0,0.8,1.0,5.0,53.3,WR
+Justin Watson,3,Low,29.2,1.2,2.0,5.0,53.2,WR
+Allen Lazard,5,Low,29.4,0.7,2.0,5.0,52.1,WR
+Laviska Shenault,7,Low,38.5,1.7,2.8,4.7,51.2,WR
+Jauan Jennings,0,Very Low,13.5,0.7,0.8,5.0,50.3,WR
+Dyami Brown,3,Low,29.2,0.6,2.0,5.0,49.9,WR
+Quez Watkins,0,Very Low,13.4,0.8,0.8,5.0,48.8,WR
+Cedric Tillman,2,Low,35.8,0.6,2.6,4.4,48.5,WR
+Deonte Harty,4,Low,29.2,0.8,2.0,5.0,46.9,WR
+Richie James,1,Low,29.8,0.8,2.1,5.0,44.6,WR
+Chase Claypool,6,Low,38.1,1.4,2.8,5.0,44.3,WR
+Olamide Zaccheaus,0,Very Low,9.1,0.8,0.6,5.0,43.5,WR
+Bo Melton,2,Low,25.4,0.4,1.7,3.3,43.4,WR
+Terrace Marshall,8,Low,25.2,0.6,1.7,4.2,41.0,WR
+Tyquan Thornton,2,Very Low,21.0,0.9,1.4,5.0,41.0,WR
+John Metchie,3,Low,29.2,0.9,2.0,5.0,39.1,WR
+Johnny Wilson,1,Low,28.2,1.1,1.9,4.9,38.4,WR
+Devin Duvernay,0,Very Low,11.8,0.9,0.7,5.0,37.2,WR
+Robert Woods,14,Medium,58.5,1.7,5.0,5.0,37.1,WR
+Justyn Ross,4,Low,27.2,0.6,1.9,0.3,20.8,WR
+Velus Jones,5,Low,29.2,0.7,2.0,5.0,19.3,WR
+Danny Gray,4,Low,40.7,1.04,3.0,2.7,15.1,WR
+Tylan Wallace,2,Very Low,12.5,0.37,0.8,5.0,14.9,WR
+DeVante Parker,21,Very High,89.1,3.4,12.2,3.1,13.8,WR
+D'Wayne Eskridge,7,Low,39.9,0.5,3.0,0.9,12.7,WR
+Michael Gallup,5,Very Low,20.9,0.9,1.4,5.0,3.6,WR
+Jakeem Grant Sr.,4,Very Low,21.0,0.67,1.4,1.9,2.8,WR
+Laquon Treadwell,5,,5.0,0.5,0.3,5.0,2.0,WR
+Andy Isabella,1,Very Low,13.2,0.2,0.8,5.0,0.8,WR

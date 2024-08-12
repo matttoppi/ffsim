@@ -1,6 +1,11 @@
 players.json
 sleeper_players.json
 
+plots/QB/
+plots/RB/
+plots/WR/
+plots/TE/
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

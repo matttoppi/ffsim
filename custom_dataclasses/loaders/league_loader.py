@@ -5,27 +5,23 @@ from custom_dataclasses.player import Player
 from custom_dataclasses.loaders.PlayerLoader import PlayerLoader, Player
 from custom_dataclasses.league import League
 from custom_dataclasses.fantasy_team import FantasyTeam
+from custom_dataclasses.fantasy_team import FantasyTeam
+from custom_dataclasses.league import League
+from custom_dataclasses.loaders.PlayerLoader import PlayerLoader
 
 class LeagueLoader:
     def __init__(self, league_id, player_loader):
         self.sleeper_league = SleeperLeague(league_id)
         self.league_id = league_id
         self.player_loader = player_loader
-        self.player_loader.ensure_players_loaded()  # Ensure players are loaded
+        self.player_loader.ensure_players_loaded()
 
     def load_league(self):
         league_data = self.sleeper_league.get_league()
-        
-        # print(league_data)
-        
         league = League(league_data)
-        
         league.rosters = self.load_rosters(league)
-        #TODO: matchups
-        # league.matchups = self.load_matchups()
-        
-        print(f"\nLeague {league.name} loaded.")
-        
+        league.print_rosters_ids()
+        print(f"\nLeague {league.name} loaded with {len(league.rosters)} teams.")
         return league
 
     def load_rosters(self, league):
@@ -42,38 +38,21 @@ class LeagueLoader:
             fantasy_team = FantasyTeam(team_name, league, user_data)
             fantasy_team.roster_id = roster_data.get("roster_id")
             
-            player_ids = roster_data.get("players")
+            player_ids = roster_data.get("players", [])
             
             for player_id in player_ids:
                 player = self.player_loader.load_player(player_id)
-                
                 if player:
-                    # print(f"Adding {player.full_name} to {fantasy_team.name}")
                     fantasy_team.add_player(player)
+                    player.on_fantasy_team = True
             
-            fantasy_team.calculate_stats()
-            
+            fantasy_team.calculate_metadata()
             rosters.append(fantasy_team)
-            # print(f"Loaded {fantasy_team.name}")
-        print(f"Rosters...")
+            
+        
             
         return rosters
 
-
-        
-
-    def load_settings(self):
-        # Placeholder for loading settings
-        return self.sleeper_league.get_league_settings()
-
-    def load_matchups(self):
-        # Placeholder for loading matchups
-        return []
-
-
     def load_users(self):
         users = self.sleeper_league.get_users()
-        user_dict = {user["user_id"]: user for user in users}
-        return user_dict
-
-
+        return {user["user_id"]: user for user in users}

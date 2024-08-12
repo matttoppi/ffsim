@@ -32,7 +32,7 @@ class League:
     def __init__(self, league_data):
         self.name = league_data.get("name")
         self.total_rosters = league_data.get("total_rosters")
-        self.roster_positions = league_data.get("roster_positions")
+        self.offensive_roster_positions = league_data.get("roster_positions")
         self.loser_bracket_id = league_data.get("loser_bracket_id")
         self.group_id = league_data.get("group_id")
         self.bracket_id = league_data.get("bracket_id")
@@ -48,7 +48,6 @@ class League:
         self.last_author_id = league_data.get("last_author_id")
         self.last_author_display_name = league_data.get("last_author_display_name")
         self.last_author_avatar = league_data.get("last_author_avatar")
-        self.scoring_settings = ScoringSettings(league_data.get("scoring_settings", {}))
         self.settings = LeagueSettings(league_data.get("settings", {}))
         self.sport = league_data.get("sport")
         self.season_type = league_data.get("season_type")
@@ -60,14 +59,26 @@ class League:
         self.metadata = league_data.get("metadata", {})
         self.status = league_data.get("status")
         self.rosters = None
+        self.scoring_settings = ScoringSettings(league_data.get("scoring_settings", {}))
         
-        #get the amount of starters from the roster_positions. anything not a bench slot is a starter
-        # example: ['QB', 'RB', 'RB', 'RB', 'WR', 'WR', 'WR', 'TE', 'FLEX', 'FLEX', 'FLEX', 'K', 'DEF', 'BN', 'BN', 'BN', 'BN', 'BN', 'BN', 'BN', 'BN', 'BN', 'BN', 'BN', 'BN', 'BN', 'BN', 'BN', 'BN', 'BN', 'BN', 'BN', 'BN']
+        self.division1_ids = [9,10,7,8,2]
+        self.division2_ids = [1,3,4,5,6]
 
+        
         self.number_of_starters = 0
-        for position in self.roster_positions:
+        for position in self.offensive_roster_positions:
             if position != "BN" and position != "IR" and position != "TAXI" and position != "K" and position != "DEF":
                 self.number_of_starters += 1
+    
+        self.bench_slots = self.offensive_roster_positions.count("BN")
+        self.defense_slots = self.offensive_roster_positions.count("DEF")
+        self.kicker_slots = self.offensive_roster_positions.count("K")
+        
+        
+        
+    def print_rosters_ids(self):
+        for team in self.rosters:
+            print(f"{team.name}: {team.roster_id}")
             
         
     def get_all_players(self):
@@ -91,10 +102,7 @@ class League:
         for roster in sorted_rosters:
             roster.print_fantasy_team_short()
             
-        
-        
-    
-
+            
     def print_rosters(self):
         for team in self.rosters:
             sorted_players = sorted(team.players, key=lambda x: x.value_1qb, reverse=True)
