@@ -9,11 +9,23 @@ class PlayoffMatch:
         self.winner = None
 
     def simulate(self, scoring_settings):
-        home_score = self.simulation_season.simulate_week(self.week, self.home_team)
-        away_score = self.simulation_season.simulate_week(self.week, self.away_team)
-        self.winner = self.home_team if home_score > away_score else self.away_team
-        return self.winner
+        # Update injury status for both teams
+        for team in [self.home_team, self.away_team]:
+            for player in team.players:
+                player.update_injury_status(self.week)
+            team.fill_starters(self.week)
 
+        home_score = self.simulation_season.simulate_team_week(self.home_team, self.week)
+        away_score = self.simulation_season.simulate_team_week(self.away_team, self.week)
+        
+        self.winner = self.home_team if home_score > away_score else self.away_team
+        
+        # Record scores in the tracker
+        self.simulation_season.tracker.record_team_week(self.home_team.name, self.week, home_score)
+        self.simulation_season.tracker.record_team_week(self.away_team.name, self.week, away_score)
+        
+        return self.winner
+    
 class PlayoffBracket:
     def __init__(self, teams, division1_winner, division2_winner, simulation_season):
         self.teams = teams
@@ -117,4 +129,14 @@ class PlayoffSimulation:
         self.bracket.create_final(semifinal_winners, 17)
         champion = self.bracket.simulate_round(17, self.league.scoring_settings)[0]
         
+        # Update injury status for all players after playoffs
+        for team in self.league.rosters:
+            for player in team.players:
+                games_missed = player.get_games_missed_for_tracking()
+                if games_missed > 0:
+                    self.simulation_season.tracker.record_player_games_missed(player.sleeper_id, games_missed)
+                self.simulation_season.tracker.record_total_games_missed(player.sleeper_id, player.total_games_missed_this_season)
+        
         return champion
+    
+    

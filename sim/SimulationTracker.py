@@ -106,10 +106,10 @@ class SimulationTracker:
             self.worst_weeks[team_name] = {'week': week, 'points': points}
 
 
-    def record_season_standings(self, standings):
-        for position, team_data in enumerate(standings, 1):
-            team_name, wins, points = team_data
-            self.season_standings[team_name].append((position, wins, points))
+    # def record_season_standings(self, standings):
+    #     for position, team_data in enumerate(standings, 1):
+    #         team_name, wins, points = team_data
+    #         self.season_standings[team_name].append((position, wins, points))
 
     def update_best_worst_seasons(self, team_name, wins, points):
         if team_name not in self.best_seasons or wins > self.best_seasons[team_name]['wins'] or \
@@ -351,10 +351,6 @@ class SimulationTracker:
                     player_name = f"{player.first_name} {player.last_name}"
                     print(f"{i:<5}{player_name:<30}{avg_score:<8.2f}{min_score:<8.2f}{max_score:<8.2f}{avg_missed:<12.5f}")
                 
-    def record_special_team_score(self, team_name, position, week, score):
-        key = f"{position}_{team_name}"
-        self.special_team_scores[key][week].append(score)
-
         
         
         
@@ -424,9 +420,12 @@ class SimulationTracker:
   
 
     def print_playoff_stats(self):
-        print("\nPlayoff Statistics:")
-        print(f"{'Team':<25}{'Playoff Appearances':<20}{'Division Wins':<15}{'Championships':<15}")
-        print("-" * 75)
+        print(f"\nPlayoff Statistics (Total Simulations: {self.num_simulations}):")
+        print(f"{'Team':<25}{'Playoff Appearances':<23}{'Division Wins':<19}{'Championships':<15}")
+        print("-" * 82)
+        
+        # Create a list of teams with their stats, sorted by playoff appearances
+        team_stats = []
         for team in self.league.rosters:
             appearances = self.playoff_appearances[team.name]
             div_wins = self.division_wins[team.name]
@@ -434,8 +433,15 @@ class SimulationTracker:
             appearance_rate = appearances / self.num_simulations * 100
             div_win_rate = div_wins / self.num_simulations * 100
             champ_rate = champs / self.num_simulations * 100
-            print(f"{team.name:<25}{appearances:>10} ({appearance_rate:.1f}%){div_wins:>8} ({div_win_rate:.1f}%){champs:>8} ({champ_rate:.1f}%)")
-
+            team_stats.append((team.name, appearances, appearance_rate, div_wins, div_win_rate, champs, champ_rate))
+        
+        # Sort the list by playoff appearances (descending)
+        team_stats.sort(key=lambda x: x[1], reverse=True)
+        
+        # Print the sorted and formatted stats
+        for team_name, appearances, appearance_rate, div_wins, div_win_rate, champs, champ_rate in team_stats:
+            print(f"{team_name:<25}{appearances:>3} ({appearance_rate:>6.1f}%)          {div_wins:>3} ({div_win_rate:>6.1f}%)     {champs:>3} ({champ_rate:>6.1f}%)")
+        
     def print_champions(self):
         print("\nChampionship Results:")
         sorted_champs = sorted(self.championships.items(), key=lambda x: x[1], reverse=True)
@@ -491,7 +497,7 @@ class SimulationTracker:
 
     def _print_standings(self, standings):
         for i, (team_name, avg_wins, avg_points) in enumerate(standings, 1):
-            print(f"{i}. {team_name}: {avg_wins:.2f} wins | Points per week: {avg_points/18:.2f} points")
+            print(f"{i}. {team_name}: {avg_wins:.2f} wins | Points per week: {avg_points/14:.2f} points")
 
 
 
