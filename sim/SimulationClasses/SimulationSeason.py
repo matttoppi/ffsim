@@ -21,6 +21,12 @@ class SimulationSeason:
         self.playoff_sim = None
 
     def simulate(self):
+        
+        # create season long modifiers for each player on each team
+        # for team in self.league.rosters:
+        #     team.create_season_modifiers()
+        
+        
         for week in range(1, self.weeks + 1):
             self.simulate_week(week)
         

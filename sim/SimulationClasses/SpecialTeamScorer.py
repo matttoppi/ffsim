@@ -115,21 +115,21 @@ class SpecialTeamScorer:
 
     def generate_score_based_on_rank(self, rank, fantasy_points, position, full_name=None):
         if position.lower() == 'k':
-            base_mean = 8
-            base_std_dev = 3
-            rank_factor = 0.2
+            base_mean = 7
+            base_std_dev = 2
+            rank_factor = 0.5
             points_factor = 0.1
         elif position.lower() in ['dst', 'def']:
-            base_mean = 7
-            base_std_dev = 4
-            rank_factor = 0.25
-            points_factor = 0.15
+            base_mean = 8
+            base_std_dev = 2
+            rank_factor = 0.3 # higher factor means more impact from rank
+            points_factor = 0.15    
         else:
             raise ValueError(f"Invalid position: {position}")
 
         # Adjust mean based on rank and fantasy points
         rank_adjustment = (32 - rank) * rank_factor  # Assuming 32 teams
-        points_adjustment = (fantasy_points / 200) * points_factor  # Assuming max fantasy points around 200
+        points_adjustment = (fantasy_points / 50) * points_factor  # Assuming max fantasy points around 200
         adjusted_mean = base_mean + rank_adjustment + points_adjustment
 
         # Adjust standard deviation based on rank
