@@ -48,6 +48,12 @@ class FantasyTeam:
                 setattr(self, key, value)    
                 
         self.calculate_metadata()
+        
+        
+    def create_season_modifiers(self):
+        for player in self.players:
+            player.create_players_season_modifiers()
+            
 
     def print_fantasy_team(self):     
         print("\n")   

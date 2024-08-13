@@ -39,6 +39,7 @@ class Player:
         
         self.current_injury_games_missed = 0
         self.total_games_missed_this_season = 0
+        self.season_modifier = 1.0
         
         
     
@@ -335,6 +336,9 @@ class Player:
             receptions * (scoring_settings.te_rec if self.position == 'TE' else scoring_settings.rec)
         )
 
+        # Apply season modifier
+        score *= self.season_modifier
+
         # Apply a very gentle cap to limit extreme outliers
         max_score = 50
         if score > max_score:
@@ -343,11 +347,11 @@ class Player:
 
         # Debug output
         if self.position == 'QB':
-            print(f"DEBUG: {self.full_name} - Week {week} - Passing: {pass_yds:.2f} yds, {pass_td} TD, {pass_int} INT - Score: {score:.2f}")
+            print(f"DEBUG: {self.full_name} - Week {week} - Passing: {pass_yds:.2f} yds, {pass_td} TD, {pass_int} INT - Score: {score:.2f} (Modifier: {self.season_modifier:.2f})")
         elif self.position == 'RB':
-            print(f"DEBUG: {self.full_name} - Week {week} - Rushing: {rush_yds:.2f} yds, {rush_td} TD, Receiving: {receptions} rec, {rec_yds:.2f} yds, {rec_td} TD - Score: {score:.2f}")
+            print(f"DEBUG: {self.full_name} - Week {week} - Rushing: {rush_yds:.2f} yds, {rush_td} TD, Receiving: {receptions} rec, {rec_yds:.2f} yds, {rec_td} TD - Score: {score:.2f} (Modifier: {self.season_modifier:.2f})")
         elif self.position in ['WR', 'TE']:
-            print(f"DEBUG: {self.full_name} - Week {week} - Receiving: {receptions} rec, {rec_yds:.2f} yds, {rec_td} TD - Score: {score:.2f}")
+            print(f"DEBUG: {self.full_name} - Week {week} - Receiving: {receptions} rec, {rec_yds:.2f} yds, {rec_td} TD - Score: {score:.2f} (Modifier: {self.season_modifier:.2f})")
 
         if partial_week_factor < 1:
             print(f"DEBUG: {self.full_name} - Partial week factor: {partial_week_factor:.2f} - Adjusted Score: {score:.2f} (original: {score / partial_week_factor:.2f})")
@@ -391,6 +395,89 @@ class Player:
         self.simulation_injury = None
         self.current_injury_games_missed = 0
         self.total_games_missed_this_season = 0
+        
+    def create_players_season_modifiers(self):
+        # Base modifier starts at 1 (no modification)
+        modifier = 1.0
+
+        # Age modifier
+        if self.age is not None:
+            if self.age < 25:
+                # Younger players have higher boom potential
+                modifier += random.uniform(0, 0.25)
+            elif self.age > 28:
+                # Older players have higher bust potential
+                modifier -= random.uniform(0, 0.1)
+
+        # Injury proneness modifier
+        if hasattr(self, 'injury_probability_game') and self.injury_probability_game is not None:
+            if self.injury_probability_game > 0.1:  # Assuming 0.1 is a high injury probability
+                modifier -= random.uniform(0, 0.1)
+            elif self.injury_probability_game < 0.05:  # Assuming 0.05 is a low injury probability
+                modifier += random.uniform(0, 0.05)
+
+        # Experience modifier
+        if self.years_exp is not None:
+            if self.years_exp == 1 or self.years_exp == 2:
+                # Second and third year players have higher boom potential
+                modifier += random.uniform(0, 0.1)
+
+        # Depth chart modifier
+        if self.depth_chart_order is not None:
+            if self.depth_chart_order > 1:
+                # Players lower on the depth chart have a chance for a significant boom
+                boom_chance = 0.05 + (0.05 * (self.depth_chart_order - 1))  # Increase boom chance for lower depth chart positions
+                if random.random() < boom_chance:
+                    boom_factor = random.uniform(1.5, 5)  # Can increase output by 1.5x to 5x
+                    modifier *= boom_factor
+                    # print(f"DEBUG: {self.full_name} (Depth: {self.depth_chart_order}) is having a breakout season! Boom factor: {boom_factor:.2f}")
+                else:
+                    # Non-boom scenario for non-starters: higher variance
+                    modifier *= random.uniform(0.5, 1.5)
+            else:
+                # Starters (depth_chart_order == 1) have more conservative modifiers
+                modifier *= random.uniform(0.8, 1.2)  # 20% variance up or down
+
+        # Random factor for unpredictability
+        modifier += random.uniform(-0.05, 0.05)
+
+        # Ensure the modifier doesn't go below 0.5 for non-boom scenarios
+        if modifier < 1.5:
+            modifier = max(0.5, modifier)
+
+        # Cap the modifier at 5 for extreme cases
+        modifier = min(modifier, 5)
+        
+        if modifier < 0.9:
+            modifier += .1
+            
+            
+        # overide probability of injury
+        # 1% chance of season ending injury
+        if random.random() < .01:
+            self.season_modifier = 0
+            print(f"DEBUG: SEASON ENDING INJURY! {self.full_name}")
+            return
+        
+        # 3% chance of being a bust (modifier = 0.5)
+        if random.random() < .03:
+            modifier = 0.5
+            print(f"DEBUG: BUST! {self.full_name}")
+
+
+        # Store the modifier as an attribute of the player
+        self.season_modifier = modifier
+        
+        if modifier > 1.5 and modifier < 2:
+            print(f"DEBUG: SMALL BOOM! {self.full_name} - Modifier: {modifier:.2f}")
+        elif modifier >= 2:
+            print(f"DEBUG: BIG BOOM! {self.full_name} - Modifier: {modifier:.2f}")
+        elif modifier < .75:
+            print(f"DEBUG: BUST! {self.full_name} - Modifier: {modifier:.2f}")
+            
+
+
+        self.season_modifier = modifier
 
     
 class PFFProjections:
@@ -437,3 +524,6 @@ class PFFProjections:
     
     def __bool__(self):
             return self.fantasy_points is not None 
+        
+        
+    

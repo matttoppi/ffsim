@@ -72,8 +72,6 @@ class SimulationTracker:
         return sum(self.player_injuries[player_id]) / len(self.player_injuries[player_id])
         
         
-
-        
     def record_points_lost_to_injury(self, team_name, week, points_lost):
         self.points_lost_to_injury[team_name][week].append(points_lost)
         

@@ -23,8 +23,10 @@ class SimulationSeason:
     def simulate(self):
         
         # create season long modifiers for each player on each team
-        # for team in self.league.rosters:
-        #     team.create_season_modifiers()
+        for team in self.league.rosters:
+            team.create_season_modifiers()
+        
+        # x = input("Press Enter to continue...")
         
         
         for week in range(1, self.weeks + 1):
