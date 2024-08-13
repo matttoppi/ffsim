@@ -40,7 +40,6 @@ class SimulationTracker:
 
     
     def calculate_averages(self):
-        print(f"team season results: {self.team_season_results}")
         for team_name, seasons in self.team_season_results.items():
             avg_wins = sum(season['wins'] for season in seasons) / len(seasons)
             avg_points = sum(season['points_for'] for season in seasons) / len(seasons)
@@ -50,8 +49,6 @@ class SimulationTracker:
             }
 
     def get_overall_standings(self):
-        # debug printing needed
-        print(self.average_results)
         
         return sorted(
             [(team_name, stats['avg_wins'], stats['avg_points']) 
@@ -254,14 +251,11 @@ class SimulationTracker:
     def record_player_injury(self, player_id, games_missed):
         self.player_injuries[player_id].append(games_missed)
 
-    
-    
-    
     def record_player_games_missed(self, player_id, games_missed):
         if games_missed > 1:
             self.player_games_missed[player_id].append(games_missed)
             player = self.get_player_from_sleeper_id(player_id)
-            print(f"DEBUG: Recorded {games_missed} missed games for {player.full_name}")
+            # print(f"DEBUG: Recorded {games_missed} missed games for {player.full_name}")
 
     def record_total_games_missed(self, player_id, total_games_missed):
         self.player_total_games_missed[player_id] += total_games_missed
