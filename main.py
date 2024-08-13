@@ -36,3 +36,5 @@ if __name__ == "__main__":
 #       and breakdown of the wins and losses for those seasons as well as players averages for those seasons
 
 
+# seems like a season is being tracked 2 times now
+

@@ -7,7 +7,36 @@ class SimulationMatchup:
         self.week = week
         self.home_score = None
         self.away_score = None
+
+    def simulate(self, scoring_settings, tracker):
+        self.home_score, home_player_scores = self.simulate_all_players(self.home_team, scoring_settings, self.week, tracker)
+        self.away_score, away_player_scores = self.simulate_all_players(self.away_team, scoring_settings, self.week, tracker)
         
+        for player_id, score in home_player_scores.items():
+            tracker.record_player_score(player_id, self.week, score)
+        
+        for player_id, score in away_player_scores.items():
+            tracker.record_player_score(player_id, self.week, score)
+        
+        self.update_records()
+        
+        # Record the weekly scores for each team
+        tracker.record_team_week(self.home_team.name, self.week, self.home_score)
+        tracker.record_team_week(self.away_team.name, self.week, self.away_score)
+        
+        print(f"DEBUG: Matchup result - {self.home_team.name}: {self.home_score:.2f}, {self.away_team.name}: {self.away_score:.2f}")
+
+    def update_records(self):
+        if self.home_score > self.away_score:
+            self.home_team.update_record(won=True, tied=False, points_against=self.away_score, points_for=self.home_score, week=self.week)
+            self.away_team.update_record(won=False, tied=False, points_against=self.home_score, points_for=self.away_score, week=self.week)
+        elif self.away_score > self.home_score:
+            self.home_team.update_record(won=False, tied=False, points_against=self.away_score, points_for=self.home_score, week=self.week)
+            self.away_team.update_record(won=True, tied=False, points_against=self.home_score, points_for=self.away_score, week=self.week)
+        else:
+            self.home_team.update_record(won=False, tied=True, points_against=self.away_score, points_for=self.home_score, week=self.week)
+            self.away_team.update_record(won=False, tied=True, points_against=self.home_score, points_for=self.away_score, week=self.week)
+
     def simulate_team(self, team, scoring_settings, week):
         team.fill_starters(week)
         total_score = 0
@@ -38,28 +67,3 @@ class SimulationMatchup:
                 player_scores[player.sleeper_id] = 0
 
         return total_score, player_scores
-
-    def simulate(self, scoring_settings, tracker):
-        self.home_score, home_player_scores = self.simulate_all_players(self.home_team, scoring_settings, self.week, tracker)
-        self.away_score, away_player_scores = self.simulate_all_players(self.away_team, scoring_settings, self.week, tracker)
-        
-        for player_id, score in home_player_scores.items():
-            tracker.record_player_score(player_id, self.week, score)
-        
-        for player_id, score in away_player_scores.items():
-            tracker.record_player_score(player_id, self.week, score)
-        
-
-        
-        self.update_records()
-
-    def update_records(self):
-        if self.home_score > self.away_score:
-            self.home_team.update_record(True, False, self.away_score, self.home_score, self.week)
-            self.away_team.update_record(False, False, self.home_score, self.away_score, self.week)
-        elif self.away_score > self.home_score:
-            self.home_team.update_record(False, False, self.away_score, self.home_score, self.week)
-            self.away_team.update_record(True, False, self.home_score, self.away_score, self.week)
-        else:
-            self.home_team.update_record(False, True, self.away_score, self.home_score, self.week)
-            self.away_team.update_record(False, True, self.home_score, self.away_score, self.week)

@@ -4,22 +4,33 @@ import json
 import requests
 from datetime import datetime, timedelta
 from sim.SimulationClasses.SimulationMatchup import SimulationMatchup
+from sim.SimulationClasses.Playoffs import PlayoffSimulation
+        
+        
         
         
 class SimulationSeason:
     def __init__(self, league, tracker):
         self.league = league
         self.tracker = tracker
-        self.weeks = 18  # Or however many weeks your season has        self.weeks = 18
+        self.weeks = 14  # Regular season weeks
+        self.playoff_weeks = 3  # Playoff weeks
         self.matchups = {}
         self.matchups_file = f'datarepo/matchups_{league.league_id}.json'
         self.matchups_refresh_interval = timedelta(days=1)
+        self.playoff_sim = None
 
     def simulate(self):
         for week in range(1, self.weeks + 1):
             self.simulate_week(week)
         
-        # Record games missed at the end of the season
+        # Simulate playoffs
+        standings = self.get_standings()
+        self.playoff_sim = PlayoffSimulation(self.league, standings, self)
+        self.playoff_sim.setup_playoffs()
+        self.playoff_sim.champion = self.playoff_sim.simulate_playoffs()
+
+        # Update injury status for all players after the entire season (including playoffs)
         for team in self.league.rosters:
             for player in team.players:
                 games_missed = player.get_games_missed_for_tracking()
@@ -28,17 +39,16 @@ class SimulationSeason:
                 self.tracker.record_total_games_missed(player.sleeper_id, player.total_games_missed_this_season)
                 player.reset_injury_status()
 
-    def simulate_week(self, week):
-        for team in self.league.rosters:
-            for player in team.players:
-                player.update_injury_status(week)
-            team.fill_starters(week)
+    def simulate_team_week(self, team, week):
+        total_score = 0
+        for player in team.get_active_starters(week):
+            score = player.calculate_score(self.league.scoring_settings, week)
+            total_score += score
+            self.tracker.record_player_score(player.sleeper_id, week, score)
         
-        matchups = self.get_matchups(week)
-        for matchup in matchups:
-            matchup.simulate(self.league.scoring_settings, self.tracker)
-
+        return total_score
     
+
     def get_matchups(self, week):
         all_matchups = self.load_or_fetch_matchups()
         
@@ -102,17 +112,26 @@ class SimulationSeason:
         home_team.update_record(home_score > away_score, home_score == away_score, away_score, week)
         away_team.update_record(away_score > home_score, home_score == away_score, home_score, week)
 
-        
-        
-    def get_team_by_roster_id(self, roster_id):
-        for team in self.league.rosters:
-            if team.roster_id == roster_id:
-                return team
-        return None
 
     def get_standings(self):
-        return sorted(
-            [(team.name, team.wins, team.points_for) for team in self.league.rosters],
-            key=lambda x: (x[1], x[2]),
-            reverse=True
-        )
+        return sorted(self.league.rosters, key=lambda t: (t.wins, t.points_for), reverse=True)
+
+        
+    def record_playoff_results(self, champion):
+        # Implement logic to record playoff results in the tracker
+        self.tracker.record_champion(champion.name)
+        
+    def simulate_week(self, week, single_team=None):
+        if single_team:
+            return self.simulate_team_week(single_team, week)
+        
+        for team in self.league.rosters:
+            for player in team.players:
+                player.update_injury_status(week)
+            team.fill_starters(week)
+        
+        matchups = self.get_matchups(week)
+        for matchup in matchups:
+            matchup.simulate(self.league.scoring_settings, self.tracker)
+        
+        print(f"DEBUG: Week {week} completed")
