@@ -42,6 +42,8 @@ class FantasyTeam:
         self.owner_username = user_data.get("display_name")
         if self.name == "Unknown":
             self.name = self.owner_username
+            
+        self.weekly_team_scores = {}
         
         for key, value in user_data.items():
             if key in attributes:
@@ -90,19 +92,6 @@ class FantasyTeam:
         self.points_against += points_against
         self.points_for += points_for
         self.weekly_scores[week] = points_for
-
-    
-    
-    def reset_stats(self):
-        self.wins = 0
-        self.losses = 0
-        self.ties = 0
-        self.points_for = 0
-        self.points_against = 0
-        self.weekly_scores = {}
-        for player in self.players:
-            player.reset_injury_status()
-    
 
 
     def get_weekly_score(self, week):
@@ -186,8 +175,11 @@ class FantasyTeam:
         # Get all available players (not fully injured this week)
         available_players = [p for p in self.players if not p.is_injured(week) or p.is_partially_injured(week)]
 
-        # Sort available players by redraft value
-        available_players.sort(key=lambda p: p.redraft_value if hasattr(p, 'redraft_value') else 0, reverse=True)
+        # Sort available players by average score or redraft value
+        if week == 1:
+            available_players.sort(key=lambda p: p.redraft_value if hasattr(p, 'redraft_value') else 0, reverse=True)
+        else:
+            available_players.sort(key=lambda p: p.get_average_weekly_score(), reverse=True)
 
         # Fill mandatory positions first
         for pos in ['QB', 'RB', 'WR', 'TE', 'K', 'DEF']:
@@ -202,7 +194,10 @@ class FantasyTeam:
         flex_players = [p for p in available_players if p.position in flex_eligible]
         for _ in range(slots['FLEX']):
             if flex_players:
-                player = max(flex_players, key=lambda p: p.redraft_value if hasattr(p, 'redraft_value') else 0)
+                if week == 1:
+                    player = max(flex_players, key=lambda p: p.redraft_value if hasattr(p, 'redraft_value') else 0)
+                else:
+                    player = max(flex_players, key=lambda p: p.get_average_weekly_score())
                 self.starters['FLEX'].append(player)
                 available_players.remove(player)
                 flex_players.remove(player)
@@ -229,3 +224,61 @@ class FantasyTeam:
                 if not player.is_injured(week) or player.is_partially_injured(week):
                     active_starters.append(player)
         return active_starters
+    
+    
+    def reset_season_stats(self):
+        """Reset season statistics for the team and all its players."""
+        self.weekly_team_scores = {}
+        for player in self.players:
+            player.reset_season_stats()    
+    
+    def reset_stats(self):
+        """Reset all stats for the team and its players."""
+        self.wins = 0
+        self.losses = 0
+        self.ties = 0
+        self.points_for = 0
+        self.points_against = 0
+        self.weekly_scores = {}
+        for player in self.players:
+            player.reset_season_stats()
+
+    def record_weekly_score(self, week, score):
+        """Record the team's weekly score."""
+        self.weekly_scores[week] = score
+        self.points_for += score
+
+    def get_average_weekly_score(self):
+        """Get the team's average weekly score for the season."""
+        if len(self.weekly_scores) > 0:
+            return sum(self.weekly_scores.values()) / len(self.weekly_scores)
+        return 0
+
+    def get_player_average_scores(self):
+        """Get a dictionary of average weekly scores for all players."""
+        return {player.name: player.get_average_weekly_score() for player in self.players}
+
+    def get_top_performers(self, n=5):
+        """Get the top n performing players based on average weekly score."""
+        sorted_players = sorted(self.players, key=lambda p: p.get_average_weekly_score(), reverse=True)
+        return sorted_players[:n]
+
+    def print_team_stats(self):
+        """Print team and player statistics."""
+        print(f"\n{self.name} Team Stats:")
+        print(f"Record: {self.wins}-{self.losses}-{self.ties}")
+        print(f"Points For: {self.points_for:.2f}")
+        print(f"Points Against: {self.points_against:.2f}")
+        print(f"Average Weekly Score: {self.get_average_weekly_score():.2f}")
+        print("\nTop Performers:")
+        for player in self.get_top_performers():
+            print(f"{player.name}: {player.get_average_weekly_score():.2f}")
+
+    def simulate_week(self, week, scoring_settings):
+        """Simulate a week for the team."""
+        total_score = 0
+        for player in self.get_active_starters(week):
+            score = player.calculate_score(scoring_settings, week)
+            total_score += score
+        self.record_weekly_score(week, total_score)
+        return total_score
