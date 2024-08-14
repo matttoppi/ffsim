@@ -175,8 +175,11 @@ class FantasyTeam:
         # Get all available players (not fully injured this week)
         available_players = [p for p in self.players if not p.is_injured(week) or p.is_partially_injured(week)]
 
-        # Sort available players by redraft value
-        available_players.sort(key=lambda p: p.redraft_value if hasattr(p, 'redraft_value') else 0, reverse=True)
+        # Sort available players by average score or redraft value
+        if week == 1:
+            available_players.sort(key=lambda p: p.redraft_value if hasattr(p, 'redraft_value') else 0, reverse=True)
+        else:
+            available_players.sort(key=lambda p: p.get_average_weekly_score(), reverse=True)
 
         # Fill mandatory positions first
         for pos in ['QB', 'RB', 'WR', 'TE', 'K', 'DEF']:
@@ -191,7 +194,10 @@ class FantasyTeam:
         flex_players = [p for p in available_players if p.position in flex_eligible]
         for _ in range(slots['FLEX']):
             if flex_players:
-                player = max(flex_players, key=lambda p: p.redraft_value if hasattr(p, 'redraft_value') else 0)
+                if week == 1:
+                    player = max(flex_players, key=lambda p: p.redraft_value if hasattr(p, 'redraft_value') else 0)
+                else:
+                    player = max(flex_players, key=lambda p: p.get_average_weekly_score())
                 self.starters['FLEX'].append(player)
                 available_players.remove(player)
                 flex_players.remove(player)
