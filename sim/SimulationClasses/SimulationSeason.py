@@ -36,7 +36,9 @@ class SimulationSeason:
         standings = self.get_standings()
         self.playoff_sim = PlayoffSimulation(self.league, standings, self)
         self.playoff_sim.setup_playoffs()
-        self.playoff_sim.champion = self.playoff_sim.simulate_playoffs()
+        champion = self.playoff_sim.simulate_playoffs()
+        
+        self.record_season_results()
 
         # Update injury status for all players after the entire season (including playoffs)
         for team in self.league.rosters:
@@ -46,6 +48,7 @@ class SimulationSeason:
                     self.tracker.record_player_games_missed(player.sleeper_id, games_missed)
                 self.tracker.record_total_games_missed(player.sleeper_id, player.total_games_missed_this_season)
                 player.reset_injury_status()
+                
 
     def simulate_team_week(self, team, week):
         total_score = 0
@@ -143,3 +146,23 @@ class SimulationSeason:
             matchup.simulate(self.league.scoring_settings, self.tracker)
         
         print(f"DEBUG: Week {week} completed")
+
+
+    
+
+    def record_season_results(self):
+        for team in self.league.rosters:
+            self.tracker.record_team_season(
+                team.name,
+                team.wins,
+                team.losses,
+                team.ties,
+                team.points_for,
+                team.points_against,
+                team.playoff_result
+            )
+            
+            for player in team.players:
+                if player.sleeper_id in self.tracker.player_scores:
+                    weekly_scores = self.tracker.player_scores[player.sleeper_id]
+                    self.tracker.record_player_season(team.name, player.sleeper_id, weekly_scores, player.season_modifier)

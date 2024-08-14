@@ -86,7 +86,71 @@ class PlayoffSimulation:
         self.season_standings = season_standings
         self.simulation_season = simulation_season
         self.bracket = None
+        self.champion = None
+        self.runner_up = None
+        self.semifinalists = []
 
+    def simulate_playoffs(self):
+        # First round (if necessary)
+        if len(self.bracket.matches) > 0:
+            first_round_winners = self.bracket.simulate_round(15, self.league.scoring_settings)
+            self.bracket.create_semifinal(first_round_winners, 16)
+        else:
+            self.bracket.create_semifinal([], 16)  # No first round, create semifinals directly
+        
+        # Semifinals
+        semifinal_winners = self.bracket.simulate_round(16, self.league.scoring_settings)
+        self.semifinalists = [match.home_team for match in self.bracket.matches] + [match.away_team for match in self.bracket.matches]
+        
+        # Final
+        self.bracket.create_final(semifinal_winners, 17)
+        final_matches = self.bracket.matches  # Assuming this is a list with one final match
+        if final_matches:
+            final_match = final_matches[0]
+            self.champion = self.bracket.simulate_round(17, self.league.scoring_settings)[0]
+            self.runner_up = final_match.home_team if self.champion == final_match.away_team else final_match.away_team
+        else:
+            print("Error: No final match created")
+            self.champion = None
+            self.runner_up = None
+        
+        # Update injury status for all players after playoffs
+        for team in self.league.rosters:
+            for player in team.players:
+                games_missed = player.get_games_missed_for_tracking()
+                if games_missed > 0:
+                    self.simulation_season.tracker.record_player_games_missed(player.sleeper_id, games_missed)
+                self.simulation_season.tracker.record_total_games_missed(player.sleeper_id, player.total_games_missed_this_season)
+        
+        
+        
+        # Set playoff results for all teams
+        for team in self.league.rosters:
+            # if team == self.champion:
+            #     team.set_playoff_result("Champion")
+            # elif team == self.runner_up:
+            #     team.set_playoff_result("Runner-up")
+            # elif team in self.semifinalists:
+            #     team.set_playoff_result("Lost in Semis")
+            # elif team in self.bracket.teams:
+            #     team.set_playoff_result("Lost in First Round")
+            # else:
+            #     team.set_playoff_result("Missed Playoffs")
+            
+            if team == self.champion:
+                team.playoff_result = "Champion"
+            elif team == self.runner_up:
+                team.playoff_result = "Runner-up"
+            elif team in self.semifinalists:
+                team.playoff_result = "Lost in Semis"
+            elif team in self.bracket.teams:
+                team.playoff_result = "Lost in First Round"
+            else:
+                team.playoff_result = "Missed Playoffs"
+        
+        return self.champion
+        
+        return self.champion
     def setup_playoffs(self):
         # Determine division winners
         division1_teams = [team for team in self.season_standings if team.roster_id in self.league.division1_ids]
@@ -114,29 +178,5 @@ class PlayoffSimulation:
         self.bracket = PlayoffBracket(playoff_teams, division1_winner, division2_winner, self.simulation_season)
         self.bracket.create_bracket()
 
-    def simulate_playoffs(self):
-        # First round (if necessary)
-        if len(self.bracket.matches) > 0:
-            first_round_winners = self.bracket.simulate_round(15, self.league.scoring_settings)
-            self.bracket.create_semifinal(first_round_winners, 16)
-        else:
-            self.bracket.create_semifinal([], 16)  # No first round, create semifinals directly
-        
-        # Semifinals
-        semifinal_winners = self.bracket.simulate_round(16, self.league.scoring_settings)
-        
-        # Final
-        self.bracket.create_final(semifinal_winners, 17)
-        champion = self.bracket.simulate_round(17, self.league.scoring_settings)[0]
-        
-        # Update injury status for all players after playoffs
-        for team in self.league.rosters:
-            for player in team.players:
-                games_missed = player.get_games_missed_for_tracking()
-                if games_missed > 0:
-                    self.simulation_season.tracker.record_player_games_missed(player.sleeper_id, games_missed)
-                self.simulation_season.tracker.record_total_games_missed(player.sleeper_id, player.total_games_missed_this_season)
-        
-        return champion
     
     

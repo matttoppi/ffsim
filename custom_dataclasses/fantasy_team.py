@@ -38,6 +38,7 @@ class FantasyTeam:
         self.weekly_scores = {}
         self.available_players = [p for p in self.players if not p.is_injured(week) or p.is_partially_injured(week)]
         
+        self.playoff_result = None  # Add this line
         
         self.owner_username = user_data.get("display_name")
         if self.name == "Unknown":
