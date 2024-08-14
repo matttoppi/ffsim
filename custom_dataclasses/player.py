@@ -57,10 +57,12 @@ class Player:
         self.last_missed_week = 0  # Add this line
         
         
-        self.weekly_scores = {}
         
         pff_data = initial_data.get('pff_projections', {})
         self.pff_projections = PFFProjections(pff_data) if pff_data else None
+
+
+        self.weekly_scores = {}
 
     
 
@@ -356,6 +358,10 @@ class Player:
         if partial_week_factor < 1:
             print(f"DEBUG: {self.full_name} - Partial week factor: {partial_week_factor:.2f} - Adjusted Score: {score:.2f} (original: {score / partial_week_factor:.2f})")
 
+
+
+        self.record_weekly_score(week, score)
+
         return score
 
     def log_normal(self, mean, sigma, shift, adjustment_factor):
@@ -470,6 +476,29 @@ class Player:
             print(f"DEBUG: BUST! {self.full_name} - Modifier: {modifier:.2f}")
 
         self.season_modifier = modifier
+        
+        
+        
+        
+    def reset_season_stats(self):
+        """Reset the season statistics. Call this at the start of each new simulation."""
+        self.weekly_scores = {}
+        self.total_simulated_points = 0
+        self.total_simulated_games = 0
+
+    def record_weekly_score(self, week, score):
+        """Record a weekly score for the current season."""
+        self.weekly_scores[week] = score
+        self.total_simulated_points += score
+        self.total_simulated_games += 1
+
+    def get_average_weekly_score(self):
+        """Get the current season's average weekly score."""
+        if self.total_simulated_games > 0:
+            return self.total_simulated_points / self.total_simulated_games
+        return 0
+
+
 
     
 class PFFProjections:

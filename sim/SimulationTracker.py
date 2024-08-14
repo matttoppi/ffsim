@@ -211,11 +211,11 @@ class SimulationTracker:
         if week not in self.player_scores[player_id]:
             self.player_scores[player_id][week] = []
         self.player_scores[player_id][week].append(score)
-
+        
         # Track that the player played this week (if score > 0)
         if score > 0:
             self.player_games_played[player_id] = self.player_games_played.get(player_id, 0) + 1
-
+            
 
     
 
