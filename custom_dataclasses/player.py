@@ -404,78 +404,70 @@ class Player:
         if self.age is not None:
             if self.age < 25:
                 # Younger players have higher boom potential
-                modifier += random.uniform(0, 0.25)
+                modifier += random.uniform(0, 0.15)  # Reduced from 0.25
             elif self.age > 28:
                 # Older players have higher bust potential
-                modifier -= random.uniform(0, 0.1)
+                modifier -= random.uniform(0, 0.05)  # Reduced from 0.1
 
         # Injury proneness modifier
         if hasattr(self, 'injury_probability_game') and self.injury_probability_game is not None:
             if self.injury_probability_game > 0.1:  # Assuming 0.1 is a high injury probability
-                modifier -= random.uniform(0, 0.1)
+                modifier -= random.uniform(0, 0.05)  
             elif self.injury_probability_game < 0.05:  # Assuming 0.05 is a low injury probability
-                modifier += random.uniform(0, 0.05)
+                modifier += random.uniform(0, 0.03) 
 
         # Experience modifier
         if self.years_exp is not None:
             if self.years_exp == 1 or self.years_exp == 2:
                 # Second and third year players have higher boom potential
-                modifier += random.uniform(0, 0.1)
+                modifier += random.uniform(0, 0.05)  # Reduced from 0.1
 
         # Depth chart modifier
         if self.depth_chart_order is not None:
             if self.depth_chart_order > 1:
                 # Players lower on the depth chart have a chance for a significant boom
-                boom_chance = 0.05 + (0.05 * (self.depth_chart_order - 1))  # Increase boom chance for lower depth chart positions
+                boom_chance = 0.03 + (0.02 * (self.depth_chart_order - 1))  # Reduced from 0.05 + 0.05
                 if random.random() < boom_chance:
-                    boom_factor = random.uniform(1.5, 5)  # Can increase output by 1.5x to 5x
+                    boom_factor = random.uniform(1.3, 3)  # Reduced from 1.5 to 5
                     modifier *= boom_factor
-                    # print(f"DEBUG: {self.full_name} (Depth: {self.depth_chart_order}) is having a breakout season! Boom factor: {boom_factor:.2f}")
                 else:
                     # Non-boom scenario for non-starters: higher variance
-                    modifier *= random.uniform(0.5, 1.5)
+                    modifier *= random.uniform(0.7, 1.3)  # Reduced from 0.5 to 1.5
             else:
                 # Starters (depth_chart_order == 1) have more conservative modifiers
-                modifier *= random.uniform(0.8, 1.2)  # 20% variance up or down
+                modifier *= random.uniform(0.9, 1.1)  # Reduced from 0.8 to 1.2
 
         # Random factor for unpredictability
-        modifier += random.uniform(-0.05, 0.05)
+        modifier += random.uniform(-0.03, 0.03)  # Reduced from -0.05 to 0.05
 
-        # Ensure the modifier doesn't go below 0.5 for non-boom scenarios
-        if modifier < 1.5:
-            modifier = max(0.5, modifier)
+        # Ensure the modifier doesn't go below 0.7 for non-boom scenarios
+        if modifier < 1.3:
+            modifier = max(0.7, modifier)  # Increased minimum from 0.5 to 0.7
 
-        # Cap the modifier at 5 for extreme cases
-        modifier = min(modifier, 5)
-        
-        if modifier < 0.9:
-            modifier += .1
-            
-            
-        # overide probability of injury
-        # 1% chance of season ending injury
-        if random.random() < .01:
+        # Cap the modifier at 3 for extreme cases
+        modifier = min(modifier, 3)  # Reduced from 5 to 3
+
+        # Override probability of injury
+        # 0.5% chance of season ending injury (reduced from 1%)
+        if random.random() < 0.005:
             self.season_modifier = 0
             print(f"DEBUG: SEASON ENDING INJURY! {self.full_name}")
             return
-        
-        # 3% chance of being a bust (modifier = 0.5)
-        if random.random() < .03:
-            modifier = 0.5
-            print(f"DEBUG: BUST! {self.full_name}")
 
+        # 2% chance of being a bust (modifier = 0.7) (reduced from 3% and 0.5)
+        if random.random() < 0.02:
+            modifier = 0.7
+            print(f"DEBUG: BUST! {self.full_name}")
 
         # Store the modifier as an attribute of the player
         self.season_modifier = modifier
-        
-        if modifier > 1.5 and modifier < 2:
-            print(f"DEBUG: SMALL BOOM! {self.full_name} - Modifier: {modifier:.2f}")
-        elif modifier >= 2:
-            print(f"DEBUG: BIG BOOM! {self.full_name} - Modifier: {modifier:.2f}")
-        elif modifier < .75:
-            print(f"DEBUG: BUST! {self.full_name} - Modifier: {modifier:.2f}")
-            
 
+        if modifier > 1.3 and modifier < 1.6:
+            print(f"DEBUG: SMALL BOOM! {self.full_name} - Modifier: {modifier:.2f}")
+        elif modifier >= 1.6:
+            print(f"DEBUG: BIG BOOM! {self.full_name} - Modifier: {modifier:.2f}")
+        elif modifier < 0.8:
+            print(f"DEBUG: BUST! {self.full_name} - Modifier: {modifier:.2f}")
 
         self.season_modifier = modifier
 

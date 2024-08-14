@@ -115,14 +115,14 @@ class SpecialTeamScorer:
 
     def generate_score_based_on_rank(self, rank, fantasy_points, position, full_name=None):
         if position.lower() == 'k':
-            base_mean = 7
-            base_std_dev = 2
-            rank_factor = 0.5
+            base_mean = 11
+            base_std_dev = 1.5
+            rank_factor = 0.1
             points_factor = 0.1
         elif position.lower() in ['dst', 'def']:
-            base_mean = 8
-            base_std_dev = 3
-            rank_factor = 0.3
+            base_mean = 6
+            base_std_dev = 4
+            rank_factor = 0.2
             points_factor = 0.15
         else:
             raise ValueError(f"Invalid position: {position}")
