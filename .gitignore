@@ -6,6 +6,8 @@ plots/RB/
 plots/WR/
 plots/TE/
 
+plots
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
