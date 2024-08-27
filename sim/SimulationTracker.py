@@ -114,6 +114,29 @@ class SimulationTracker:
         return breakdown
     
     
+    def get_top_performers(self, team_name, n=5):
+        team = next((team for team in self.league.rosters if team.name == team_name), None)
+        if not team:
+            return []
+        
+        player_scores = []
+        for player in team.players:
+            avg_score, _, _, _, _ = self.get_player_average_score(player.sleeper_id)
+            player_scores.append((player, avg_score))
+        
+        return sorted(player_scores, key=lambda x: x[1], reverse=True)[:n]
+
+    def get_top_players_by_position(self, position, n=10):
+        all_players = [player for team in self.league.rosters for player in team.players if player.position == position]
+        
+        player_scores = []
+        for player in all_players:
+            avg_score, _, _, _, _ = self.get_player_average_score(player.sleeper_id)
+            player_scores.append((player, avg_score))
+        
+        return sorted(player_scores, key=lambda x: x[1], reverse=True)[:n]
+    
+    
 
     def get_overall_standings(self):
         
@@ -595,3 +618,24 @@ class SimulationTracker:
         self.print_projected_standings()
         self.print_playoff_stats()
         self.print_top_players_by_position()
+        
+        
+    def get_player_best_season_average(self, player_id):
+        if player_id not in self.player_scores:
+            return 0
+
+        best_season_avg = 0
+        for sim in range(self.num_simulations):
+            season_scores = []
+            for week in range(1, 18):  # Assuming 17-week season
+                week_scores = self.player_scores[player_id].get(week, [])
+                if sim < len(week_scores):
+                    season_scores.append(week_scores[sim])
+                else:
+                    season_scores.append(0)  # Use 0 if no score is available for this simulation
+            
+            if season_scores:
+                season_avg = sum(season_scores) / len(season_scores)
+                best_season_avg = max(best_season_avg, season_avg)
+
+        return best_season_avg

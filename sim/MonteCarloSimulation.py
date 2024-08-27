@@ -2,6 +2,7 @@ from tqdm import tqdm
 from sim.SimulationClasses.SimulationSeason import SimulationSeason
 from sim.SimulationTracker import SimulationTracker
 from sim.SimulationVisualizer import SimulationVisualizer
+from sim.PDFReportGenerator import PDFReportGenerator
 
 
 
@@ -15,6 +16,7 @@ class MonteCarloSimulation:
         self.tracker = SimulationTracker(self.league)
         self.tracker.set_num_simulations(num_simulations)
         self.visualizer = SimulationVisualizer(self.league, self.tracker)
+        self.pdf_report_generator = PDFReportGenerator(self.league, self.tracker, self.visualizer)
 
     def run(self):
         for sim in tqdm(range(self.num_simulations), desc="Running Simulations", unit="sim"):
@@ -26,11 +28,12 @@ class MonteCarloSimulation:
             season.simulate()
             self.record_season_results(season)
             print(f"DEBUG: Simulation {sim + 1} completed")
-        
+            
         self.tracker.calculate_averages()  # Calculate averages after all simulations
         self.tracker.print_results()
         self.tracker.print_player_average_scores()
         self.print_best_season_breakdowns()
+        self.pdf_report_generator.generate_report("2024PDF.pdf")
         
         self.visualizer.plot_scoring_distributions(self.tracker)
 
@@ -82,3 +85,4 @@ class MonteCarloSimulation:
                 for i, player in enumerate(breakdown['player_performances'], 1):
                     print(f"{i}. {player['name']} ({player['position']}): {player['total_points']:.2f} pts, {player['avg_points']:.2f} pts/game - Modifier: {player['modifier']:.2f}")
                 
+            x = input("Press Enter to continue")
