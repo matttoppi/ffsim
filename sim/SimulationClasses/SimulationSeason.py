@@ -20,44 +20,8 @@ class SimulationSeason:
         self.matchups_refresh_interval = timedelta(days=1)
         self.playoff_sim = None
 
-    def simulate(self):
-        
-        # create season long modifiers for each player on each team
-        for team in self.league.rosters:
-            team.create_season_modifiers()
-        
-        # x = input("Press Enter to continue...")
-        
-        
-        for week in range(1, self.weeks + 1):
-            self.simulate_week(week)
-        
-        # Simulate playoffs
-        standings = self.get_standings()
-        self.playoff_sim = PlayoffSimulation(self.league, standings, self)
-        self.playoff_sim.setup_playoffs()
-        champion = self.playoff_sim.simulate_playoffs()
-        
-        self.record_season_results()
-
-        # Update injury status for all players after the entire season (including playoffs)
-        for team in self.league.rosters:
-            for player in team.players:
-                games_missed = player.get_games_missed_for_tracking()
-                if games_missed > 0:
-                    self.tracker.record_player_games_missed(player.sleeper_id, games_missed)
-                self.tracker.record_total_games_missed(player.sleeper_id, player.total_games_missed_this_season)
-                player.reset_injury_status()
+    
                 
-
-    def simulate_team_week(self, team, week):
-        total_score = 0
-        for player in team.get_active_starters(week):
-            score = player.calculate_score(self.league.scoring_settings, week)
-            total_score += score
-            self.tracker.record_player_score(player.sleeper_id, week, score)
-        
-        return total_score
     
 
     def get_matchups(self, week):
@@ -131,24 +95,57 @@ class SimulationSeason:
     def record_playoff_results(self, champion):
         # Implement logic to record playoff results in the tracker
         self.tracker.record_champion(champion.name)
-        
-    def simulate_week(self, week, single_team=None):
-        if single_team:
-            return self.simulate_team_week(single_team, week)
-        
+    
+                    
+    def simulate_week(self, week):
         for team in self.league.rosters:
             for player in team.players:
                 player.update_injury_status(week)
             team.fill_starters(week)
-        
+
         matchups = self.get_matchups(week)
         for matchup in matchups:
             matchup.simulate(self.league.scoring_settings, self.tracker)
-        
+
         print(f"DEBUG: Week {week} completed")
 
-
+    def simulate_team_week(self, team, week):
+        total_score = 0
+        for player in team.get_active_starters(week):
+            score = player.calculate_score(self.league.scoring_settings, week)
+            total_score += score
+        return total_score
     
+    
+    
+    def simulate(self):
+        # Reset all team stats at the start of the simulation
+        for team in self.league.rosters:
+            team.reset_stats()
+
+        # create season long modifiers for each player on each team
+        for team in self.league.rosters:
+            team.create_season_modifiers()
+
+        for week in range(1, self.weeks + 1):
+            self.simulate_week(week)
+
+        # Simulate playoffs
+        standings = self.get_standings()
+        self.playoff_sim = PlayoffSimulation(self.league, standings, self)
+        self.playoff_sim.setup_playoffs()
+        champion = self.playoff_sim.simulate_playoffs()
+
+        self.record_season_results()
+
+        # Update injury status for all players after the entire season (including playoffs)
+        for team in self.league.rosters:
+            for player in team.players:
+                games_missed = player.get_games_missed_for_tracking()
+                if games_missed > 0:
+                    self.tracker.record_player_games_missed(player.sleeper_id, games_missed)
+                self.tracker.record_total_games_missed(player.sleeper_id, player.total_games_missed_this_season)
+                player.reset_injury_status()
 
     def record_season_results(self):
         for team in self.league.rosters:
@@ -161,8 +158,5 @@ class SimulationSeason:
                 team.points_against,
                 team.playoff_result
             )
-            
             for player in team.players:
-                if player.sleeper_id in self.tracker.player_scores:
-                    weekly_scores = self.tracker.player_scores[player.sleeper_id]
-                    self.tracker.record_player_season(team.name, player.sleeper_id, weekly_scores, player.season_modifier)
+                self.tracker.record_player_season(team.name, player.sleeper_id, player.weekly_scores, player.season_modifier)

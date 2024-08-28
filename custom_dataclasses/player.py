@@ -478,23 +478,28 @@ class Player:
         
         
         
-    def reset_season_stats(self):
-        """Reset the season statistics. Call this at the start of each new simulation."""
-        self.weekly_scores = {}
-        self.total_simulated_points = 0
-        self.total_simulated_games = 0
 
-    def record_weekly_score(self, week, score):
-        """Record a weekly score for the current season."""
-        self.weekly_scores[week] = score
-        self.total_simulated_points += score
-        self.total_simulated_games += 1
+
 
     def get_average_weekly_score(self):
         """Get the current season's average weekly score."""
         if self.total_simulated_games > 0:
             return self.total_simulated_points / self.total_simulated_games
         return 0
+    
+    
+    
+    def record_weekly_score(self, week, score):
+        """Record a weekly score for the current season."""
+        self.weekly_scores[week] = score
+        self.total_simulated_points += score
+        self.total_simulated_games += 1
+
+    def reset_season_stats(self):
+        """Reset the season statistics. Call this at the start of each new simulation."""
+        self.weekly_scores = {}
+        self.total_simulated_points = 0
+        self.total_simulated_games = 0
 
 
 
@@ -544,5 +549,7 @@ class PFFProjections:
     def __bool__(self):
             return self.fantasy_points is not None 
         
+        
+   
         
     

@@ -8,23 +8,6 @@ class SimulationMatchup:
         self.home_score = None
         self.away_score = None
 
-    def simulate(self, scoring_settings, tracker):
-        self.home_score, home_player_scores = self.simulate_all_players(self.home_team, scoring_settings, self.week, tracker)
-        self.away_score, away_player_scores = self.simulate_all_players(self.away_team, scoring_settings, self.week, tracker)
-        
-        for player_id, score in home_player_scores.items():
-            tracker.record_player_score(player_id, self.week, score)
-        
-        for player_id, score in away_player_scores.items():
-            tracker.record_player_score(player_id, self.week, score)
-        
-        self.update_records()
-        
-        # Record the weekly scores for each team
-        tracker.record_team_week(self.home_team.name, self.week, self.home_score)
-        tracker.record_team_week(self.away_team.name, self.week, self.away_score)
-        
-        print(f"DEBUG: Matchup result - {self.home_team.name}: {self.home_score:.2f}, {self.away_team.name}: {self.away_score:.2f}")
 
     def update_records(self):
         if self.home_score > self.away_score:
@@ -67,3 +50,28 @@ class SimulationMatchup:
                 player_scores[player.sleeper_id] = 0
 
         return total_score, player_scores
+    
+    
+    
+    def simulate(self, scoring_settings, tracker):
+        self.home_score, home_player_scores = self.simulate_all_players(self.home_team, scoring_settings, self.week, tracker)
+        self.away_score, away_player_scores = self.simulate_all_players(self.away_team, scoring_settings, self.week, tracker)
+
+        # Record player scores
+        self.record_player_scores(self.home_team, home_player_scores, tracker)
+        self.record_player_scores(self.away_team, away_player_scores, tracker)
+
+        self.update_records()
+        
+        # Record the weekly scores for each team
+        tracker.record_team_week(self.home_team.name, self.week, self.home_score)
+        tracker.record_team_week(self.away_team.name, self.week, self.away_score)
+        
+        print(f"DEBUG: Matchup result - {self.home_team.name}: {self.home_score:.2f}, {self.away_team.name}: {self.away_score:.2f}")
+
+    def record_player_scores(self, team, player_scores, tracker):
+        for player_id, score in player_scores.items():
+            tracker.record_player_score(player_id, self.week, score)
+            player = next((p for p in team.players if p.sleeper_id == player_id), None)
+            if player:
+                player.record_weekly_score(self.week, score)

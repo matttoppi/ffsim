@@ -48,9 +48,10 @@ class PDFReportGenerator:
         story.extend(self.create_playoff_results())
         story.extend(self.add_team_performance_charts())
         story.extend(self.create_injury_impact_summary())
+        story.extend(self.create_team_season_breakdowns())  # New method
 
         doc.build(story)
-        print(f"PDF report generated: {full_path}")
+        print(f"PDF report generated: {filename}")
 
     def create_league_overview(self):
         elements = []
@@ -396,4 +397,87 @@ class PDFReportGenerator:
         ]))
         elements.append(injury_table)
         
+        return elements
+    
+    
+    
+    def create_team_season_breakdowns(self):
+        elements = []
+        for team in self.league.rosters:
+            elements.append(Paragraph(f"{team.name} Season Breakdowns", self.title_style))
+            
+            # Best Season
+            elements.append(Paragraph("Best Season", self.subtitle_style))
+            best_season = self.tracker.get_best_season_breakdown(team.name)
+            if best_season:
+                elements.extend(self.create_season_breakdown_table(best_season))
+            
+            # Worst Season
+            elements.append(Paragraph("Worst Season", self.subtitle_style))
+            worst_season = self.tracker.get_worst_season_breakdown(team.name)
+            if worst_season:
+                elements.extend(self.create_season_breakdown_table(worst_season))
+            
+            elements.append(Spacer(1, 0.2*inch))
+        
+        return elements
+
+    def create_season_breakdown_table(self, season):
+        data = [
+            ["Record", season['record']],
+            ["Points For", f"{season['points_for']:.2f}"],
+            ["Points Against", f"{season['points_against']:.2f}"],
+            ["Playoff Result", season['playoff_result']]
+        ]
+        
+        table = Table(data)
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 10),
+            ('TOPPADDING', (0, 1), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        
+        elements = [table, Spacer(1, 0.1*inch)]
+        
+        # Add top performers table
+        player_data = [["Player", "Position", "Total Points", "Avg Points", "Modifier"]]
+        for player in season['player_performances'][:5]:  # Top 5 performers
+            player_data.append([
+                player['name'],
+                player['position'],
+                f"{player['total_points']:.2f}",
+                f"{player['avg_points']:.2f}",
+                f"{player['modifier']:.2f}"
+            ])
+        
+        player_table = Table(player_data)
+        player_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 10),
+            ('TOPPADDING', (0, 1), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        
+        elements.append(player_table)
         return elements
