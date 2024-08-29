@@ -128,6 +128,9 @@ class SimulationTracker:
         for player in team.players:
             avg_score, _, _, _, _ = self.get_player_average_score(player.sleeper_id)
             player_scores.append((player, avg_score))
+            
+        if n == "all":
+            return sorted(player_scores, key=lambda x: x[1], reverse=True)
         
         return sorted(player_scores, key=lambda x: x[1], reverse=True)[:n]
 

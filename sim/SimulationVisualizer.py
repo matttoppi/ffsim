@@ -18,6 +18,11 @@ from reportlab.graphics.charts.barcharts import VerticalBarChart
 from reportlab.graphics.charts.piecharts import Pie
 from reportlab.graphics.charts.legends import Legend
 
+import matplotlib.pyplot as plt
+import io
+from reportlab.lib.utils import ImageReader
+
+
 
 
 import io
@@ -408,10 +413,7 @@ class SimulationVisualizer:
     
     
     
-    
     def create_player_average_scores_table(self, team):
-        data = [["Player", "Pos", "Avg", "Min", "Max"]]
-        
         player_scores = []
         for player in team.players:
             avg_score, total_scores, total_weeks, min_score, max_score = self.tracker.get_player_average_score(player.sleeper_id)
@@ -420,36 +422,55 @@ class SimulationVisualizer:
                 player_scores.append((player, avg_score, weeks_per_season, min_score, max_score))
 
         sorted_players = sorted(player_scores, key=lambda x: x[1], reverse=True)
+        mid_point = len(sorted_players) // 2
 
-        for player, avg_score, weeks_per_season, min_score, max_score in sorted_players:
-            weeks_per_season = math.ceil(weeks_per_season)
-            data.append([
-                player.name,
-                player.position,
-                f"{avg_score:.2f}",
-                f"{min_score:.2f}",
-                f"{max_score:.2f}"
-            ])
+        def create_half_table(players):
+            data = [["Player", "Pos", "Avg", "Min", "Max"]]
+            for player, avg_score, weeks_per_season, min_score, max_score in players:
+                data.append([
+                    player.name,
+                    player.position,
+                    f"{avg_score:.2f}",
+                    f"{min_score:.2f}",
+                    f"{max_score:.2f}"
+                ])
+            return data
 
-        table = Table(data)
-        table.setStyle(TableStyle([
+        left_data = create_half_table(sorted_players[:mid_point])
+        right_data = create_half_table(sorted_players[mid_point:])
+
+        left_table = Table(left_data, colWidths=[1.5*inch, 0.5*inch, 0.7*inch, 0.7*inch, 0.7*inch])
+        right_table = Table(right_data, colWidths=[1.5*inch, 0.5*inch, 0.7*inch, 0.7*inch, 0.7*inch])
+
+        table_style = TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('FONTSIZE', (0, 0), (-1, 0), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 2),
             ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
             ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
             ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 1), (-1, -1), 9),
-            ('TOPPADDING', (0, 1), (-1, -1), 5),
-            ('BOTTOMPADDING', (0, 1), (-1, -1), 5),
+            ('FONTSIZE', (0, 1), (-1, -1), 7),
+            ('TOPPADDING', (0, 1), (-1, -1), 1),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 0.5),
             ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ])
+
+        left_table.setStyle(table_style)
+        right_table.setStyle(table_style)
+
+        # Create a table to hold both tables side by side with more space
+        combined_table = Table([[left_table, None, right_table]], colWidths=[4*inch, 0.2*inch, 4*inch])
+        combined_table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ]))
-        
-        return table
+
+        return combined_table
+
 
 
     def create_team_pdf(self, team):
@@ -469,21 +490,20 @@ class SimulationVisualizer:
         # Add team overview
         elements.append(Paragraph(f"{team.name} - Team Overview", self.title_style))
         elements.extend(self.create_team_overview(team))
-        elements.append(Spacer(1, 0.2 * inch))
 
-        # Add average player scores table
-        elements.append(Paragraph("Player Average Scores", self.subtitle_style))
-        avg_scores_table = self.create_player_average_scores_table(team)
-        elements.append(avg_scores_table)
-        elements.append(PageBreak())
+        # Add player average scores tables
+        avg_scores_tables = self.create_player_average_scores_table(team)
+        elements.append(avg_scores_tables)
 
-        # Add best season breakdown
-        elements.extend(self.create_season_breakdown(team, 'best'))
-        elements.append(PageBreak())
+        # Add top 15 performers chart
+        top_15_chart = self.create_top_performers_chart(team)
+        img_data = io.BytesIO()
+        top_15_chart.savefig(img_data, format='png', dpi=300, bbox_inches='tight')
+        img_data.seek(0)
+        top_15_img = Image(img_data, width=6*inch, height=2.6*inch)
+        elements.append(top_15_img)
 
-        # Add worst season breakdown
-        elements.extend(self.create_season_breakdown(team, 'worst'))
-
+        # Build the PDF
         doc.build(elements)
 
         # Create player distribution plots PDF
@@ -502,7 +522,33 @@ class SimulationVisualizer:
 
         print(f"Created combined PDF report for {team.name}: {final_pdf}")
 
+    
 
+    def create_top_performers_chart(self, team):
+        top_performers = self.tracker.get_top_performers(team.name, n = 15)
+        
+        # Create the plot
+        fig, ax = plt.subplots(figsize=(6, 2.6))  # Wide but not tall
+        
+        players = [player[0].name for player in top_performers]
+        scores = [player[1] for player in top_performers]
+        
+        # Create horizontal bar chart
+        bars = ax.barh(players, scores, color='lightgreen')
+        
+        # Customize the plot
+        ax.set_title("Top 15 Performers")
+        ax.set_xlabel("Average Score")
+        ax.tick_params(axis='y', labelsize=6)  # Adjust font size as needed
+        
+        # Add value labels to the end of each bar
+        for i, bar in enumerate(bars):
+            width = bar.get_width()
+            ax.text(width, bar.get_y() + bar.get_height()/2, f'{scores[i]:.2f}', 
+                    ha='left', va='center', fontsize=6)
+        
+        plt.tight_layout()
+        return fig
 
     def create_team_overview(self, team):
         elements = []
@@ -550,11 +596,11 @@ class SimulationVisualizer:
 
 
         # Create overall standings table
-        overall_data = [["Rank", "Team", "Avg Wins", "Avg Losses", "Points/Week"]]
+        overall_data = [["Rank", "Team", "Avg Wins", "Avg Losses", "Points/Week", "Projected Draft Position"]]
         for i, (team_name, avg_wins, avg_points) in enumerate(self.tracker.get_overall_standings(), 1):
             avg_points = avg_points * 17 / 18 if avg_points > 0 else 0
             avg_losses = 14 - avg_wins
-            overall_data.append([str(i), team_name, f"{avg_wins:.2f}", f"{avg_losses:.2f}", f"{avg_points:.2f}"])
+            overall_data.append([str(i), team_name, f"{avg_wins:.2f}", f"{avg_losses:.2f}", f"{avg_points:.2f}", f"{10 - i}"])
 
         # Create division standings tables
         division1_data = [["Rank", "Team", "Avg Wins","Avg Losses", "Points/Week"]]
@@ -596,7 +642,7 @@ class SimulationVisualizer:
         table_style = TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
             ('FONTSIZE', (0, 0), (-1, 0), 6),  # Reduced header font size
             ('BOTTOMPADDING', (0, 0), (-1, 0), 3),
