@@ -21,6 +21,7 @@ from reportlab.graphics.charts.legends import Legend
 import matplotlib.pyplot as plt
 import io
 from reportlab.lib.utils import ImageReader
+from tqdm import tqdm
 
 
 
@@ -53,7 +54,7 @@ class SimulationVisualizer:
         fontSize=8,  # Reduced from 10
         spaceAfter=1  # Reduced from 2
     )
-
+        
     def plot_scoring_distributions(self, tracker):
         positions = ['QB', 'RB', 'WR', 'TE']
 
@@ -71,11 +72,10 @@ class SimulationVisualizer:
             else:
                 print(f"No data for {position}")
 
-        # Create team-specific PDFs
-        for team in self.league.rosters:
+        # Create team-specific PDFs with tqdm progress bar
+        for team in tqdm(self.league.rosters, desc="Creating team PDFs"):
             self.create_team_pdf(team)
 
-        print("Scoring distribution plots and team PDF files saved.")
 
     def _get_top_players(self, position):
         players = [player for team in self.league.rosters for player in team.players if player.position == position]
@@ -92,10 +92,12 @@ class SimulationVisualizer:
 
         return sorted_players
 
+    from tqdm import tqdm
+
     def _plot_and_save_histograms(self, top_players, position):
         os.makedirs(f'plots/{position}', exist_ok=True)
 
-        for player, avg_score, scores_dict, best_season_avg in top_players:
+        for player, avg_score, scores_dict, best_season_avg in tqdm(top_players, desc=f"Plotting {position} histograms"):
             scores = [score for week_scores in scores_dict.values() for score in week_scores if score > 0]
 
             fig, ax = plt.subplots(figsize=(10, 6))
@@ -107,7 +109,6 @@ class SimulationVisualizer:
             plt.tight_layout()
             plt.savefig(f'plots/{position}/{player.name.replace(" ", "_")}.png')
             plt.close(fig)
-            print(f"Saved plot for {player.name} ({position})")
 
     def _plot_histogram(self, ax, scores, player_name, avg_score, rank, position, best_season_avg):
         ax.hist(scores, bins=50, edgecolor='black', color='skyblue')
@@ -528,7 +529,7 @@ class SimulationVisualizer:
         os.remove(main_pdf)
         os.remove(plots_pdf)
 
-        print(f"Created combined PDF report for {team.name}: {final_pdf}")
+        # print(f"Created combined PDF report for {team.name}: {final_pdf}")
     
 
     def create_top_performers_chart(self, team):

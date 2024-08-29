@@ -24,7 +24,7 @@ class SimulationMatchup:
         team.fill_starters(week)
         total_score = 0
         player_scores = {}
-        print(f"DEBUG: Simulating team {team.name} for week {week}")
+        # print(f"DEBUG: Simulating team {team.name} for week {week}")
         for player in team.get_active_starters(week):
             score = player.calculate_score(scoring_settings, week)
             total_score += score
@@ -67,7 +67,7 @@ class SimulationMatchup:
         tracker.record_team_week(self.home_team.name, self.week, self.home_score)
         tracker.record_team_week(self.away_team.name, self.week, self.away_score)
         
-        print(f"DEBUG: Matchup result - {self.home_team.name}: {self.home_score:.2f}, {self.away_team.name}: {self.away_score:.2f}")
+        # print(f"DEBUG: Matchup result - {self.home_team.name}: {self.home_score:.2f}, {self.away_team.name}: {self.away_score:.2f}")
 
     def record_player_scores(self, team, player_scores, tracker):
         for player_id, score in player_scores.items():

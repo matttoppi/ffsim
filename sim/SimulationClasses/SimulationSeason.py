@@ -107,7 +107,7 @@ class SimulationSeason:
         for matchup in matchups:
             matchup.simulate(self.league.scoring_settings, self.tracker)
 
-        print(f"DEBUG: Week {week} completed")
+        # print(f"DEBUG: Week {week} completed")
 
     def simulate_team_week(self, team, week):
         total_score = 0

@@ -139,7 +139,7 @@ class Player:
                 }
                 self.current_injury_games_missed = 1
                 self.total_games_missed_this_season += 1
-                print(f"DEBUG: {self.full_name} injured in week {week} for {injury_duration:.1f} weeks (partial week factor: {partial_week_factor:.2f})")
+                # print(f"DEBUG: {self.full_name} injured in week {week} for {injury_duration:.1f} weeks (partial week factor: {partial_week_factor:.2f})")
 
     def generate_injury_duration(self):
         severity_weights = self.calculate_severity_weights()
@@ -244,13 +244,14 @@ class Player:
         return False
     
     def calculate_special_team_score(self):
-        print(f"DEBUG: Calculating special team score for {self.full_name} ({self.position}) - Team: {self.team}")
+        # print(f"DEBUG: Calculating special team score for {self.f
+        # ull_name} ({self.position}) - Team: {self.team}")
         if self.position.lower() in ['k', 'dst', 'def']:
             score = self.special_team_scorer.get_player_score(self.full_name, self.position, self.team)
-            print(f"DEBUG: Special team score calculated: {score}")
+            # print(f"DEBUG: Special team score calculated: {score}")
             return score
         else:
-            print(f"DEBUG: Not a special teams player: {self.full_name}")
+            # print(f"DEBUG: Not a special teams player: {self.full_name}")
             return 0
     
     @staticmethod
@@ -266,15 +267,16 @@ class Player:
     
     def calculate_score(self, scoring_settings, week):
         if not self.pff_projections:
-            print(f"DEBUG: No PFF projections for {self.full_name}")
-            return 0
+            # print(f"DEBUG: No PFF projections for {self.full_name}")
+            # return a random number between 0 and 1
+            return random.uniform(0, 1)
 
         proj = self.pff_projections
         games = float(proj.games or 17)
         bye_week = int(proj.bye_week or 0)
 
         if week == bye_week:
-            print(f"DEBUG: {self.full_name} - Bye week")
+            # print(f"DEBUG: {self.full_name} - Bye week")
             return 0
 
         # Calculate per-game averages
@@ -343,16 +345,16 @@ class Player:
             excess = score - max_score
             score = max_score + (excess * 0.1)  # Allow scores to exceed max_score, but at a much slower rate
 
-        # Debug output
-        if self.position == 'QB':
-            print(f"DEBUG: {self.full_name} - Week {week} - Passing: {pass_yds:.2f} yds, {pass_td} TD, {pass_int} INT - Score: {score:.2f} (Modifier: {self.season_modifier:.2f})")
-        elif self.position == 'RB':
-            print(f"DEBUG: {self.full_name} - Week {week} - Rushing: {rush_yds:.2f} yds, {rush_td} TD, Receiving: {receptions} rec, {rec_yds:.2f} yds, {rec_td} TD - Score: {score:.2f} (Modifier: {self.season_modifier:.2f})")
-        elif self.position in ['WR', 'TE']:
-            print(f"DEBUG: {self.full_name} - Week {week} - Receiving: {receptions} rec, {rec_yds:.2f} yds, {rec_td} TD - Score: {score:.2f} (Modifier: {self.season_modifier:.2f})")
+        # # Debug output
+        # if self.position == 'QB':
+        #     print(f"DEBUG: {self.full_name} - Week {week} - Passing: {pass_yds:.2f} yds, {pass_td} TD, {pass_int} INT - Score: {score:.2f} (Modifier: {self.season_modifier:.2f})")
+        # elif self.position == 'RB':
+        #     print(f"DEBUG: {self.full_name} - Week {week} - Rushing: {rush_yds:.2f} yds, {rush_td} TD, Receiving: {receptions} rec, {rec_yds:.2f} yds, {rec_td} TD - Score: {score:.2f} (Modifier: {self.season_modifier:.2f})")
+        # elif self.position in ['WR', 'TE']:
+        #     print(f"DEBUG: {self.full_name} - Week {week} - Receiving: {receptions} rec, {rec_yds:.2f} yds, {rec_td} TD - Score: {score:.2f} (Modifier: {self.season_modifier:.2f})")
 
-        if partial_week_factor < 1:
-            print(f"DEBUG: {self.full_name} - Partial week factor: {partial_week_factor:.2f} - Adjusted Score: {score:.2f} (original: {score / partial_week_factor:.2f})")
+        # if partial_week_factor < 1:
+        #     print(f"DEBUG: {self.full_name} - Partial week factor: {partial_week_factor:.2f} - Adjusted Score: {score:.2f} (original: {score / partial_week_factor:.2f})")
 
 
 
@@ -427,7 +429,7 @@ class Player:
         if self.age is not None and self.age < 25 and self.depth_chart_order in [2, 3]:
             additional_modifier = random.uniform(0, 0.5)
             modifier += additional_modifier
-            print(f"DEBUG: Young player boost! {self.full_name} - Additional modifier: +{additional_modifier:.2f}")
+            # print(f"DEBUG: Young player boost! {self.full_name} - Additional modifier: +{additional_modifier:.2f}")
 
         # Wider distribution for all players
         distribution_factor = random.normalvariate(1, 0.3)  # Mean of 1, standard deviation of 0.3
@@ -448,18 +450,18 @@ class Player:
         # 0.5% chance of season ending injury
         if random.random() < 0.005:
             self.season_modifier = 0
-            print(f"DEBUG: SEASON ENDING INJURY! {self.full_name}")
+            # print(f"DEBUG: SEASON ENDING INJURY! {self.full_name}")
             return
 
         # Chance of being a significant bust (modifier between 0.5 and 0.7)
         if random.random() < 0.02:
             modifier = random.uniform(0.5, 0.7)
-            print(f"DEBUG: SIGNIFICANT BUST! {self.full_name}")
+            # print(f"DEBUG: SIGNIFICANT BUST! {self.full_name}")
 
         # Chance of being a significant boom (modifier between 1.8 and boom_magnitude)
         if random.random() < boom_chance:
             modifier = random.uniform(1.8, boom_magnitude)
-            print(f"DEBUG: SIGNIFICANT BOOM! {self.full_name}")
+            # print(f"DEBUG: SIGNIFICANT BOOM! {self.full_name}")
 
         # Cap the modifier at the calculated boom_magnitude
         modifier = min(modifier, boom_magnitude)
@@ -475,14 +477,14 @@ class Player:
         # Store the modifier as an attribute of the player
         self.season_modifier = modifier
 
-        if modifier > 1.3 and modifier < 1.8:
-            print(f"DEBUG: BOOM! {self.full_name} - Modifier: {modifier:.2f}")
-        elif modifier >= 1.8:
-            print(f"DEBUG: MASSIVE BOOM! {self.full_name} - Modifier: {modifier:.2f}")
-        elif modifier < 0.7:
-            print(f"DEBUG: BUST! {self.full_name} - Modifier: {modifier:.2f}")
+        # if modifier > 1.3 and modifier < 1.8:
+        #     print(f"DEBUG: BOOM! {self.full_name} - Modifier: {modifier:.2f}")
+        # elif modifier >= 1.8:
+        #     print(f"DEBUG: MASSIVE BOOM! {self.full_name} - Modifier: {modifier:.2f}")
+        # elif modifier < 0.7:
+        #     print(f"DEBUG: BUST! {self.full_name} - Modifier: {modifier:.2f}")
 
-        print(f"DEBUG: Final modifier for {self.full_name}: {modifier:.2f}")
+        # print(f"DEBUG: Final modifier for {self.full_name}: {modifier:.2f}")
         
 
     def get_average_weekly_score(self):
