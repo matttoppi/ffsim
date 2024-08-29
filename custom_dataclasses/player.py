@@ -219,10 +219,6 @@ class Player:
         for key, value in self.to_dict().items():
             print(f"{key}: {value}")
 
-    def print_player_short(self):
-        has_pff = self.pff_projections is not None and hasattr(self.pff_projections, 'fantasy_points')
-        print(f"{self.full_name} - {self.position.upper()} - {self.team} - 1QB: {self.value_1qb} - Redraft: {self.redraft_value} - Has PFF: {has_pff}")
-        
 
     def matches_name(self, pff_name):
         def clean_name(name):
@@ -320,7 +316,7 @@ class Player:
 
         # Generate touchdowns using adjusted Poisson distribution
         pass_td = max(0, np.random.poisson(adj_avg_pass_td))
-        rush_td = max(0, np.random.poisson(adj_avg_rush_td))
+        rush_td = max(0, np.random.poisson(avg_rush_td))
         rec_td = max(0, np.random.poisson(adj_avg_rec_td))
 
         # Interceptions (using Poisson distribution, adjusted for partial week)

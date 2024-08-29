@@ -51,21 +51,23 @@ class PlayerLoader:
             print(f"Loading players from file: {self.players_file}")
             with open(self.players_file, 'r') as file:
                 player_data = json.load(file)
-                
             
             self.enriched_players = []
             players_updated = 0
             for data in player_data:
-                # Update position if necessary
                 sleeper_id = str(data.get('sleeper_id'))
                 if sleeper_id in self.sleeper_players:
                     sleeper_player = self.sleeper_players[sleeper_id]
                     current_position = data.get('position')
-                    if isinstance(current_position, int) or current_position == '0' or current_position == 'UNKNOWN':
+                    if not isinstance(current_position, str) or current_position in ['0', 'UNKNOWN']:
                         new_position = sleeper_player.get('position')
                         if new_position:
                             data['position'] = new_position
                             players_updated += 1
+                
+                # Ensure position is always a string
+                if 'position' in data:
+                    data['position'] = str(data['position'])
                 
                 pff_data = data.get('pff_projections', {})
                 data['pff_projections'] = PFFProjections(pff_data) if pff_data else None
@@ -80,13 +82,52 @@ class PlayerLoader:
             if players_updated > 0:
                 self.save_players_to_file()
             
-            # Rest of your method (update with Sleeper data, load PFF data, etc.)
             self.update_with_sleeper_data()
             self.load_and_update_pff_data()
         else:
             print("Player data file not found or outdated. Fetching new data...")
             self.load_players()
             self.save_players_to_file()
+
+    def load_players(self):
+        print("Loading player data...")
+        fantasy_calc_df = FantasyCalcLoader.get_and_clean_data()
+        sleeper_df = SleeperLoader.get_and_clean_data()
+        self.load_pff_projections()
+        injury_df = InjuryDataLoader.get_and_clean_data()
+
+        for df in [fantasy_calc_df, sleeper_df, self.pff_projections, injury_df]:
+            if 'full_name' in df.columns:
+                df['full_name'] = df['full_name'].apply(Player.clean_name)
+            if 'first_name' in df.columns:
+                df['first_name'] = df['first_name'].apply(Player.clean_name)
+            if 'last_name' in df.columns:
+                df['last_name'] = df['last_name'].apply(Player.clean_name)
+
+        final_df = DataMerger.merge_data(fantasy_calc_df, sleeper_df, self.pff_projections, injury_df)
+
+        self.load_sleeper_players()
+
+        self.enriched_players = []
+        for _, row in final_df.iterrows():
+            player_data = row.to_dict()
+            
+            # Ensure position is a valid string before creating Player object
+            if 'position' not in player_data or not isinstance(player_data['position'], str) or player_data['position'] in ['0', 'UNKNOWN']:
+                player_data['position'] = 'UNKNOWN'
+            
+            player = Player(player_data)
+            player.normalize_injury_probability()
+            player.initialize_st_scorer(self.special_team_scorer)
+            self.enriched_players.append(player)
+
+            if player.full_name.lower() == 'lamar jackson':
+                print(f"DEBUG: Lamar Jackson data after creation:")
+                print(player.to_dict())
+                print(f"PFF Projections: {player.pff_projections}")
+
+        print(f"Total players loaded: {len(self.enriched_players)}")
+        self.search_name_to_player = {Player.clean_name(p.full_name): p for p in self.enriched_players}
 
     def save_players_to_file(self):
         os.makedirs(os.path.dirname(self.players_file), exist_ok=True)
@@ -102,39 +143,10 @@ class PlayerLoader:
         pff_loader = PFFLoader()
         self.pff_projections = pff_loader.get_and_clean_data()
         print(f"Loaded PFF projections: {len(self.pff_projections)} rows")  # Add this line for debugging
+        print(self.pff_projections.columns)
+        
+        
 
-    def load_players(self):
-        print("Loading player data...")
-        fantasy_calc_df = FantasyCalcLoader.get_and_clean_data()
-        sleeper_df = SleeperLoader.get_and_clean_data()
-        self.load_pff_projections()
-        injury_df = InjuryDataLoader.get_and_clean_data()
-
-        # Clean names in all dataframes
-        for df in [fantasy_calc_df, sleeper_df, self.pff_projections, injury_df]:
-            if 'full_name' in df.columns:
-                df['full_name'] = df['full_name'].apply(Player.clean_name)
-            if 'first_name' in df.columns:
-                df['first_name'] = df['first_name'].apply(Player.clean_name)
-            if 'last_name' in df.columns:
-                df['last_name'] = df['last_name'].apply(Player.clean_name)
-
-        final_df = DataMerger.merge_data(fantasy_calc_df, sleeper_df, self.pff_projections, injury_df)
-
-        self.load_sleeper_players()
-
-        for _, row in final_df.iterrows():
-            player_data = row.to_dict()
-            player = Player(player_data)
-            player.normalize_injury_probability()  # Add this line
-            self.enriched_players.append(player)
-
-            if player.full_name.lower() == 'lamar jackson':
-                print(f"DEBUG: Lamar Jackson data after creation:")
-                print(player.to_dict())
-                print(f"PFF Projections: {player.pff_projections}")
-
-        print(f"Total players loaded: {len(self.enriched_players)}")
 
     def load_player(self, sleeper_id):
         self.ensure_players_loaded()

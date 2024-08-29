@@ -16,8 +16,6 @@ def main():
     # Load the league data
     league = league_loader.load_league()
     
-    # Print league info
-    league.print_rosters()
     
     # Run Monte Carlo Simulation
     input("Press Enter to run Monte Carlo Simulation")

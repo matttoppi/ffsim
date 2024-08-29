@@ -471,8 +471,6 @@ class SimulationVisualizer:
 
         return combined_table
 
-
-
     def create_team_pdf(self, team):
         base_filename = f'plots/{team.name.replace(" ", "_")}'
         main_pdf = f'{base_filename}_main.pdf'
@@ -490,11 +488,12 @@ class SimulationVisualizer:
         # Add team overview
         elements.append(Paragraph(f"{team.name} - Team Overview", self.title_style))
         elements.extend(self.create_team_overview(team))
-
+        
         # Add player average scores tables
         avg_scores_tables = self.create_player_average_scores_table(team)
         elements.append(avg_scores_tables)
-
+        elements.append(PageBreak())
+        
         # Add top 15 performers chart
         top_15_chart = self.create_top_performers_chart(team)
         img_data = io.BytesIO()
@@ -502,6 +501,15 @@ class SimulationVisualizer:
         img_data.seek(0)
         top_15_img = Image(img_data, width=6*inch, height=2.6*inch)
         elements.append(top_15_img)
+        
+        # Add best season breakdown
+        elements.extend(self.create_season_breakdown(team, 'best'))
+        elements.append(PageBreak())
+
+        # Add worst season breakdown
+        elements.extend(self.create_season_breakdown(team, 'worst'))
+        elements.append(PageBreak())
+
 
         # Build the PDF
         doc.build(elements)
@@ -521,7 +529,6 @@ class SimulationVisualizer:
         os.remove(plots_pdf)
 
         print(f"Created combined PDF report for {team.name}: {final_pdf}")
-
     
 
     def create_top_performers_chart(self, team):
