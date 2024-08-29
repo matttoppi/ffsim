@@ -11,7 +11,7 @@ class FantasyCalcLoader:
                 {
                     "sleeper_id": player_info['player'].get('sleeperId'),
                     "name": player_info['player'].get('name'),
-                    "value_1qb": player_info.get('value'),
+                    "value_": player_info.get('value'),
                     "redraft_value": player_info.get('redraftValue'),
                     "position": player_info['player'].get('position'),
                     "team": player_info['player'].get('maybeTeam'),
