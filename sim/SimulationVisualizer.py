@@ -599,9 +599,6 @@ class SimulationVisualizer:
         elements.append(Paragraph(f"Triton Dynasty - Season Summary", self.title_style))
         elements.append(Spacer(1, 0.05 * inch))  # Reduced space after title
 
-        
-
-
         # Create overall standings table
         overall_data = [["Rank", "Team", "Avg Wins", "Avg Losses", "Points/Week", "Projected Draft Position"]]
         for i, (team_name, avg_wins, avg_points) in enumerate(self.tracker.get_overall_standings(), 1):

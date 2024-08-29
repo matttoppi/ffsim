@@ -121,10 +121,7 @@ class PlayerLoader:
             player.initialize_st_scorer(self.special_team_scorer)
             self.enriched_players.append(player)
 
-            if player.full_name.lower() == 'lamar jackson':
-                print(f"DEBUG: Lamar Jackson data after creation:")
-                print(player.to_dict())
-                print(f"PFF Projections: {player.pff_projections}")
+    
 
         print(f"Total players loaded: {len(self.enriched_players)}")
         self.search_name_to_player = {Player.clean_name(p.full_name): p for p in self.enriched_players}
@@ -142,8 +139,7 @@ class PlayerLoader:
     def load_pff_projections(self):
         pff_loader = PFFLoader()
         self.pff_projections = pff_loader.get_and_clean_data()
-        print(f"Loaded PFF projections: {len(self.pff_projections)} rows")  # Add this line for debugging
-        print(self.pff_projections.columns)
+        # print(self.pff_projections.columns)
         
         
 
@@ -155,7 +151,7 @@ class PlayerLoader:
             if str(player.sleeper_id) == str(sleeper_id):
                 return player
         
-        print(f"Player not found with sleeper_id: {sleeper_id}")
+        # print(f"Player not found with sleeper_id: {sleeper_id}")
         return None
     
     
@@ -184,23 +180,24 @@ class PlayerLoader:
             if not pff_row.empty:
                 pff_data = pff_row.iloc[0].to_dict()
                 player.update_pff_projections(pff_data)
-                print(f"DEBUG: PFF data assigned to {player.full_name} ({player.position})")
+                # print(f"DEBUG: PFF data assigned to {player.full_name} ({player.position})")
             else:
-                print(f"DEBUG: No PFF data found for {player.full_name} ({player.position})")
+                # print(f"DEBUG: No PFF data found for {player.full_name} ({player.position})")
+                pass
             
             # Update injury data
             injury_key = Player.clean_name(player.full_name)
             if injury_key in injury_df.index:
                 injury_data = injury_df.loc[injury_key].to_dict()
                 player.update_injury_data(injury_data)
-                print(f"DEBUG: Injury data assigned to {player.full_name}")
+                # print(f"DEBUG: Injury data assigned to {player.full_name}")
             else:
-                print(f"DEBUG: No injury data found for {player.full_name}")
+                # print(f"DEBUG: No injury data found for {player.full_name}")
+                pass
         
         self.save_players_to_file()
                 
     def update_with_sleeper_data(self):
-        print("Updating players with Sleeper data...")
         sleeper_loader = SleeperLoader()
         sleeper_df = sleeper_loader.get_and_clean_data()
         

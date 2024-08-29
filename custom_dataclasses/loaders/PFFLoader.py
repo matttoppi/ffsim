@@ -19,7 +19,6 @@ class PFFLoader:
         
         # Check which desired columns are actually present
         available_columns = [col for col in desired_columns if col in df.columns]
-        print("Columns found:", available_columns)
         
         if not available_columns:
             raise ValueError("None of the desired columns are present in the dataframe")

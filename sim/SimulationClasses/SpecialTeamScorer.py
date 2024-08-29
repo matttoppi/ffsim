@@ -31,7 +31,6 @@ class SpecialTeamScorer:
                     'full_name': full_name,
                     'fantasy_points': float(row['fantasyPoints'])
                 }
-        print(f"DST Data: {data}")  # Debug print
         return data
 
     # def get_player_score(self, player_name, position, team=None):

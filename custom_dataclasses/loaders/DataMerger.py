@@ -58,11 +58,6 @@ class DataMerger:
         final_df = DataMerger.clean_merged_data(final_df)
         
         lamar_row = final_df[(final_df['full_name'].str.lower() == 'lamar jackson') & (final_df['team'] == 'BAL')]
-        if not lamar_row.empty:
-            print(f"DEBUG: Lamar Jackson (BAL) data after merge:")
-            print(lamar_row.iloc[0].to_dict())
-        else:
-            print("DEBUG: Lamar Jackson (BAL) not found in merged data")
         
         no_pff = final_df[final_df['fantasyPoints'].isna()]
         print("Players without PFF projections:")

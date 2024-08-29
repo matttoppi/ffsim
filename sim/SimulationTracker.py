@@ -84,6 +84,8 @@ class SimulationTracker:
                 })
         
         breakdown['player_performances'].sort(key=lambda x: x['total_points'], reverse=True)
+        breakdown['player_performances'] = [player for player in breakdown['player_performances'] if player['games_played'] > 0]
+
         
         return breakdown
     
@@ -115,6 +117,9 @@ class SimulationTracker:
                 })
 
         breakdown['player_performances'].sort(key=lambda x: x['total_points'], reverse=True)
+        
+        # remove any players with 0 games played
+        breakdown['player_performances'] = [player for player in breakdown['player_performances'] if player['games_played'] > 0]
 
         return breakdown
     

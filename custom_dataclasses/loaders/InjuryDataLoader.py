@@ -24,8 +24,8 @@ class InjuryDataLoader:
             for col in ['probability_of_injury_in_the_season', 'probability_of_injury_per_game']:
                 injury_df[col] = injury_df[col].apply(InjuryDataLoader.convert_to_decimal)
             
-            print("DEBUG: First few rows of processed injury data:")
-            print(injury_df[['player', 'probability_of_injury_in_the_season', 'probability_of_injury_per_game']].head())
+            # print("DEBUG: First few rows of processed injury data:")
+            # print(injury_df[['player', 'probability_of_injury_in_the_season', 'probability_of_injury_per_game']].head())
             
             return injury_df
         except FileNotFoundError:
