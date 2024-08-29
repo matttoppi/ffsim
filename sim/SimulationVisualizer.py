@@ -41,6 +41,13 @@ class SimulationVisualizer:
             fontSize=14,
             spaceAfter=6
         )
+        
+        self.subtitle_style = ParagraphStyle(
+        'Subtitle',
+        parent=self.styles['Heading3'],
+        fontSize=10,
+        spaceAfter=3
+    )
 
     def plot_scoring_distributions(self, tracker):
         positions = ['QB', 'RB', 'WR', 'TE']
@@ -455,6 +462,10 @@ class SimulationVisualizer:
         doc = SimpleDocTemplate(main_pdf, pagesize=letter)
         elements = []
 
+        # Add summary page
+        elements.extend(self.create_summary_page(team))
+        elements.append(PageBreak())
+
         # Add team overview
         elements.append(Paragraph(f"{team.name} - Team Overview", self.title_style))
         elements.extend(self.create_team_overview(team))
@@ -526,4 +537,89 @@ class SimulationVisualizer:
             elements.append(Spacer(1, 0.2 * inch))
 
         return elements
+    
+    
+    def create_summary_page(self, team):
+        elements = []
+        
+        # Add title
+        elements.append(Paragraph(f"Triton Dynasty - Season Summary", self.title_style))
+        elements.append(Spacer(1, 0.1 * inch))
 
+        # Create overall standings table
+        overall_data = [["Rank", "Team", "Avg Wins", "Points/Week"]]
+        for i, (team_name, avg_wins, avg_points) in enumerate(self.tracker.get_overall_standings(), 1):
+            avg_points = avg_points * 17 / 18 if avg_points > 0 else 0
+            overall_data.append([str(i), team_name, f"{avg_wins:.2f}", f"{avg_points:.2f}"])
+
+        # Create division standings tables
+        division1_data = [["Rank", "Team", "Avg Wins", "Points/Week"]]
+        division2_data = [["Rank", "Team", "Avg Wins", "Points/Week"]]
+        
+        for i, (team_name, avg_wins, avg_points) in enumerate(self.tracker.get_division_standings(1), 1):
+            avg_points = avg_points * 17 / 18 if avg_points > 0 else 0
+            division1_data.append([str(i), team_name, f"{avg_wins:.2f}", f"{avg_points:.2f}"])
+        
+        for i, (team_name, avg_wins, avg_points) in enumerate(self.tracker.get_division_standings(2), 1):
+            avg_points = avg_points * 17 / 18 if avg_points > 0 else 0
+            division2_data.append([str(i), team_name, f"{avg_wins:.2f}", f"{avg_points:.2f}"])
+
+        # Create playoff statistics table
+        playoff_data = [["Team", "Playoff App.", "Division Wins", "Championships"]]
+        for team in self.league.rosters:
+            appearances = self.tracker.playoff_appearances[team.name]
+            div_wins = self.tracker.division_wins[team.name]
+            champs = self.tracker.championships[team.name]
+            appearance_rate = appearances / self.tracker.num_simulations * 100
+            div_win_rate = div_wins / self.tracker.num_simulations * 100
+            champ_rate = champs / self.tracker.num_simulations * 100
+            playoff_data.append([
+                team.name,
+                f"{appearances} ({appearance_rate:.1f}%)",
+                f"{div_wins} ({div_win_rate:.1f}%)",
+                f"{champs} ({champ_rate:.1f}%)"
+            ])
+
+        # Create tables
+        overall_table = Table(overall_data, colWidths=[0.5*inch, 2*inch, 1*inch, 1.2*inch])
+        division1_table = Table(division1_data, colWidths=[0.5*inch, 2*inch, 1*inch, 1.2*inch])
+        division2_table = Table(division2_data, colWidths=[0.5*inch, 2*inch, 1*inch, 1.2*inch])
+        playoff_table = Table(playoff_data, colWidths=[1.7*inch, 1.5*inch, 1.5*inch, 1.5*inch])
+
+        # Apply styles
+        table_style = TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 5),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 7),
+            ('TOPPADDING', (0, 1), (-1, -1), 1),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 1),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ])
+
+        overall_table.setStyle(table_style)
+        division1_table.setStyle(table_style)
+        division2_table.setStyle(table_style)
+        playoff_table.setStyle(table_style)
+
+        # Add tables to elements
+        elements.append(Paragraph("Overall Standings", self.subtitle_style))
+        elements.append(overall_table)
+        elements.append(Spacer(1, 0.1 * inch))
+        elements.append(Paragraph("Division 1 Standings", self.subtitle_style))
+        elements.append(division1_table)
+        elements.append(Spacer(1, 0.1 * inch))
+        elements.append(Paragraph("Division 2 Standings", self.subtitle_style))
+        elements.append(division2_table)
+        elements.append(Spacer(1, 0.1 * inch))
+        elements.append(Paragraph("Playoff Statistics", self.subtitle_style))
+        elements.append(playoff_table)
+
+        return elements
