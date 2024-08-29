@@ -344,6 +344,8 @@ class SimulationVisualizer:
         <b>Record:</b> {breakdown['record']}  |  
         <b>Points For:</b> {breakdown['points_for']:.2f}  |  
         <b>Points Against:</b> {breakdown['points_against']:.2f}
+        <br/>
+        <b>Points per Week:</b> {breakdown['points_for'] / 17:.2f}
         <br/><br/>
         <b>Playoff Result:</b> {breakdown['playoff_result']}
         """

@@ -443,8 +443,10 @@ class Player:
         # Ensure the modifier doesn't go below 0.5 for significant busts
         modifier = max(0.5, modifier)
 
-        # Cap the modifier at 2.5 for extreme booms
-        modifier = min(modifier, 2.5)
+        # Adjust boom potential based on redraft value
+        max_redraft_value = 2000  # Adjust this value as needed
+        boom_chance = max(0.02, 0.1 - (self.redraft_value / max_redraft_value * 0.08))
+        boom_magnitude = max(2.5, 4.0 - (self.redraft_value / max_redraft_value * 1.5))
 
         # Override probability of injury
         # 0.5% chance of season ending injury
@@ -453,15 +455,18 @@ class Player:
             print(f"DEBUG: SEASON ENDING INJURY! {self.full_name}")
             return
 
-        # 2% chance of being a significant bust (modifier between 0.5 and 0.7)
+        # Chance of being a significant bust (modifier between 0.5 and 0.7)
         if random.random() < 0.02:
             modifier = random.uniform(0.5, 0.7)
             print(f"DEBUG: SIGNIFICANT BUST! {self.full_name}")
 
-        # 2% chance of being a significant boom (modifier between 1.8 and 2.5)
-        if random.random() < 0.02:
-            modifier = random.uniform(1.8, 2.5)
+        # Chance of being a significant boom (modifier between 1.8 and boom_magnitude)
+        if random.random() < boom_chance:
+            modifier = random.uniform(1.8, boom_magnitude)
             print(f"DEBUG: SIGNIFICANT BOOM! {self.full_name}")
+
+        # Cap the modifier at the calculated boom_magnitude
+        modifier = min(modifier, boom_magnitude)
 
         # Store the modifier as an attribute of the player
         self.season_modifier = modifier
@@ -473,13 +478,8 @@ class Player:
         elif modifier < 0.7:
             print(f"DEBUG: BUST! {self.full_name} - Modifier: {modifier:.2f}")
 
-        self.season_modifier = modifier
+        print(f"DEBUG: Final modifier for {self.full_name}: {modifier:.2f}")
         
-        
-        
-        
-
-
 
     def get_average_weekly_score(self):
         """Get the current season's average weekly score."""
