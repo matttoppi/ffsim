@@ -444,7 +444,7 @@ class Player:
         modifier = max(0.5, modifier)
 
         # Adjust boom potential based on redraft value
-        max_redraft_value = 2000  # Adjust this value as needed
+        max_redraft_value = 1600  # Adjust this value as needed
         boom_chance = max(0.02, 0.1 - (self.redraft_value / max_redraft_value * 0.08))
         boom_magnitude = max(2.5, 4.0 - (self.redraft_value / max_redraft_value * 1.5))
 
@@ -467,6 +467,14 @@ class Player:
 
         # Cap the modifier at the calculated boom_magnitude
         modifier = min(modifier, boom_magnitude)
+
+        # QB-specific modifier adjustment
+        if self.position == 'QB' and modifier > 1.5:
+            modifier = 1.5 + (modifier - 1.5) * 0.1  # Slow down by 90% after 1.5
+            
+            
+        if self.redraft_value > 2000 and modifier > 2:
+            modifier = 2 + (modifier - 2) * 0.1  # Slow down by 90% after 2
 
         # Store the modifier as an attribute of the player
         self.season_modifier = modifier

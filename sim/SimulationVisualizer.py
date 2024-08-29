@@ -1,3 +1,4 @@
+import math
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -157,42 +158,7 @@ class SimulationVisualizer:
         ]))
         return table    
     
-    
-    
-    def create_team_pdf(self, team):
-        base_filename = f'plots/{team.name.replace(" ", "_")}'
-        main_pdf = f'{base_filename}_main.pdf'
-        plots_pdf = f'{base_filename}_plots.pdf'
-        final_pdf = f'{base_filename}_team_report.pdf'
 
-        # Create main content PDF
-        doc = SimpleDocTemplate(main_pdf, pagesize=letter)
-        elements = []
-
-        # Add best season breakdown
-        elements.extend(self.create_season_breakdown(team, 'best'))
-        elements.append(PageBreak())
-
-        # Add worst season breakdown
-        elements.extend(self.create_season_breakdown(team, 'worst'))
-
-        doc.build(elements)
-
-        # Create player distribution plots PDF
-        self._create_player_distributions(team, plots_pdf)
-
-        # Merge PDFs
-        merger = PdfMerger()
-        merger.append(main_pdf)
-        merger.append(plots_pdf)
-        merger.write(final_pdf)
-        merger.close()
-
-        # Clean up temporary files
-        os.remove(main_pdf)
-        os.remove(plots_pdf)
-
-        print(f"Created combined PDF report for {team.name}: {final_pdf}")
 
     def _create_player_distributions(self, team, filename):
         players = team.players
@@ -239,8 +205,8 @@ class SimulationVisualizer:
 
         if player.position != 'DEF':
             best_season_avg = self.tracker.get_player_best_season_average(player.sleeper_id)
-            ax.axvline(best_season_avg, color='b', linestyle='dashed', linewidth=1, label=f'Best: {best_season_avg:.1f}')
-            title = f"{player.name} ({player.position})\nAvg: {mean_score:.2f} | Best: {best_season_avg:.2f}"
+            ax.axvline(best_season_avg, color='b', linestyle='dashed', linewidth=1, label=f'Best Season: {best_season_avg:.1f}')
+            title = f"{player.name} ({player.position})\nAvg: {mean_score:.2f} | Best Season: {best_season_avg:.2f}"
         else:
             title = f"{player.name} ({player.position})\nAvg: {mean_score:.2f}"
 
@@ -432,3 +398,132 @@ class SimulationVisualizer:
         plt.close(fig)
 
         return Image(img_buffer, width=3*inch, height=2.25*inch)
+    
+    
+    
+    
+    def create_player_average_scores_table(self, team):
+        data = [["Player", "Pos", "Avg", "Min", "Max"]]
+        
+        player_scores = []
+        for player in team.players:
+            avg_score, total_scores, total_weeks, min_score, max_score = self.tracker.get_player_average_score(player.sleeper_id)
+            if total_weeks > 0:
+                weeks_per_season = total_weeks / self.tracker.num_simulations
+                player_scores.append((player, avg_score, weeks_per_season, min_score, max_score))
+
+        sorted_players = sorted(player_scores, key=lambda x: x[1], reverse=True)
+
+        for player, avg_score, weeks_per_season, min_score, max_score in sorted_players:
+            weeks_per_season = math.ceil(weeks_per_season)
+            data.append([
+                player.name,
+                player.position,
+                f"{avg_score:.2f}",
+                f"{min_score:.2f}",
+                f"{max_score:.2f}"
+            ])
+
+        table = Table(data)
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 10),
+            ('TOPPADDING', (0, 1), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        
+        return table
+
+
+    def create_team_pdf(self, team):
+        base_filename = f'plots/{team.name.replace(" ", "_")}'
+        main_pdf = f'{base_filename}_main.pdf'
+        plots_pdf = f'{base_filename}_plots.pdf'
+        final_pdf = f'{base_filename}_team_report.pdf'
+
+        # Create main content PDF
+        doc = SimpleDocTemplate(main_pdf, pagesize=letter)
+        elements = []
+
+        # Add team overview
+        elements.append(Paragraph(f"{team.name} - Team Overview", self.title_style))
+        elements.extend(self.create_team_overview(team))
+        elements.append(Spacer(1, 0.2 * inch))
+
+        # Add average player scores table
+        elements.append(Paragraph("Player Average Scores", self.subtitle_style))
+        avg_scores_table = self.create_player_average_scores_table(team)
+        elements.append(avg_scores_table)
+        elements.append(PageBreak())
+
+        # Add best season breakdown
+        elements.extend(self.create_season_breakdown(team, 'best'))
+        elements.append(PageBreak())
+
+        # Add worst season breakdown
+        elements.extend(self.create_season_breakdown(team, 'worst'))
+
+        doc.build(elements)
+
+        # Create player distribution plots PDF
+        self._create_player_distributions(team, plots_pdf)
+
+        # Merge PDFs
+        merger = PdfMerger()
+        merger.append(main_pdf)
+        merger.append(plots_pdf)
+        merger.write(final_pdf)
+        merger.close()
+
+        # Clean up temporary files
+        os.remove(main_pdf)
+        os.remove(plots_pdf)
+
+        print(f"Created combined PDF report for {team.name}: {final_pdf}")
+
+
+
+    def create_team_overview(self, team):
+        elements = []
+        
+        # Add team stats
+        team_stats = self.tracker.get_team_stats(team.name)
+        if team_stats:
+            stats_data = [
+                ["", "Value"],
+                ["Average Wins", f"{team_stats['avg_wins']:.2f}"],
+                ["Average Points", f"{team_stats['avg_points']:.2f}"],
+            ]
+
+            stats_table = Table(stats_data)
+            stats_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 12),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 1), (-1, -1), 10),
+                ('TOPPADDING', (0, 1), (-1, -1), 6),
+                ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black)
+            ]))
+            elements.append(stats_table)
+            elements.append(Spacer(1, 0.2 * inch))
+
+        return elements
+
