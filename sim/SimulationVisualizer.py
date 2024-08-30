@@ -344,9 +344,12 @@ class SimulationVisualizer:
         elements.append(chart_table)
         elements.append(Spacer(1, 0.2 * inch))
 
+        # Filter out players with position "UNKNOWN"
+        filtered_performances = [player for player in breakdown['player_performances'] if player['position'] != "UNKNOWN"]
+
         # Create player performance table
         elements.append(Paragraph("Player Performances", self.subtitle_style))
-        player_table = self.create_player_table(breakdown['player_performances'])
+        player_table = self.create_player_table(filtered_performances)
         elements.append(player_table)
 
         # Add a note about the season modifier
