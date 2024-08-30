@@ -268,8 +268,8 @@ class Player:
     def calculate_score(self, scoring_settings, week):
         if not self.pff_projections:
             # print(f"DEBUG: No PFF projections for {self.full_name}")
-            # return a random number between 0 and 1
-            return random.uniform(0, 1)
+            # returns a random number between 0 and 1 with a mean of 0.5 and a standard deviation of 0.5
+            return random.lognormvariate(0.5, 0.5)
 
         proj = self.pff_projections
         games = float(proj.games or 17)
@@ -406,13 +406,6 @@ class Player:
         # Base modifier starts at 1 (no modification)
         modifier = 1.0
 
-        # Age modifier
-        if self.age is not None:
-            if self.age < 25:
-                modifier += random.uniform(0, 0.2)
-            elif self.age > 28:
-                modifier -= random.uniform(0, 0.1)
-
         # Injury proneness modifier
         if hasattr(self, 'injury_probability_game') and self.injury_probability_game is not None:
             if self.injury_probability_game > 0.1:
@@ -424,58 +417,84 @@ class Player:
         if self.years_exp is not None:
             if self.years_exp == 1 or self.years_exp == 2:
                 modifier += random.uniform(0, 0.1)
+                
+        if self.depth_chart_order is not None:
+            if self.depth_chart_order == 1:
+                modifier += random.uniform(0, 0.2)
 
-        # New modifier for young players lower on the depth chart
-        if self.age is not None and self.age < 25 and self.depth_chart_order in [2, 3]:
-            additional_modifier = random.uniform(0, 0.5)
-            modifier += additional_modifier
-            # print(f"DEBUG: Young player boost! {self.full_name} - Additional modifier: +{additional_modifier:.2f}")
+        
 
-        # Wider distribution for all players
-        distribution_factor = random.normalvariate(1, 0.3)  # Mean of 1, standard deviation of 0.3
+        if self.depth_chart_order is not None:
+            if self.depth_chart_order == 1:
+                if self.years_exp < 0:
+                    # 10% chance to be a bust
+                    if random.random() < 0.1:
+                        modifier = random.uniform(0.2, 0.5)
+                
+                    # 10% chance to be a boom
+                    if random.random() < 0.1:
+                        modifier = random.uniform(2.0, 3.0)    
+                
+                
+        # Tighter distribution for all players
+        distribution_factor = random.normalvariate(1, 0.25)
+
         modifier *= distribution_factor
 
         # Random factor for additional unpredictability
         modifier += random.uniform(-0.1, 0.1)
 
-        # Ensure the modifier doesn't go below 0.5 for significant busts
-        modifier = max(0.5, modifier)
+        # Ensure the modifier doesn't go below 0.25 for significant busts
+        modifier = max(0.25, modifier)
 
-        # Adjust boom potential based on redraft value
-        max_redraft_value = 1600  # Adjust this value as needed
-        boom_chance = max(0.02, 0.1 - (self.redraft_value / max_redraft_value * 0.08))
-        boom_magnitude = max(2.5, 4.0 - (self.redraft_value / max_redraft_value * 1.5))
+        # Consistent boom chance for all players
+        boom_chance = 0.07  # 7% chance of a boom for all players
 
-        # Override probability of injury
-        # 0.5% chance of season ending injury
-        if random.random() < 0.005:
-            self.season_modifier = 0
-            # print(f"DEBUG: SEASON ENDING INJURY! {self.full_name}")
-            return
+        # Adjust boom magnitude based on redraft value
+        if self.redraft_value <= 450:
+            # Very low tier players (450 redraft and under)
+            boom_magnitude = random.uniform(2.5, 5.0)
+        else:
+            boom_magnitude = random.uniform(1.2, 1.5)
 
-        # Chance of being a significant bust (modifier between 0.5 and 0.7)
-        if random.random() < 0.02:
-            modifier = random.uniform(0.5, 0.7)
-            # print(f"DEBUG: SIGNIFICANT BUST! {self.full_name}")
+        # Chance of being a significant bust (modifier between 0.3 and 0.7)
+        if random.random() < 0.01:
+            modifier = random.uniform(0.3, 0.7)
 
-        # Chance of being a significant boom (modifier between 1.8 and boom_magnitude)
+        # Chance of being a boom
         if random.random() < boom_chance:
-            modifier = random.uniform(1.8, boom_magnitude)
-            # print(f"DEBUG: SIGNIFICANT BOOM! {self.full_name}")
+            modifier *= boom_magnitude
 
-        # Cap the modifier at the calculated boom_magnitude
-        modifier = min(modifier, boom_magnitude)
+
+        if modifier > 2.5:
+            modifier = 2.5 + (modifier - 2.5) * 0.1
 
         # QB-specific modifier adjustment
         if self.position == 'QB' and modifier > 1.5:
             modifier = 1.5 + (modifier - 1.5) * 0.1  # Slow down by 90% after 1.5
             
-            
-        if self.redraft_value > 2000 and modifier > 2:
-            modifier = 2 + (modifier - 2) * 0.1  # Slow down by 90% after 2
+        if self.position == 'QB' and modifier < 1.25:
+            modifier *= 0.9
 
         # Store the modifier as an attribute of the player
         self.season_modifier = modifier
+        
+        if self.redraft_value >= 5000:
+            if modifier > 1.5:
+                modifier = 1.2 + (modifier - 1.2) * 0.1
+                
+        if self.redraft_value <= 5000 and self.redraft_value >= 4000:
+            if modifier > 1.75:
+                modifier = 1.5 + (modifier - 1.5) * 0.1
+                
+        if self.redraft_value <= 2300 and self.redraft_value >= 500:
+            if modifier > 1.75:
+                modifier = 2 + (modifier - 2) * 0.1
+                
+        if self.redraft_value < 500:
+            if modifier > 3:
+                modifier = 3 + (modifier - 3) * 0.1
+
 
         # if modifier > 1.3 and modifier < 1.8:
         #     print(f"DEBUG: BOOM! {self.full_name} - Modifier: {modifier:.2f}")

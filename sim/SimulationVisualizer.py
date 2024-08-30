@@ -23,6 +23,9 @@ import io
 from reportlab.lib.utils import ImageReader
 from tqdm import tqdm
 
+from reportlab.pdfbase.pdfmetrics import stringWidth
+
+
 
 
 
@@ -182,6 +185,9 @@ class SimulationVisualizer:
             return
 
         players_with_data.sort(key=lambda p: self._get_player_average_score(p.sleeper_id), reverse=True)
+        
+        # remove players with position UNKNOWN
+        players_with_data = [p for p in players_with_data if p.position != "UNKNOWN"]
 
         players_per_page = 6
         total_pages = ceil(len(players_with_data) / players_per_page)
@@ -416,6 +422,63 @@ class SimulationVisualizer:
         return Image(img_buffer, width=3*inch, height=2.25*inch)
     
     
+    def create_top_players_tables(self):
+        positions = ['QB', 'RB', 'WR', 'TE']
+        pages = []
+        
+        for position in positions:
+            if position in ['WR']:
+                pages.append(PageBreak())  # Add a page break before WR
+            
+            top_players = self.tracker.get_top_players_by_position(position, 30)
+            
+            def create_table(players, start_rank):
+                data = [["Rank", "Player", "Avg"]]
+                for i, (player, avg_score) in enumerate(players, start=start_rank):
+                    _, _, _, min_score, _ = self.tracker.get_player_average_score(player.sleeper_id)
+                    data.append([
+                        str(i),
+                        player.name,
+                        f"{avg_score:.2f}"
+                    ])
+                
+                table = Table(data, colWidths=[0.75*inch, 1.5*inch, 0.75*inch])
+                table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                    ('ALIGN', (0, 0), (0, -1), 'CENTER'),  # Center-align rank column
+                    ('ALIGN', (2, 0), (2, -1), 'CENTER'),  # Center-align avg column
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 8),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 5),
+                    ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                    ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+                    ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                    ('FONTSIZE', (0, 1), (-1, -1), 7),
+                    ('TOPPADDING', (0, 1), (-1, -1), 1),
+                    ('BOTTOMPADDING', (0, 1), (-1, -1), 1),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                    ('LINEBELOW', (0, 0), (-1, 0), 1, colors.black),
+                ]))
+                return table
+            
+            title = Paragraph(f"Top 30 {position}s", self.subtitle_style)
+            table1 = create_table(top_players[:15], 1)
+            table2 = create_table(top_players[15:], 16)
+            
+            # Create a table to hold both tables side by side with a gap
+            combined_table = Table([[table1, None, table2]], colWidths=[3*inch, 0.2*inch, 3*inch])
+            combined_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ]))
+            
+            pages.append((title, combined_table))
+        
+        return pages
+    
+    
     
     def create_player_average_scores_table(self, team):
         player_scores = []
@@ -492,11 +555,31 @@ class SimulationVisualizer:
 
         # Add summary page
         elements.extend(self.create_summary_page(team))
-        elements.append(PageBreak())
+        
 
+        # In create_team_pdf method
+        elements.append(PageBreak())
+        elements.append(Paragraph("Top 30 Players by Position", self.title_style))
+        elements.append(Spacer(1, 0.2*inch))
+        top_players_tables = self.create_top_players_tables()
+        for item in top_players_tables:
+            if isinstance(item, PageBreak):
+                elements.append(item)
+            else:
+                title, combined_table = item
+                elements.append(title)
+                elements.append(Spacer(1, 0.1*inch))
+                elements.append(combined_table)
+                elements.append(Spacer(1, 0.3*inch))
+        elements.append(PageBreak())
+        
+        
+    
         # Add team overview
         elements.append(Paragraph(f"{team.name} - Team Overview", self.title_style))
         elements.extend(self.create_team_overview(team))
+        
+    
         
         # Add player average scores tables
         avg_scores_tables = self.create_player_average_scores_table(team)
@@ -578,10 +661,13 @@ class SimulationVisualizer:
         # Add team stats
         team_stats = self.tracker.get_team_stats(team.name)
         if team_stats:
+            # Use the same calculation as in the summary page
+            avg_points = team_stats['avg_points'] * 17 / 18 / 14 if team_stats['avg_points'] > 0 else 0
+
             stats_data = [
                 ["", "Value"],
                 ["Average Wins", f"{team_stats['avg_wins']:.2f}"],
-                ["Average Points", f"{team_stats['avg_points']:.2f}"],
+                ["Average Points per Week", f"{avg_points:.2f}"],
             ]
 
             stats_table = Table(stats_data)
@@ -611,7 +697,7 @@ class SimulationVisualizer:
         elements = []
         
         # Add title with reduced space after
-        elements.append(Paragraph(f"Triton Dynasty - Season Summary", self.title_style))
+        elements.append(Paragraph(f"Triton Dynasty - Season Summary - (Simulations:{self.tracker.num_simulations})", self.title_style))
         elements.append(Spacer(1, 0.05 * inch))  # Reduced space after title
 
         # Create overall standings table
@@ -692,3 +778,7 @@ class SimulationVisualizer:
         elements.append(playoff_table)
 
         return elements
+    
+    
+    
+    
