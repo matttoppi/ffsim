@@ -423,6 +423,9 @@ class SimulationVisualizer:
                 player_scores.append((player, avg_score, weeks_per_season, min_score, max_score))
 
         sorted_players = sorted(player_scores, key=lambda x: x[1], reverse=True)
+        # remove the players with position UNKNOWN
+        sorted_players = [player for player in sorted_players if player[0].position != "UNKNOWN"]
+        
         mid_point = len(sorted_players) // 2
 
         def create_half_table(players):
@@ -538,6 +541,11 @@ class SimulationVisualizer:
     def create_top_performers_chart(self, team):
         top_performers = self.tracker.get_top_performers(team.name, n = "all")
         
+        top_performers = [player for player in top_performers if player[0].position != "UNKNOWN"]
+        
+        
+
+        
         # Create the plot
         fig, ax = plt.subplots(figsize=(6, 4.25))  # Wide but not tall
         
@@ -604,11 +612,11 @@ class SimulationVisualizer:
         elements.append(Spacer(1, 0.05 * inch))  # Reduced space after title
 
         # Create overall standings table
-        overall_data = [["Rank", "Team", "Avg Wins", "Avg Losses", "Points/Week", "Projected Draft Position"]]
+        overall_data = [["Rank", "Team", "Avg Wins", "Avg Losses", "Points/Week", "2025 Pick Proj"]]
         for i, (team_name, avg_wins, avg_points) in enumerate(self.tracker.get_overall_standings(), 1):
             avg_points = avg_points * 17 / 18 if avg_points > 0 else 0
             avg_losses = 14 - avg_wins
-            overall_data.append([str(i), team_name, f"{avg_wins:.2f}", f"{avg_losses:.2f}", f"{avg_points:.2f}", f"{10 - i}"])
+            overall_data.append([str(i), team_name, f"{avg_wins:.2f}", f"{avg_losses:.2f}", f"{avg_points:.2f}", f"{11 - i}"])
 
         # Create division standings tables
         division1_data = [["Rank", "Team", "Avg Wins","Avg Losses", "Points/Week"]]
