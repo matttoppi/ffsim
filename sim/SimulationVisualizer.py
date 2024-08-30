@@ -448,15 +448,15 @@ class SimulationVisualizer:
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 8),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 2),
+            ('FONTSIZE', (0, 0), (-1, 0), 8),  # Reduced from 10
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 2),  # Reduced from 12
             ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
             ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
             ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 1), (-1, -1), 7),
-            ('TOPPADDING', (0, 1), (-1, -1), 1),
-            ('BOTTOMPADDING', (0, 1), (-1, -1), 0.5),
+            ('FONTSIZE', (0, 1), (-1, -1), 7),  # Reduced from 8
+            ('TOPPADDING', (0, 1), (-1, -1), 1),  # Reduced from 6
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 0.5),  # Reduced from 6
             ('GRID', (0, 0), (-1, -1), 1, colors.black)
         ])
 
@@ -478,8 +478,10 @@ class SimulationVisualizer:
         plots_pdf = f'{base_filename}_plots.pdf'
         final_pdf = f'{base_filename}_team_report.pdf'
 
-        # Create main content PDF
-        doc = SimpleDocTemplate(main_pdf, pagesize=letter)
+        doc = SimpleDocTemplate(main_pdf, pagesize=letter,
+                        leftMargin=0.25*inch, rightMargin=0.25*inch,
+                        topMargin=0.25*inch, bottomMargin=0.25*inch)
+
         elements = []
 
         # Add summary page
@@ -493,15 +495,17 @@ class SimulationVisualizer:
         # Add player average scores tables
         avg_scores_tables = self.create_player_average_scores_table(team)
         elements.append(avg_scores_tables)
-        elements.append(PageBreak())
         
         # Add top 15 performers chart
         top_15_chart = self.create_top_performers_chart(team)
+        
         img_data = io.BytesIO()
         top_15_chart.savefig(img_data, format='png', dpi=300, bbox_inches='tight')
         img_data.seek(0)
-        top_15_img = Image(img_data, width=6*inch, height=2.6*inch)
+        top_15_img = Image(img_data, width=6*inch, height=4.25*inch)
         elements.append(top_15_img)
+        elements.append(PageBreak())
+        
         
         # Add best season breakdown
         elements.extend(self.create_season_breakdown(team, 'best'))
@@ -529,14 +533,13 @@ class SimulationVisualizer:
         os.remove(main_pdf)
         os.remove(plots_pdf)
 
-        # print(f"Created combined PDF report for {team.name}: {final_pdf}")
     
 
     def create_top_performers_chart(self, team):
-        top_performers = self.tracker.get_top_performers(team.name, n = 15)
+        top_performers = self.tracker.get_top_performers(team.name, n = "all")
         
         # Create the plot
-        fig, ax = plt.subplots(figsize=(6, 2.6))  # Wide but not tall
+        fig, ax = plt.subplots(figsize=(6, 4.25))  # Wide but not tall
         
         players = [player[0].name for player in top_performers]
         scores = [player[1] for player in top_performers]

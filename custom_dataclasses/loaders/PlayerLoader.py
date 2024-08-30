@@ -175,7 +175,7 @@ class PlayerLoader:
         for player in self.enriched_players:
             # Update PFF data
             pff_row = self.pff_projections[
-                (self.pff_projections['playerName'].str.lower() == player.full_name.lower())
+                (self.pff_projections['playerName'] == Player.clean_name(player.full_name))
             ]
             if not pff_row.empty:
                 pff_data = pff_row.iloc[0].to_dict()

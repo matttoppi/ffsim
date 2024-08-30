@@ -102,7 +102,6 @@ class FantasyTeam:
         self.weekly_scores[week] = score
         self.points_for += score
 
-
     def update_injury_status(self, week):
         recovered_players = [p for p in self.sim_injured_players if not p.is_injured(week)]
         for player in recovered_players:
