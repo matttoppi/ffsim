@@ -499,13 +499,15 @@ class Player:
             modifier *= random.uniform(0.9, 1.1)
 
         # Ensure the modifier stays within realistic bounds
-        modifier = max(0.3, min(modifier, 2.5))
         
         if modifier > 1.8 and (tier == "star" or tier == "mid"):
             modifier = 1.8 + (modifier - 1.8) * 0.1
     
         if modifier > 13 and tier == "qb_starter":
             modifier = 1.3 + (modifier - 1.3) * 0.1
+            
+        modifier = max(0.3, min(modifier, 2.7)) 
+            
 
         # Store the modifier as an attribute of the player
         self.season_modifier = round(modifier, 2)
