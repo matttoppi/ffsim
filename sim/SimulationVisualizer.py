@@ -559,7 +559,7 @@ class SimulationVisualizer:
         bars = ax.barh(players, scores, color='lightgreen')
         
         # Customize the plot
-        ax.set_title("Top 15 Performers")
+        ax.set_title("Top Performers")
         ax.set_xlabel("Average Score")
         ax.tick_params(axis='y', labelsize=6)  # Adjust font size as needed
         
