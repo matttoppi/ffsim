@@ -28,13 +28,11 @@ class MonteCarloSimulation:
             season.simulate()
             self.record_season_results(season)
             # print(f"DEBUG: Simulation {sim + 1} completed")
-            
-        self.tracker.calculate_averages()  # Calculate averages after all simulations
-        # self.tracker.print_results()
-        # self.tracker.print_player_average_scores()
-        # self.print_best_season_breakdowns()
-        # self.pdf_report_generator.generate_report("2024PDF.pdf")
+
         
+        
+        
+        self.tracker.calculate_averages()  # Calculate averages after all simulations
         self.visualizer.plot_scoring_distributions(self.tracker)
 
     def record_season_results(self, season):

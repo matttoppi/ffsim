@@ -323,6 +323,10 @@ class SimulationVisualizer:
         # Add title
         elements.append(Paragraph(title, self.title_style))
 
+        if breakdown is None:
+            elements.append(Paragraph(f"No {season_type} season data available for {team.name}", self.styles['Normal']))
+            return elements
+
         # Add season summary
         summary_style = ParagraphStyle('Summary', fontSize=12, spaceAfter=12, alignment=1)
         summary = f"""
@@ -595,14 +599,25 @@ class SimulationVisualizer:
         elements.append(top_15_img)
         elements.append(PageBreak())
         
+        # Add percentile breakdown section
+        elements.append(Paragraph(f"{team.name} - Season Percentile Breakdowns", self.title_style))
+        elements.append(Spacer(1, 0.2 * inch))
+        elements.extend(self.create_percentile_breakdown(team))
+        elements.append(PageBreak())
+        
         
         # Add best season breakdown
         elements.extend(self.create_season_breakdown(team, 'best'))
         elements.append(PageBreak())
-
+        
+        
+        
         # Add worst season breakdown
         elements.extend(self.create_season_breakdown(team, 'worst'))
         elements.append(PageBreak())
+        
+        
+        
 
 
         # Build the PDF
@@ -700,26 +715,25 @@ class SimulationVisualizer:
         elements.append(Paragraph(f"Triton Dynasty - Season Summary - (Simulations:{self.tracker.num_simulations})", self.title_style))
         elements.append(Spacer(1, 0.05 * inch))  # Reduced space after title
 
-        # Create overall standings table
         overall_data = [["Rank", "Team", "Avg Wins", "Avg Losses", "Points/Week", "2025 Pick Proj"]]
         for i, (team_name, avg_wins, avg_points) in enumerate(self.tracker.get_overall_standings(), 1):
             avg_points = avg_points * 17 / 18 if avg_points > 0 else 0
             avg_losses = 14 - avg_wins
             overall_data.append([str(i), team_name, f"{avg_wins:.2f}", f"{avg_losses:.2f}", f"{avg_points:.2f}", f"{11 - i}"])
 
-        # Create division standings tables
-        division1_data = [["Rank", "Team", "Avg Wins","Avg Losses", "Points/Week"]]
+        division1_data = [["Rank", "Team", "Avg Wins", "Avg Losses", "Points/Week"]]
         division2_data = [["Rank", "Team", "Avg Wins", "Avg Losses", "Points/Week"]]
-        
+
         for i, (team_name, avg_wins, avg_points) in enumerate(self.tracker.get_division_standings(1), 1):
             avg_points = avg_points * 17 / 18 if avg_points > 0 else 0
             avg_losses = 14 - avg_wins
             division1_data.append([str(i), team_name, f"{avg_wins:.2f}", f"{avg_losses:.2f}", f"{avg_points:.2f}"])
-        
+
         for i, (team_name, avg_wins, avg_points) in enumerate(self.tracker.get_division_standings(2), 1):
             avg_points = avg_points * 17 / 18 if avg_points > 0 else 0
-            avg_losses = 14 - avg_wins  
+            avg_losses = 14 - avg_wins
             division2_data.append([str(i), team_name, f"{avg_wins:.2f}", f"{avg_losses:.2f}", f"{avg_points:.2f}"])
+
 
         # Create playoff statistics table
         playoff_data = [["Team", "Playoff App.", "Division Wins (Bye Weeks)", "Championships"]]
@@ -781,4 +795,64 @@ class SimulationVisualizer:
     
     
     
-    
+    def create_percentile_breakdown(self, team):
+        elements = []
+        breakdowns = self.tracker.get_percentile_breakdowns(team.name)
+
+        if not breakdowns:
+            elements.append(Paragraph("No percentile data available", self.styles['Normal']))
+            return elements
+        
+        # for wins in each percentile mu
+
+        # Create table for wins
+        win_data = [
+            ["Metric", "10%", "25%", "75%", "90%"],
+            ["Wins"] + [f"{breakdowns['wins'][p]:.2f}" for p in ['10%', '25%', '75%', '90%']]
+        ]
+        win_table = Table(win_data, colWidths=[1*inch, 0.8*inch, 0.8*inch, 0.8*inch, 0.8*inch, 0.8*inch])
+        win_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 8),
+            ('TOPPADDING', (0, 1), (-1, -1), 3),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 3),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+
+        # Create table for points
+        point_data = [
+            ["Metric", "10%", "25%", "75%", "90%"],
+            ["Points For"] + [f"{breakdowns['points_for'][p]:.2f}" for p in ['10%', '25%', '75%', '90%']]
+        ]
+        point_table = Table(point_data, colWidths=[1*inch, 0.8*inch, 0.8*inch, 0.8*inch, 0.8*inch, 0.8*inch])
+        point_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 8),
+            ('TOPPADDING', (0, 1), (-1, -1), 3),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 3),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+
+        elements.append(win_table)
+        elements.append(Spacer(1, 0.2 * inch))
+        elements.append(point_table)
+
+        return elements
