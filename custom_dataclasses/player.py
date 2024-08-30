@@ -406,106 +406,116 @@ class Player:
         # Base modifier starts at 1 (no modification)
         modifier = 1.0
 
-        # Injury proneness modifier
-        if hasattr(self, 'injury_probability_game') and self.injury_probability_game is not None:
-            if self.injury_probability_game > 0.1:
-                modifier -= random.uniform(0, 0.1)
-            elif self.injury_probability_game < 0.05:
-                modifier += random.uniform(0, 0.05)
+        # Define thresholds for non-QB player tiers
+        star_threshold = 4000
+        mid_tier_threshold = 1000
+        backup_threshold = 500
 
-        # Experience modifier
+        # Determine player tier or QB status
+        if self.position == 'QB':
+            tier = "qb_starter" if self.depth_chart_order == 1 else "qb_backup"
+        elif self.redraft_value >= star_threshold:
+            tier = "star"
+        elif self.redraft_value >= mid_tier_threshold:
+            tier = "mid"
+        elif self.redraft_value >= backup_threshold:
+            tier = "backup"
+        else:
+            tier = "deep_backup"
+
+        # Basic modifier range based on tier
+        if tier == "qb_starter":
+            base_range = (0.85, 1.15)
+        elif tier == "qb_backup":
+            base_range = (0.7, 1.3)
+        elif tier == "star":
+            base_range = (0.8, 1.2)
+        elif tier == "mid":
+            base_range = (0.7, 1.3)
+        elif tier == "backup":
+            base_range = (0.6, 1.4)
+        else:  # deep_backup
+            base_range = (0.5, 1.5)
+
+        modifier *= random.uniform(*base_range)
+
+        # Additional variance factor
+        variance_factor = random.normalvariate(1, 0.2)
+        modifier *= variance_factor
+
+        # Experience and potential modifier
         if self.years_exp is not None:
-            if self.years_exp == 1 or self.years_exp == 2:
-                modifier += random.uniform(0, 0.1)
+            if 1 <= self.years_exp <= 3:
+                modifier *= random.uniform(1, 1.2)
+            elif self.years_exp >= 7:
+                modifier *= random.uniform(0.9, 1.1)
+            elif self.years_exp == 0:
+                new_player_boom_chance = 0.1
+                if random.random() < new_player_boom_chance:
+                    modifier *= random.uniform(1, 2.5)
                 
-        if self.depth_chart_order is not None:
-            if self.depth_chart_order == 1:
-                modifier += random.uniform(0, 0.2)
-
         
 
-        if self.depth_chart_order is not None:
-            if self.depth_chart_order == 1:
-                if self.years_exp < 0:
-                    # 10% chance to be a bust
-                    if random.random() < 0.1:
-                        modifier = random.uniform(0.2, 0.5)
-                
-                    # 10% chance to be a boom
-                    if random.random() < 0.1:
-                        modifier = random.uniform(2.0, 3.0)    
-                
-                
-        # Tighter distribution for all players
-        distribution_factor = random.normalvariate(1, 0.25)
-
-        modifier *= distribution_factor
-
-        # Random factor for additional unpredictability
-        modifier += random.uniform(-0.1, 0.1)
-
-        # Ensure the modifier doesn't go below 0.25 for significant busts
-        modifier = max(0.25, modifier)
-
-        # Consistent boom chance for all players
-        boom_chance = 0.07  # 7% chance of a boom for all players
-
-        # Adjust boom magnitude based on redraft value
-        if self.redraft_value <= 450:
-            # Very low tier players (450 redraft and under)
-            boom_magnitude = random.uniform(2.5, 5.0)
-        else:
-            boom_magnitude = random.uniform(1.2, 1.5)
-
-        # Chance of being a significant bust (modifier between 0.3 and 0.7)
-        if random.random() < 0.01:
-            modifier = random.uniform(0.3, 0.7)
-
-        # Chance of being a boom
-        if random.random() < boom_chance:
-            modifier *= boom_magnitude
-
-
-        if modifier > 2.5:
-            modifier = 2.5 + (modifier - 2.5) * 0.1
-
-        # QB-specific modifier adjustment
-        if self.position == 'QB' and modifier > 1.5:
-            modifier = 1.5 + (modifier - 1.5) * 0.1  # Slow down by 90% after 1.5
             
-        if self.position == 'QB' and modifier < 1.25:
-            modifier *= 0.9
+            
+        if tier == "qb_starter":
+            breakout_chance = 0.05
+            bust_chance = 0.05
+        elif tier == "qb_backup":
+            breakout_chance = 0.1
+            bust_chance = 0.1
+        else:
+            breakout_chance = 0.2
+            bust_chance = 0.2
+
+        # Apply breakout or bust modifiers
+        if random.random() < breakout_chance:
+            if tier == "qb_starter":
+                modifier *= random.uniform(1.0, 1.1)
+            elif tier == "qb_backup":
+                modifier *= random.uniform(1.2, 1.7)
+            elif tier == "star":
+                modifier *= random.uniform(1.1, 1.6)
+            elif tier == "mid":
+                modifier *= random.uniform(1.2, 1.8)
+            elif tier == "backup":
+                modifier *= random.uniform(1, 2)
+            else:  # deep_backup
+                modifier *= random.uniform(1.5, 3)
+        elif random.random() < bust_chance:
+            if tier == "qb_starter":
+                modifier *= random.uniform(0.8, 0.9)
+            elif tier == "qb_backup":
+                modifier *= random.uniform(0.5, 0.85)
+            elif tier == "star":
+                modifier *= random.uniform(0.8, 0.9)
+            elif tier == "mid":
+                modifier *= random.uniform(0.7, 0.85)
+            else:  # backup and deep_backup
+                modifier *= random.uniform(0.5, 0.75)
+                
+        # Position-specific adjustments
+        if self.position in ['WR', 'TE']:
+            modifier *= random.uniform(0.9, 1.1)
+
+        # Ensure the modifier stays within realistic bounds
+        modifier = max(0.3, min(modifier, 2.5))
+        
+        if modifier > 1.8 and (tier == "star" or tier == "mid"):
+            modifier = 1.8 + (modifier - 1.8) * 0.1
+    
+        if modifier > 13 and tier == "qb_starter":
+            modifier = 1.3 + (modifier - 1.3) * 0.1
 
         # Store the modifier as an attribute of the player
-        self.season_modifier = modifier
+        self.season_modifier = round(modifier, 2)
         
-        if self.redraft_value >= 5000:
-            if modifier > 1.5:
-                modifier = 1.2 + (modifier - 1.2) * 0.1
-                
-        if self.redraft_value <= 5000 and self.redraft_value >= 4000:
-            if modifier > 1.75:
-                modifier = 1.5 + (modifier - 1.5) * 0.1
-                
-        if self.redraft_value <= 2300 and self.redraft_value >= 500:
-            if modifier > 1.75:
-                modifier = 2 + (modifier - 2) * 0.1
-                
-        if self.redraft_value < 500:
-            if modifier > 3:
-                modifier = 3 + (modifier - 3) * 0.1
-
-
-        # if modifier > 1.3 and modifier < 1.8:
-        #     print(f"DEBUG: BOOM! {self.full_name} - Modifier: {modifier:.2f}")
-        # elif modifier >= 1.8:
-        #     print(f"DEBUG: MASSIVE BOOM! {self.full_name} - Modifier: {modifier:.2f}")
-        # elif modifier < 0.7:
-        #     print(f"DEBUG: BUST! {self.full_name} - Modifier: {modifier:.2f}")
-
-        # print(f"DEBUG: Final modifier for {self.full_name}: {modifier:.2f}")
         
 
+
+        # print(f"DEBUG: {performance_type} - {self.full_name} ({self.position}, {tier.upper()}) - Modifier: {self.season_modifier:.2f}")
+
+        
     def get_average_weekly_score(self):
         """Get the current season's average weekly score."""
         if self.total_simulated_games > 0:
