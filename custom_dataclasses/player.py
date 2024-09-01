@@ -41,6 +41,10 @@ class Player:
         self.total_games_missed_this_season = 0
         self.season_modifier = 1.0
         
+        self.never_miss_game_flag = False
+
+        
+        
         
     
         # Injury data with careful defaulting
@@ -115,6 +119,8 @@ class Player:
         
 
     def update_injury_status(self, week):
+        if self.never_miss_game_flag:
+            return
         if self.simulation_injury:
             if week < self.simulation_injury['return_week']:
                 self.current_injury_games_missed += 1
@@ -404,7 +410,20 @@ class Player:
 
     def create_players_season_modifiers(self):
         # Base modifier starts at 1 (no modification)
+        
+        # 1 in 100 chamce to be out the entire season
+        
+        if random.random() < 0.01:
+            self.season_modifier = 0
+            return
+        
+        # 1 in 12 chance to not miss any games
+        if random.random() < 0.083:
+            self.never_miss_game_flag = True
+        
         modifier = 1.0
+        
+        
 
         # Define thresholds for non-QB player tiers
         star_threshold = 4000
@@ -429,13 +448,13 @@ class Player:
         elif tier == "qb_backup":
             base_range = (0.7, 1.3)
         elif tier == "star":
-            base_range = (0.8, 1.2)
-        elif tier == "mid":
             base_range = (0.7, 1.3)
+        elif tier == "mid":
+            base_range = (0.6, 1.35)
         elif tier == "backup":
-            base_range = (0.6, 1.4)
+            base_range = (0.5, 1.7)
         else:  # deep_backup
-            base_range = (0.5, 1.5)
+            base_range = (0.4, 1.8)
 
         modifier *= random.uniform(*base_range)
 
@@ -453,14 +472,10 @@ class Player:
                 new_player_boom_chance = 0.1
                 if random.random() < new_player_boom_chance:
                     modifier *= random.uniform(1, 2.5)
-                
-        
-
-            
             
         if tier == "qb_starter":
             breakout_chance = 0.05
-            bust_chance = 0.05
+            bust_chance = 0.075
         elif tier == "qb_backup":
             breakout_chance = 0.1
             bust_chance = 0.1
@@ -471,26 +486,26 @@ class Player:
         # Apply breakout or bust modifiers
         if random.random() < breakout_chance:
             if tier == "qb_starter":
-                modifier *= random.uniform(1.0, 1.1)
+                modifier = random.uniform(0.7, 1.4)
             elif tier == "qb_backup":
                 modifier *= random.uniform(1.2, 1.7)
             elif tier == "star":
-                modifier *= random.uniform(1.1, 1.6)
+                modifier *= random.uniform(1.2, 1.5)
             elif tier == "mid":
-                modifier *= random.uniform(1.2, 1.8)
+                modifier *= random.uniform(1.3, 1.8)
             elif tier == "backup":
                 modifier *= random.uniform(1, 2)
             else:  # deep_backup
                 modifier *= random.uniform(1.5, 3)
         elif random.random() < bust_chance:
             if tier == "qb_starter":
-                modifier *= random.uniform(0.8, 0.9)
+                modifier *= random.uniform(0.7, 0.9)
             elif tier == "qb_backup":
-                modifier *= random.uniform(0.5, 0.85)
+                modifier *= random.uniform(0.6, 0.85)
             elif tier == "star":
-                modifier *= random.uniform(0.8, 0.9)
+                modifier *= random.uniform(0.45, 0.9)
             elif tier == "mid":
-                modifier *= random.uniform(0.7, 0.85)
+                modifier *= random.uniform(0.5, 0.85)
             else:  # backup and deep_backup
                 modifier *= random.uniform(0.5, 0.75)
                 
@@ -499,15 +514,44 @@ class Player:
             modifier *= random.uniform(0.9, 1.1)
 
         # Ensure the modifier stays within realistic bounds
+        if self.pff_projections != None:
+            if self.pff_projections.fantasy_points_rank <= 50 and modifier > 1.8:
+                # print(f"DEBUG: {self.full_name} ({self.position}) - Modifier: {modifier:.2f} - Top 50 player")
+                modifier = modifier + (1.4 - modifier) * 0.15
+                # print(f"new modifier: {modifier:.2f}")
+                
+            elif 50 < self.pff_projections.fantasy_points_rank <= 175 and modifier > 1.8:
+                # print(f"DEBUG: {self.full_name} ({self.position}) - Modifier: {modifier:.2f} - 50 - 150 player")
+                modifier = modifier + (1.8 - modifier) * 0.25
+                # print(f"new modifier: {modifier:.2f}")
+
         
-        if modifier > 1.8 and (tier == "star" or tier == "mid"):
-            modifier = 1.8 + (modifier - 1.8) * 0.1
     
-        if modifier > 13 and tier == "qb_starter":
+        if modifier > 1.3 and (tier == "qb_starter"):
             modifier = 1.3 + (modifier - 1.3) * 0.1
             
         modifier = max(0.3, min(modifier, 2.7)) 
-            
+        
+        if self.pff_projections != None:
+            if 5 < self.pff_projections.fantasy_points / 17 < 8:
+                # 5% chance to be a giant boom breakout player
+                if random.random() < 0.05:
+                    modifier = random.uniform(2.5, 3)
+                    # print(f"DEBUG: {self.full_name} ({self.position}) - Modifier: {modifier:.2f} - Giant Boom")
+            elif self.pff_projections.fantasy_points / 17 < 5:
+                if random.random() < 0.05:
+                    modifier = random.uniform(4, 5)
+                    # print(f"DEBUG: {self.full_name} ({self.position}) - Modifier: {modifier:.2f} - Giant Boom ")
+                    
+            if self.pff_projections.fantasy_points / 17 > 10 and self.position == 'QB' and modifier < 1.5:
+                modifier = modifier + (1.5 - modifier) * 0.1
+                    
+        # to account for TE premium settings
+        if self.position == 'TE':
+            if modifier > 1.75:
+                modifier = modifier + (1.75 - modifier) * 0.1
+ 
+
 
         # Store the modifier as an attribute of the player
         self.season_modifier = round(modifier, 2)
@@ -537,7 +581,7 @@ class Player:
         self.weekly_scores = {}
         self.total_simulated_points = 0
         self.total_simulated_games = 0
-
+        self.never_miss_game_flag = False
 
 
     

@@ -146,12 +146,14 @@ class SimulationVisualizer:
             ["Player", "Position", "Total Points", "Avg Points", "Modifier", "Games Played"]
         ]
         for player in player_performances:
+            modifier = player['modifier']
+            modifier_str = f"{modifier:.2f}" if isinstance(modifier, float) else str(modifier)
             data.append([
                 player['name'],
                 player['position'],
                 f"{player['total_points']:.2f}",
                 f"{player['avg_points']:.2f}",
-                f"{player['modifier']:.2f}",
+                modifier_str,
                 str(player['games_played'])
             ])
 
@@ -357,6 +359,11 @@ class SimulationVisualizer:
         # Filter out players with position "UNKNOWN"
         filtered_performances = [player for player in breakdown['player_performances'] if player['position'] != "UNKNOWN"]
 
+        # change the modifier to NA if position is DEF or K
+        for player in filtered_performances:
+            if player['position'] in ['DEF', 'K']:
+                player['modifier'] = 'NA'
+
         # Create player performance table
         elements.append(Paragraph("Player Performances", self.subtitle_style))
         player_table = self.create_player_table(filtered_performances)
@@ -482,15 +489,17 @@ class SimulationVisualizer:
         
         return pages
     
-    
-    
     def create_player_average_scores_table(self, team):
         player_scores = []
         for player in team.players:
-            avg_score, total_scores, total_weeks, min_score, max_score = self.tracker.get_player_average_score(player.sleeper_id)
-            if total_weeks > 0:
-                weeks_per_season = total_weeks / self.tracker.num_simulations
-                player_scores.append((player, avg_score, weeks_per_season, min_score, max_score))
+            player_stats = self.tracker.get_player_season_stats(player.sleeper_id)
+            if player_stats:
+                player_scores.append((
+                    player,
+                    player_stats['overall_avg'],
+                    player_stats['min_season_avg'],
+                    player_stats['max_season_avg']
+                ))
 
         sorted_players = sorted(player_scores, key=lambda x: x[1], reverse=True)
         # remove the players with position UNKNOWN
@@ -499,37 +508,37 @@ class SimulationVisualizer:
         mid_point = len(sorted_players) // 2
 
         def create_half_table(players):
-            data = [["Player", "Pos", "Avg", "Min", "Max"]]
-            for player, avg_score, weeks_per_season, min_score, max_score in players:
+            data = [["Player", "Pos", "Avg", "Worst Seas.", "Best Seas."]]
+            for player, avg_score, min_season, max_season in players:
                 data.append([
                     player.name,
                     player.position,
                     f"{avg_score:.2f}",
-                    f"{min_score:.2f}",
-                    f"{max_score:.2f}"
+                    f"{min_season:.2f}",
+                    f"{max_season:.2f}"
                 ])
             return data
 
         left_data = create_half_table(sorted_players[:mid_point])
         right_data = create_half_table(sorted_players[mid_point:])
 
-        left_table = Table(left_data, colWidths=[1.5*inch, 0.5*inch, 0.7*inch, 0.7*inch, 0.7*inch])
-        right_table = Table(right_data, colWidths=[1.5*inch, 0.5*inch, 0.7*inch, 0.7*inch, 0.7*inch])
+        left_table = Table(left_data, colWidths=[1.3*inch, 0.5*inch, 0.7*inch, 0.7*inch, 0.7*inch])
+        right_table = Table(right_data, colWidths=[1.3*inch, 0.5*inch, 0.7*inch, 0.7*inch, 0.7*inch])
 
         table_style = TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 8),  # Reduced from 10
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 2),  # Reduced from 12
+            ('FONTSIZE', (0, 0), (-1, 0), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 2),
             ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
             ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
             ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 1), (-1, -1), 7),  # Reduced from 8
-            ('TOPPADDING', (0, 1), (-1, -1), 1),  # Reduced from 6
-            ('BOTTOMPADDING', (0, 1), (-1, -1), 0.5),  # Reduced from 6
+            ('FONTSIZE', (0, 1), (-1, -1), 7),
+            ('TOPPADDING', (0, 1), (-1, -1), 1),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 0.5),
             ('GRID', (0, 0), (-1, -1), 1, colors.black)
         ])
 
@@ -679,7 +688,7 @@ class SimulationVisualizer:
             stats_data = [
                 ["", "Value"],
                 ["Average Wins", f"{team_stats['avg_wins']:.2f}"],
-                ["Average Points per Week", f"{avg_points:.2f}"],
+                ["Average Points per Week", f"{avg_points:.2f}"]
             ]
 
             stats_table = Table(stats_data)
@@ -714,7 +723,7 @@ class SimulationVisualizer:
 
         overall_data = [["Rank", "Team", "Avg Wins", "Avg Losses", "Points/Week", "2025 Pick Proj"]]
         for i, (team_name, avg_wins, avg_points) in enumerate(self.tracker.get_overall_standings(), 1):
-            avg_points = avg_points * 17 / 18 if avg_points > 0 else 0
+            avg_points = avg_points * 17 / 18 / 14 if avg_points > 0 else 0
             avg_losses = 14 - avg_wins
             overall_data.append([str(i), team_name, f"{avg_wins:.2f}", f"{avg_losses:.2f}", f"{avg_points:.2f}", f"{11 - i}"])
 
@@ -722,12 +731,12 @@ class SimulationVisualizer:
         division2_data = [["Rank", "Team", "Avg Wins", "Avg Losses", "Points/Week"]]
 
         for i, (team_name, avg_wins, avg_points) in enumerate(self.tracker.get_division_standings(1), 1):
-            avg_points = avg_points * 17 / 18 if avg_points > 0 else 0
+            avg_points = avg_points * 17 / 18 / 14 if avg_points > 0 else 0
             avg_losses = 14 - avg_wins
             division1_data.append([str(i), team_name, f"{avg_wins:.2f}", f"{avg_losses:.2f}", f"{avg_points:.2f}"])
 
         for i, (team_name, avg_wins, avg_points) in enumerate(self.tracker.get_division_standings(2), 1):
-            avg_points = avg_points * 17 / 18 if avg_points > 0 else 0
+            avg_points = avg_points * 17 / 18 / 14 if avg_points > 0 else 0
             avg_losses = 14 - avg_wins
             division2_data.append([str(i), team_name, f"{avg_wins:.2f}", f"{avg_losses:.2f}", f"{avg_points:.2f}"])
 
