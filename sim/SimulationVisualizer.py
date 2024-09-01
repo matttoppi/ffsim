@@ -605,7 +605,7 @@ class SimulationVisualizer:
         elements.extend(self.create_percentile_breakdown(team))
         elements.append(PageBreak())
         
-        
+            
         # Add best season breakdown
         elements.extend(self.create_season_breakdown(team, 'best'))
         elements.append(PageBreak())
@@ -643,10 +643,7 @@ class SimulationVisualizer:
         top_performers = self.tracker.get_top_performers(team.name, n = "all")
         
         top_performers = [player for player in top_performers if player[0].position != "UNKNOWN"]
-        
-        
-
-        
+                
         # Create the plot
         fig, ax = plt.subplots(figsize=(6, 4.25))  # Wide but not tall
         
@@ -737,6 +734,7 @@ class SimulationVisualizer:
 
         # Create playoff statistics table
         playoff_data = [["Team", "Playoff App.", "Division Wins (Bye Weeks)", "Championships"]]
+        team_playoff_stats = []
         for team in self.league.rosters:
             appearances = self.tracker.playoff_appearances[team.name]
             div_wins = self.tracker.division_wins[team.name]
@@ -744,11 +742,26 @@ class SimulationVisualizer:
             appearance_rate = appearances / self.tracker.num_simulations * 100
             div_win_rate = div_wins / self.tracker.num_simulations * 100
             champ_rate = champs / self.tracker.num_simulations * 100
+            team_playoff_stats.append({
+                'name': team.name,
+                'appearances': appearances,
+                'appearance_rate': appearance_rate,
+                'div_wins': div_wins,
+                'div_win_rate': div_win_rate,
+                'champs': champs,
+                'champ_rate': champ_rate
+            })
+
+        # Sort team_playoff_stats by championships (descending)
+        team_playoff_stats.sort(key=lambda x: x['champs'], reverse=True)
+
+        # Create the sorted playoff_data
+        for stats in team_playoff_stats:
             playoff_data.append([
-                team.name,
-                f"{appearances} ({appearance_rate:.1f}%)",
-                f"{div_wins} ({div_win_rate:.1f}%)",
-                f"{champs} ({champ_rate:.1f}%)"
+                stats['name'],
+                f"{stats['appearances']} ({stats['appearance_rate']:.1f}%)",
+                f"{stats['div_wins']} ({stats['div_win_rate']:.1f}%)",
+                f"{stats['champs']} ({stats['champ_rate']:.1f}%)"
             ])
 
         # Create tables (keeping your existing data preparation code)
@@ -757,7 +770,7 @@ class SimulationVisualizer:
         division2_table = Table(division2_data, colWidths=[0.4*inch, 1.75*inch, 0.9*inch, 0.9*inch])
         playoff_table = Table(playoff_data, colWidths=[1.6*inch, 1.7*inch, 1.4*inch, 1.2*inch])
 
-            # Apply styles with reduced font sizes and row heights
+        # Apply styles with reduced font sizes and row heights
         table_style = TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
@@ -795,6 +808,51 @@ class SimulationVisualizer:
     
     
     
+    
+    
+    
+    
+    def create_percentile_charts(self, team):
+        breakdowns = self.tracker.get_percentile_breakdowns(team.name)
+        if not breakdowns:
+            return None, None
+
+        # Create win percentile chart
+        win_fig, win_ax = plt.subplots(figsize=(6, 3))
+        percentiles = ['10%', '25%', '75%', '90%']
+        win_values = [breakdowns['wins'][p] for p in percentiles]
+        win_ax.bar(percentiles, win_values, color='skyblue')
+        win_ax.set_title('Win Percentiles')
+        win_ax.set_ylabel('Wins')
+        for i, v in enumerate(win_values):
+            win_ax.text(i, v, f'{v:.2f}', ha='center', va='bottom')
+
+        # Create points percentile chart
+        points_fig, points_ax = plt.subplots(figsize=(6, 3))
+        point_values = [breakdowns['points_for'][p] for p in percentiles]
+        points_ax.bar(percentiles, point_values, color='lightgreen')
+        points_ax.set_title('Points For Percentiles')
+        points_ax.set_ylabel('Points')
+        for i, v in enumerate(point_values):
+            points_ax.text(i, v, f'{v:.2f}', ha='center', va='bottom')
+
+        # Convert figures to ReportLab Images
+        win_img_data = io.BytesIO()
+        win_fig.savefig(win_img_data, format='png', dpi=300, bbox_inches='tight')
+        win_img_data.seek(0)
+        win_img = Image(win_img_data, width=6*inch, height=3*inch)
+
+        points_img_data = io.BytesIO()
+        points_fig.savefig(points_img_data, format='png', dpi=300, bbox_inches='tight')
+        points_img_data.seek(0)
+        points_img = Image(points_img_data, width=6*inch, height=3*inch)
+
+        plt.close(win_fig)
+        plt.close(points_fig)
+
+        return win_img, points_img
+
+
     def create_percentile_breakdown(self, team):
         elements = []
         breakdowns = self.tracker.get_percentile_breakdowns(team.name)
@@ -802,57 +860,53 @@ class SimulationVisualizer:
         if not breakdowns:
             elements.append(Paragraph("No percentile data available", self.styles['Normal']))
             return elements
+
+        # Add explanation of percentiles
+        elements.append(Paragraph("<b>Understanding Percentiles:</b>", self.styles['Heading3']))
+        elements.append(Paragraph("Percentiles mean x% of simulations total wins value fall below the win value assosiated with the percentile.", self.styles['Normal']))
+        elements.append(Paragraph("(Ex: 25% at 10 wins means 25% of simulations had 10 or less wins)", self.styles['Normal']))
         
-        # for wins in each percentile mu
-
-        # Create table for wins
-        win_data = [
-            ["Metric", "10%", "25%", "75%", "90%"],
-            ["Wins"] + [f"{breakdowns['wins'][p]:.2f}" for p in ['10%', '25%', '75%', '90%']]
-        ]
-        win_table = Table(win_data, colWidths=[1*inch, 0.8*inch, 0.8*inch, 0.8*inch, 0.8*inch, 0.8*inch])
-        win_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-            ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 1), (-1, -1), 8),
-            ('TOPPADDING', (0, 1), (-1, -1), 3),
-            ('BOTTOMPADDING', (0, 1), (-1, -1), 3),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black)
-        ]))
-
-        # Create table for points
-        point_data = [
-            ["Metric", "10%", "25%", "75%", "90%"],
-            ["Points For"] + [f"{breakdowns['points_for'][p]:.2f}" for p in ['10%', '25%', '75%', '90%']]
-        ]
-        point_table = Table(point_data, colWidths=[1*inch, 0.8*inch, 0.8*inch, 0.8*inch, 0.8*inch, 0.8*inch])
-        point_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-            ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 1), (-1, -1), 8),
-            ('TOPPADDING', (0, 1), (-1, -1), 3),
-            ('BOTTOMPADDING', (0, 1), (-1, -1), 3),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black)
-        ]))
-
-        elements.append(win_table)
         elements.append(Spacer(1, 0.2 * inch))
-        elements.append(point_table)
+
+        win_img, points_img = self.create_percentile_charts(team)
+
+        if win_img and points_img:
+            elements.append(win_img)
+            elements.append(Spacer(1, 0.2 * inch))
+            elements.append(points_img)
+            elements.append(Spacer(1, 0.2 * inch))
+
 
         return elements
+
+    def create_violin_plot(self, team):
+        wins = self.tracker.get_all_wins(team.name)
+        points = self.tracker.get_all_points(team.name)
+
+        if not wins or not points:
+            return None
+
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))
+
+        # Wins violin plot
+        ax1.violinplot(wins, showmeans=False, showmedians=True)
+        ax1.set_title('Wins Distribution')
+        ax1.set_ylabel('Wins')
+        ax1.set_xticks([])
+
+        # Points violin plot
+        ax2.violinplot(points, showmeans=False, showmedians=True)
+        ax2.set_title('Points Distribution')
+        ax2.set_ylabel('Points')
+        ax2.set_xticks([])
+
+        plt.tight_layout()
+
+        img_data = io.BytesIO()
+        fig.savefig(img_data, format='png', dpi=300, bbox_inches='tight')
+        img_data.seek(0)
+        img = Image(img_data, width=7*inch, height=3.5*inch)
+
+        plt.close(fig)
+
+        return img
