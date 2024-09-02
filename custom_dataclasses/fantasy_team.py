@@ -161,7 +161,6 @@ class FantasyTeam:
             print(f"{player.name} (Redraft Value: {player.redraft_value}) - Injured for {player.simulation_injury['duration']:.2f} more weeks. Return week: {player.simulation_injury['return_week']}")
         print("\n")
         
-
     def fill_starters(self, week):
         self.manage_injuries(week)
 
@@ -172,14 +171,20 @@ class FantasyTeam:
 
         self.starters = {pos: [] for pos in slots.keys()}
 
-        # Get all available players (not fully injured this week)
-        available_players = [p for p in self.players if not p.is_injured(week) or p.is_partially_injured(week)]
+        def is_player_available(player):
+            is_not_injured = not player.is_injured(week)
+            is_not_on_bye = not hasattr(player, 'pff_projections') or \
+                            player.pff_projections is None or \
+                            not hasattr(player.pff_projections, 'bye_week') or \
+                            player.pff_projections.bye_week is None or \
+                            int(player.pff_projections.bye_week) != week
+            return is_not_injured and is_not_on_bye
 
-        # Sort available players by average score or redraft value
-        if week == 1:
-            available_players.sort(key=lambda p: p.redraft_value if hasattr(p, 'redraft_value') else 0, reverse=True)
-        else:
-            available_players.sort(key=lambda p: p.get_average_weekly_score(), reverse=True)
+        # Get all available players
+        available_players = [p for p in self.players if is_player_available(p)]
+
+        # Sort available players by redraft value
+        available_players.sort(key=lambda p: p.redraft_value if hasattr(p, 'redraft_value') else 0, reverse=True)
 
         # Fill mandatory positions first
         for pos in ['QB', 'RB', 'WR', 'TE', 'K', 'DEF']:
@@ -194,20 +199,53 @@ class FantasyTeam:
         flex_players = [p for p in available_players if p.position in flex_eligible]
         for _ in range(slots['FLEX']):
             if flex_players:
-                if week == 1:
-                    player = max(flex_players, key=lambda p: p.redraft_value if hasattr(p, 'redraft_value') else 0)
-                else:
-                    player = max(flex_players, key=lambda p: p.get_average_weekly_score())
+                player = max(flex_players, key=lambda p: p.redraft_value if hasattr(p, 'redraft_value') else 0)
                 self.starters['FLEX'].append(player)
                 available_players.remove(player)
                 flex_players.remove(player)
 
         # Set bench players
-        self.bench = [p for p in self.players if p not in [player for pos_list in self.starters.values() for player in pos_list] and not p.is_injured(week)]
-        
+        self.bench = [p for p in self.players if p not in [player for pos_list in self.starters.values() for player in pos_list]]
+
         # Update injured players list
         self.sim_injured_players = [p for p in self.players if p.is_injured(week)]
 
+        # Print starting lineup with redraft values
+        print(f"\nStarting lineup for week {week}:")
+        for pos, players in self.starters.items():
+            print(f"{pos}: {', '.join([f'{p.name} (RV: {p.redraft_value:.2f})' if p else 'Empty' for p in players])}")
+
+        # Print bench with redraft values and check for higher values
+        print("\nBench:")
+        for player in self.bench:
+            print(f"{player.name} ({player.position}) - RV: {player.redraft_value:.2f}")
+            if not is_player_available(player):
+                continue
+            # Check if bench player has higher redraft value than starters in their position
+            if player.position in self.starters:
+                for starter in self.starters[player.position]:
+                    if player.redraft_value > starter.redraft_value:
+                        print(f"WARNING: Bench player {player.name} has higher redraft value than starter {starter.name} at {player.position}")
+            elif player.position in flex_eligible:
+                for flex_starter in self.starters['FLEX']:
+                    if player.redraft_value > flex_starter.redraft_value:
+                        print(f"WARNING: Bench player {player.name} has higher redraft value than FLEX starter {flex_starter.name}")
+
+        # Print injured players
+        print("\nInjured players:")
+        for player in self.sim_injured_players:
+            print(f"{player.name} ({player.position}) - RV: {player.redraft_value:.2f} - Injured for {player.simulation_injury['duration']:.2f} more weeks. Return week: {player.simulation_injury['return_week']}")
+
+        # Print players on bye
+        print("\nPlayers on bye:")
+        for player in self.players:
+            if hasattr(player, 'pff_projections') and player.pff_projections is not None and \
+            hasattr(player.pff_projections, 'bye_week') and player.pff_projections.bye_week is not None and \
+            int(player.pff_projections.bye_week) == week:
+                print(f"{player.name} ({player.position}) - RV: {player.redraft_value:.2f}")
+
+        print("\n")
+        
     def calculate_player_score(self, player, week, scoring_settings):
         if player.is_injured(week):
             return 0
@@ -221,8 +259,11 @@ class FantasyTeam:
         active_starters = []
         for position, players in self.starters.items():
             for player in players:
-                if not player.is_injured(week) or player.is_partially_injured(week):
-                    active_starters.append(player)
+                if player is not None:
+                    if not player.is_injured(week) or player.is_partially_injured(week):
+                        active_starters.append(player)
+                else:
+                    print(f"WARNING: None player found in starting lineup for position {position} in week {week}")
         return active_starters
     
     

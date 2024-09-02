@@ -238,6 +238,18 @@ class SimulationTracker:
     
         
     def record_player_score(self, player_id, week, score):
+        if player_id is None:
+            print(f"Warning: Attempted to record score for player with None ID. Week: {week}, Score: {score}")
+            return
+
+        if not isinstance(player_id, (int, str)):
+            print(f"Warning: Invalid player_id type. Expected int or str, got {type(player_id)}. Week: {week}, Score: {score}")
+            return
+
+        if score is None:
+            print(f"Warning: Attempted to record None score for player {player_id} in week {week}")
+            return
+
         if player_id not in self.player_scores:
             self.player_scores[player_id] = {}
         if week not in self.player_scores[player_id]:
@@ -245,10 +257,10 @@ class SimulationTracker:
         self.player_scores[player_id][week].append(score)
         
         # Track that the player played this week (if score > 0)
-        if score > 0:
+        if isinstance(score, (int, float)) and score > 0:
             self.player_games_played[player_id] = self.player_games_played.get(player_id, 0) + 1
 
-    
+        print(f"DEBUG: Recorded score for player {player_id} in week {week}: {score}")
 
     def print_player_average_scores(self, top_n=5):
         print(f"\nTop {top_n} Players by Average Score for Each Team:")
@@ -731,6 +743,10 @@ class SimulationTracker:
             'season_modifier': season_modifier
         }
 
+        print(f"DEBUG: Recorded player season for {self.get_player_from_sleeper_id(player_id).name} with avg_points: {avg_points}")
+        print(f"Weekly scores: {weekly_scores}")
+        
+        
         # Record the season average for this player
         self.player_season_averages[player_id].append(avg_points)
 

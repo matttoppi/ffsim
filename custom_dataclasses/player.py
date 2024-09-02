@@ -276,14 +276,14 @@ class Player:
             # print(f"DEBUG: No PFF projections for {self.full_name}")
             # returns a random number between 0 and 1 with a mean of 0.5 and a standard deviation of 0.5
             return random.lognormvariate(0.5, 0.5)
-
+        
         proj = self.pff_projections
         games = float(proj.games or 17)
         bye_week = int(proj.bye_week or 0)
 
         if week == bye_week:
             # print(f"DEBUG: {self.full_name} - Bye week")
-            return 0
+            return None
 
         # Calculate per-game averages
         avg_pass_yds = max(0, float(proj.pass_yds or 0) / games)
@@ -572,9 +572,13 @@ class Player:
     
     def record_weekly_score(self, week, score):
         """Record a weekly score for the current season."""
+        if score is None:
+            print(f"WARNING: Attempted to record None score for player {self.full_name} (ID: {self.sleeper_id}) in week {week}")
+            return
         self.weekly_scores[week] = score
         self.total_simulated_points += score
         self.total_simulated_games += 1
+        print(f"DEBUG: Recorded score for player {self.full_name} (ID: {self.sleeper_id}) in week {week}: {score}")
 
     def reset_season_stats(self):
         """Reset the season statistics. Call this at the start of each new simulation."""

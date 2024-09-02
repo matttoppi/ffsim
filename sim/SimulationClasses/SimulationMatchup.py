@@ -35,23 +35,50 @@ class SimulationMatchup:
     def simulate_all_players(self, team, scoring_settings, week, tracker):
         total_score = 0
         player_scores = {}
+        print(f"DEBUG: Simulating all players for team {team.name} in week {week}")
+
+        def is_player_available(player):
+            is_not_injured = not player.is_injured(week)
+            is_not_on_bye = not hasattr(player, 'pff_projections') or \
+                            player.pff_projections is None or \
+                            not hasattr(player.pff_projections, 'bye_week') or \
+                            player.pff_projections.bye_week is None or \
+                            int(player.pff_projections.bye_week) != week
+            return is_not_injured and is_not_on_bye
+
+        active_starters = team.get_active_starters(week)
+
         for player in team.players:
-            if not player.is_injured(week):
+            print(f"DEBUG: Processing player {player.name} (ID: {player.sleeper_id})")
+            
+            if is_player_available(player):
                 if player.position.lower() in ['k', 'dst', 'def']:
                     score = player.calculate_special_team_score()
                     position = 'KICKER' if player.position.lower() == 'k' else 'DEFENSE'
                     tracker.record_special_team_score(team.name, position, week, score)
                 else:
                     score = player.calculate_score(scoring_settings, week)
-                player_scores[player.sleeper_id] = score
-                if player in team.get_active_starters(week) or player.is_partially_injured(week):
-                    total_score += score
+                
+                if score is not None:
+                    player_scores[player.sleeper_id] = score
+                    if player in active_starters:
+                        total_score += score
+                        print(f"DEBUG: Added {score} points to total_score for starter {player.name}")
+                    else:
+                        print(f"DEBUG: Calculated score {score} for bench player {player.name}")
+                else:
+                    print(f"WARNING: Score is None for player {player.name} (ID: {player.sleeper_id})")
+                    print(f"Player details: Position: {player.position}, Starter: {player in active_starters}")
+                    player_scores[player.sleeper_id] = 0
             else:
                 player_scores[player.sleeper_id] = 0
+                if player.is_injured(week):
+                    print(f"DEBUG: Player {player.name} is injured, setting score to 0")
+                else:
+                    print(f"DEBUG: Player {player.name} is on bye, setting score to 0")
 
+        print(f"DEBUG: Total score for team {team.name}: {total_score}")
         return total_score, player_scores
-    
-    
     
     def simulate(self, scoring_settings, tracker):
         self.home_score, home_player_scores = self.simulate_all_players(self.home_team, scoring_settings, self.week, tracker)
