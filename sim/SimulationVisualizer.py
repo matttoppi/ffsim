@@ -147,14 +147,15 @@ class SimulationVisualizer:
         ]
         for player in player_performances:
             modifier = player['modifier']
-            modifier_str = f"{modifier:.2f}" if isinstance(modifier, float) else str(modifier)
+            modifier_str = 'NA' if player['position'] in ['K', 'DEF'] else (f"{modifier:.2f}" if isinstance(modifier, float) else str(modifier))
+            games_played = 'NA' if player['position'] in ['K', 'DEF'] else player['games_played']
             data.append([
                 player['name'],
                 player['position'],
                 f"{player['total_points']:.2f}",
                 f"{player['avg_points']:.2f}",
                 modifier_str,
-                str(player['games_played'])
+                games_played
             ])
 
         table = Table(data)
