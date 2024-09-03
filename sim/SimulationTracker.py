@@ -262,7 +262,7 @@ class SimulationTracker:
         if isinstance(score, (int, float)) and score > 0:
             self.player_games_played[player_id] = self.player_games_played.get(player_id, 0) + 1
 
-        print(f"DEBUG: Recorded score for player {player_id} in week {week}: {score}")
+        # print(f"DEBUG: Recorded score for player {player_id} in week {week}: {score}")
 
     def print_player_average_scores(self, top_n=5):
         print(f"\nTop {top_n} Players by Average Score for Each Team:")
@@ -733,24 +733,31 @@ class SimulationTracker:
 
     def record_player_season(self, team_name, player_id, weekly_scores, season_modifier):
         normalized_name = self.normalize_team_name(team_name)
-        total_points = sum(weekly_scores.values())
-        games_played = len([score for score in weekly_scores.values() if score > 0])
-        avg_points = total_points / games_played if games_played > 0 else 0
-
-        performance = {
-            'weekly_scores': weekly_scores,
-            'total_points': total_points,
-            'avg_points': avg_points,
-            'games_played': games_played,
-            'season_modifier': season_modifier
-        }
-
-        print(f"DEBUG: Recorded player season for {self.get_player_from_sleeper_id(player_id).name} with avg_points: {avg_points}")
-        print(f"Weekly scores: {weekly_scores}")
+        player = self.get_player_from_sleeper_id(player_id)
         
-        
+        if player and player.out_for_season_flag:
+            performance = {
+                'weekly_scores': {},
+                'total_points': 0,
+                'avg_points': 0,
+                'games_played': 0,
+                'season_modifier': season_modifier,
+                'out_for_season': True
+            }
+        else:
+            total_points = sum(weekly_scores.values())
+            games_played = len([score for score in weekly_scores.values() if score > 0])
+            avg_points = total_points / games_played if games_played > 0 else 0
+            performance = {
+                'weekly_scores': weekly_scores,
+                'total_points': total_points,
+                'avg_points': avg_points,
+                'games_played': games_played,
+                'season_modifier': season_modifier,
+                'out_for_season': False
+            }
         # Record the season average for this player
-        self.player_season_averages[player_id].append(avg_points)
+        self.player_season_averages[player_id].append(performance['avg_points'])
 
         # Update player performances for the current season
         current_season = self.team_season_results[normalized_name][-1]
@@ -762,10 +769,7 @@ class SimulationTracker:
 
         if self.worst_seasons[normalized_name] == current_season:
             self.worst_seasons[normalized_name]['player_performances'][player_id] = performance.copy()
-
-
-
-
+            
     def get_best_season_breakdown(self, team_name):
         normalized_name = self.normalize_team_name(team_name)
         if normalized_name not in self.best_seasons:
@@ -797,14 +801,14 @@ class SimulationTracker:
                     'avg_points': avg_points,
                     'weekly_scores': filtered_weekly_scores,
                     'modifier': performance['season_modifier'],
-                    'games_played': games_played
+                    'games_played': games_played,
+                    'out_for_season': performance.get('out_for_season', False)
                 })
 
         breakdown['player_performances'].sort(key=lambda x: x['total_points'], reverse=True)
-        breakdown['player_performances'] = [player for player in breakdown['player_performances'] if player['games_played'] > 0]
+        # Include players with 0 games played (likely out for season)
+        breakdown['player_performances'] = [player for player in breakdown['player_performances']]
 
-      
-        print(breakdown)    
         return breakdown
 
     def get_worst_season_breakdown(self, team_name):
@@ -838,11 +842,13 @@ class SimulationTracker:
                     'avg_points': avg_points,
                     'weekly_scores': filtered_weekly_scores,
                     'modifier': performance['season_modifier'],
-                    'games_played': games_played
+                    'games_played': games_played,
+                    'out_for_season': performance.get('out_for_season', False)
                 })
 
         breakdown['player_performances'].sort(key=lambda x: x['total_points'], reverse=True)
-        breakdown['player_performances'] = [player for player in breakdown['player_performances'] if player['games_played'] > 0]
+        # Include players with 0 games played (likely out for season)
+        breakdown['player_performances'] = [player for player in breakdown['player_performances']]
 
         return breakdown
     

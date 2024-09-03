@@ -131,20 +131,33 @@ class Player:
         else:
             injury_roll = random.random()
             if injury_roll < self.injury_probability_game:
-                injury_duration = self.generate_injury_duration()
-                partial_week = injury_duration % 1
-                
-                # Ensure partial_week_factor is at least 0.25
-                partial_week_factor = max(0.25, 1 - partial_week)
-                
-                self.simulation_injury = {
-                    'start_week': week,
-                    'duration': math.ceil(injury_duration),
-                    'return_week': week + math.ceil(injury_duration),
-                    'partial_week_factor': partial_week_factor
-                }
-                self.current_injury_games_missed = 1
-                self.total_games_missed_this_season += 1
+                # 0.5% chance of season-ending injury
+                if random.random() < 0.005:
+                    self.simulation_injury = {
+                        'start_week': week,
+                        'duration': 17 - week + 1,  # Remaining weeks in the season
+                        'return_week': 18,  # Set to a week after the season ends
+                        'partial_week_factor': 0,  # No partial week for season-ending injuries
+                        'season_ending': True
+                    }
+                    self.current_injury_games_missed = 1
+                    self.total_games_missed_this_season = 17 - week + 1
+                else:
+                    injury_duration = self.generate_injury_duration()
+                    partial_week = injury_duration % 1
+                    
+                    # Ensure partial_week_factor is at least 0.2
+                    partial_week_factor = max(0.2, 1 - partial_week)
+                    
+                    self.simulation_injury = {
+                        'start_week': week,
+                        'duration': math.ceil(injury_duration),
+                        'return_week': week + math.ceil(injury_duration),
+                        'partial_week_factor': partial_week_factor,
+                        'season_ending': False
+                    }
+                    self.current_injury_games_missed = 1
+                    self.total_games_missed_this_season += 1
                 # print(f"DEBUG: {self.full_name} injured in week {week} for {injury_duration:.1f} weeks (partial week factor: {partial_week_factor:.2f})")
 
     def generate_injury_duration(self):
@@ -152,13 +165,13 @@ class Player:
         severity = random.choices(['Minor', 'Moderate', 'Major', 'Severe'], weights=severity_weights)[0]
         
         if severity == 'Minor':
-            return random.uniform(0.1, 1.5)  # 0.1 to 1.5 weeks
+            return random.uniform(0.1, 2)  # 0.1 to 1.5 weeks, increased by 4%
         elif severity == 'Moderate':
-            return random.uniform(1.5, 4)    # 1.5 to 4 weeks
+            return random.uniform(3, 4.5)   # 1.5 to 4 weeks, increased by 4%
         elif severity == 'Major':
-            return random.uniform(4, 8)      # 4 to 8 weeks
+            return random.uniform(5, 9)   # 4 to 8 weeks, increased by 4%
         else:  # Severe
-            return random.uniform(8, 16)     # 8 to 16 weeks
+            return random.uniform(8.32, 16.64)  # 8 to 16 weeks, increased by 4%
 
     def calculate_severity_weights(self):
         # Base weights

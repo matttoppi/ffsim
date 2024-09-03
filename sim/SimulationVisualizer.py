@@ -143,19 +143,21 @@ class SimulationVisualizer:
 
     def create_player_table(self, player_performances):
         data = [
-            ["Player", "Position", "Total Points", "Avg Points", "Modifier", "Games Played"]
+            ["Player", "Position", "Total Points", "Avg Points", "Modifier", "Games Played", "Status"]
         ]
         for player in player_performances:
             modifier = player['modifier']
             modifier_str = 'NA' if player['position'] in ['K', 'DEF'] else (f"{modifier:.2f}" if isinstance(modifier, float) else str(modifier))
             games_played = 'NA' if player['position'] in ['K', 'DEF'] else player['games_played']
+            status = "Out for Season" if player.get('out_for_season', False) else "Active"
             data.append([
                 player['name'],
                 player['position'],
                 f"{player['total_points']:.2f}",
                 f"{player['avg_points']:.2f}",
                 modifier_str,
-                games_played
+                games_played,
+                status
             ])
 
         table = Table(data)
@@ -175,9 +177,7 @@ class SimulationVisualizer:
             ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
             ('GRID', (0, 0), (-1, -1), 1, colors.black)
         ]))
-        return table    
-    
-
+        return table
 
     def _create_player_distributions(self, team, filename):
         players = team.players
