@@ -83,6 +83,8 @@ class SimulationTracker:
             'record': f"{wins}-{losses}-{ties}",
             'player_performances': {}
         }
+        
+        # print(f"Team: {team_name} - Wins: {wins} - Losses: {losses} - Ties: {ties} - Points For: {points_for} - Points Against: {points_against} - Playoff Result: {playoff_result} - Playoff Rank: {playoff_rank}")
 
         self.team_season_results[normalized_name].append(season_data)
         
@@ -782,19 +784,27 @@ class SimulationTracker:
         for player_id, performance in best_season['player_performances'].items():
             player = self.get_player_from_sleeper_id(player_id)
             if player:
+                # Filter out weeks 15, 16, and 17
+                filtered_weekly_scores = {week: score for week, score in performance['weekly_scores'].items() if int(week) < 15}
+                total_points = sum(filtered_weekly_scores.values())
+                games_played = len([score for score in filtered_weekly_scores.values() if score > 0])
+                avg_points = total_points / games_played if games_played > 0 else 0
+
                 breakdown['player_performances'].append({
                     'name': player.name,
                     'position': player.position,
-                    'total_points': performance['total_points'],
-                    'avg_points': performance['avg_points'],
-                    'weekly_scores': performance['weekly_scores'],
+                    'total_points': total_points,
+                    'avg_points': avg_points,
+                    'weekly_scores': filtered_weekly_scores,
                     'modifier': performance['season_modifier'],
-                    'games_played': performance['games_played']
+                    'games_played': games_played
                 })
 
         breakdown['player_performances'].sort(key=lambda x: x['total_points'], reverse=True)
         breakdown['player_performances'] = [player for player in breakdown['player_performances'] if player['games_played'] > 0]
 
+      
+        print(breakdown)    
         return breakdown
 
     def get_worst_season_breakdown(self, team_name):
@@ -815,14 +825,20 @@ class SimulationTracker:
         for player_id, performance in worst_season['player_performances'].items():
             player = self.get_player_from_sleeper_id(player_id)
             if player:
+                # Filter out weeks 15, 16, and 17
+                filtered_weekly_scores = {week: score for week, score in performance['weekly_scores'].items() if int(week) < 15}
+                total_points = sum(filtered_weekly_scores.values())
+                games_played = len([score for score in filtered_weekly_scores.values() if score > 0])
+                avg_points = total_points / games_played if games_played > 0 else 0
+
                 breakdown['player_performances'].append({
                     'name': player.name,
                     'position': player.position,
-                    'total_points': performance['total_points'],
-                    'avg_points': performance['avg_points'],
-                    'weekly_scores': performance['weekly_scores'],
+                    'total_points': total_points,
+                    'avg_points': avg_points,
+                    'weekly_scores': filtered_weekly_scores,
                     'modifier': performance['season_modifier'],
-                    'games_played': performance['games_played']
+                    'games_played': games_played
                 })
 
         breakdown['player_performances'].sort(key=lambda x: x['total_points'], reverse=True)

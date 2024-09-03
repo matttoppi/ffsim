@@ -272,6 +272,11 @@ class Player:
         return name.replace('.', '').replace("'", '').strip().title()
     
     def calculate_score(self, scoring_settings, week):
+        
+        if self.out_for_season_flag:
+            return 0
+    
+
         if not self.pff_projections:
             # print(f"DEBUG: No PFF projections for {self.full_name}")
             # returns a random number between 0 and 1 with a mean of 0.5 and a standard deviation of 0.5
@@ -413,8 +418,9 @@ class Player:
         
         # 1 in 100 chamce to be out the entire season
         
-        if random.random() < 0.01:
+        if random.random() < 0.025:
             self.season_modifier = 0
+            self.out_for_season_flag = True
             return
         
         # 1 in 12 chance to not miss any games
@@ -578,7 +584,7 @@ class Player:
         self.weekly_scores[week] = score
         self.total_simulated_points += score
         self.total_simulated_games += 1
-        print(f"DEBUG: Recorded score for player {self.full_name} (ID: {self.sleeper_id}) in week {week}: {score}")
+        # print(f"DEBUG: Recorded score for player {self.full_name} (ID: {self.sleeper_id}) in week {week}: {score}")
 
     def reset_season_stats(self):
         """Reset the season statistics. Call this at the start of each new simulation."""
@@ -586,6 +592,7 @@ class Player:
         self.total_simulated_points = 0
         self.total_simulated_games = 0
         self.never_miss_game_flag = False
+        self.out_for_season_flag = False
 
 
     

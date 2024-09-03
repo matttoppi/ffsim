@@ -337,9 +337,11 @@ class SimulationVisualizer:
         <b>Points For:</b> {breakdown['points_for']:.2f}  |  
         <b>Points Against:</b> {breakdown['points_against']:.2f}
         <br/>
-        <b>Points per Week:</b> {breakdown['points_for'] / 17:.2f}
+        <b>Points per Week:</b> {breakdown['points_for'] / 14:.2f}
         <br/><br/>
         <b>Playoff Result:</b> {breakdown['playoff_result']}
+        <br/><br/>
+        <i>Note: All scores and statistics are for the regular season only (Weeks 1-14)</i>
         """
         elements.append(Paragraph(summary, summary_style))
 
@@ -366,13 +368,13 @@ class SimulationVisualizer:
                 player['modifier'] = 'NA'
 
         # Create player performance table
-        elements.append(Paragraph("Player Performances", self.subtitle_style))
+        elements.append(Paragraph("Player Performances (Regular Season Only)", self.subtitle_style))
         player_table = self.create_player_table(filtered_performances)
         elements.append(player_table)
 
         # Add a note about the season modifier
         elements.append(Spacer(1, 0.2 * inch))
-        note = "Note: Season modifier represents player's performance relative to expectations (1.0 is average)"
+        note = "Note: Season modifier represents player's performance relative to expectations (1.0 is average). All statistics are for the regular season only (Weeks 1-14)."
         elements.append(Paragraph(note, self.styles['Italic']))
 
         return elements
