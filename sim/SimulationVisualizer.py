@@ -724,6 +724,7 @@ class SimulationVisualizer:
         elements.append(Paragraph(f"Triton Dynasty - Season Summary - (Simulations:{self.tracker.num_simulations})", self.title_style))
         elements.append(Spacer(1, 0.05 * inch))  # Reduced space after title
 
+        # Increase column widths by 8%
         overall_data = [["Rank", "Team", "Avg Wins", "Avg Losses", "Points/Week", "2025 Pick Proj"]]
         for i, (team_name, avg_wins, avg_points) in enumerate(self.tracker.get_overall_standings(), 1):
             avg_points = avg_points * 17 / 18 / 14 if avg_points > 0 else 0
@@ -742,7 +743,6 @@ class SimulationVisualizer:
             avg_points = avg_points * 17 / 18 / 14 if avg_points > 0 else 0
             avg_losses = 14 - avg_wins
             division2_data.append([str(i), team_name, f"{avg_wins:.2f}", f"{avg_losses:.2f}", f"{avg_points:.2f}"])
-
 
         # Create playoff statistics table
         playoff_data = [["Team", "Playoff App.", "Division Wins (Bye Weeks)", "Championships"]]
@@ -776,25 +776,25 @@ class SimulationVisualizer:
                 f"{stats['champs']} ({stats['champ_rate']:.1f}%)"
             ])
 
-        # Create tables (keeping your existing data preparation code)
-        overall_table = Table(overall_data, colWidths=[0.4*inch, 1.75*inch, 0.9*inch, 0.9*inch])
-        division1_table = Table(division1_data, colWidths=[0.4*inch, 1.75*inch, 0.9*inch, 0.9*inch])
-        division2_table = Table(division2_data, colWidths=[0.4*inch, 1.75*inch, 0.9*inch, 0.9*inch])
-        playoff_table = Table(playoff_data, colWidths=[1.6*inch, 1.7*inch, 1.4*inch, 1.2*inch])
+        # Increase column widths by 8%
+        overall_table = Table(overall_data, colWidths=[0.432*inch, 1.89*inch, 0.972*inch, 0.972*inch])
+        division1_table = Table(division1_data, colWidths=[0.432*inch, 1.89*inch, 0.972*inch, 0.972*inch])
+        division2_table = Table(division2_data, colWidths=[0.432*inch, 1.89*inch, 0.972*inch, 0.972*inch])
+        playoff_table = Table(playoff_data, colWidths=[1.728*inch, 1.836*inch, 1.512*inch, 1.296*inch])
 
-        # Apply styles with reduced font sizes and row heights
+        # Apply styles with increased font sizes (8% larger)
         table_style = TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 6),  # Reduced header font size
+            ('FONTSIZE', (0, 0), (-1, 0), 6.48),  # Increased header font size
             ('BOTTOMPADDING', (0, 0), (-1, 0), 3),
             ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
             ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
             ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 1), (-1, -1), 6),  # Reduced body font size
+            ('FONTSIZE', (0, 1), (-1, -1), 6.48),  # Increased body font size
             ('TOPPADDING', (0, 1), (-1, -1), 1),
             ('BOTTOMPADDING', (0, 1), (-1, -1), 0),
             ('GRID', (0, 0), (-1, -1), 1, colors.black)
@@ -806,22 +806,17 @@ class SimulationVisualizer:
         # Add tables to elements with reduced spacing
         elements.append(Paragraph("Overall Standings", self.subtitle_style))
         elements.append(overall_table)
-        elements.append(Spacer(1, 0.05 * inch)) 
+        elements.append(Spacer(1, 0.054 * inch))  # Increased spacing by 8%
         elements.append(Paragraph("Division 1 Standings", self.subtitle_style))
         elements.append(division1_table)
-        elements.append(Spacer(1, 0.05 * inch))  
+        elements.append(Spacer(1, 0.054 * inch))  # Increased spacing by 8%
         elements.append(Paragraph("Division 2 Standings", self.subtitle_style))
         elements.append(division2_table)
-        elements.append(Spacer(1, 0.05 * inch))
+        elements.append(Spacer(1, 0.054 * inch))  # Increased spacing by 8%
         elements.append(Paragraph("Playoff Statistics", self.subtitle_style))
         elements.append(playoff_table)
 
         return elements
-    
-    
-    
-    
-    
     
     
     def create_percentile_charts(self, team):
