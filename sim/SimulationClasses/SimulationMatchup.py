@@ -35,7 +35,7 @@ class SimulationMatchup:
     def simulate_all_players(self, team, scoring_settings, week, tracker):
         total_score = 0
         player_scores = {}
-        print(f"DEBUG: Simulating all players for team {team.name} in week {week}")
+        # print(f"DEBUG: Simulating all players for team {team.name} in week {week}")
 
         def is_player_available(player):
             is_not_injured = not player.is_injured(week)
@@ -49,7 +49,7 @@ class SimulationMatchup:
         active_starters = team.get_active_starters(week)
 
         for player in team.players:
-            print(f"DEBUG: Processing player {player.name} (ID: {player.sleeper_id})")
+            # print(f"DEBUG: Processing player {player.name} (ID: {player.sleeper_id})")
             
             if is_player_available(player):
                 if player.position.lower() in ['k', 'dst', 'def']:
@@ -63,21 +63,16 @@ class SimulationMatchup:
                     player_scores[player.sleeper_id] = score
                     if player in active_starters:
                         total_score += score
-                        print(f"DEBUG: Added {score} points to total_score for starter {player.name}")
-                    else:
-                        print(f"DEBUG: Calculated score {score} for bench player {player.name}")
+                        
                 else:
                     print(f"WARNING: Score is None for player {player.name} (ID: {player.sleeper_id})")
                     print(f"Player details: Position: {player.position}, Starter: {player in active_starters}")
                     player_scores[player.sleeper_id] = 0
             else:
                 player_scores[player.sleeper_id] = 0
-                if player.is_injured(week):
-                    print(f"DEBUG: Player {player.name} is injured, setting score to 0")
-                else:
-                    print(f"DEBUG: Player {player.name} is on bye, setting score to 0")
+                
 
-        print(f"DEBUG: Total score for team {team.name}: {total_score}")
+        # print(f"DEBUG: Total score for team {team.name}: {total_score}")
         return total_score, player_scores
     
     def simulate(self, scoring_settings, tracker):
