@@ -39,17 +39,18 @@ class MonteCarloSimulation:
                 
                 # Calculate and display time information
                 elapsed_time = time.time() - start_time
+                elapsed_mins = elapsed_time / 60
                 sims_per_second = (sim + 1) / elapsed_time
                 remaining_sims = self.num_simulations - (sim + 1)
                 estimated_remaining_time = remaining_sims / sims_per_second
                 
-                # Convert remaining time to minutes, rounding up
-                remaining_mins = math.ceil(estimated_remaining_time / 60)
+                # Convert remaining time to minutes, with one decimal place
+                remaining_mins = estimated_remaining_time / 60
                 
                 pbar.set_postfix({
-                    'Elapsed': f'{elapsed_time:.1f}s',
-                    'Remaining': f'{remaining_mins}m',
-                    'Sims/s': f'{sims_per_second:.2f}'
+                    'Elapsed': f'{elapsed_mins:.0f}m {elapsed_time % 60:.0f}s',
+                    'Remaining': f'{remaining_mins:.1f}m',
+                    'Sims/s': f'{sims_per_second:.1f}'
                 })
 
         self.tracker.calculate_averages()  # Calculate averages after all simulations
