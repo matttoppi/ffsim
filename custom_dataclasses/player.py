@@ -567,8 +567,39 @@ class Player:
                     
         # to account for TE premium settings
         if self.position == 'TE':
+            if modifier < 1.5:
+                modifier = modifier + (1.35 - modifier) * 0.1
+                
+        if self.position == 'TE' and tier == "backup":
+            if modifier < 1.75:
+                modifier = modifier + (1.75 - modifier) * 0.1
+                
+        if self.position == 'QB' and self.years_exp > 3 and self.depth_chart_order == 1:
+            if modifier > 1.35:
+                modifier = modifier + (1.35 - modifier) * 0.1
+                
+        if self.position == 'QB' and self.years_exp > 3 and self.depth_chart_order == 2:
             if modifier > 1.75:
                 modifier = modifier + (1.75 - modifier) * 0.1
+                
+        if tier == "star":
+            if modifier > 1.35:
+                modifier = modifier + (1.35 - modifier) * 0.1
+                
+        if tier == "mid":
+            if modifier > 1.5:
+                modifier = modifier + (1.5 - modifier) * 0.1
+                
+        if self.depth_chart_order == 1:
+            if modifier > 1.5:
+                modifier = modifier + (1.5 - modifier) * 0.1
+                
+        if self.depth_chart_order == 2:
+            if modifier > 1.75:
+                modifier = modifier + (1.75 - modifier) * 0.1
+                
+                
+                
  
 
 

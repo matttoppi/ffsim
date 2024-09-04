@@ -362,10 +362,8 @@ class SimulationVisualizer:
         # Filter out players with position "UNKNOWN"
         filtered_performances = [player for player in breakdown['player_performances'] if player['position'] != "UNKNOWN"]
 
-        # change the modifier to NA if position is DEF or K
-        for player in filtered_performances:
-            if player['position'] in ['DEF', 'K']:
-                player['modifier'] = 'NA'
+        # Remove players with position DEF or K
+        filtered_performances = [player for player in filtered_performances if player['position'] not in ['DEF', 'K']]
 
         # Create player performance table
         elements.append(Paragraph("Player Performances (Regular Season Only)", self.subtitle_style))
@@ -496,29 +494,28 @@ class SimulationVisualizer:
         player_scores = []
         for player in team.players:
             player_stats = self.tracker.get_player_season_stats(player.sleeper_id)
-            if player_stats:
-                player_scores.append((
-                    player,
-                    player_stats['overall_avg'],
-                    player_stats['min_season_avg'],
-                    player_stats['max_season_avg']
-                ))
+            worst_season_avg = self.tracker.get_player_worst_season_average(player.sleeper_id)
+            player_scores.append((
+                player,
+                player_stats['overall_avg'],
+                worst_season_avg,  # This is now the worst season average
+                player_stats['max_season_avg']
+            ))
 
         sorted_players = sorted(player_scores, key=lambda x: x[1], reverse=True)
-        # remove the players with position UNKNOWN
         sorted_players = [player for player in sorted_players if player[0].position != "UNKNOWN"]
         
         mid_point = len(sorted_players) // 2
 
         def create_half_table(players):
             data = [["Player", "Pos", "Avg", "Worst Seas.", "Best Seas."]]
-            for player, avg_score, min_season, max_season in players:
+            for player, avg_score, worst_season, best_season in players:
                 data.append([
                     player.name,
                     player.position,
                     f"{avg_score:.2f}",
-                    f"{min_season:.2f}",
-                    f"{max_season:.2f}"
+                    f"{worst_season:.2f}",  # This now uses the worst season average
+                    f"{best_season:.2f}"
                 ])
             return data
 
@@ -724,7 +721,7 @@ class SimulationVisualizer:
         elements.append(Paragraph(f"Triton Dynasty - Season Summary - (Simulations:{self.tracker.num_simulations})", self.title_style))
         elements.append(Spacer(1, 0.05 * inch))  # Reduced space after title
 
-        # Increase column widths by 8%
+        # Increase column widths by 15%
         overall_data = [["Rank", "Team", "Avg Wins", "Avg Losses", "Points/Week", "2025 Pick Proj"]]
         for i, (team_name, avg_wins, avg_points) in enumerate(self.tracker.get_overall_standings(), 1):
             avg_points = avg_points * 17 / 18 / 14 if avg_points > 0 else 0
@@ -776,25 +773,25 @@ class SimulationVisualizer:
                 f"{stats['champs']} ({stats['champ_rate']:.1f}%)"
             ])
 
-        # Increase column widths by 8%
-        overall_table = Table(overall_data, colWidths=[0.432*inch, 1.89*inch, 0.972*inch, 0.972*inch])
-        division1_table = Table(division1_data, colWidths=[0.432*inch, 1.89*inch, 0.972*inch, 0.972*inch])
-        division2_table = Table(division2_data, colWidths=[0.432*inch, 1.89*inch, 0.972*inch, 0.972*inch])
-        playoff_table = Table(playoff_data, colWidths=[1.728*inch, 1.836*inch, 1.512*inch, 1.296*inch])
+        # Increase column widths by 15%
+        overall_table = Table(overall_data, colWidths=[0.4968*inch, 2.1735*inch, 1.1178*inch, 1.1178*inch, 1.1178*inch, 1.1178*inch])
+        division1_table = Table(division1_data, colWidths=[0.4968*inch, 2.1735*inch, 1.1178*inch, 1.1178*inch, 1.1178*inch])
+        division2_table = Table(division2_data, colWidths=[0.4968*inch, 2.1735*inch, 1.1178*inch, 1.1178*inch, 1.1178*inch])
+        playoff_table = Table(playoff_data, colWidths=[1.9872*inch, 2.1114*inch, 1.7388*inch, 1.4904*inch])
 
-        # Apply styles with increased font sizes (8% larger)
+        # Apply styles with increased font sizes (15% larger)
         table_style = TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 6.48),  # Increased header font size
+            ('FONTSIZE', (0, 0), (-1, 0), 7.452),  # Increased header font size by 15%
             ('BOTTOMPADDING', (0, 0), (-1, 0), 3),
             ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
             ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
             ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 1), (-1, -1), 6.48),  # Increased body font size
+            ('FONTSIZE', (0, 1), (-1, -1), 7.452),  # Increased body font size by 15%
             ('TOPPADDING', (0, 1), (-1, -1), 1),
             ('BOTTOMPADDING', (0, 1), (-1, -1), 0),
             ('GRID', (0, 0), (-1, -1), 1, colors.black)
@@ -806,13 +803,13 @@ class SimulationVisualizer:
         # Add tables to elements with reduced spacing
         elements.append(Paragraph("Overall Standings", self.subtitle_style))
         elements.append(overall_table)
-        elements.append(Spacer(1, 0.054 * inch))  # Increased spacing by 8%
+        elements.append(Spacer(1, 0.0621 * inch))  # Increased spacing by 15%
         elements.append(Paragraph("Division 1 Standings", self.subtitle_style))
         elements.append(division1_table)
-        elements.append(Spacer(1, 0.054 * inch))  # Increased spacing by 8%
+        elements.append(Spacer(1, 0.0621 * inch))  # Increased spacing by 15%
         elements.append(Paragraph("Division 2 Standings", self.subtitle_style))
         elements.append(division2_table)
-        elements.append(Spacer(1, 0.054 * inch))  # Increased spacing by 8%
+        elements.append(Spacer(1, 0.0621 * inch))  # Increased spacing by 15%
         elements.append(Paragraph("Playoff Statistics", self.subtitle_style))
         elements.append(playoff_table)
 

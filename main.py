@@ -3,11 +3,18 @@ from custom_dataclasses.loaders.league_loader import LeagueLoader
 from sim.MonteCarloSimulation import MonteCarloSimulation
 import os
 import pprint
+import argparse
+
 
 
 
 def main():
- 
+    # Set up argument parser
+    parser = argparse.ArgumentParser(description="Run Monte Carlo Simulation for Fantasy Football")
+    parser.add_argument('-n', '--num_simulations', type=int, default=250,
+                        help='Number of simulations to run (default: 250)')
+    args = parser.parse_args()
+
     sleeper_id = "1048288271089983488"  # You can change this to user input if needed
     
     player_loader = PlayerLoader()
@@ -16,11 +23,10 @@ def main():
     # Load the league data
     league = league_loader.load_league()
     
-    
     # Run Monte Carlo Simulation
     input("Press Enter to run Monte Carlo Simulation")
     os.system('cls' if os.name == 'nt' else 'clear')
-    monte_carlo = MonteCarloSimulation(league, num_simulations=50)
+    monte_carlo = MonteCarloSimulation(league, num_simulations=args.num_simulations)
     monte_carlo.run()
 
 

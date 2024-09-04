@@ -687,6 +687,19 @@ class SimulationTracker:
     def get_percentile_breakdowns(self, team_name):
         normalized_name = self.normalize_team_name(team_name)
         return self.percentile_breakdowns.get(normalized_name, {})
+    
+    def get_player_worst_season_average(self, player_id):
+        if player_id in self.player_scores:
+            season_averages = []
+            for season_scores in self.player_scores[player_id].values():
+                if season_scores:  # Check if there are any scores for the season
+                    season_average = sum(season_scores) / len(season_scores)
+                    if season_average > 0:  # Only append non-zero averages
+                        season_averages.append(season_average)
+            
+            # Return the minimum non-zero average, or 0 if all averages are 0
+            return min(season_averages) if season_averages else 0
+        return 0
 
     def get_team_stats(self, team_name):
         normalized_name = self.normalize_team_name(team_name)
@@ -695,13 +708,57 @@ class SimulationTracker:
         if seasons and season_averages:
             avg_wins = sum(season['wins'] for season in seasons) / len(seasons)
             avg_points = sum(season['points_for'] for season in seasons) / len(seasons)
-            min_season_avg = min(season_averages)
+            non_zero_averages = [avg for avg in season_averages if avg > 0]
+            min_season_avg = min(non_zero_averages) if non_zero_averages else 0
             max_season_avg = max(season_averages)
+            
+            # Get worst non-zero season average for each player
+            player_worst_seasons = {}
+            player_all_seasons = {}  # Debug: Store all seasons for each player
+            for season in seasons:
+                for player_id, performance in season['player_performances'].items():
+                    if player_id not in player_all_seasons:
+                        player_all_seasons[player_id] = []
+                    player_all_seasons[player_id].append(performance['avg_points'])
+                    
+                    if performance['avg_points'] > 0:
+                        if player_id not in player_worst_seasons or performance['avg_points'] < player_worst_seasons[player_id]['avg_points']:
+                            player_worst_seasons[player_id] = {
+                                'avg_points': performance['avg_points'],
+                                'total_points': performance['total_points'],
+                                'games_played': performance['games_played'],
+                                'weekly_scores': performance['weekly_scores'],
+                                'season_modifier': performance['season_modifier'],
+                                'out_for_season': performance.get('out_for_season', False)
+                            }
+            
+            # Debug: Print all seasons for each player
+            print(f"Debug - All seasons for each player in {team_name}:")
+            for player_id, seasons in player_all_seasons.items():
+                player = self.get_player_from_sleeper_id(player_id)
+                print(f"{player.name if player else player_id}: {seasons}")
+            
+            # Debug: Print worst seasons before filtering
+            print(f"\nDebug - Worst seasons before filtering for {team_name}:")
+            for player_id, worst_season in player_worst_seasons.items():
+                player = self.get_player_from_sleeper_id(player_id)
+                print(f"{player.name if player else player_id}: {worst_season['avg_points']}")
+            
+            # Remove any remaining players with 0 average points
+            player_worst_seasons = {k: v for k, v in player_worst_seasons.items() if v['avg_points'] > 0}
+            
+            # Debug: Print worst seasons after filtering
+            print(f"\nDebug - Worst seasons after filtering for {team_name}:")
+            for player_id, worst_season in player_worst_seasons.items():
+                player = self.get_player_from_sleeper_id(player_id)
+                print(f"{player.name if player else player_id}: {worst_season['avg_points']}")
+            
             return {
                 'avg_wins': avg_wins,
                 'avg_points': avg_points,
                 'min_season_avg': min_season_avg,
                 'max_season_avg': max_season_avg,
+                'player_worst_seasons': player_worst_seasons
             }
         return None
 

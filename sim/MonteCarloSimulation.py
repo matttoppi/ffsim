@@ -3,6 +3,8 @@ from sim.SimulationClasses.SimulationSeason import SimulationSeason
 from sim.SimulationTracker import SimulationTracker
 from sim.SimulationVisualizer import SimulationVisualizer
 from sim.PDFReportGenerator import PDFReportGenerator
+import time
+import math
 
 
 
@@ -18,22 +20,44 @@ class MonteCarloSimulation:
         self.visualizer = SimulationVisualizer(self.league, self.tracker)
         self.pdf_report_generator = PDFReportGenerator(self.league, self.tracker, self.visualizer)
 
-    def run(self):
-        for sim in tqdm(range(self.num_simulations), desc="Running Simulations", unit="sim"):
-            # Reset all team stats before each simulation
-            for team in self.league.rosters:
-                team.reset_stats()
-            
-            season = SimulationSeason(self.league, self.tracker)
-            season.simulate()
-            self.record_season_results(season)
-            # print(f"DEBUG: Simulation {sim + 1} completed")
 
+    def run(self):
+        start_time = time.time()
         
-        
-        
+        with tqdm(total=self.num_simulations, desc="Running Simulations", unit="sim") as pbar:
+            for sim in range(self.num_simulations):
+                # Reset all team stats before each simulation
+                for team in self.league.rosters:
+                    team.reset_stats()
+                
+                season = SimulationSeason(self.league, self.tracker)
+                season.simulate()
+                self.record_season_results(season)
+                
+                # Update progress bar
+                pbar.update(1)
+                
+                # Calculate and display time information
+                elapsed_time = time.time() - start_time
+                sims_per_second = (sim + 1) / elapsed_time
+                remaining_sims = self.num_simulations - (sim + 1)
+                estimated_remaining_time = remaining_sims / sims_per_second
+                
+                # Convert remaining time to minutes, rounding up
+                remaining_mins = math.ceil(estimated_remaining_time / 60)
+                
+                pbar.set_postfix({
+                    'Elapsed': f'{elapsed_time:.1f}s',
+                    'Remaining': f'{remaining_mins}m',
+                    'Sims/s': f'{sims_per_second:.2f}'
+                })
+
         self.tracker.calculate_averages()  # Calculate averages after all simulations
         self.visualizer.plot_scoring_distributions(self.tracker)
+
+        total_time = time.time() - start_time
+        total_mins = math.ceil(total_time / 60)
+        print(f"\nTotal simulation time: {total_mins}m")
 
     def record_season_results(self, season):
         for team in self.league.rosters:
