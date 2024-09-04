@@ -487,14 +487,24 @@ class Player:
                 modifier *= random.uniform(1, 1.2)
             elif self.years_exp >= 7:
                 modifier *= random.uniform(0.9, 1.1)
-            elif self.years_exp == 0:
+            elif self.years_exp == 0 and self.position != 'QB':
                 new_player_boom_chance = 0.1
                 if random.random() < new_player_boom_chance:
                     modifier *= random.uniform(1, 2.5)
+                    
+            elif self.years_exp == 0 and self.position == 'QB':
+                new_player_boom_chance = 0.1
+                if random.random() < new_player_boom_chance:
+                    modifier *= random.uniform(1, 1.4)
+                    
+            elif self.years_exp == 1 and self.position == 'QB':
+                second_year_boom_chance = 0.15
+                if random.random() < second_year_boom_chance:
+                    modifier *= random.uniform(1, 1.25)
             
         if tier == "qb_starter":
             breakout_chance = 0.05
-            bust_chance = 0.075
+            bust_chance = 0.12
         elif tier == "qb_backup":
             breakout_chance = 0.1
             bust_chance = 0.1
@@ -505,24 +515,24 @@ class Player:
         # Apply breakout or bust modifiers
         if random.random() < breakout_chance:
             if tier == "qb_starter":
-                modifier = random.uniform(0.7, 1.4)
+                modifier = random.uniform(1.1, 1.4)
             elif tier == "qb_backup":
                 modifier *= random.uniform(1.2, 1.7)
             elif tier == "star":
-                modifier *= random.uniform(1.2, 1.5)
+                modifier *= random.uniform(1.2, 1.75)
             elif tier == "mid":
-                modifier *= random.uniform(1.3, 1.8)
+                modifier *= random.uniform(1.3, 1.9)
             elif tier == "backup":
-                modifier *= random.uniform(1, 2)
+                modifier *= random.uniform(1, 2.2)
             else:  # deep_backup
                 modifier *= random.uniform(1.5, 3)
         elif random.random() < bust_chance:
             if tier == "qb_starter":
-                modifier *= random.uniform(0.7, 0.9)
+                modifier *= random.uniform(0.25, 0.9)
             elif tier == "qb_backup":
-                modifier *= random.uniform(0.6, 0.85)
+                modifier *= random.uniform(0.35, 0.75)
             elif tier == "star":
-                modifier *= random.uniform(0.45, 0.9)
+                modifier *= random.uniform(0.5, 0.9)
             elif tier == "mid":
                 modifier *= random.uniform(0.5, 0.85)
             else:  # backup and deep_backup
