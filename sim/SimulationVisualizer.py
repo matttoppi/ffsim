@@ -454,7 +454,8 @@ class SimulationVisualizer:
                         f"{avg_score:.2f}"
                     ])
                 
-                table = Table(data, colWidths=[0.75*inch, 1.5*inch, 0.75*inch])
+                # Increase column widths by 10%
+                table = Table(data, colWidths=[0.825*inch, 1.65*inch, 0.825*inch])
                 table.setStyle(TableStyle([
                     ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
@@ -462,14 +463,14 @@ class SimulationVisualizer:
                     ('ALIGN', (0, 0), (0, -1), 'CENTER'),  # Center-align rank column
                     ('ALIGN', (2, 0), (2, -1), 'CENTER'),  # Center-align avg column
                     ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                    ('FONTSIZE', (0, 0), (-1, 0), 8),
-                    ('BOTTOMPADDING', (0, 0), (-1, 0), 5),
+                    ('FONTSIZE', (0, 0), (-1, 0), 8.8),  # Increase font size by 10%
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 5.5),  # Increase padding by 10%
                     ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
                     ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
                     ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-                    ('FONTSIZE', (0, 1), (-1, -1), 7),
-                    ('TOPPADDING', (0, 1), (-1, -1), 1),
-                    ('BOTTOMPADDING', (0, 1), (-1, -1), 1),
+                    ('FONTSIZE', (0, 1), (-1, -1), 7.7),  # Increase font size by 10%
+                    ('TOPPADDING', (0, 1), (-1, -1), 1.1),  # Increase padding by 10%
+                    ('BOTTOMPADDING', (0, 1), (-1, -1), 1.1),  # Increase padding by 10%
                     ('GRID', (0, 0), (-1, -1), 1, colors.black),
                     ('LINEBELOW', (0, 0), (-1, 0), 1, colors.black),
                 ]))
@@ -480,7 +481,8 @@ class SimulationVisualizer:
             table2 = create_table(top_players[15:], 16)
             
             # Create a table to hold both tables side by side with a gap
-            combined_table = Table([[table1, None, table2]], colWidths=[3*inch, 0.2*inch, 3*inch])
+            # Increase the total width by 10%
+            combined_table = Table([[table1, None, table2]], colWidths=[3.3*inch, 0.22*inch, 3.3*inch])
             combined_table.setStyle(TableStyle([
                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                 ('VALIGN', (0, 0), (-1, -1), 'TOP'),
