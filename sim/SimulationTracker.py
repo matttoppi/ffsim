@@ -1,13 +1,17 @@
 from collections import defaultdict
+from functools import lru_cache
+import logging
 import math
+from typing import Dict
 import numpy as np
+
+from custom_dataclasses.player import Player
 
 
 class SimulationTracker:
     def __init__(self, league):
         self.league = league
         self.weekly_player_scores = defaultdict(lambda: defaultdict(list))
-        self.team_season_results = defaultdict(list)
         self.team_weekly_results = defaultdict(lambda: defaultdict(list))
         self.season_standings = defaultdict(list)
         self.best_seasons = {}
@@ -18,13 +22,11 @@ class SimulationTracker:
         self.injury_impact_stats = defaultdict(lambda: {'points_lost_per_week': [], 'total_points_lost': 0})
         self.num_simulations = 0
         self.points_lost_to_injury = defaultdict(lambda: defaultdict(list))
-        self.player_scores = defaultdict(lambda: defaultdict(list))
         self.player_weekly_scores = defaultdict(lambda: defaultdict(list))
         self.player_games_played = defaultdict(int)
         self.player_injuries = defaultdict(list)  # Add this line
         self.player_games_missed = defaultdict(list)
         self.player_total_games_missed = defaultdict(int)
-        self.team_season_averages = defaultdict(list)   
         
         self.special_team_scores = defaultdict(lambda: defaultdict(list))
         self.division1_ids = league.division1_ids
@@ -38,6 +40,13 @@ class SimulationTracker:
         self.team_name_map = {}
         self.player_season_averages = defaultdict(list)
         
+        self.team_season_averages = defaultdict(lambda: np.array([]))
+        
+        self.player_scores = defaultdict(lambda: defaultdict(list))
+        self.team_season_results = defaultdict(list)
+        self.player_lookup: Dict[str, Player] = self._create_player_lookup()
+
+        
         self.average_results = {}  # Initialize the average_results dictionary
         self.best_seasons = {}
         self.worst_seasons = {}
@@ -49,6 +58,15 @@ class SimulationTracker:
             "Missed Playoffs": 5
         }
     
+    def _create_player_lookup(self) -> Dict[str, Player]:
+        player_lookup = {}
+        for team in self.league.rosters:
+            for player in team.players:
+                player_lookup[str(player.sleeper_id)] = player
+        return player_lookup
+
+    def get_player_from_sleeper_id(self, sleeper_id: str) -> Player | None:
+        return self.player_lookup.get(str(sleeper_id))
 
     def _is_better_season(self, new_season, old_season):
             # First, compare playoff ranks
@@ -84,13 +102,16 @@ class SimulationTracker:
             'player_performances': {}
         }
         
-        # print(f"Team: {team_name} - Wins: {wins} - Losses: {losses} - Ties: {ties} - Points For: {points_for} - Points Against: {points_against} - Playoff Result: {playoff_result} - Playoff Rank: {playoff_rank}")
-
+        if normalized_name not in self.team_season_results:
+            self.team_season_results[normalized_name] = []
         self.team_season_results[normalized_name].append(season_data)
         
-        # Calculate and record season average
-        season_average = points_for / 14  # Assuming 14-week regular season
-        self.team_season_averages[normalized_name].append(season_average)
+        if normalized_name not in self.team_season_averages:
+            self.team_season_averages[normalized_name] = np.array([])
+        self.team_season_averages[normalized_name] = np.append(
+            self.team_season_averages[normalized_name], points_for / 14)
+        
+        logging.debug(f"Recorded season for team '{team_name}': W-L-T: {wins}-{losses}-{ties}, PF: {points_for:.2f}, PA: {points_against:.2f}")
 
         # Update best season if necessary
         if normalized_name not in self.best_seasons or self._is_better_season(season_data, self.best_seasons[normalized_name]):
@@ -213,56 +234,32 @@ class SimulationTracker:
     def set_num_simulations(self, num_simulations):
         self.num_simulations = num_simulations
 
-    
-    def get_player_average_score(self, player_id):
-        if player_id not in self.player_scores:
-            return 0, 0, 0, 0, 0
 
-        all_scores = [score for week_scores in self.player_scores[player_id].values() for score in week_scores if score > 0]
-        games_played = self.player_games_played.get(player_id, 0)
-
-        if not all_scores or games_played == 0:
-            return 0, 0, 0, 0, 0
-
-        avg_score = sum(all_scores) / games_played
-        total_scores = sum(all_scores)
-        min_score = min(all_scores) if all_scores else 0
-        max_score = max(all_scores) if all_scores else 0
-
-        return avg_score, total_scores, games_played, min_score, max_score
-
-    def get_player_from_sleeper_id(self, sleeper_id):
-        for team in self.league.rosters:
-            for player in team.players:
-                if str(player.sleeper_id) == str(sleeper_id):
-                    return player
-        return None
-    
         
-    def record_player_score(self, player_id, week, score):
-        if player_id is None:
-            print(f"Warning: Attempted to record score for player with None ID. Week: {week}, Score: {score}")
-            return
+    # def record_player_score(self, player_id, week, score):
+    #     if player_id is None:
+    #         print(f"Warning: Attempted to record score for player with None ID. Week: {week}, Score: {score}")
+    #         return
 
-        if not isinstance(player_id, (int, str)):
-            print(f"Warning: Invalid player_id type. Expected int or str, got {type(player_id)}. Week: {week}, Score: {score}")
-            return
+    #     if not isinstance(player_id, (int, str)):
+    #         print(f"Warning: Invalid player_id type. Expected int or str, got {type(player_id)}. Week: {week}, Score: {score}")
+    #         return
 
-        if score is None:
-            print(f"Warning: Attempted to record None score for player {player_id} in week {week}")
-            return
+    #     if score is None:
+    #         print(f"Warning: Attempted to record None score for player {player_id} in week {week}")
+    #         return
 
-        if player_id not in self.player_scores:
-            self.player_scores[player_id] = {}
-        if week not in self.player_scores[player_id]:
-            self.player_scores[player_id][week] = []
-        self.player_scores[player_id][week].append(score)
+    #     if player_id not in self.player_scores:
+    #         self.player_scores[player_id] = {}
+    #     if week not in self.player_scores[player_id]:
+    #         self.player_scores[player_id][week] = []
+    #     self.player_scores[player_id][week].append(score)
         
-        # Track that the player played this week (if score > 0)
-        if isinstance(score, (int, float)) and score > 0:
-            self.player_games_played[player_id] = self.player_games_played.get(player_id, 0) + 1
+    #     # Track that the player played this week (if score > 0)
+    #     if isinstance(score, (int, float)) and score > 0:
+    #         self.player_games_played[player_id] = self.player_games_played.get(player_id, 0) + 1
 
-        # print(f"DEBUG: Recorded score for player {player_id} in week {week}: {score}")
+    #     # print(f"DEBUG: Recorded score for player {player_id} in week {week}: {score}")
 
     def print_player_average_scores(self, top_n=5):
         print(f"\nTop {top_n} Players by Average Score for Each Team:")
@@ -545,23 +542,8 @@ class SimulationTracker:
 
         
     def get_player_best_season_average(self, player_id):
-        if player_id not in self.player_scores:
-            return 0
-
-        best_season_avg = 0
-        for sim in range(self.num_simulations):
-            season_scores = []
-            for week in range(1, 18):  # Assuming 17-week season
-                week_scores = self.player_scores[player_id].get(week, [])
-                if sim < len(week_scores):
-                    season_scores.append(week_scores[sim])
-            
-            if season_scores:
-                season_avg = sum(season_scores) / len(season_scores)
-                best_season_avg = max(best_season_avg, season_avg)
-
-        return best_season_avg
-    
+        season_averages = self.player_season_averages.get(player_id, [])
+        return max(season_averages) if season_averages else 0
     
     
     
@@ -621,13 +603,28 @@ class SimulationTracker:
 
     def calculate_averages(self):
         for team in self.league.rosters:
-            normalized_name = self.normalize_team_name(team.name)
-            seasons = self.team_season_results[normalized_name]
-            if seasons:
-                wins = [season['wins'] for season in seasons]
-                points_for = [season['points_for'] for season in seasons]
-                
-                self.percentile_breakdowns[normalized_name] = {
+            team_name = self.normalize_team_name(team.name)
+            seasons = self.team_season_results.get(team_name, [])
+            if not seasons:
+                print(f"Warning: No season data for team {team.name}")
+                continue
+
+            try:
+                wins = []
+                points_for = []
+                for season in seasons:
+                    if 'wins' not in season or 'points_for' not in season:
+                        print(f"Warning: Incomplete season data for team {team.name}")
+                        print(f"Season data: {season}")
+                        continue
+                    wins.append(season['wins'])
+                    points_for.append(season['points_for'])
+
+                if not wins or not points_for:
+                    print(f"Warning: No valid season data for team {team.name}")
+                    continue
+
+                self.percentile_breakdowns[team_name] = {
                     'wins': {
                         'avg': np.mean(wins),
                         '10%': np.percentile(wins, 10),
@@ -643,27 +640,20 @@ class SimulationTracker:
                         '90%': np.percentile(points_for, 90)
                     }
                 }
-                
-                self.average_results[normalized_name] = {
+
+                self.average_results[team_name] = {
                     'avg_wins': np.mean(wins),
                     'avg_points': np.mean(points_for),
                     'avg_weeks': len(seasons)
                 }
-            else:
-                self.percentile_breakdowns[normalized_name] = {
-                    'wins': {'avg': 0, '10%': 0, '25%': 0, '75%': 0, '90%': 0},
-                    'points_for': {'avg': 0, '10%': 0, '25%': 0, '75%': 0, '90%': 0}
-                }
-                self.average_results[normalized_name] = {
-                    'avg_wins': 0,
-                    'avg_points': 0,
-                    'avg_weeks': 0
-                }
+            except Exception as e:
+                print(f"Error processing team {team.name}: {str(e)}")
+                print(f"Season data: {seasons}")
 
     def get_overall_standings(self):
         return sorted(
             [(self.get_original_team_name(team_name), stats['avg_wins'], stats['avg_points']) 
-             for team_name, stats in self.average_results.items()],
+            for team_name, stats in self.average_results.items()],
             key=lambda x: (x[1], x[2]),
             reverse=True
         )
@@ -689,79 +679,71 @@ class SimulationTracker:
         return self.percentile_breakdowns.get(normalized_name, {})
     
     def get_player_worst_season_average(self, player_id):
-        if player_id in self.player_scores:
-            season_averages = []
-            for season_scores in self.player_scores[player_id].values():
-                if season_scores:  # Check if there are any scores for the season
-                    season_average = sum(season_scores) / len(season_scores)
-                    if season_average > 0:  # Only append non-zero averages
-                        season_averages.append(season_average)
+        if player_id not in self.player_scores:
+            return 0
+
+        worst_season_avg = float('inf')
+        for sim in range(self.num_simulations):
+            season_scores = []
+            for week in range(1, 18):  # Assuming 17-week season
+                week_scores = self.player_scores[player_id].get(week, [])
+                if sim < len(week_scores):
+                    season_scores.append(week_scores[sim])
             
-            # Return the minimum non-zero average, or 0 if all averages are 0
-            return min(season_averages) if season_averages else 0
-        return 0
+            if season_scores:
+                season_avg = sum(season_scores) / len(season_scores)
+                if season_avg > 0:  # Only consider non-zero averages
+                    worst_season_avg = min(worst_season_avg, season_avg)
+
+        return worst_season_avg if worst_season_avg != float('inf') else 0
 
     def get_team_stats(self, team_name):
         normalized_name = self.normalize_team_name(team_name)
-        seasons = self.team_season_results[normalized_name]
-        season_averages = self.team_season_averages[normalized_name]
-        if seasons and season_averages:
-            avg_wins = sum(season['wins'] for season in seasons) / len(seasons)
-            avg_points = sum(season['points_for'] for season in seasons) / len(seasons)
-            non_zero_averages = [avg for avg in season_averages if avg > 0]
-            min_season_avg = min(non_zero_averages) if non_zero_averages else 0
-            max_season_avg = max(season_averages)
+        seasons = self.team_season_results.get(normalized_name, [])
+        season_averages = self.team_season_averages.get(normalized_name, [])
+        
+        logging.info(f"Getting stats for team '{team_name}' (normalized: '{normalized_name}')")
+        logging.debug(f"Number of seasons: {len(seasons)}")
+        logging.debug(f"Number of season averages: {len(season_averages)}")
+
+        if len(seasons) == 0 or len(season_averages) == 0:
+            logging.warning(f"No data found for team '{team_name}' (normalized: '{normalized_name}')")
+            return None
+
+        try:
+            wins = [season.get('wins', 0) for season in seasons]
+            points_for = [season.get('points_for', 0) for season in seasons]
             
-            # Get worst non-zero season average for each player
-            player_worst_seasons = {}
-            player_all_seasons = {}  # Debug: Store all seasons for each player
-            for season in seasons:
-                for player_id, performance in season['player_performances'].items():
-                    if player_id not in player_all_seasons:
-                        player_all_seasons[player_id] = []
-                    player_all_seasons[player_id].append(performance['avg_points'])
-                    
-                    if performance['avg_points'] > 0:
-                        if player_id not in player_worst_seasons or performance['avg_points'] < player_worst_seasons[player_id]['avg_points']:
-                            player_worst_seasons[player_id] = {
-                                'avg_points': performance['avg_points'],
-                                'total_points': performance['total_points'],
-                                'games_played': performance['games_played'],
-                                'weekly_scores': performance['weekly_scores'],
-                                'season_modifier': performance['season_modifier'],
-                                'out_for_season': performance.get('out_for_season', False)
-                            }
+            logging.debug(f"Wins: {wins}")
+            logging.debug(f"Points for: {points_for}")
             
-            # Debug: Print all seasons for each player
-            # print(f"Debug - All seasons for each player in {team_name}:")
-            # for player_id, seasons in player_all_seasons.items():
-            #     player = self.get_player_from_sleeper_id(player_id)
-            #     print(f"{player.name if player else player_id}: {seasons}")
+            avg_wins = np.mean(wins) if len(wins) > 0 else 0
+            avg_points = np.mean(points_for) if len(points_for) > 0 else 0
             
-            # # Debug: Print worst seasons before filtering
-            # # print(f"\nDebug - Worst seasons before filtering for {team_name}:")
-            # for player_id, worst_season in player_worst_seasons.items():
-            #     player = self.get_player_from_sleeper_id(player_id)
-            #     print(f"{player.name if player else player_id}: {worst_season['avg_points']}")
+            non_zero_averages = season_averages[season_averages > 0]
+            min_season_avg = np.min(non_zero_averages) if len(non_zero_averages) > 0 else 0
+            max_season_avg = np.max(season_averages) if len(season_averages) > 0 else 0
             
-            # Remove any remaining players with 0 average points
-            player_worst_seasons = {k: v for k, v in player_worst_seasons.items() if v['avg_points'] > 0}
-            
-            # # Debug: Print worst seasons after filtering
-            # print(f"\nDebug - Worst seasons after filtering for {team_name}:")
-            # for player_id, worst_season in player_worst_seasons.items():
-            #     player = self.get_player_from_sleeper_id(player_id)
-            #     print(f"{player.name if player else player_id}: {worst_season['avg_points']}")
+            logging.info(f"Stats calculated for team '{team_name}': avg_wins={avg_wins:.2f}, avg_points={avg_points:.2f}")
             
             return {
-                'avg_wins': avg_wins,
-                'avg_points': avg_points,
-                'min_season_avg': min_season_avg,
-                'max_season_avg': max_season_avg,
-                'player_worst_seasons': player_worst_seasons
+                'avg_wins': float(avg_wins),
+                'avg_points': float(avg_points),
+                'min_season_avg': float(min_season_avg),
+                'max_season_avg': float(max_season_avg),
             }
-        return None
 
+        except Exception as e:
+            logging.error(f"Error processing team {team_name}: {str(e)}")
+            logging.debug(f"Season data: {seasons}")
+            logging.debug(f"Season averages: {season_averages}")
+            return None
+
+    def team_has_seasons(self, team_name):
+        normalized_name = self.normalize_team_name(team_name)
+        seasons = self.team_season_results.get(normalized_name, [])
+        return len(seasons) > 0
+    
     # Update other methods that use team names to use normalized names
     def record_points_lost_to_injury(self, team_name, week, points_lost):
         normalized_name = self.normalize_team_name(team_name)
@@ -791,7 +773,7 @@ class SimulationTracker:
     def record_player_season(self, team_name, player_id, weekly_scores, season_modifier):
         normalized_name = self.normalize_team_name(team_name)
         player = self.get_player_from_sleeper_id(player_id)
-        
+
         if player and player.out_for_season_flag:
             performance = {
                 'weekly_scores': {},
@@ -803,8 +785,11 @@ class SimulationTracker:
             }
         else:
             total_points = sum(weekly_scores.values())
-            games_played = len([score for score in weekly_scores.values() if score > 0])
+            games_played = sum(1 for score in weekly_scores.values() if score > 0)
             avg_points = total_points / games_played if games_played > 0 else 0
+
+            self.player_season_averages[player_id].append(avg_points)
+
             performance = {
                 'weekly_scores': weekly_scores,
                 'total_points': total_points,
@@ -813,19 +798,28 @@ class SimulationTracker:
                 'season_modifier': season_modifier,
                 'out_for_season': False
             }
-        # Record the season average for this player
-        self.player_season_averages[player_id].append(performance['avg_points'])
+
+        # Ensure there's a current season for the team
+        if normalized_name not in self.team_season_results or not self.team_season_results[normalized_name]:
+            self.team_season_results[normalized_name] = [{'player_performances': {}}]
 
         # Update player performances for the current season
         current_season = self.team_season_results[normalized_name][-1]
         current_season['player_performances'][player_id] = performance
 
-        # Update player performances for best and worst seasons if applicable
-        if self.best_seasons[normalized_name] == current_season:
-            self.best_seasons[normalized_name]['player_performances'][player_id] = performance.copy()
+        # Update best season if necessary
+        if normalized_name not in self.best_seasons or self._is_better_season(current_season, self.best_seasons[normalized_name]):
+            self.best_seasons[normalized_name] = current_season.copy()
+            self.best_seasons[normalized_name]['player_performances'] = {
+                pid: perf.copy() for pid, perf in current_season['player_performances'].items()
+            }
 
-        if self.worst_seasons[normalized_name] == current_season:
-            self.worst_seasons[normalized_name]['player_performances'][player_id] = performance.copy()
+        # Update worst season if necessary
+        if normalized_name not in self.worst_seasons or self._is_worse_season(current_season, self.worst_seasons[normalized_name]):
+            self.worst_seasons[normalized_name] = current_season.copy()
+            self.worst_seasons[normalized_name]['player_performances'] = {
+                pid: perf.copy() for pid, perf in current_season['player_performances'].items()
+            }
             
     def get_best_season_breakdown(self, team_name):
         normalized_name = self.normalize_team_name(team_name)
@@ -850,6 +844,9 @@ class SimulationTracker:
                 total_points = sum(filtered_weekly_scores.values())
                 games_played = len([score for score in filtered_weekly_scores.values() if score > 0])
                 avg_points = total_points / games_played if games_played > 0 else 0
+                player_overall_avg = self.get_player_best_season_average(player_id)
+                if avg_points > player_overall_avg:
+                    avg_points = player_overall_avg
 
                 breakdown['player_performances'].append({
                     'name': player.name,
@@ -938,3 +935,62 @@ class SimulationTracker:
                 })
         
         return sorted(player_stats, key=lambda x: x['overall_avg'], reverse=True)
+    
+    def _multiply_by_two(self, x):
+        return x * 2
+
+
+    def record_player_score(self, player_id, week, score):
+        if player_id is None:
+            logging.warning(f"Attempted to record score for player with None ID. Week: {week}, Score: {score}")
+            return
+
+        if not isinstance(player_id, (int, str)):
+            logging.warning(f"Invalid player_id type. Expected int or str, got {type(player_id)}. Week: {week}, Score: {score}")
+            return
+
+        if score is None:
+            logging.warning(f"Attempted to record None score for player {player_id} in week {week}")
+            return
+
+        if player_id not in self.player_scores:
+            self.player_scores[player_id] = {}
+        if week not in self.player_scores[player_id]:
+            self.player_scores[player_id][week] = []
+        self.player_scores[player_id][week].append(score)
+        
+        # Track that the player played this week (if score > 0)
+        if isinstance(score, (int, float)) and score > 0:
+            self.player_games_played[player_id] = self.player_games_played.get(player_id, 0) + 1
+
+        logging.debug(f"Recorded score for player {player_id} in week {week}: {score}")
+
+    def get_player_average_score(self, player_id):
+        if player_id not in self.player_scores or not self.player_scores[player_id]:
+            return 0, 0, 0, 0, 0  # Return zeros if no scores are recorded
+
+        all_scores = []
+        for week_scores in self.player_scores[player_id].values():
+            if week_scores:  # Check if the list is not empty
+                all_scores.extend(week_scores)
+
+        if not all_scores:
+            return 0, 0, 0, 0, 0  # Return zeros if all lists are empty
+
+        all_scores = np.array(all_scores)
+        non_zero_scores = all_scores[all_scores > 0]
+        
+        if len(non_zero_scores) == 0:
+            return 0, 0, 0, 0, 0
+
+        return (np.mean(non_zero_scores), np.sum(non_zero_scores), 
+                len(non_zero_scores), np.min(non_zero_scores), np.max(non_zero_scores))
+        
+        
+    @lru_cache(maxsize=1000)
+    def get_player_from_sleeper_id(self, sleeper_id):
+        for team in self.league.rosters:
+            for player in team.players:
+                if str(player.sleeper_id) == str(sleeper_id):
+                    return player
+        return None

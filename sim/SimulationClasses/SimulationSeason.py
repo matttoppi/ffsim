@@ -1,37 +1,32 @@
-
+import logging
 import os
 import json
 import requests
 from datetime import datetime, timedelta
 from sim.SimulationClasses.SimulationMatchup import SimulationMatchup
 from sim.SimulationClasses.Playoffs import PlayoffSimulation
-        
-        
-        
-        
+import concurrent.futures
+
 class SimulationSeason:
-    def __init__(self, league, tracker):
+    def __init__(self, league, tracker, matchups=None):
         self.league = league
         self.tracker = tracker
         self.weeks = 14  # Regular season weeks
         self.playoff_weeks = 3  # Playoff weeks
-        self.matchups = {}
+        self.matchups = matchups or {}  # Use provided matchups or empty dict
         self.matchups_file = f'datarepo/matchups_{league.league_id}.json'
         self.matchups_refresh_interval = timedelta(days=1)
         self.playoff_sim = None
 
-    
-                
-    
-
     def get_matchups(self, week):
-        all_matchups = self.load_or_fetch_matchups()
+        if not self.matchups:
+            self.matchups = self.load_or_fetch_matchups()
         
-        if str(week) not in all_matchups:
+        if str(week) not in self.matchups:
             print(f"No matchup data available for week {week}")
             return []
 
-        week_matchups = all_matchups[str(week)]
+        week_matchups = self.matchups[str(week)]
         matchup_pairs = {}
 
         for team in week_matchups:
@@ -50,8 +45,10 @@ class SimulationSeason:
 
         return matchups
 
-
     def load_or_fetch_matchups(self):
+        if self.matchups:  # If matchups are already loaded, return them
+            return self.matchups
+
         if os.path.exists(self.matchups_file):
             file_age = datetime.now() - datetime.fromtimestamp(os.path.getmtime(self.matchups_file))
             if file_age <= self.matchups_refresh_interval:
@@ -77,6 +74,7 @@ class SimulationSeason:
             else:
                 print(f"Failed to fetch matchups for week {week}: HTTP {response.status_code}")
         return all_matchups
+
     def get_team_by_roster_id(self, roster_id):
         for team in self.league.rosters:
             if team.roster_id == roster_id:
@@ -87,27 +85,39 @@ class SimulationSeason:
         home_team.update_record(home_score > away_score, home_score == away_score, away_score, week)
         away_team.update_record(away_score > home_score, home_score == away_score, home_score, week)
 
-
     def get_standings(self):
         return sorted(self.league.rosters, key=lambda t: (t.wins, t.points_for), reverse=True)
 
-        
     def record_playoff_results(self, champion):
         # Implement logic to record playoff results in the tracker
         self.tracker.record_champion(champion.name)
-    
-                    
+
     def simulate_week(self, week):
+        logging.info(f"Simulating week {week}")
         for team in self.league.rosters:
             for player in team.players:
                 player.update_injury_status(week)
             team.fill_starters(week)
 
         matchups = self.get_matchups(week)
-        for matchup in matchups:
-            matchup.simulate(self.league.scoring_settings, self.tracker)
+        
+        # Use ThreadPoolExecutor for I/O-bound tasks or ProcessPoolExecutor for CPU-bound tasks
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            # Submit all matchups to the executor
+            future_to_matchup = {executor.submit(self.simulate_matchup, matchup): matchup for matchup in matchups}
+            
+            # Wait for all futures to complete
+            for future in concurrent.futures.as_completed(future_to_matchup):
+                matchup = future_to_matchup[future]
+                try:
+                    future.result()  # This will raise an exception if the matchup simulation failed
+                except Exception as exc:
+                    logging.error(f"Matchup {matchup} generated an exception: {exc}")
 
-        # print(f"DEBUG: Week {week} completed")
+        logging.info(f"Completed simulation for week {week}")
+
+    def simulate_matchup(self, matchup):
+        matchup.simulate(self.league.scoring_settings, self.tracker)
 
     def simulate_team_week(self, team, week):
         total_score = 0
@@ -115,9 +125,7 @@ class SimulationSeason:
             score = player.calculate_score(self.league.scoring_settings, week)
             total_score += score
         return total_score
-    
-    
-    
+
     def simulate(self):
         # Reset all team stats at the start of the simulation
         for team in self.league.rosters:

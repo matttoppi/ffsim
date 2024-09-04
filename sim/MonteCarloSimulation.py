@@ -19,7 +19,12 @@ class MonteCarloSimulation:
         self.tracker.set_num_simulations(num_simulations)
         self.visualizer = SimulationVisualizer(self.league, self.tracker)
         self.pdf_report_generator = PDFReportGenerator(self.league, self.tracker, self.visualizer)
+        self.matchups = self.load_matchups()  # Load matchups once
 
+    def load_matchups(self):
+        # Create a temporary SimulationSeason instance to use its methods
+        temp_season = SimulationSeason(self.league, self.tracker)
+        return temp_season.load_or_fetch_matchups()
 
     def run(self):
         start_time = time.time()
@@ -30,7 +35,7 @@ class MonteCarloSimulation:
                 for team in self.league.rosters:
                     team.reset_stats()
                 
-                season = SimulationSeason(self.league, self.tracker)
+                season = SimulationSeason(self.league, self.tracker, self.matchups)  # Pass matchups here
                 season.simulate()
                 self.record_season_results(season)
                 
@@ -71,6 +76,8 @@ class MonteCarloSimulation:
                 team.points_against,
                 team.playoff_result
             )
+            if not self.tracker.team_has_seasons(team.name):
+                logging.warning(f"No seasons recorded for team {team.name}")
             for player in team.players:
                 for week, score in player.weekly_scores.items():
                     self.tracker.record_player_score(player.sleeper_id, week, score)
@@ -82,7 +89,6 @@ class MonteCarloSimulation:
             [playoff_sim.bracket.division1_winner, playoff_sim.bracket.division2_winner],
             playoff_sim.champion
         )
-
     def print_team_results(self):
         for team_name in self.league.rosters:
             stats = self.tracker.get_team_stats(team_name)

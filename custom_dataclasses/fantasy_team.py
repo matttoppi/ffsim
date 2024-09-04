@@ -9,8 +9,6 @@ class FantasyTeam:
         ]
         
         self.name = name
-        self.players = []  # This is a list of players on the team
-        self.player_sleeper_ids = []  # This is a list of player ids on the team
         self.wins = 0
         self.losses = 0
         self.ties = 0
@@ -28,6 +26,8 @@ class FantasyTeam:
         self.league = league
         self.roster_id = None
         self.simulation = None  # We'll initialize this after adding players
+        self.players = set()  # Use a set instead of a list for faster lookups
+        self.player_sleeper_ids = set()
         
         self.starters = {
             'QB': [], 'RB': [], 'WR': [], 'TE': [], 'FLEX': [], 'K': [], 'DEF': []
@@ -51,6 +51,10 @@ class FantasyTeam:
                 setattr(self, key, value)    
                 
         self.calculate_metadata()
+
+    def add_player(self, player):
+        self.players.add(player)
+        self.player_sleeper_ids.add(player.sleeper_id)
         
         
     def create_season_modifiers(self):
@@ -67,9 +71,6 @@ class FantasyTeam:
     def print_fantasy_team_short(self):
         print(f"|{self.owner_username:<16} | Value 1QB: {self.total_value_1qb:<8.2f} |")
         
-    def add_player(self, player):
-        self.players.append(player)
-        self.player_sleeper_ids.append(player.sleeper_id)
 
 
     def calculate_metadata(self):
@@ -183,38 +184,29 @@ class FantasyTeam:
         # Get all available players
         available_players = [p for p in self.players if is_player_available(p)]
 
-        # Sort available players by total points or redraft value
+        # Sort players once before filling positions
         if week > 3:
-            available_players.sort(key=lambda p: sum(p.weekly_scores.values()), reverse=True)
+            sorted_players = sorted(available_players, key=lambda p: sum(p.weekly_scores.values()), reverse=True)
         else:
-            available_players.sort(key=lambda p: p.redraft_value if hasattr(p, 'redraft_value') else 0, reverse=True)
+            sorted_players = sorted(available_players, key=lambda p: p.redraft_value if hasattr(p, 'redraft_value') else 0, reverse=True)
 
-        # Fill mandatory positions first
         for pos in ['QB', 'RB', 'WR', 'TE', 'K', 'DEF']:
-            position_players = [p for p in available_players if p.position == pos]
-            for _ in range(slots[pos]):
-                if position_players:
-                    player = position_players.pop(0)
-                    self.starters[pos].append(player)
-                    available_players.remove(player)
+            position_players = [p for p in sorted_players if p.position == pos]
+            self.starters[pos] = position_players[:slots[pos]]
+            sorted_players = [p for p in sorted_players if p not in self.starters[pos]]
 
         # Fill FLEX positions
-        flex_players = [p for p in available_players if p.position in flex_eligible]
-        for _ in range(slots['FLEX']):
-            if flex_players:
-                if week > 3:
-                    player = max(flex_players, key=lambda p: sum(p.weekly_scores.values()))
-                else:
-                    player = max(flex_players, key=lambda p: p.redraft_value if hasattr(p, 'redraft_value') else 0)
-                self.starters['FLEX'].append(player)
-                available_players.remove(player)
-                flex_players.remove(player)
+        flex_players = [p for p in sorted_players if p.position in flex_eligible]
+        self.starters['FLEX'] = flex_players[:slots['FLEX']]
 
         # Set bench players
         self.bench = [p for p in self.players if p not in [player for pos_list in self.starters.values() for player in pos_list]]
 
         # Update injured players list
         self.sim_injured_players = [p for p in self.players if p.is_injured(week)]
+
+        # Uncomment the following line if you want to print team status after filling starters
+        # self.print_team_status(week)
 
         # Print team status
         # self.print_team_status(week)
@@ -298,15 +290,9 @@ class FantasyTeam:
             return player.calculate_score(scoring_settings, week)
 
     def get_active_starters(self, week):
-        active_starters = []
-        for position, players in self.starters.items():
-            for player in players:
-                if player is not None:
-                    if not player.is_injured(week) or player.is_partially_injured(week):
-                        active_starters.append(player)
-                else:
-                    print(f"WARNING: None player found in starting lineup for position {position} in week {week}")
-        return active_starters
+        return [player for position, players in self.starters.items() 
+                for player in players 
+                if player is not None and (not player.is_injured(week) or player.is_partially_injured(week))]
     
     
     def reset_season_stats(self):

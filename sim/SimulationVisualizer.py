@@ -1,3 +1,4 @@
+from functools import lru_cache
 import math
 import matplotlib.pyplot as plt
 import numpy as np
@@ -17,6 +18,7 @@ from reportlab.graphics.shapes import Drawing
 from reportlab.graphics.charts.barcharts import VerticalBarChart
 from reportlab.graphics.charts.piecharts import Pie
 from reportlab.graphics.charts.legends import Legend
+import multiprocessing as mp
 
 import matplotlib.pyplot as plt
 import io
@@ -25,6 +27,7 @@ from tqdm import tqdm
 
 from reportlab.pdfbase.pdfmetrics import stringWidth
 
+import logging
 
 
 
@@ -60,6 +63,8 @@ class SimulationVisualizer:
         self.pdf_base_dir = 'pdf_reports'
         self.positions_dir = os.path.join(self.pdf_base_dir, 'positions')
         self.teams_dir = os.path.join(self.pdf_base_dir, 'teams')
+        self.cache = {}
+        
         
         os.makedirs(self.positions_dir, exist_ok=True)
         os.makedirs(self.teams_dir, exist_ok=True)
@@ -92,20 +97,7 @@ class SimulationVisualizer:
             self.create_team_pdf(team)
 
 
-    def _get_top_players(self, position):
-        players = [player for team in self.league.rosters for player in team.players if player.position == position]
 
-        player_stats = []
-        for player in players:
-            avg_score, total_scores, games_played, min_score, max_score = self.tracker.get_player_average_score(player.sleeper_id)
-            best_season_avg = self.tracker.get_player_best_season_average(player.sleeper_id)
-            if games_played > 0:
-                player_stats.append((player, avg_score, self.tracker.player_scores[player.sleeper_id], best_season_avg))
-
-        # Sort players by average score and get top 10
-        sorted_players = sorted(player_stats, key=lambda x: x[1], reverse=True)[:30]
-
-        return sorted_players
 
     from tqdm import tqdm
 
@@ -120,10 +112,12 @@ class SimulationVisualizer:
                 fig, axs = plt.subplots(3, 2, figsize=(11, 8.5))  # Letter size
                 fig.suptitle(f'Top 30 {position} Scoring Distributions (Page {i//6 + 1})', fontsize=16)
                 
-                for j, (player, avg_score, scores_dict, best_season_avg) in enumerate(top_30_players[i:i+6]):
+                for j, player_data in enumerate(top_30_players[i:i+6]):
                     ax = axs[j//2, j%2]
+                    player, avg_score, scores_dict, best_season_avg = player_data
                     scores = [score for week_scores in scores_dict.values() for score in week_scores if score > 0]
-                    rank = top_30_players.index((player, avg_score, scores_dict, best_season_avg)) + 1
+                    rank = top_30_players.index(player_data) + 1
+                    best_season_avg = self.tracker.get_player_best_season_average(player.sleeper_id)
                     self._plot_histogram(ax, scores, player.name, avg_score, rank, position, best_season_avg)
                 
                 # Remove any empty subplots
@@ -136,30 +130,21 @@ class SimulationVisualizer:
 
         # print(f"Created {position} histogram PDF for top 30 players: {pdf_filename}")
 
-        # print(f"Created {position} histogram PDF for top 30 players: {pdf_filename}")
-
     def _plot_histogram(self, ax, scores, player_name, avg_score, rank, position, best_season_avg):
         ax.hist(scores, bins=30, edgecolor='black', color='skyblue')
-
-        title = f'{player_name}\n({position} Rank: {rank})'
-        ax.set_title(title, fontsize=10, fontweight='bold')
-
+        ax.set_title(f'{player_name}\n({position} Rank: {rank})', fontsize=10, fontweight='bold')
         ax.set_xlabel('Score', fontsize=8)
         ax.set_ylabel('Frequency', fontsize=8)
-
         ax.grid(True, linestyle='--', alpha=0.7)
-
-        if scores:
+        
+        if len(scores) > 0:
             mean_score = np.mean(scores)
             median_score = np.median(scores)
             ax.axvline(mean_score, color='red', linestyle='dashed', linewidth=1, label=f'Avg: {mean_score:.2f}')
             ax.axvline(median_score, color='green', linestyle='dashed', linewidth=1, label=f'Med: {median_score:.2f}')
             ax.axvline(best_season_avg, color='blue', linestyle='dashed', linewidth=1, label=f'Best: {best_season_avg:.2f}')
             ax.legend(fontsize=6)
-        else:
-            ax.text(0.5, 0.5, 'No non-zero scores', 
-                    horizontalalignment='center', verticalalignment='center', fontsize=8, fontstyle='italic')
-
+        
         ax.tick_params(axis='both', which='major', labelsize=6)
 
 
@@ -210,7 +195,7 @@ class SimulationVisualizer:
             print(f"No data available for any players on {team.name}. Skipping player distributions.")
             return
 
-        players_with_data.sort(key=lambda p: self._get_player_average_score(p.sleeper_id), reverse=True)
+        players_with_data.sort(key=lambda p: self.tracker.get_player_average_score(p.sleeper_id), reverse=True)
         
         # remove players with position UNKNOWN
         players_with_data = [p for p in players_with_data if p.position != "UNKNOWN"]
@@ -267,9 +252,6 @@ class SimulationVisualizer:
             return [score for week_scores in self.tracker.player_scores[player_id].values() for score in week_scores if score > 0]
         return []
 
-    def _get_player_average_score(self, player_id):
-        scores = self._get_player_scores(player_id)
-        return np.mean(scores) if scores else 0
 
     
 
@@ -515,16 +497,19 @@ class SimulationVisualizer:
         
         return pages
     
+    
     def create_player_average_scores_table(self, team):
         player_scores = []
         for player in team.players:
-            player_stats = self.tracker.get_player_season_stats(player.sleeper_id)
+            avg_score, total_scores, games_played, min_score, max_score = self.tracker.get_player_average_score(player.sleeper_id)
             worst_season_avg = self.tracker.get_player_worst_season_average(player.sleeper_id)
+            best_season_avg = self.tracker.get_player_best_season_average(player.sleeper_id)
+            
             player_scores.append((
                 player,
-                player_stats['overall_avg'],
-                worst_season_avg,  # This is now the worst season average
-                player_stats['max_season_avg']
+                avg_score,
+                worst_season_avg,
+                best_season_avg
             ))
 
         sorted_players = sorted(player_scores, key=lambda x: x[1], reverse=True)
@@ -539,7 +524,7 @@ class SimulationVisualizer:
                     player.name,
                     player.position,
                     f"{avg_score:.2f}",
-                    f"{worst_season:.2f}",  # This now uses the worst season average
+                    f"{worst_season:.2f}",
                     f"{best_season:.2f}"
                 ])
             return data
@@ -709,7 +694,7 @@ class SimulationVisualizer:
         team_stats = self.tracker.get_team_stats(team.name)
         if team_stats:
             # Use the same calculation as in the summary page
-            avg_points = team_stats['avg_points'] * 17 / 18 / 14 if team_stats['avg_points'] > 0 else 0
+            avg_points = team_stats['avg_points'] / 14 if team_stats['avg_points'] > 0 else 0
 
             stats_data = [
                 ["", "Value"],
@@ -750,7 +735,7 @@ class SimulationVisualizer:
         # Increase column widths by 15%
         overall_data = [["Rank", "Team", "Avg Wins", "Avg Losses", "Points/Week", "2025 Pick Proj"]]
         for i, (team_name, avg_wins, avg_points) in enumerate(self.tracker.get_overall_standings(), 1):
-            avg_points = avg_points * 17 / 18 / 14 if avg_points > 0 else 0
+            avg_points = avg_points / 14 if avg_points > 0 else 0
             avg_losses = 14 - avg_wins
             overall_data.append([str(i), team_name, f"{avg_wins:.2f}", f"{avg_losses:.2f}", f"{avg_points:.2f}", f"{11 - i}"])
 
@@ -758,12 +743,12 @@ class SimulationVisualizer:
         division2_data = [["Rank", "Team", "Avg Wins", "Avg Losses", "Points/Week"]]
 
         for i, (team_name, avg_wins, avg_points) in enumerate(self.tracker.get_division_standings(1), 1):
-            avg_points = avg_points * 17 / 18 / 14 if avg_points > 0 else 0
+            avg_points = avg_points / 14 if avg_points > 0 else 0
             avg_losses = 14 - avg_wins
             division1_data.append([str(i), team_name, f"{avg_wins:.2f}", f"{avg_losses:.2f}", f"{avg_points:.2f}"])
 
         for i, (team_name, avg_wins, avg_points) in enumerate(self.tracker.get_division_standings(2), 1):
-            avg_points = avg_points * 17 / 18 / 14 if avg_points > 0 else 0
+            avg_points = avg_points / 14 if avg_points > 0 else 0
             avg_losses = 14 - avg_wins
             division2_data.append([str(i), team_name, f"{avg_wins:.2f}", f"{avg_losses:.2f}", f"{avg_points:.2f}"])
 
@@ -939,4 +924,43 @@ class SimulationVisualizer:
 
         plt.close(fig)
 
+        return img
+
+    @lru_cache(maxsize=128)
+    def _get_top_players(self, position):
+        players = [player for team in self.league.rosters for player in team.players if player.position == position]
+        player_stats = []
+        for player in players:
+            avg_score, _, games_played, _, _ = self.tracker.get_player_average_score(player.sleeper_id)
+            best_season_avg = self.tracker.get_player_best_season_average(player.sleeper_id)
+            if games_played > 0:
+                player_stats.append((player, avg_score, self.tracker.player_scores[player.sleeper_id], best_season_avg))
+        return sorted(player_stats, key=lambda x: x[1], reverse=True)[:30]
+
+
+    def _create_player_plot(self, player_data, rank):
+        player, avg_score, scores_dict, best_season_avg = player_data
+        scores = np.array([score for week_scores in scores_dict.values() for score in week_scores if score > 0])
+        
+        fig, ax = plt.subplots(figsize=(5, 4))
+        ax.hist(scores, bins=30, edgecolor='black', color='skyblue')
+        ax.set_title(f'{player.name}\n({player.position} Rank: {rank+1})', fontsize=10, fontweight='bold')
+        ax.set_xlabel('Score', fontsize=8)
+        ax.set_ylabel('Frequency', fontsize=8)
+        ax.grid(True, linestyle='--', alpha=0.7)
+        
+        if len(scores) > 0:
+            mean_score = np.mean(scores)
+            median_score = np.median(scores)
+            ax.axvline(mean_score, color='red', linestyle='dashed', linewidth=1, label=f'Avg: {mean_score:.2f}')
+            ax.axvline(median_score, color='green', linestyle='dashed', linewidth=1, label=f'Med: {median_score:.2f}')
+            ax.axvline(best_season_avg, color='blue', linestyle='dashed', linewidth=1, label=f'Best: {best_season_avg:.2f}')
+            ax.legend(fontsize=6)
+        
+        ax.tick_params(axis='both', which='major', labelsize=6)
+        
+        img = io.BytesIO()
+        fig.savefig(img, format='png')
+        img.seek(0)
+        plt.close(fig)
         return img

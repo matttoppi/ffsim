@@ -1,3 +1,4 @@
+from functools import lru_cache
 import random
 import math
 from custom_dataclasses.loaders.InjuryDataLoader import InjuryDataLoader
@@ -42,6 +43,10 @@ class Player:
         self.season_modifier = 1.0
         
         self.never_miss_game_flag = False
+        
+        self._random = random.Random()  # Create a single Random instance per player
+        self._np_random = np.random.default_rng()  # Create a NumPy random number generator
+
 
         
         
@@ -105,6 +110,7 @@ class Player:
         if 'pff_projections' in initial_data and isinstance(initial_data['pff_projections'], dict):
             self.pff_projections = PFFProjections(initial_data['pff_projections'])
         
+
     def update_pff_projections(self, pff_data):
         if pff_data and isinstance(pff_data, dict):
             self.pff_projections = PFFProjections(pff_data)
@@ -129,10 +135,10 @@ class Player:
                 self.simulation_injury = None
                 self.current_injury_games_missed = 0
         else:
-            injury_roll = random.random()
+            injury_roll = self._random.random()
             if injury_roll < self.injury_probability_game:
                 # 0.5% chance of season-ending injury
-                if random.random() < 0.005:
+                if self._random.random() < 0.005:
                     self.simulation_injury = {
                         'start_week': week,
                         'duration': 17 - week + 1,  # Remaining weeks in the season
@@ -162,16 +168,16 @@ class Player:
 
     def generate_injury_duration(self):
         severity_weights = self.calculate_severity_weights()
-        severity = random.choices(['Minor', 'Moderate', 'Major', 'Severe'], weights=severity_weights)[0]
+        severity = self._random.choices(['Minor', 'Moderate', 'Major', 'Severe'], weights=severity_weights)[0]
         
         if severity == 'Minor':
-            return random.uniform(0.1, 2)  # 0.1 to 1.5 weeks, increased by 4%
+            return self._random.uniform(0.1, 2)  # 0.1 to 1.5 weeks, increased by 4%
         elif severity == 'Moderate':
-            return random.uniform(3, 4.5)   # 1.5 to 4 weeks, increased by 4%
+            return self._random.uniform(3, 4.5)   # 1.5 to 4 weeks, increased by 4%
         elif severity == 'Major':
-            return random.uniform(5, 9)   # 4 to 8 weeks, increased by 4%
+            return self._random.uniform(5, 9)   # 4 to 8 weeks, increased by 4%
         else:  # Severe
-            return random.uniform(8.32, 16.64)  # 8 to 16 weeks, increased by 4%
+            return self._random.uniform(8.32, 16.64)  # 8 to 16 weeks, increased by 4%
 
     def calculate_severity_weights(self):
         # Base weights
@@ -293,7 +299,7 @@ class Player:
         if not self.pff_projections:
             # print(f"DEBUG: No PFF projections for {self.full_name}")
             # returns a random number between 0 and 1 with a mean of 0.5 and a standard deviation of 0.5
-            return random.lognormvariate(0.5, 0.5)
+            return self._random.lognormvariate(0.5, 0.5)
         
         proj = self.pff_projections
         games = float(proj.games or 17)
@@ -341,24 +347,24 @@ class Player:
         adj_avg_rec_td = avg_rec_td * partial_week_factor
 
         # Generate touchdowns using adjusted Poisson distribution
-        pass_td = max(0, np.random.poisson(adj_avg_pass_td))
-        rush_td = max(0, np.random.poisson(avg_rush_td))
-        rec_td = max(0, np.random.poisson(adj_avg_rec_td))
+        pass_td = max(0, self._np_random.poisson(adj_avg_pass_td))
+        rush_td = max(0, self._np_random.poisson(avg_rush_td))
+        rec_td = max(0, self._np_random.poisson(adj_avg_rec_td))
 
         # Interceptions (using Poisson distribution, adjusted for partial week)
-        pass_int = max(0, np.random.poisson(avg_pass_int * partial_week_factor))
+        pass_int = max(0, self._np_random.poisson(avg_pass_int * partial_week_factor))
 
-        # Calculate score based on league scoring settings
-        score = (
-            pass_yds * scoring_settings.pass_yd +
-            pass_td * scoring_settings.pass_td +
-            pass_int * scoring_settings.pass_int +
-            rush_yds * scoring_settings.rush_yd +
-            rush_td * scoring_settings.rush_td +
-            rec_yds * scoring_settings.rec_yd +
-            rec_td * scoring_settings.rec_td +
-            receptions * (scoring_settings.te_rec if self.position == 'TE' else scoring_settings.rec)
-        )
+    
+        
+         # Use NumPy for vectorized operations
+        stats = np.array([pass_yds, pass_td, pass_int, rush_yds, rush_td, rec_yds, rec_td, receptions])
+        multipliers = np.array([
+            scoring_settings.pass_yd, scoring_settings.pass_td, scoring_settings.pass_int,
+            scoring_settings.rush_yd, scoring_settings.rush_td, scoring_settings.rec_yd,
+            scoring_settings.rec_td, scoring_settings.te_rec if self.position == 'TE' else scoring_settings.rec
+        ])
+        score = np.sum(stats * multipliers)
+
 
         # Apply season modifier
         score *= self.season_modifier
@@ -386,13 +392,14 @@ class Player:
 
         return score
 
+    @lru_cache(maxsize=100)
     def log_normal(self, mean, sigma, shift, adjustment_factor):
         if mean <= 0 or sigma <= 0:
             return 0
         try:
             mu = math.log(mean**2 / math.sqrt(mean**2 + sigma**2))
             sigma = math.sqrt(math.log(1 + (sigma**2 / mean**2))) * adjustment_factor
-            return max(0, random.lognormvariate(mu, sigma)) + shift
+            return max(0, self._random.lognormvariate(mu, sigma)) + shift
         except (ValueError, ZeroDivisionError):
             return 0
     
@@ -431,13 +438,13 @@ class Player:
         
         # 1 in 100 chamce to be out the entire season
         
-        if random.random() < 0.025:
+        if self._random.random() < 0.025:
             self.season_modifier = 0
             self.out_for_season_flag = True
             return
         
         # 1 in 12 chance to not miss any games
-        if random.random() < 0.083:
+        if self._random.random() < 0.083:
             self.never_miss_game_flag = True
         
         modifier = 1.0
@@ -475,32 +482,32 @@ class Player:
         else:  # deep_backup
             base_range = (0.4, 1.8)
 
-        modifier *= random.uniform(*base_range)
+        modifier *= self._random.uniform(*base_range)
 
         # Additional variance factor
-        variance_factor = random.normalvariate(1, 0.2)
+        variance_factor = self._random.normalvariate(1, 0.2)
         modifier *= variance_factor
 
         # Experience and potential modifier
         if self.years_exp is not None:
             if 1 <= self.years_exp <= 3:
-                modifier *= random.uniform(1, 1.2)
+                modifier *= self._random.uniform(1, 1.2)
             elif self.years_exp >= 7:
-                modifier *= random.uniform(0.9, 1.1)
+                modifier *= self._random.uniform(0.9, 1.1)
             elif self.years_exp == 0 and self.position != 'QB':
                 new_player_boom_chance = 0.1
-                if random.random() < new_player_boom_chance:
-                    modifier *= random.uniform(1, 2.5)
+                if self._random.random() < new_player_boom_chance:
+                    modifier *= self._random.uniform(1, 2.5)
                     
             elif self.years_exp == 0 and self.position == 'QB':
                 new_player_boom_chance = 0.1
-                if random.random() < new_player_boom_chance:
-                    modifier *= random.uniform(1, 1.4)
+                if self._random.random() < new_player_boom_chance:
+                    modifier *= self._random.uniform(1, 1.4)
                     
             elif self.years_exp == 1 and self.position == 'QB':
                 second_year_boom_chance = 0.15
-                if random.random() < second_year_boom_chance:
-                    modifier *= random.uniform(1, 1.25)
+                if self._random.random() < second_year_boom_chance:
+                    modifier *= self._random.uniform(1, 1.25)
             
         if tier == "qb_starter":
             breakout_chance = 0.05
@@ -513,34 +520,34 @@ class Player:
             bust_chance = 0.2
 
         # Apply breakout or bust modifiers
-        if random.random() < breakout_chance:
+        if self._random.random() < breakout_chance:
             if tier == "qb_starter":
-                modifier = random.uniform(1.1, 1.4)
+                modifier = self._random.uniform(1.1, 1.4)
             elif tier == "qb_backup":
-                modifier *= random.uniform(1.2, 1.7)
+                modifier *= self._random.uniform(1.2, 1.7)
             elif tier == "star":
-                modifier *= random.uniform(1.2, 1.75)
+                modifier *= self._random.uniform(1.2, 1.75)
             elif tier == "mid":
-                modifier *= random.uniform(1.3, 1.9)
+                modifier *= self._random.uniform(1.3, 1.9)
             elif tier == "backup":
-                modifier *= random.uniform(1, 2.2)
+                modifier *= self._random.uniform(1, 2.2)
             else:  # deep_backup
-                modifier *= random.uniform(1.5, 3)
-        elif random.random() < bust_chance:
+                modifier *= self._random.uniform(1.5, 3)
+        elif self._random.random() < bust_chance:
             if tier == "qb_starter":
-                modifier *= random.uniform(0.25, 0.9)
+                modifier *= self._random.uniform(0.25, 0.9)
             elif tier == "qb_backup":
-                modifier *= random.uniform(0.35, 0.75)
+                modifier *= self._random.uniform(0.35, 0.75)
             elif tier == "star":
-                modifier *= random.uniform(0.5, 0.9)
+                modifier *= self._random.uniform(0.5, 0.9)
             elif tier == "mid":
-                modifier *= random.uniform(0.5, 0.85)
+                modifier *= self._random.uniform(0.5, 0.85)
             else:  # backup and deep_backup
-                modifier *= random.uniform(0.5, 0.75)
+                modifier *= self._random.uniform(0.5, 0.75)
                 
         # Position-specific adjustments
         if self.position in ['WR', 'TE']:
-            modifier *= random.uniform(0.9, 1.1)
+            modifier *= self._random.uniform(0.9, 1.1)
 
         # Ensure the modifier stays within realistic bounds
         if self.pff_projections != None:
@@ -556,28 +563,27 @@ class Player:
 
         
     
-        if modifier > 1.3 and (tier == "qb_starter"):
-            modifier = 1.3 + (modifier - 1.3) * 0.1
+        
             
         modifier = max(0.3, min(modifier, 2.7)) 
         
         if self.pff_projections != None:
-            if 5 < self.pff_projections.fantasy_points / 17 < 8:
+            if 5 < self.pff_projections.fantasy_points / 17 < 5:
                 # 5% chance to be a giant boom breakout player
-                if random.random() < 0.05:
-                    modifier = random.uniform(2.5, 3)
+                if self._random.random() < 0.05:
+                    modifier = self._random.uniform(2.5, 3)
                     # print(f"DEBUG: {self.full_name} ({self.position}) - Modifier: {modifier:.2f} - Giant Boom")
-            elif self.pff_projections.fantasy_points / 17 < 5:
-                if random.random() < 0.05:
-                    modifier = random.uniform(4, 5)
+            elif self.pff_projections.fantasy_points / 17 < 4:
+                if self._random.random() < 0.05:
+                    modifier = self._random.uniform(4, 5)
                     # print(f"DEBUG: {self.full_name} ({self.position}) - Modifier: {modifier:.2f} - Giant Boom ")
                     
-            if self.pff_projections.fantasy_points / 17 > 10 and self.position == 'QB' and modifier < 1.5:
+            elif self.pff_projections.fantasy_points / 17 > 10 and self.position == 'QB' and modifier > 1.5:
                 modifier = modifier + (1.5 - modifier) * 0.1
                     
         # to account for TE premium settings
         if self.position == 'TE':
-            if modifier < 1.5:
+            if modifier < 1.35:
                 modifier = modifier + (1.35 - modifier) * 0.1
                 
         if self.position == 'TE' and tier == "backup":
@@ -595,22 +601,19 @@ class Player:
         if tier == "star":
             if modifier > 1.35:
                 modifier = modifier + (1.35 - modifier) * 0.1
-                
-        if tier == "mid":
+        elif tier == "mid":
             if modifier > 1.5:
                 modifier = modifier + (1.5 - modifier) * 0.1
                 
         if self.depth_chart_order == 1:
             if modifier > 1.5:
                 modifier = modifier + (1.5 - modifier) * 0.1
-                
-        if self.depth_chart_order == 2:
+        elif self.depth_chart_order == 2:
             if modifier > 1.75:
                 modifier = modifier + (1.75 - modifier) * 0.1
                 
-                
-                
- 
+        if self.position == 'QB' and (self.depth_chart_order == 1 or self.depth_chart_order == 2) and modifier > 1.3:
+            modifier = 1.1 + (modifier - 1.1) * 0.1
 
 
         # Store the modifier as an attribute of the player
