@@ -369,12 +369,13 @@ class Player:
         # Apply season modifier
         score *= self.season_modifier
 
-        # Apply a very gentle cap to limit extreme outliers
-        max_score = 50
-        if score > max_score:
-            excess = score - max_score
-            score = max_score + (excess * 0.1)  # Allow scores to exceed max_score, but at a much slower rate
+        # Apply a more aggressive cap to limit extreme outliers
 
+        # # Debug output
+        # if score > max_score:
+        #     print(f"DEBUG: {self.full_name} - Original score: {score:.2f}, Capped score: {max_score + capped_excess:.2f}")
+
+# ... (rest of the method)
         # # Debug output
         # if self.position == 'QB':
         #     print(f"DEBUG: {self.full_name} - Week {week} - Passing: {pass_yds:.2f} yds, {pass_td} TD, {pass_int} INT - Score: {score:.2f} (Modifier: {self.season_modifier:.2f})")
@@ -385,7 +386,7 @@ class Player:
 
         # if partial_week_factor < 1:
         #     print(f"DEBUG: {self.full_name} - Partial week factor: {partial_week_factor:.2f} - Adjusted Score: {score:.2f} (original: {score / partial_week_factor:.2f})")
-
+        
 
 
         self.record_weekly_score(week, score)
@@ -433,24 +434,25 @@ class Player:
         
 
 
+
+    def cap_modifier(self, modifier, base_cap):
+        # Use a less aggressive sigmoid function
+        return base_cap + (modifier - base_cap) / (1 + math.exp(7.5 * (modifier - base_cap)))
+
+
     def create_players_season_modifiers(self):
-        # Base modifier starts at 1 (no modification)
-        
-        # 1 in 100 chamce to be out the entire season
-        
+        # 2.5% chance to be out for the entire season
         if self._random.random() < 0.025:
             self.season_modifier = 0
             self.out_for_season_flag = True
             return
         
-        # 1 in 12 chance to not miss any games
+        # 8.3% chance to not miss any games
         if self._random.random() < 0.083:
             self.never_miss_game_flag = True
         
         modifier = 1.0
         
-        
-
         # Define thresholds for non-QB player tiers
         star_threshold = 4000
         mid_tier_threshold = 1000
@@ -485,7 +487,7 @@ class Player:
         modifier *= self._random.uniform(*base_range)
 
         # Additional variance factor
-        variance_factor = self._random.normalvariate(1, 0.2)
+        variance_factor = self._random.normalvariate(1, 0.15)
         modifier *= variance_factor
 
         # Experience and potential modifier
@@ -498,17 +500,16 @@ class Player:
                 new_player_boom_chance = 0.1
                 if self._random.random() < new_player_boom_chance:
                     modifier *= self._random.uniform(1, 2.5)
-                    
             elif self.years_exp == 0 and self.position == 'QB':
                 new_player_boom_chance = 0.1
                 if self._random.random() < new_player_boom_chance:
                     modifier *= self._random.uniform(1, 1.4)
-                    
             elif self.years_exp == 1 and self.position == 'QB':
                 second_year_boom_chance = 0.15
                 if self._random.random() < second_year_boom_chance:
                     modifier *= self._random.uniform(1, 1.25)
-            
+        
+        # Set breakout and bust chances
         if tier == "qb_starter":
             breakout_chance = 0.05
             bust_chance = 0.12
@@ -526,9 +527,9 @@ class Player:
             elif tier == "qb_backup":
                 modifier *= self._random.uniform(1.2, 1.7)
             elif tier == "star":
-                modifier *= self._random.uniform(1.2, 1.75)
+                modifier *= self._random.uniform(1.2, 1.5)
             elif tier == "mid":
-                modifier *= self._random.uniform(1.3, 1.9)
+                modifier *= self._random.uniform(1.3, 1.6)
             elif tier == "backup":
                 modifier *= self._random.uniform(1, 2.2)
             else:  # deep_backup
@@ -549,82 +550,44 @@ class Player:
         if self.position in ['WR', 'TE']:
             modifier *= self._random.uniform(0.9, 1.1)
 
-        # Ensure the modifier stays within realistic bounds
-        if self.pff_projections != None:
-            if self.pff_projections.fantasy_points_rank <= 50 and modifier > 1.8:
-                # print(f"DEBUG: {self.full_name} ({self.position}) - Modifier: {modifier:.2f} - Top 50 player")
-                modifier = modifier + (1.4 - modifier) * 0.15
-                # print(f"new modifier: {modifier:.2f}")
-                
-            elif 50 < self.pff_projections.fantasy_points_rank <= 175 and modifier > 1.8:
-                # print(f"DEBUG: {self.full_name} ({self.position}) - Modifier: {modifier:.2f} - 50 - 150 player")
-                modifier = modifier + (1.8 - modifier) * 0.25
-                # print(f"new modifier: {modifier:.2f}")
+        # Determine the base cap based on player tier and projections
+        if self.pff_projections:
+            proj_points_per_game = self.pff_projections.fantasy_points / 17
+            if proj_points_per_game > 20:  # Top tier
+                base_cap = 1.25
+            elif proj_points_per_game > 15:  # High tier
+                base_cap = 1.45
+            elif proj_points_per_game > 10:  # Mid tier
+                base_cap = 1.75
+            else:  # Low tier
+                base_cap = 2.2
+        else:
+            base_cap = 2.0  # Default cap if no projections available
 
-        
+        # Adjust base cap based on position and depth chart
+        if self.position == 'QB':
+            if self.depth_chart_order == 1:
+                base_cap *= 0.95  # Slightly stricter cap for starting QBs
+            else:
+                base_cap *= 1.05  # Allow slightly higher cap for backup QBs
     
-        
-            
-        modifier = max(0.3, min(modifier, 2.7)) 
-        
-        if self.pff_projections != None:
-            if 5 < self.pff_projections.fantasy_points / 17 < 5:
-                # 5% chance to be a giant boom breakout player
-                if self._random.random() < 0.05:
-                    modifier = self._random.uniform(2.5, 3)
-                    # print(f"DEBUG: {self.full_name} ({self.position}) - Modifier: {modifier:.2f} - Giant Boom")
-            elif self.pff_projections.fantasy_points / 17 < 4:
-                if self._random.random() < 0.05:
-                    modifier = self._random.uniform(4, 5)
-                    # print(f"DEBUG: {self.full_name} ({self.position}) - Modifier: {modifier:.2f} - Giant Boom ")
-                    
-            elif self.pff_projections.fantasy_points / 17 > 10 and self.position == 'QB' and modifier > 1.5:
-                modifier = modifier + (1.5 - modifier) * 0.1
-                    
-        # to account for TE premium settings
-        if self.position == 'TE':
-            if modifier < 1.35:
-                modifier = modifier + (1.35 - modifier) * 0.1
-                
-        if self.position == 'TE' and tier == "backup":
-            if modifier < 1.75:
-                modifier = modifier + (1.75 - modifier) * 0.1
-                
-        if self.position == 'QB' and self.years_exp > 3 and self.depth_chart_order == 1:
-            if modifier > 1.35:
-                modifier = modifier + (1.35 - modifier) * 0.1
-                
-        if self.position == 'QB' and self.years_exp > 3 and self.depth_chart_order == 2:
-            if modifier > 1.75:
-                modifier = modifier + (1.75 - modifier) * 0.1
-                
-        if tier == "star":
-            if modifier > 1.35:
-                modifier = modifier + (1.35 - modifier) * 0.1
-        elif tier == "mid":
-            if modifier > 1.5:
-                modifier = modifier + (1.5 - modifier) * 0.1
-                
-        if self.depth_chart_order == 1:
-            if modifier > 1.5:
-                modifier = modifier + (1.5 - modifier) * 0.1
-        elif self.depth_chart_order == 2:
-            if modifier > 1.75:
-                modifier = modifier + (1.75 - modifier) * 0.1
-                
-        if self.position == 'QB' and (self.depth_chart_order == 1 or self.depth_chart_order == 2) and modifier > 1.3:
-            modifier = 1.1 + (modifier - 1.1) * 0.1
+        # Apply the cap only if the modifier exceeds the base cap
+        if modifier > base_cap:
+            modifier = self.cap_modifier(modifier, base_cap)
 
+        # Regression to the mean for very high modifiers, but less aggressively
+        if modifier > 1.8:
+            regression_factor = 0.9
+            modifier = 1.8 + (modifier - 1.8) * regression_factor
+
+        # Remove the shrink factor to preserve more of the original range
+
+        # Final bounds check with a higher upper limit
+        modifier = max(0.3, min(modifier, 2.8))
 
         # Store the modifier as an attribute of the player
         self.season_modifier = round(modifier, 2)
-        
-        
 
-
-        # print(f"DEBUG: {performance_type} - {self.full_name} ({self.position}, {tier.upper()}) - Modifier: {self.season_modifier:.2f}")
-
-        
     def get_average_weekly_score(self):
         """Get the current season's average weekly score."""
         if self.total_simulated_games > 0:
