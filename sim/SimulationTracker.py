@@ -733,25 +733,25 @@ class SimulationTracker:
                             }
             
             # Debug: Print all seasons for each player
-            print(f"Debug - All seasons for each player in {team_name}:")
-            for player_id, seasons in player_all_seasons.items():
-                player = self.get_player_from_sleeper_id(player_id)
-                print(f"{player.name if player else player_id}: {seasons}")
+            # print(f"Debug - All seasons for each player in {team_name}:")
+            # for player_id, seasons in player_all_seasons.items():
+            #     player = self.get_player_from_sleeper_id(player_id)
+            #     print(f"{player.name if player else player_id}: {seasons}")
             
-            # Debug: Print worst seasons before filtering
-            print(f"\nDebug - Worst seasons before filtering for {team_name}:")
-            for player_id, worst_season in player_worst_seasons.items():
-                player = self.get_player_from_sleeper_id(player_id)
-                print(f"{player.name if player else player_id}: {worst_season['avg_points']}")
+            # # Debug: Print worst seasons before filtering
+            # # print(f"\nDebug - Worst seasons before filtering for {team_name}:")
+            # for player_id, worst_season in player_worst_seasons.items():
+            #     player = self.get_player_from_sleeper_id(player_id)
+            #     print(f"{player.name if player else player_id}: {worst_season['avg_points']}")
             
             # Remove any remaining players with 0 average points
             player_worst_seasons = {k: v for k, v in player_worst_seasons.items() if v['avg_points'] > 0}
             
-            # Debug: Print worst seasons after filtering
-            print(f"\nDebug - Worst seasons after filtering for {team_name}:")
-            for player_id, worst_season in player_worst_seasons.items():
-                player = self.get_player_from_sleeper_id(player_id)
-                print(f"{player.name if player else player_id}: {worst_season['avg_points']}")
+            # # Debug: Print worst seasons after filtering
+            # print(f"\nDebug - Worst seasons after filtering for {team_name}:")
+            # for player_id, worst_season in player_worst_seasons.items():
+            #     player = self.get_player_from_sleeper_id(player_id)
+            #     print(f"{player.name if player else player_id}: {worst_season['avg_points']}")
             
             return {
                 'avg_wins': avg_wins,

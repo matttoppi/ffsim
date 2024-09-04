@@ -57,14 +57,26 @@ class SimulationVisualizer:
         fontSize=8,  # Reduced from 10
         spaceAfter=1  # Reduced from 2
     )
+        self.pdf_base_dir = 'pdf_reports'
+        self.positions_dir = os.path.join(self.pdf_base_dir, 'positions')
+        self.teams_dir = os.path.join(self.pdf_base_dir, 'teams')
+        
+        os.makedirs(self.positions_dir, exist_ok=True)
+        os.makedirs(self.teams_dir, exist_ok=True)
+
+        # Delete existing files in the directories
+        for directory in [self.positions_dir, self.teams_dir]:
+            for filename in os.listdir(directory):
+                file_path = os.path.join(directory, filename)
+                try:
+                    if os.path.isfile(file_path):
+                        os.unlink(file_path)
+                except Exception as e:
+                    print(f"Error deleting file {file_path}: {e}")
+
         
     def plot_scoring_distributions(self, tracker):
         positions = ['QB', 'RB', 'WR', 'TE']
-
-        # Clear existing plots
-        if os.path.exists('plots'):
-            shutil.rmtree('plots')
-        os.makedirs('plots', exist_ok=True)
 
         # Plot top players per position
         for position in positions:
@@ -91,53 +103,64 @@ class SimulationVisualizer:
                 player_stats.append((player, avg_score, self.tracker.player_scores[player.sleeper_id], best_season_avg))
 
         # Sort players by average score and get top 10
-        sorted_players = sorted(player_stats, key=lambda x: x[1], reverse=True)[:10]
+        sorted_players = sorted(player_stats, key=lambda x: x[1], reverse=True)[:30]
 
         return sorted_players
 
     from tqdm import tqdm
 
     def _plot_and_save_histograms(self, top_players, position):
-        os.makedirs(f'plots/{position}', exist_ok=True)
+        pdf_filename = os.path.join(self.positions_dir, f'{position}_histograms.pdf')
 
-        for player, avg_score, scores_dict, best_season_avg in tqdm(top_players, desc=f"Plotting {position} histograms"):
-            scores = [score for week_scores in scores_dict.values() for score in week_scores if score > 0]
+        # Limit to top 30 players
+        top_30_players = top_players[:30]
 
-            fig, ax = plt.subplots(figsize=(10, 6))
+        with PdfPages(pdf_filename) as pdf:
+            for i in tqdm(range(0, len(top_30_players), 6), desc=f"Creating {position} histograms"):
+                fig, axs = plt.subplots(3, 2, figsize=(11, 8.5))  # Letter size
+                fig.suptitle(f'Top 30 {position} Scoring Distributions (Page {i//6 + 1})', fontsize=16)
+                
+                for j, (player, avg_score, scores_dict, best_season_avg) in enumerate(top_30_players[i:i+6]):
+                    ax = axs[j//2, j%2]
+                    scores = [score for week_scores in scores_dict.values() for score in week_scores if score > 0]
+                    rank = top_30_players.index((player, avg_score, scores_dict, best_season_avg)) + 1
+                    self._plot_histogram(ax, scores, player.name, avg_score, rank, position, best_season_avg)
+                
+                # Remove any empty subplots
+                for j in range(len(top_30_players[i:i+6]), 6):
+                    axs[j//2, j%2].axis('off')
+                
+                plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+                pdf.savefig(fig)
+                plt.close(fig)
 
-            rank = top_players.index((player, avg_score, scores_dict, best_season_avg)) + 1
+        # print(f"Created {position} histogram PDF for top 30 players: {pdf_filename}")
 
-            self._plot_histogram(ax, scores, player.name, avg_score, rank, position, best_season_avg)
-
-            plt.tight_layout()
-            plt.savefig(f'plots/{position}/{player.name.replace(" ", "_")}.png')
-            plt.close(fig)
+        # print(f"Created {position} histogram PDF for top 30 players: {pdf_filename}")
 
     def _plot_histogram(self, ax, scores, player_name, avg_score, rank, position, best_season_avg):
-        ax.hist(scores, bins=50, edgecolor='black', color='skyblue')
+        ax.hist(scores, bins=30, edgecolor='black', color='skyblue')
 
-        total_weeks = len(scores)
-        active_weeks = len([score for score in scores if score > 0])
+        title = f'{player_name}\n({position} Rank: {rank})'
+        ax.set_title(title, fontsize=10, fontweight='bold')
 
-        title = (f'{player_name} Scoring Distribution ({position} Rank: {rank})\n'
-                f'Best Season Avg: {best_season_avg:.2f}')
-        ax.set_title(title, fontsize=14, fontweight='bold')
-
-        ax.set_xlabel('Score', fontsize=12)
-        ax.set_ylabel('Frequency', fontsize=12)
+        ax.set_xlabel('Score', fontsize=8)
+        ax.set_ylabel('Frequency', fontsize=8)
 
         ax.grid(True, linestyle='--', alpha=0.7)
 
         if scores:
             mean_score = np.mean(scores)
             median_score = np.median(scores)
-            ax.axvline(mean_score, color='red', linestyle='dashed', linewidth=2, label=f'Avg: {mean_score:.2f}')
-            ax.axvline(median_score, color='green', linestyle='dashed', linewidth=2, label=f'Median: {median_score:.2f}')
-            ax.axvline(best_season_avg, color='blue', linestyle='dashed', linewidth=2, label=f'Best Season Avg: {best_season_avg:.2f}')
-            ax.legend()
+            ax.axvline(mean_score, color='red', linestyle='dashed', linewidth=1, label=f'Avg: {mean_score:.2f}')
+            ax.axvline(median_score, color='green', linestyle='dashed', linewidth=1, label=f'Med: {median_score:.2f}')
+            ax.axvline(best_season_avg, color='blue', linestyle='dashed', linewidth=1, label=f'Best: {best_season_avg:.2f}')
+            ax.legend(fontsize=6)
         else:
             ax.text(0.5, 0.5, 'No non-zero scores', 
-                    horizontalalignment='center', verticalalignment='center', fontsize=12, fontstyle='italic')
+                    horizontalalignment='center', verticalalignment='center', fontsize=8, fontstyle='italic')
+
+        ax.tick_params(axis='both', which='major', labelsize=6)
 
 
 
@@ -557,10 +580,11 @@ class SimulationVisualizer:
         return combined_table
 
     def create_team_pdf(self, team):
-        base_filename = f'plots/{team.name.replace(" ", "_")}'
+        base_filename = os.path.join(self.teams_dir, team.name.replace(" ", "_"))
         main_pdf = f'{base_filename}_main.pdf'
         plots_pdf = f'{base_filename}_plots.pdf'
         final_pdf = f'{base_filename}_team_report.pdf'
+
 
         doc = SimpleDocTemplate(main_pdf, pagesize=letter,
                         leftMargin=0.25*inch, rightMargin=0.25*inch,
