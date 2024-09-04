@@ -148,45 +148,6 @@ class SimulationVisualizer:
         ax.tick_params(axis='both', which='major', labelsize=6)
 
 
-
-    def create_player_table(self, player_performances):
-        data = [
-            ["Player", "Position", "Total Points", "Avg Points", "Modifier", "Games Played", "Status"]
-        ]
-        for player in player_performances:
-            modifier = player['modifier']
-            modifier_str = 'NA' if player['position'] in ['K', 'DEF'] else (f"{modifier:.2f}" if isinstance(modifier, float) else str(modifier))
-            games_played = 'NA' if player['position'] in ['K', 'DEF'] else player['games_played']
-            status = "Out for Season" if player.get('out_for_season', False) else "Active"
-            data.append([
-                player['name'],
-                player['position'],
-                f"{player['total_points']:.2f}",
-                f"{player['avg_points']:.2f}",
-                modifier_str,
-                games_played,
-                status
-            ])
-
-        table = Table(data)
-        table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 12),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-            ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 1), (-1, -1), 10),
-            ('TOPPADDING', (0, 1), (-1, -1), 6),
-            ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black)
-        ]))
-        return table
-
     def _create_player_distributions(self, team, filename):
         players = team.players
         players_with_data = [p for p in players if self._get_player_scores(p.sleeper_id)]
@@ -460,25 +421,8 @@ class SimulationVisualizer:
                     ])
                 
                 # Increase column widths by 10%
-                table = Table(data, colWidths=[0.825*inch, 1.65*inch, 0.825*inch])
-                table.setStyle(TableStyle([
-                    ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                    ('ALIGN', (0, 0), (0, -1), 'CENTER'),  # Center-align rank column
-                    ('ALIGN', (2, 0), (2, -1), 'CENTER'),  # Center-align avg column
-                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                    ('FONTSIZE', (0, 0), (-1, 0), 8.8),  # Increase font size by 10%
-                    ('BOTTOMPADDING', (0, 0), (-1, 0), 5.5),  # Increase padding by 10%
-                    ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-                    ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
-                    ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-                    ('FONTSIZE', (0, 1), (-1, -1), 7.7),  # Increase font size by 10%
-                    ('TOPPADDING', (0, 1), (-1, -1), 1.1),  # Increase padding by 10%
-                    ('BOTTOMPADDING', (0, 1), (-1, -1), 1.1),  # Increase padding by 10%
-                    ('GRID', (0, 0), (-1, -1), 1, colors.black),
-                    ('LINEBELOW', (0, 0), (-1, 0), 1, colors.black),
-                ]))
+                table = Table(data, colWidths=[0.5*inch, 1.95*inch, 0.5*inch])
+                table.setStyle(self.get_alternating_lavender_style(3, len(data)))
                 return table
             
             title = Paragraph(f"Top 30 {position}s", self.subtitle_style)
@@ -487,7 +431,7 @@ class SimulationVisualizer:
             
             # Create a table to hold both tables side by side with a gap
             # Increase the total width by 10%
-            combined_table = Table([[table1, None, table2]], colWidths=[3.3*inch, 0.22*inch, 3.3*inch])
+            combined_table = Table([[table1, None, table2]], colWidths=[3.0*inch, 0.5*inch, 3.0*inch])
             combined_table.setStyle(TableStyle([
                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                 ('VALIGN', (0, 0), (-1, -1), 'TOP'),
@@ -496,6 +440,35 @@ class SimulationVisualizer:
             pages.append((title, combined_table))
         
         return pages
+    
+    
+    def create_player_table(self, player_performances):
+        data = [
+            ["Player", "Pos", "Total", "Avg", "Modifier", "Games", "Status"]
+        ]
+        for player in player_performances:
+            modifier = player['modifier']
+            modifier_str = 'NA' if player['position'] in ['K', 'DEF'] else (f"{modifier:.2f}" if isinstance(modifier, float) else str(modifier))
+            games_played = 'NA' if player['position'] in ['K', 'DEF'] else player['games_played']
+            status = "Out for Season" if player.get('out_for_season', False) else "Active"
+            data.append([
+                player['name'],
+                player['position'],
+                f"{player['total_points']:.2f}",
+                f"{player['avg_points']:.2f}",
+                modifier_str,
+                games_played,
+                status
+            ])
+        colWidths=[1.5*inch, 0.4*inch, 0.85*inch, 0.85*inch, 0.85*inch, 0.75*inch, 1.1*inch]
+        
+        table = Table(data, colWidths=colWidths)
+        
+        
+        style = self.get_alternating_lavender_style(num_columns=7, num_rows=len(data))
+        table.setStyle(style)
+        return table
+        
     
     
     def create_player_average_scores_table(self, team):
@@ -518,7 +491,7 @@ class SimulationVisualizer:
         mid_point = len(sorted_players) // 2
 
         def create_half_table(players):
-            data = [["Player", "Pos", "Avg", "Worst Seas.", "Best Seas."]]
+            data = [["Player", "Pos", "Avg", "Worst", "Best"]]
             for player, avg_score, worst_season, best_season in players:
                 data.append([
                     player.name,
@@ -532,30 +505,14 @@ class SimulationVisualizer:
         left_data = create_half_table(sorted_players[:mid_point])
         right_data = create_half_table(sorted_players[mid_point:])
 
-        left_table = Table(left_data, colWidths=[1.3*inch, 0.5*inch, 0.7*inch, 0.7*inch, 0.7*inch])
-        right_table = Table(right_data, colWidths=[1.3*inch, 0.5*inch, 0.7*inch, 0.7*inch, 0.7*inch])
+        left_table = Table(left_data, colWidths=[1.5*inch, 0.4*inch, 0.65*inch, 0.65*inch, 0.65*inch])
+        right_table = Table(right_data, colWidths=[1.5*inch, 0.4*inch, 0.65*inch, 0.65*inch, 0.65*inch])
 
-        table_style = TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 8),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 2),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-            ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 1), (-1, -1), 7),
-            ('TOPPADDING', (0, 1), (-1, -1), 1),
-            ('BOTTOMPADDING', (0, 1), (-1, -1), 0.5),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black)
-        ])
+        # Apply the alternating lavenderf style to both tables
+        left_table.setStyle(self.get_alternating_lavender_style(num_columns=5, num_rows=len(left_data)))
+        right_table.setStyle(self.get_alternating_lavender_style(num_columns=5, num_rows=len(right_data)))
 
-        left_table.setStyle(table_style)
-        right_table.setStyle(table_style)
-
-        # Create a table to hold both tables side by side with more space
+        # Create a table to hold both tables side by side with less space
         combined_table = Table([[left_table, None, right_table]], colWidths=[4*inch, 0.2*inch, 4*inch])
         combined_table.setStyle(TableStyle([
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
@@ -687,52 +644,18 @@ class SimulationVisualizer:
         plt.tight_layout()
         return fig
 
-    def create_team_overview(self, team):
-        elements = []
-        
-        # Add team stats
-        team_stats = self.tracker.get_team_stats(team.name)
-        if team_stats:
-            # Use the same calculation as in the summary page
-            avg_points = team_stats['avg_points'] / 14 if team_stats['avg_points'] > 0 else 0
-
-            stats_data = [
-                ["", "Value"],
-                ["Average Wins", f"{team_stats['avg_wins']:.2f}"],
-                ["Average Points per Week", f"{avg_points:.2f}"]
-            ]
-
-            stats_table = Table(stats_data)
-            stats_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 10),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-                ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
-                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-                ('FONTSIZE', (0, 1), (-1, -1), 8),
-                ('TOPPADDING', (0, 1), (-1, -1), 5),
-                ('BOTTOMPADDING', (0, 1), (-1, -1), 5),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black)
-            ]))
-            elements.append(stats_table)
-            elements.append(Spacer(1, 0.2 * inch))
-
-        return elements
-    
     
     def create_summary_page(self, team):
         elements = []
         
-        # Add title with reduced space after
+        # Add title with slightly more space after
         elements.append(Paragraph(f"Triton Dynasty - Season Summary - (Simulations:{self.tracker.num_simulations})", self.title_style))
-        elements.append(Spacer(1, 0.05 * inch))  # Reduced space after title
+        elements.append(Spacer(1, 0.1 * inch))  # Increased space after title
 
-        # Increase column widths by 15%
+        # Reduce row heights for summary tables
+        row_height = 0.22 * inch  # Further reduced from previous 0.25 inch
+        header_height = 0.28 * inch  # Slightly reduced from previous 0.3 inch
+        
         overall_data = [["Rank", "Team", "Avg Wins", "Avg Losses", "Points/Week", "2025 Pick Proj"]]
         for i, (team_name, avg_wins, avg_points) in enumerate(self.tracker.get_overall_standings(), 1):
             avg_points = avg_points / 14 if avg_points > 0 else 0
@@ -784,48 +707,115 @@ class SimulationVisualizer:
                 f"{stats['champs']} ({stats['champ_rate']:.1f}%)"
             ])
 
-        # Increase column widths by 15%
-        overall_table = Table(overall_data, colWidths=[0.4968*inch, 2.1735*inch, 1.1178*inch, 1.1178*inch, 1.1178*inch, 1.1178*inch])
-        division1_table = Table(division1_data, colWidths=[0.4968*inch, 2.1735*inch, 1.1178*inch, 1.1178*inch, 1.1178*inch])
-        division2_table = Table(division2_data, colWidths=[0.4968*inch, 2.1735*inch, 1.1178*inch, 1.1178*inch, 1.1178*inch])
-        playoff_table = Table(playoff_data, colWidths=[1.9872*inch, 2.1114*inch, 1.7388*inch, 1.4904*inch])
+        overall_table = Table(overall_data, colWidths=[0.4968*inch, 2.0*inch, 1.1178*inch, 1.1178*inch, 1.1178*inch, 1.1178*inch], 
+                              rowHeights=[header_height] + [row_height] * (len(overall_data) - 1))
+        division1_table = Table(division1_data, colWidths=[0.4968*inch, 2.0*inch, 1.1178*inch, 1.1178*inch, 1.1178*inch], 
+                                rowHeights=[header_height] + [row_height] * (len(division1_data) - 1))
+        division2_table = Table(division2_data, colWidths=[0.4968*inch, 2.0*inch, 1.1178*inch, 1.1178*inch, 1.1178*inch], 
+                                rowHeights=[header_height] + [row_height] * (len(division2_data) - 1))
+        playoff_table = Table(playoff_data, colWidths=[1.85*inch, 1.75*inch, 1.7388*inch, 1.4904*inch], 
+                              rowHeights=[header_height] + [row_height] * (len(playoff_data) - 1))
+            
+        overall_table.setStyle(self.get_summary_table_style(6, len(overall_data)))
+        division1_table.setStyle(self.get_summary_table_style(5, len(division1_data)))
+        division2_table.setStyle(self.get_summary_table_style(5, len(division2_data)))
+        playoff_table.setStyle(self.get_summary_table_style(4, len(playoff_data)))
 
-        # Apply styles with increased font sizes (15% larger)
-        table_style = TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 7.452),  # Increased header font size by 15%
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 3),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-            ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 1), (-1, -1), 7.452),  # Increased body font size by 15%
-            ('TOPPADDING', (0, 1), (-1, -1), 1),
-            ('BOTTOMPADDING', (0, 1), (-1, -1), 0),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black)
-        ])
-
-        for table in [overall_table, division1_table, division2_table, playoff_table]:
-            table.setStyle(table_style)
-
-        # Add tables to elements with reduced spacing
+        # Add tables to elements with slightly increased spacing
         elements.append(Paragraph("Overall Standings", self.subtitle_style))
         elements.append(overall_table)
-        elements.append(Spacer(1, 0.0621 * inch))  # Increased spacing by 15%
+        elements.append(Spacer(1, 0.08 * inch))  # Slightly increased spacing
         elements.append(Paragraph("Division 1 Standings", self.subtitle_style))
         elements.append(division1_table)
-        elements.append(Spacer(1, 0.0621 * inch))  # Increased spacing by 15%
+        elements.append(Spacer(1, 0.08 * inch))  # Slightly increased spacing
         elements.append(Paragraph("Division 2 Standings", self.subtitle_style))
         elements.append(division2_table)
-        elements.append(Spacer(1, 0.0621 * inch))  # Increased spacing by 15%
+        elements.append(Spacer(1, 0.08 * inch))  # Slightly increased spacing
         elements.append(Paragraph("Playoff Statistics", self.subtitle_style))
         elements.append(playoff_table)
 
         return elements
     
+    
+    def get_summary_table_style(self, num_columns, num_rows):
+        style = [
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),  # Slightly reduced from 10
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 1),  # Slight padding
+            ('TOPPADDING', (0, 0), (-1, 0), 1),  # Slight padding
+            ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 9),  # Reduced from 8
+            ('TOPPADDING', (0, 1), (-1, -1), 1),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 1),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]
+        
+        # Add alternating row colors
+        for i in range(1, num_rows):
+            if i % 2:
+                style.append(('BACKGROUND', (0, i), (num_columns - 1, i), colors.lavender))
+            else:
+                style.append(('BACKGROUND', (0, i), (num_columns - 1, i), colors.white))
+        
+        return TableStyle(style)
+
+
+    def create_team_overview(self, team):
+        elements = []
+        
+        # Add team stats
+        team_stats = self.tracker.get_team_stats(team.name)
+        if team_stats:
+            # Use the same calculation as in the summary page
+            avg_points = team_stats['avg_points'] / 14 if team_stats['avg_points'] > 0 else 0
+
+            stats_data = [
+                ["Statistic", "Value"],
+                ["Average Wins", f"{team_stats['avg_wins']:.2f}"],
+                ["Average Points per Week", f"{avg_points:.2f}"]
+            ]
+
+            # Define column widths
+            col_widths = [2*inch, 1*inch]  # Adjusted to match the actual number of columns
+
+            stats_table = Table(stats_data, colWidths=col_widths)
+            stats_table.setStyle(self.get_alternating_lavender_style(2, 3))  # 2 columns, 3 rows
+            elements.append(stats_table)
+            elements.append(Spacer(1, 0.2 * inch))
+
+        return elements
+
+    def get_alternating_lavender_style(self, num_columns, num_rows):
+        style = [
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),  # Vertical alignment for all cells
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 13),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 6),  # Increased bottom padding for header
+            ('TOPPADDING', (0, 0), (-1, 0), 3.25),
+            ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 11),
+            ('TOPPADDING', (0, 1), (-1, -1), 2.25),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 2.25),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]
+        
+        # Add alternating row colors
+        for i in range(1, num_rows):  # Start from 1 to skip header row
+            if i % 2:
+                style.append(('BACKGROUND', (0, i), (num_columns - 1, i), colors.lavender))
+            else:
+                style.append(('BACKGROUND', (0, i), (num_columns - 1, i), colors.white))
+        
+        return TableStyle(style)
     
     def create_percentile_charts(self, team):
         breakdowns = self.tracker.get_percentile_breakdowns(team.name)
@@ -893,6 +883,8 @@ class SimulationVisualizer:
 
 
         return elements
+    
+    
 
     def create_violin_plot(self, team):
         wins = self.tracker.get_all_wins(team.name)
