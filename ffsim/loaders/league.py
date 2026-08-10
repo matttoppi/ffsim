@@ -1,9 +1,9 @@
 import json
-from pathlib import Path
 from urllib.request import urlopen
 
-from custom_dataclasses.fantasy_team import FantasyTeam
-from custom_dataclasses.league import League
+from ffsim.models.league import League
+from ffsim.models.team import FantasyTeam
+from ffsim.paths import CACHE_DIR
 
 
 def refresh_league(league_id):
@@ -16,15 +16,16 @@ def refresh_league(league_id):
         "rosters": fetch(f"league/{league_id}/rosters"),
         "users": fetch(f"league/{league_id}/users"),
     }
-    path = Path(f"datarepo/league_{league_id}.json")
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    path = CACHE_DIR / f"league_{league_id}.json"
     path.write_text(json.dumps(snapshot, indent=2) + "\n")
 
 
 class LeagueLoader:
     def __init__(self, league_id, player_loader):
-        path = Path(f"datarepo/league_{league_id}.json")
+        path = CACHE_DIR / f"league_{league_id}.json"
         if not path.exists():
-            raise FileNotFoundError("League cache is missing. Run `python main.py refresh` first.")
+            raise FileNotFoundError("League cache is missing. Run `python -m ffsim refresh` first.")
         self.snapshot = json.loads(path.read_text())
         self.player_loader = player_loader
         self.player_loader.ensure_players_loaded()

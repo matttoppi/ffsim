@@ -1,8 +1,12 @@
 import csv
+from pathlib import Path
 
-def extract_and_rank_kickers_and_dsts(input_file, kickers_output, dsts_output):
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+def extract_special_teams(input_file, kickers_output, defenses_output):
     kickers = []
-    dsts = []
+    defenses = []
 
     with open(input_file, 'r', newline='') as infile:
         reader = csv.DictReader(infile)
@@ -11,7 +15,7 @@ def extract_and_rank_kickers_and_dsts(input_file, kickers_output, dsts_output):
             if row['position'].lower() == 'k':
                 kickers.append(row)
             elif row['position'].lower() == 'dst':
-                dsts.append(row)
+                defenses.append(row)
 
     # Sort and rank kickers
     kickers.sort(key=lambda x: float(x['fantasyPoints']), reverse=True)
@@ -19,9 +23,9 @@ def extract_and_rank_kickers_and_dsts(input_file, kickers_output, dsts_output):
         kicker['fantasyPointsRank'] = str(rank)
 
     # Sort and rank DSTs
-    dsts.sort(key=lambda x: float(x['fantasyPoints']), reverse=True)
-    for rank, dst in enumerate(dsts, 1):
-        dst['fantasyPointsRank'] = str(rank)
+    defenses.sort(key=lambda x: float(x['fantasyPoints']), reverse=True)
+    for rank, defense in enumerate(defenses, 1):
+        defense['fantasyPointsRank'] = str(rank)
 
     # Write kickers to file
     kicker_fields = [
@@ -35,7 +39,7 @@ def extract_and_rank_kickers_and_dsts(input_file, kickers_output, dsts_output):
     write_to_csv(kickers_output, kicker_fields, kickers)
 
     # Write DSTs to file
-    dst_fields = [
+    defense_fields = [
         "fantasyPointsRank", "playerName", "teamName", "position", "byeWeek", 
         "games", "fantasyPoints", "auctionValue",
         "dstSacks", "dstSafeties", "dstInt", "dstFumblesForced", 
@@ -44,7 +48,7 @@ def extract_and_rank_kickers_and_dsts(input_file, kickers_output, dsts_output):
         "dstPts2834", "dstPts35plus"
     ]
     
-    write_to_csv(dsts_output, dst_fields, dsts)
+    write_to_csv(defenses_output, defense_fields, defenses)
 
 def write_to_csv(filename, fields, data):
     with open(filename, 'w', newline='') as outfile:
@@ -53,13 +57,18 @@ def write_to_csv(filename, fields, data):
         for row in data:
             writer.writerow({field: row.get(field, '') for field in fields})
 
-# Usage
+def main():
+    projections_dir = PROJECT_ROOT / "data" / "projections"
+    input_file = projections_dir / "players.csv"
+    kickers_output = projections_dir / "kickers.csv"
+    defenses_output = projections_dir / "defenses.csv"
 
-input_file = 'datarepo/PFFProjections/projections.csv'
+    extract_special_teams(input_file, kickers_output, defenses_output)
+    print(
+        f"Extraction complete. Kickers saved to {kickers_output}, "
+        f"defenses saved to {defenses_output}"
+    )
 
 
-kickers_output = 'datarepo/PFFProjections/kickers.csv'
-dsts_output = 'datarepo/PFFProjections/dsts.csv'
-
-extract_and_rank_kickers_and_dsts(input_file, kickers_output, dsts_output)
-print(f"Extraction complete. Kickers saved to {kickers_output}, DSTs saved to {dsts_output}")
+if __name__ == "__main__":
+    main()

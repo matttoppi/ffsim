@@ -1,7 +1,7 @@
-# nflverse data
+# Archived nflverse data
 
-Public CSV snapshots used to model weekly fantasy variance. No account or API
-key is required.
+Public CSV snapshots staged for future weekly fantasy variance modeling. They
+are not read by the current simulator. No account or API key is required.
 
 | Files | Purpose | Source |
 | --- | --- | --- |
@@ -13,8 +13,8 @@ key is required.
 
 Snapshots were downloaded on 2026-08-10. During the season, nflverse player
 and team stats update after game days, schedules update throughout the season,
-and snap counts update several times daily. Refresh these snapshots before a
-simulation run that should include newly completed games.
+and snap counts update several times daily. Move this dataset back into the
+active data workflow before relying on refreshed snapshots in a simulation.
 
 2026 weekly results do not exist until games are played. PFF projections and
 DraftSharks injury probabilities are separate member-gated inputs.

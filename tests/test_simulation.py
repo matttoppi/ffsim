@@ -4,12 +4,12 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
-from config import AppConfig
-from custom_dataclasses.fantasy_team import FantasyTeam
-from custom_dataclasses.league import League
-from sim.SimulationClasses.Playoffs import PlayoffBracket
-from sim.SimulationClasses.SimulationMatchup import SimulationMatchup
-from sim.SimulationTracker import SimulationTracker
+from ffsim.config import AppConfig
+from ffsim.models.league import League
+from ffsim.models.team import FantasyTeam
+from ffsim.simulation.matchup import SimulationMatchup
+from ffsim.simulation.playoffs import PlayoffBracket
+from ffsim.simulation.tracker import SimulationTracker
 
 
 class FakePlayer:

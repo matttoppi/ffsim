@@ -1,24 +1,24 @@
 import json
-from pathlib import Path
 from urllib.request import urlopen
 
-from custom_dataclasses.loaders.DataMerger import DataMerger
-from custom_dataclasses.loaders.FantasyCalcLoader import FantasyCalcLoader
-from custom_dataclasses.loaders.InjuryDataLoader import InjuryDataLoader
-from custom_dataclasses.loaders.PFFLoader import PFFLoader
-from custom_dataclasses.loaders.SleeperLoader import SleeperLoader
-from custom_dataclasses.player import PFFProjections, Player
-from sim.SimulationClasses.SpecialTeamScorer import SpecialTeamScorer
+from ffsim.loaders.data_merger import DataMerger
+from ffsim.loaders.fantasy_calc import FantasyCalcLoader
+from ffsim.loaders.injuries import InjuryDataLoader
+from ffsim.loaders.pff import PFFLoader
+from ffsim.loaders.sleeper import SleeperLoader
+from ffsim.models.player import PFFProjections, Player
+from ffsim.paths import CACHE_DIR, DATA_DIR
+from ffsim.simulation.special_teams import SpecialTeamScorer
 
 
 class PlayerLoader:
     def __init__(self):
-        self.players_file = Path("datarepo/players.json")
+        self.players_file = CACHE_DIR / "players.json"
         self.enriched_players = []
         self.players_by_id = {}
         self.special_team_scorer = SpecialTeamScorer(
-            "datarepo/PFFProjections/kickers.csv",
-            "datarepo/PFFProjections/dsts.csv",
+            DATA_DIR / "projections" / "kickers.csv",
+            DATA_DIR / "projections" / "defenses.csv",
         )
 
     def refresh(self):
@@ -57,7 +57,7 @@ class PlayerLoader:
 
     def load_players(self):
         if not self.players_file.exists():
-            raise FileNotFoundError("Player cache is missing. Run `python main.py refresh` first.")
+            raise FileNotFoundError("Player cache is missing. Run `python -m ffsim refresh` first.")
 
         with self.players_file.open() as file:
             player_data = json.load(file)
@@ -71,7 +71,7 @@ class PlayerLoader:
         self._index_players()
 
     def save_players(self):
-        self.players_file.parent.mkdir(parents=True, exist_ok=True)
+        CACHE_DIR.mkdir(parents=True, exist_ok=True)
         data = [self.to_serializable(player.to_dict()) for player in self.enriched_players]
         self.players_file.write_text(json.dumps(data, indent=2) + "\n")
 

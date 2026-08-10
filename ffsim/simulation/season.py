@@ -1,9 +1,9 @@
 import json
-from pathlib import Path
 from urllib.request import urlopen
 
-from sim.SimulationClasses.Playoffs import PlayoffSimulation
-from sim.SimulationClasses.SimulationMatchup import SimulationMatchup
+from ffsim.paths import CACHE_DIR
+from ffsim.simulation.matchup import SimulationMatchup
+from ffsim.simulation.playoffs import PlayoffSimulation
 
 
 def refresh_matchups(league_id, weeks):
@@ -12,7 +12,8 @@ def refresh_matchups(league_id, weeks):
         url = f"https://api.sleeper.app/v1/league/{league_id}/matchups/{week}"
         with urlopen(url, timeout=30) as response:
             matchups[str(week)] = json.load(response)
-    path = Path(f"datarepo/matchups_{league_id}.json")
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    path = CACHE_DIR / f"matchups_{league_id}.json"
     path.write_text(json.dumps(matchups, indent=2) + "\n")
 
 
@@ -21,9 +22,9 @@ class SimulationSeason:
         self.league = league
         self.tracker = tracker
         self.weeks = weeks
-        self.matchups_file = Path(f"datarepo/matchups_{league.league_id}.json")
+        self.matchups_file = CACHE_DIR / f"matchups_{league.league_id}.json"
         if not self.matchups_file.exists():
-            raise FileNotFoundError("Matchup cache is missing. Run `python main.py refresh` first.")
+            raise FileNotFoundError("Matchup cache is missing. Run `python -m ffsim refresh` first.")
         with self.matchups_file.open() as file:
             self.matchups = json.load(file)
         self.playoff_sim = None

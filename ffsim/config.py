@@ -9,7 +9,7 @@ class AppConfig:
     simulations: int = 1000
     seed: int = 2026
     regular_season_weeks: int = 14
-    results_file: str = "results.json"
+    results_file: str = "output/results.json"
 
     def __post_init__(self):
         if not self.league_id.strip():
@@ -30,7 +30,7 @@ class AppConfig:
                 simulations=int(data.get("simulations", 1000)),
                 seed=int(data.get("seed", 2026)),
                 regular_season_weeks=int(data.get("regular_season_weeks", 14)),
-                results_file=str(data.get("results_file", "results.json")),
+                results_file=str(data.get("results_file", "output/results.json")),
             )
         except (json.JSONDecodeError, KeyError, TypeError, ValueError) as error:
             raise ValueError(f"Invalid config file {path}: {error}") from error

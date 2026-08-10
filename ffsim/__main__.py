@@ -3,7 +3,7 @@ import json
 from dataclasses import replace
 from pathlib import Path
 
-from config import AppConfig
+from ffsim.config import AppConfig
 
 
 def parse_args():
@@ -29,20 +29,20 @@ def main():
         results_file=args.output or config.results_file,
     )
 
-    from custom_dataclasses.loaders.PlayerLoader import PlayerLoader
+    from ffsim.loaders.players import PlayerLoader
 
     player_loader = PlayerLoader()
     if args.command == "refresh":
-        from custom_dataclasses.loaders.league_loader import refresh_league
-        from sim.SimulationClasses.SimulationSeason import refresh_matchups
+        from ffsim.loaders.league import refresh_league
+        from ffsim.simulation.season import refresh_matchups
 
         player_loader.refresh()
         refresh_league(config.league_id)
         refresh_matchups(config.league_id, config.regular_season_weeks)
         return
 
-    from custom_dataclasses.loaders.league_loader import LeagueLoader
-    from sim.MonteCarloSimulation import MonteCarloSimulation
+    from ffsim.loaders.league import LeagueLoader
+    from ffsim.simulation.monte_carlo import MonteCarloSimulation
 
     league = LeagueLoader(config.league_id, player_loader).load_league()
     simulation = MonteCarloSimulation(

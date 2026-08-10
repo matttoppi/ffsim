@@ -1,10 +1,12 @@
 import pandas as pd
 import re
 
+from ffsim.paths import DATA_DIR
+
 class PFFLoader:
     @staticmethod
     def get_and_clean_data():    
-        df = pd.read_csv('datarepo/PFFProjections/projections.csv')
+        df = pd.read_csv(DATA_DIR / "projections" / "players.csv")
         
         desired_columns = [
         "fantasyPointsRank","playerName","teamName","position","byeWeek","games","fantasyPoints","auctionValue",

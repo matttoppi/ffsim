@@ -2,9 +2,9 @@ import random
 
 import numpy as np
 from tqdm import tqdm
-from sim.SimulationClasses.SimulationSeason import SimulationSeason
-from sim.SimulationTracker import SimulationTracker
-from sim.SimulationVisualizer import SimulationVisualizer
+from ffsim.simulation.season import SimulationSeason
+from ffsim.simulation.tracker import SimulationTracker
+from ffsim.simulation.visualizer import SimulationVisualizer
 
 
 class MonteCarloSimulation:

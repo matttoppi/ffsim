@@ -4,8 +4,5 @@ __pycache__/
 .venv/
 .pytest_cache/
 
-datarepo/players.json
-datarepo/matchups_*.json
-datarepo/league_*.json
-plots/
-results.json
+data/cache/
+output/

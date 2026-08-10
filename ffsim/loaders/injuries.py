@@ -1,5 +1,7 @@
 import pandas as pd
 
+from ffsim.paths import DATA_DIR
+
 class InjuryDataLoader:
     @staticmethod
     def convert_to_decimal(value):
@@ -15,7 +17,7 @@ class InjuryDataLoader:
 
     @staticmethod
     def get_and_clean_data():
-        csv_file_path = 'datarepo/Special/combined_injury_risk_data.csv'
+        csv_file_path = DATA_DIR / "injuries" / "risk.csv"
         try:
             injury_df = pd.read_csv(csv_file_path)
             injury_df.columns = injury_df.columns.str.strip().str.lower().str.replace(' ', '_')

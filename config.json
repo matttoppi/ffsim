@@ -3,5 +3,5 @@
   "simulations": 150,
   "seed": 2026,
   "regular_season_weeks": 14,
-  "results_file": "results.json"
+  "results_file": "output/results.json"
 }
