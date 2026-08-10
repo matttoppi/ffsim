@@ -1,12 +1,12 @@
-import requests
+from urllib.request import urlopen
 from bs4 import BeautifulSoup
 import pandas as pd
 import re
 
 def scrape_position(url):
     # Fetch the HTML content
-    response = requests.get(url)
-    soup = BeautifulSoup(response.content, 'html.parser')
+    with urlopen(url, timeout=30) as response:
+        soup = BeautifulSoup(response.read(), 'html.parser')
 
     # Initialize a list to store the extracted data
     injury_data = []

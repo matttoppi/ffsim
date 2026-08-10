@@ -1,5 +1,4 @@
 import csv
-import os
 
 def extract_and_rank_kickers_and_dsts(input_file, kickers_output, dsts_output):
     kickers = []
@@ -56,7 +55,7 @@ def write_to_csv(filename, fields, data):
 
 # Usage
 
-input_file = 'datarepo/PFFProjections/24PFFProjections.csv'
+input_file = 'datarepo/PFFProjections/projections.csv'
 
 
 kickers_output = 'datarepo/PFFProjections/kickers.csv'

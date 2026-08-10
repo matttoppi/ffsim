@@ -8,10 +8,9 @@ class SimulationVisualizer:
         self.league = league
         self.tracker = tracker
             
-    def plot_scoring_distributions(self, tracker):
+    def plot_scoring_distributions(self):
         positions = ['QB', 'RB', 'WR', 'TE']
         
-        # Clear existing plots
         if os.path.exists('plots'):
             shutil.rmtree('plots')
         
@@ -34,38 +33,22 @@ class SimulationVisualizer:
             if games_played > 0:
                 player_stats.append((player, avg_score, self.tracker.player_scores[player.sleeper_id]))
         
-        # Sort players by average score and get top 15
-        sorted_players = sorted(player_stats, key=lambda x: x[1], reverse=True)[:15]
-        
-        return sorted_players
+        return sorted(player_stats, key=lambda x: x[1], reverse=True)[:15]
 
     def _plot_and_save_histograms(self, top_players, position):
         os.makedirs(f'plots/{position}', exist_ok=True)
         
-        for player, avg_score, scores_dict in top_players:
+        for rank, (player, _, scores_dict) in enumerate(top_players, 1):
             scores = [score for week_scores in scores_dict.values() for score in week_scores if score > 0]
-            
             fig, ax = plt.subplots(figsize=(10, 6))
-            
-            rank = top_players.index((player, avg_score, scores_dict)) + 1
-            
-            self._plot_histogram(ax, scores, player.name, avg_score, rank, position)
-            
+            self._plot_histogram(ax, scores, player.name, rank, position)
             plt.tight_layout()
             plt.savefig(f'plots/{position}/{player.name.replace(" ", "_")}.png')
             plt.close(fig)
             print(f"Saved plot for {player.name} ({position})")
 
-    def _plot_histogram(self, ax, scores, player_name, avg_score, rank, position):
+    def _plot_histogram(self, ax, scores, player_name, rank, position):
         ax.hist(scores, bins=50, edgecolor='black')
-        
-        total_weeks = 18 * self.tracker.num_simulations
-        active_weeks = len(scores)
-        bye_weeks = self.tracker.num_simulations  # Assuming 1 bye week per season
-        missed_weeks = total_weeks - active_weeks - bye_weeks
-        
-        avg_games_played = active_weeks / self.tracker.num_simulations
-        avg_games_missed = missed_weeks / self.tracker.num_simulations
         
         title = (f'{player_name} Scoring Distribution ({position}{rank})')
         

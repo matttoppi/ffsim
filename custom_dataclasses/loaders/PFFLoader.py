@@ -4,7 +4,7 @@ import re
 class PFFLoader:
     @staticmethod
     def get_and_clean_data():    
-        df = pd.read_csv('datarepo/PFFProjections/24PFFProjections.csv')
+        df = pd.read_csv('datarepo/PFFProjections/projections.csv')
         
         desired_columns = [
         "fantasyPointsRank","playerName","teamName","position","byeWeek","games","fantasyPoints","auctionValue",

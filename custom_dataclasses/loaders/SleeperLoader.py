@@ -1,12 +1,8 @@
-import json
 import pandas as pd
 
 class SleeperLoader:
     @staticmethod
-    def get_and_clean_data():
-        with open('sleeper_players.json', 'r') as file:
-            sleeper_data = json.load(file)
-        
+    def get_and_clean_data(sleeper_data):
         cleaned_data = [
             {
                 'player_id': player.get('player_id'),

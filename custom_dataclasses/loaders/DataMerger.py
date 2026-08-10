@@ -1,24 +1,18 @@
 import pandas as pd
-from fuzzywuzzy import process
 import numpy as np
-from custom_dataclasses.loaders.InjuryDataLoader import InjuryDataLoader
+from difflib import get_close_matches
 
 class DataMerger:
     @staticmethod
     def merge_data(fantasy_calc_df, sleeper_df, pff_df, injury_df):
         merged_df = pd.merge(fantasy_calc_df, sleeper_df, left_on='sleeper_id', right_on='player_id', how='outer', suffixes=('_fc', '_sl'))
 
-        if 'team_fc' in merged_df.columns and 'team_sl' in merged_df.columns:
-            merged_df['team'] = merged_df['team_fc'].fillna(merged_df['team_sl'])
-        elif 'team_fc' in merged_df.columns:
-            merged_df['team'] = merged_df['team_fc']
-        elif 'team_sl' in merged_df.columns:
-            merged_df['team'] = merged_df['team_sl']
-        else:
-            print("Warning: No team data found in FantasyCalc or Sleeper data")
-            merged_df['team'] = 'Unknown'
-        
-        merged_df = merged_df.drop(columns=['team_fc', 'team_sl'], errors='ignore')
+        for column in ('team', 'position', 'age'):
+            merged_df[column] = merged_df[f'{column}_sl'].fillna(merged_df[f'{column}_fc'])
+        merged_df.drop(
+            columns=[f'{column}_{source}' for column in ('team', 'position', 'age') for source in ('fc', 'sl')],
+            inplace=True,
+        )
         
         merged_df['name_lower'] = merged_df['full_name'].str.lower()
         pff_df['playerName'] = pff_df['playerName'].str.lower()
@@ -26,10 +20,8 @@ class DataMerger:
         def fuzzy_match(name, choices, cutoff=80):
             if pd.isna(name):
                 return None
-            match = process.extractOne(name, choices)
-            if match and len(match) >= 2 and match[1] >= cutoff:
-                return choices.index(match[0])
-            return None
+            matches = get_close_matches(name, choices, n=1, cutoff=cutoff / 100)
+            return choices.index(matches[0]) if matches else None
 
         pff_names = pff_df['playerName'].tolist()
         merged_df['pff_index'] = merged_df['name_lower'].apply(lambda x: fuzzy_match(x, pff_names))
@@ -41,86 +33,15 @@ class DataMerger:
             final_df.drop('position_pff', axis=1, inplace=True)
         
         injury_df['player_lower'] = injury_df['player'].str.lower().str.strip()
-        final_df['name_lower'] = final_df['name'].str.lower().str.strip()
+        final_df['name_lower'] = final_df['full_name'].str.lower().str.strip()
         
         injury_df = injury_df.rename(columns={
             'probability_of_injury_in_the_season': 'injury_probability_season',
             'probability_of_injury_per_game': 'injury_probability_game'
         })
         
-        # Convert injury probabilities to proper decimals
-        injury_df['injury_probability_season'] = injury_df['injury_probability_season']
-        injury_df['injury_probability_game'] = injury_df['injury_probability_game']
-        # ['injury_probability_game'].apply(DataMerger.convert_to_decimal)
-        
         final_df = DataMerger.merge_injury_data(final_df, injury_df)
-        
         final_df = DataMerger.clean_merged_data(final_df)
-        
-        lamar_row = final_df[(final_df['full_name'].str.lower() == 'lamar jackson') & (final_df['team'] == 'BAL')]
-        if not lamar_row.empty:
-            print(f"DEBUG: Lamar Jackson (BAL) data after merge:")
-            print(lamar_row.iloc[0].to_dict())
-        else:
-            print("DEBUG: Lamar Jackson (BAL) not found in merged data")
-        
-        no_pff = final_df[final_df['fantasyPoints'].isna()]
-        print("Players without PFF projections:")
-        print(no_pff[['full_name', 'position', 'team']])
-        
-        return final_df
-
-    @staticmethod
-    def convert_to_decimal(value):
-        if value is None or value == '':
-            return 0
-        if isinstance(value, str):
-            value = value.replace('%', '').strip()
-        try:
-            float_value = float(value)
-            return float_value / 100 if float_value > 1 else float_value
-        except ValueError:
-            return 0
-    
-    @staticmethod
-    def merge_pff_data(merged_df, pff_df):
-        def clean_name(name):
-            name = str(name).lower()
-            for suffix in [' jr', ' sr', ' ii', ' iii', ' iv']:
-                name = name.replace(suffix, '')
-            return name.replace('.', '').replace("'", '').strip()
-
-        merged_df['clean_name'] = merged_df['full_name'].apply(clean_name)
-        pff_df['clean_name'] = pff_df['playerName'].apply(clean_name)
-
-        # First, try exact matching
-        exact_match = pd.merge(merged_df, pff_df, on='clean_name', how='left', suffixes=('', '_pff'))
-
-        # For unmatched players, try fuzzy matching
-        unmatched = exact_match[exact_match['playerName'].isna()]
-        matched = exact_match[~exact_match['playerName'].isna()]
-
-        def fuzzy_match(name, choices, cutoff=80):
-            match = process.extractOne(name, choices)
-            return match[2] if match and match[1] >= cutoff else None
-
-        pff_names = pff_df['clean_name'].tolist()
-        unmatched['pff_index'] = unmatched['clean_name'].apply(lambda x: fuzzy_match(x, pff_names))
-        
-        fuzzy_matched = unmatched[unmatched['pff_index'].notna()].merge(
-            pff_df, left_on='pff_index', right_index=True, how='left', suffixes=('', '_pff')
-        )
-
-        final_df = pd.concat([matched, fuzzy_matched], ignore_index=True)
-
-        # Clean up
-        final_df.drop(columns=['clean_name', 'pff_index', 'playerName'], inplace=True, errors='ignore')
-
-        print(f"Total players: {len(merged_df)}")
-        print(f"Exact matches: {len(matched)}")
-        print(f"Fuzzy matches: {len(fuzzy_matched)}")
-        print(f"Unmatched: {len(merged_df) - len(matched) - len(fuzzy_matched)}")
-
         return final_df
 
     @staticmethod
@@ -129,8 +50,8 @@ class DataMerger:
         def find_best_match(name, choices, cutoff=80):
             if pd.isna(name):
                 return None
-            best_match = process.extractOne(name, choices)
-            return best_match[0] if best_match and best_match[1] >= cutoff else None
+            matches = get_close_matches(name, list(choices), n=1, cutoff=cutoff / 100)
+            return matches[0] if matches else None
 
         # Create a dictionary of injury data
         injury_dict = injury_df.set_index('player_lower').to_dict('index')

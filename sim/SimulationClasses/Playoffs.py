@@ -1,5 +1,3 @@
-import random
-
 class PlayoffMatch:
     def __init__(self, home_team, away_team, week, simulation_season):
         self.home_team = home_team
@@ -19,10 +17,6 @@ class PlayoffMatch:
         away_score = self.simulation_season.simulate_team_week(self.away_team, self.week)
         
         self.winner = self.home_team if home_score > away_score else self.away_team
-        
-        # Record scores in the tracker
-        self.simulation_season.tracker.record_team_week(self.home_team.name, self.week, home_score)
-        self.simulation_season.tracker.record_team_week(self.away_team.name, self.week, away_score)
         
         return self.winner
     
@@ -128,15 +122,5 @@ class PlayoffSimulation:
         # Final
         self.bracket.create_final(semifinal_winners, 17)
         champion = self.bracket.simulate_round(17, self.league.scoring_settings)[0]
-        
-        # Update injury status for all players after playoffs
-        for team in self.league.rosters:
-            for player in team.players:
-                games_missed = player.get_games_missed_for_tracking()
-                if games_missed > 0:
-                    self.simulation_season.tracker.record_player_games_missed(player.sleeper_id, games_missed)
-                self.simulation_season.tracker.record_total_games_missed(player.sleeper_id, player.total_games_missed_this_season)
-        
+
         return champion
-    
-    
