@@ -1,5 +1,4 @@
 import json
-from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.request import urlopen
 
@@ -7,13 +6,26 @@ from sim.SimulationClasses.Playoffs import PlayoffSimulation
 from sim.SimulationClasses.SimulationMatchup import SimulationMatchup
 
 
+def refresh_matchups(league_id, weeks):
+    matchups = {}
+    for week in range(1, weeks + 1):
+        url = f"https://api.sleeper.app/v1/league/{league_id}/matchups/{week}"
+        with urlopen(url, timeout=30) as response:
+            matchups[str(week)] = json.load(response)
+    path = Path(f"datarepo/matchups_{league_id}.json")
+    path.write_text(json.dumps(matchups, indent=2) + "\n")
+
+
 class SimulationSeason:
-    def __init__(self, league, tracker):
+    def __init__(self, league, tracker, weeks=14):
         self.league = league
         self.tracker = tracker
-        self.weeks = 14
+        self.weeks = weeks
         self.matchups_file = Path(f"datarepo/matchups_{league.league_id}.json")
-        self.matchups = self.load_or_fetch_matchups()
+        if not self.matchups_file.exists():
+            raise FileNotFoundError("Matchup cache is missing. Run `python main.py refresh` first.")
+        with self.matchups_file.open() as file:
+            self.matchups = json.load(file)
         self.playoff_sim = None
 
     def simulate(self):
@@ -56,26 +68,6 @@ class SimulationSeason:
             away_team = self.get_team_by_roster_id(pair[1]["roster_id"])
             if home_team and away_team:
                 matchups.append(SimulationMatchup(home_team, away_team, week))
-        return matchups
-
-    def load_or_fetch_matchups(self):
-        if self.matchups_file.exists():
-            age = datetime.now() - datetime.fromtimestamp(self.matchups_file.stat().st_mtime)
-            if age <= timedelta(days=1):
-                with self.matchups_file.open() as file:
-                    return json.load(file)
-
-        matchups = self.fetch_all_matchups()
-        with self.matchups_file.open("w") as file:
-            json.dump(matchups, file)
-        return matchups
-
-    def fetch_all_matchups(self):
-        matchups = {}
-        for week in range(1, self.weeks + 1):
-            url = f"https://api.sleeper.app/v1/league/{self.league.league_id}/matchups/{week}"
-            with urlopen(url, timeout=30) as response:
-                matchups[str(week)] = json.load(response)
         return matchups
 
     def get_team_by_roster_id(self, roster_id):

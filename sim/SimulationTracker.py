@@ -3,9 +3,10 @@ import math
 
 
 class SimulationTracker:
-    def __init__(self, league, num_simulations):
+    def __init__(self, league, num_simulations, regular_season_weeks=14):
         self.league = league
         self.num_simulations = num_simulations
+        self.regular_season_weeks = regular_season_weeks
         self.team_season_results = defaultdict(list)
         self.player_scores = defaultdict(lambda: defaultdict(list))
         self.player_games_missed = defaultdict(list)
@@ -33,7 +34,7 @@ class SimulationTracker:
         )
 
     def get_division_standings(self, division):
-        roster_ids = getattr(self.league, f"division{division}_ids")
+        roster_ids = self.league.divisions[division]
         return sorted(
             [
                 (
@@ -191,6 +192,52 @@ class SimulationTracker:
         self.print_playoff_stats()
         self.print_top_players_by_position()
 
+    def to_dict(self, seed):
+        teams = {}
+        for team in self.league.rosters:
+            averages = self.average_results[team.name]
+            teams[team.name] = {
+                "average_wins": float(averages["avg_wins"]),
+                "average_points": float(averages["avg_points"]),
+                "average_points_per_week": float(
+                    averages["avg_points"] / self.regular_season_weeks
+                ),
+                "playoff_probability": self.playoff_appearances[team.name]
+                / self.num_simulations,
+                "division_win_probability": self.division_wins[team.name]
+                / self.num_simulations,
+                "championship_probability": self.championships[team.name]
+                / self.num_simulations,
+            }
+
+        players = {}
+        for team in self.league.rosters:
+            for player in team.players:
+                average, total, games, minimum, maximum = self.get_player_average_score(
+                    player.sleeper_id
+                )
+                players[str(player.sleeper_id)] = {
+                    "name": player.name,
+                    "team": team.name,
+                    "position": player.position,
+                    "average_score": float(average),
+                    "total_score": float(total),
+                    "games_per_simulation": games / self.num_simulations,
+                    "minimum_score": float(minimum),
+                    "maximum_score": float(maximum),
+                    "average_games_missed": self.get_player_avg_games_missed(
+                        player.sleeper_id
+                    ),
+                }
+
+        return {
+            "league": {"id": self.league.league_id, "name": self.league.name},
+            "simulations": self.num_simulations,
+            "seed": seed,
+            "teams": teams,
+            "players": players,
+        }
+
     def print_playoff_stats(self):
         print(f"\nPlayoff Statistics (Total Simulations: {self.num_simulations}):")
         print(f"{'Team':<25}{'Playoff Appearances':<23}{'Division Wins':<19}{'Championships':<15}")
@@ -216,15 +263,13 @@ class SimulationTracker:
     def print_projected_standings(self):
         print("\nProjected Overall Standings:")
         self._print_standings(self.get_overall_standings())
-        print("\nProjected Division 1 Standings:")
-        self._print_standings(self.get_division_standings(1))
-        print("\nProjected Division 2 Standings:")
-        self._print_standings(self.get_division_standings(2))
+        for division in sorted(self.league.divisions):
+            print(f"\nProjected Division {division} Standings:")
+            self._print_standings(self.get_division_standings(division))
 
-    @staticmethod
-    def _print_standings(standings):
+    def _print_standings(self, standings):
         for rank, (team_name, average_wins, average_points) in enumerate(standings, 1):
             print(
                 f"{rank}. {team_name}: {average_wins:.2f} wins | "
-                f"Points per week: {average_points / 14:.2f} points"
+                f"Points per week: {average_points / self.regular_season_weeks:.2f} points"
             )

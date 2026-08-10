@@ -1,3 +1,6 @@
+from collections import Counter
+
+
 class ScoringSettings:
     def __init__(self, scoring_data):
         for key, value in scoring_data.items():
@@ -12,11 +15,14 @@ class League:
         self.name = league_data.get("name")
         self.league_id = league_data.get("league_id")
         self.rosters = []
+        self.divisions = {}
         self.scoring_settings = ScoringSettings(league_data.get("scoring_settings", {}))
-
-        # These divisions are league-specific until Sleeper exposes them in league data.
-        self.division1_ids = [9, 10, 7, 8, 2]
-        self.division2_ids = [1, 3, 4, 5, 6]
+        self.roster_slots = Counter(
+            position
+            for position in league_data.get("roster_positions", [])
+            if position not in {"BN", "IR", "TAXI"}
+        )
+        self.playoff_teams = int(league_data.get("settings", {}).get("playoff_teams", 6))
 
     def print_rosters_ids(self):
         for team in self.rosters:

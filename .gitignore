@@ -4,7 +4,8 @@ __pycache__/
 .venv/
 .pytest_cache/
 
-players.json
-sleeper_players.json
+datarepo/players.json
 datarepo/matchups_*.json
+datarepo/league_*.json
 plots/
+results.json

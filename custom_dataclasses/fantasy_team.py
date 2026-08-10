@@ -1,3 +1,11 @@
+FLEX_ELIGIBILITY = {
+    "FLEX": {"RB", "WR", "TE"},
+    "REC_FLEX": {"RB", "WR", "TE"},
+    "WRRB_FLEX": {"RB", "WR"},
+    "SUPER_FLEX": {"QB", "RB", "WR", "TE"},
+}
+
+
 class FantasyTeam:
     def __init__(self, name, league, user_data=None):
         user_data = user_data or {}
@@ -36,7 +44,7 @@ class FantasyTeam:
         self.points_for += points_for
 
     def fill_starters(self, week):
-        slots = {"QB": 1, "RB": 3, "WR": 3, "TE": 1, "FLEX": 3, "K": 1, "DEF": 1}
+        slots = self.league.roster_slots
         self.starters = {position: [] for position in slots}
         available = [
             player
@@ -50,14 +58,25 @@ class FantasyTeam:
         )
         available.sort(key=score, reverse=True)
 
-        for position in ("QB", "RB", "WR", "TE", "K", "DEF"):
+        for position, count in slots.items():
+            if position in FLEX_ELIGIBILITY:
+                continue
             players = [player for player in available if player.position == position]
-            for player in players[: slots[position]]:
+            for player in players[:count]:
                 self.starters[position].append(player)
                 available.remove(player)
 
-        flex_players = [player for player in available if player.position in {"RB", "WR", "TE"}]
-        self.starters["FLEX"] = sorted(flex_players, key=score, reverse=True)[: slots["FLEX"]]
+        for position, eligible in FLEX_ELIGIBILITY.items():
+            if position not in slots:
+                continue
+            players = sorted(
+                (player for player in available if player.position in eligible),
+                key=score,
+                reverse=True,
+            )[: slots[position]]
+            self.starters[position] = players
+            for player in players:
+                available.remove(player)
 
     def get_active_starters(self, week):
         return [

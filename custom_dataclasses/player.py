@@ -204,6 +204,7 @@ class Player:
             excess = score - max_score
             score = max_score + (excess * 0.1)  # Allow scores to exceed max_score, but at a much slower rate
 
+        score = float(score)
         self.record_weekly_score(score)
 
         return score

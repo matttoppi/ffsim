@@ -6,9 +6,8 @@ class PlayoffMatch:
         self.simulation_season = simulation_season
         self.winner = None
 
-    def simulate(self, scoring_settings):
-        # Update injury status for both teams
-        for team in [self.home_team, self.away_team]:
+    def simulate(self):
+        for team in (self.home_team, self.away_team):
             for player in team.players:
                 player.update_injury_status(self.week)
             team.fill_starters(self.week)
@@ -17,9 +16,9 @@ class PlayoffMatch:
         away_score = self.simulation_season.simulate_team_week(self.away_team, self.week)
         
         self.winner = self.home_team if home_score > away_score else self.away_team
-        
         return self.winner
-    
+
+
 class PlayoffBracket:
     def __init__(self, teams, division1_winner, division2_winner, simulation_season):
         self.teams = teams
@@ -27,53 +26,68 @@ class PlayoffBracket:
         self.division2_winner = division2_winner
         self.matches = []
         self.simulation_season = simulation_season
+        self.first_week = simulation_season.weeks + 1
 
     def create_bracket(self):
-        # Determine bye week teams
         bye_teams = [self.division1_winner, self.division2_winner]
         non_bye_teams = [team for team in self.teams if team not in bye_teams]
+        if len(non_bye_teams) != 4:
+            raise ValueError("The playoff bracket requires six teams.")
+        self.matches.append(
+            PlayoffMatch(
+                non_bye_teams[0],
+                non_bye_teams[-1],
+                self.first_week,
+                self.simulation_season,
+            )
+        )
+        self.matches.append(
+            PlayoffMatch(
+                non_bye_teams[1],
+                non_bye_teams[-2],
+                self.first_week,
+                self.simulation_season,
+            )
+        )
 
-        # Create first round matches
-        if len(non_bye_teams) >= 4:
-            self.matches.append(PlayoffMatch(non_bye_teams[0], non_bye_teams[-1], 15, self.simulation_season))
-            self.matches.append(PlayoffMatch(non_bye_teams[1], non_bye_teams[-2], 15, self.simulation_season))
-        elif len(non_bye_teams) == 3:
-            # Only one first round match
-            self.matches.append(PlayoffMatch(non_bye_teams[1], non_bye_teams[2], 15, self.simulation_season))
-        elif len(non_bye_teams) <= 2:
-            # Not enough teams for first round, move directly to semifinals
-            self.create_semifinal(non_bye_teams, 16)
-
-    def simulate_round(self, week, scoring_settings):
-        results = []
-        for match in self.matches:
-            winner = match.simulate(scoring_settings)
-            results.append(winner)
-        self.matches = []  # Clear current round matches
+    def simulate_round(self):
+        results = [match.simulate() for match in self.matches]
+        self.matches = []
         return results
 
     def create_semifinal(self, first_round_winners, week):
-        if len(first_round_winners) == 2:
-            # Normal scenario with two first round winners
-            self.matches.append(PlayoffMatch(self.division1_winner, first_round_winners[1], week, self.simulation_season))
-            self.matches.append(PlayoffMatch(self.division2_winner, first_round_winners[0], week, self.simulation_season))
-        elif len(first_round_winners) == 1:
-            # Only one first round winner
-            self.matches.append(PlayoffMatch(self.division1_winner, first_round_winners[0], week, self.simulation_season))
-            self.matches.append(PlayoffMatch(self.division2_winner, self.teams[2], week, self.simulation_season))  # 3rd best team overall
-        else:
-            # No first round winners, use 3rd and 4th best teams overall
-            self.matches.append(PlayoffMatch(self.division1_winner, self.teams[3], week, self.simulation_season))
-            self.matches.append(PlayoffMatch(self.division2_winner, self.teams[2], week, self.simulation_season))
+        if len(first_round_winners) != 2:
+            raise ValueError("The semifinals require two first-round winners.")
+        self.matches.append(
+            PlayoffMatch(
+                self.division1_winner,
+                first_round_winners[1],
+                week,
+                self.simulation_season,
+            )
+        )
+        self.matches.append(
+            PlayoffMatch(
+                self.division2_winner,
+                first_round_winners[0],
+                week,
+                self.simulation_season,
+            )
+        )
 
     def create_final(self, semifinal_winners, week):
-        if len(semifinal_winners) == 2:
-            self.matches.append(PlayoffMatch(semifinal_winners[0], semifinal_winners[1], week, self.simulation_season))
-        else:
-            print("Error: Not enough semifinal winners for the final match.")
-            
-            
-            
+        if len(semifinal_winners) != 2:
+            raise ValueError("The final requires two semifinal winners.")
+        self.matches.append(
+            PlayoffMatch(
+                semifinal_winners[0],
+                semifinal_winners[1],
+                week,
+                self.simulation_season,
+            )
+        )
+
+
 class PlayoffSimulation:
     def __init__(self, league, season_standings, simulation_season):
         self.league = league
@@ -82,45 +96,52 @@ class PlayoffSimulation:
         self.bracket = None
 
     def setup_playoffs(self):
-        # Determine division winners
-        division1_teams = [team for team in self.season_standings if team.roster_id in self.league.division1_ids]
-        division2_teams = [team for team in self.season_standings if team.roster_id in self.league.division2_ids]
-        
-        division1_winner = max(division1_teams, key=lambda t: (t.wins, t.points_for))
-        division2_winner = max(division2_teams, key=lambda t: (t.wins, t.points_for))
-        
-        # Order division winners based on record
-        if (division1_winner.wins, division1_winner.points_for) < (division2_winner.wins, division2_winner.points_for):
+        divisions = sorted(self.league.divisions.values())
+        if len(divisions) != 2 or self.league.playoff_teams != 6:
+            raise ValueError("The simulator currently requires six playoff teams across two divisions.")
+
+        division1_teams = [
+            team for team in self.season_standings if team.roster_id in divisions[0]
+        ]
+        division2_teams = [
+            team for team in self.season_standings if team.roster_id in divisions[1]
+        ]
+        if not division1_teams or not division2_teams:
+            raise ValueError("Each division must contain at least one roster.")
+
+        division1_winner = max(division1_teams, key=lambda team: (team.wins, team.points_for))
+        division2_winner = max(division2_teams, key=lambda team: (team.wins, team.points_for))
+
+        if (division1_winner.wins, division1_winner.points_for) < (
+            division2_winner.wins,
+            division2_winner.points_for,
+        ):
             division1_winner, division2_winner = division2_winner, division1_winner
 
-        # Remove division winners from the standings
-        remaining_teams = [team for team in self.season_standings if team not in [division1_winner, division2_winner]]
-        
-        # Select the next best teams to fill the bracket (minimum 2, maximum 4)
-        wild_card_teams = sorted(remaining_teams, key=lambda t: (t.wins, t.points_for), reverse=True)[:min(4, len(remaining_teams))]
-        
-        # Combine division winners and wild card teams to get the playoff teams (minimum 4)
+        remaining_teams = [
+            team
+            for team in self.season_standings
+            if team not in (division1_winner, division2_winner)
+        ]
+        wild_card_teams = sorted(
+            remaining_teams, key=lambda team: (team.wins, team.points_for), reverse=True
+        )[: self.league.playoff_teams - 2]
         playoff_teams = [division1_winner, division2_winner] + wild_card_teams
-        
-        # Sort playoff teams by record (wins, then points for)
-        playoff_teams = sorted(playoff_teams, key=lambda t: (t.wins, t.points_for), reverse=True)
-        
-        self.bracket = PlayoffBracket(playoff_teams, division1_winner, division2_winner, self.simulation_season)
+        playoff_teams.sort(key=lambda team: (team.wins, team.points_for), reverse=True)
+
+        self.bracket = PlayoffBracket(
+            playoff_teams,
+            division1_winner,
+            division2_winner,
+            self.simulation_season,
+        )
         self.bracket.create_bracket()
 
     def simulate_playoffs(self):
-        # First round (if necessary)
-        if len(self.bracket.matches) > 0:
-            first_round_winners = self.bracket.simulate_round(15, self.league.scoring_settings)
-            self.bracket.create_semifinal(first_round_winners, 16)
-        else:
-            self.bracket.create_semifinal([], 16)  # No first round, create semifinals directly
-        
-        # Semifinals
-        semifinal_winners = self.bracket.simulate_round(16, self.league.scoring_settings)
-        
-        # Final
-        self.bracket.create_final(semifinal_winners, 17)
-        champion = self.bracket.simulate_round(17, self.league.scoring_settings)[0]
+        first_week = self.bracket.first_week
+        first_round_winners = self.bracket.simulate_round()
+        self.bracket.create_semifinal(first_round_winners, first_week + 1)
 
-        return champion
+        semifinal_winners = self.bracket.simulate_round()
+        self.bracket.create_final(semifinal_winners, first_week + 2)
+        return self.bracket.simulate_round()[0]

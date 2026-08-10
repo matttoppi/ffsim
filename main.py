@@ -1,23 +1,66 @@
-from custom_dataclasses.loaders.PlayerLoader import PlayerLoader
-from custom_dataclasses.loaders.league_loader import LeagueLoader
-from sim.MonteCarloSimulation import MonteCarloSimulation
-import os
+import argparse
+import json
+from dataclasses import replace
+from pathlib import Path
 
+from config import AppConfig
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Run fantasy football season simulations.")
+    parser.add_argument("command", choices=("simulate", "refresh"), nargs="?", default="simulate")
+    parser.add_argument("--config", default="config.json")
+    parser.add_argument("--league-id")
+    parser.add_argument("--simulations", type=int)
+    parser.add_argument("--seed", type=int)
+    parser.add_argument("--output")
+    parser.add_argument("--plots", action="store_true")
+    return parser.parse_args()
 
 
 def main():
-    sleeper_id = "1048288271089983488"  # You can change this to user input if needed
-    
-    player_loader = PlayerLoader()
-    league_loader = LeagueLoader(sleeper_id, player_loader)
-    
-    league = league_loader.load_league()
-    league.print_rosters()
+    args = parse_args()
+    config = AppConfig.from_file(args.config)
+    config = replace(
+        config,
+        league_id=args.league_id or config.league_id,
+        simulations=config.simulations if args.simulations is None else args.simulations,
+        seed=config.seed if args.seed is None else args.seed,
+        results_file=args.output or config.results_file,
+    )
 
-    input("Press Enter to run Monte Carlo Simulation")
-    os.system('cls' if os.name == 'nt' else 'clear')
-    monte_carlo = MonteCarloSimulation(league, num_simulations=150)
-    monte_carlo.run()
+    from custom_dataclasses.loaders.PlayerLoader import PlayerLoader
+
+    player_loader = PlayerLoader()
+    if args.command == "refresh":
+        from custom_dataclasses.loaders.league_loader import refresh_league
+        from sim.SimulationClasses.SimulationSeason import refresh_matchups
+
+        player_loader.refresh()
+        refresh_league(config.league_id)
+        refresh_matchups(config.league_id, config.regular_season_weeks)
+        return
+
+    from custom_dataclasses.loaders.league_loader import LeagueLoader
+    from sim.MonteCarloSimulation import MonteCarloSimulation
+
+    league = LeagueLoader(config.league_id, player_loader).load_league()
+    simulation = MonteCarloSimulation(
+        league,
+        num_simulations=config.simulations,
+        seed=config.seed,
+        regular_season_weeks=config.regular_season_weeks,
+    )
+    results = simulation.run()
+
+    output = Path(config.results_file)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(results, indent=2) + "\n")
+    simulation.tracker.print_results()
+    simulation.tracker.print_player_average_scores()
+    if args.plots:
+        simulation.visualizer.plot_scoring_distributions()
+    print(f"Results saved to {output}")
 
 
 if __name__ == "__main__":
