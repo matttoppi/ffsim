@@ -3,8 +3,10 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import call, patch
 
 from ffsim.config import AppConfig
+from ffsim.loaders.league import league_id_for_username
 from ffsim.models.league import League
 from ffsim.models.team import FantasyTeam
 from ffsim.simulation.matchup import SimulationMatchup
@@ -24,10 +26,16 @@ class FakePlayer:
     def is_injured(self, week):
         return False
 
+    def is_available(self, week):
+        return True
+
     def is_partially_injured(self, week):
         return self.partial
 
-    def calculate_score(self, scoring_settings, week):
+    def calculate_score(self, scoring_settings, week, rng=None):
+        return self.score
+
+    def expected_weekly_score(self, scoring_settings):
         return self.score
 
     def get_average_weekly_score(self):
@@ -44,6 +52,28 @@ class FakeTeam:
 
 
 class SimulationTest(unittest.TestCase):
+    @patch("ffsim.loaders.league._fetch_json")
+    def test_username_resolves_one_league_and_rejects_ambiguous_leagues(self, fetch):
+        fetch.side_effect = [
+            {"user_id": "user-1"},
+            [{"league_id": "123", "name": "Home League"}],
+        ]
+        self.assertEqual(league_id_for_username(" matt ", 2026), "123")
+        self.assertEqual(
+            fetch.call_args_list,
+            [call("user/matt"), call("user/user-1/leagues/nfl/2026")],
+        )
+
+        fetch.side_effect = [
+            {"user_id": "user-1"},
+            [
+                {"league_id": "2", "name": "Z League"},
+                {"league_id": "1", "name": "A League"},
+            ],
+        ]
+        with self.assertRaisesRegex(ValueError, r"A League \(1\), Z League \(2\)"):
+            league_id_for_username("matt", 2026)
+
     def test_config_loads_and_validates_values(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "config.json"

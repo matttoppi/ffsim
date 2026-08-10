@@ -44,7 +44,7 @@ class SimulationVisualizer:
         position_dir.mkdir(parents=True, exist_ok=True)
         
         for rank, (player, _, scores_dict) in enumerate(top_players, 1):
-            scores = [score for week_scores in scores_dict.values() for score in week_scores if score > 0]
+            scores = [score for week_scores in scores_dict.values() for score in week_scores]
             fig, ax = plt.subplots(figsize=(10, 6))
             self._plot_histogram(ax, scores, player.name, rank, position)
             plt.tight_layout()
@@ -68,5 +68,5 @@ class SimulationVisualizer:
             ax.axvline(median_score, color='g', linestyle='dashed', linewidth=2, label=f'Median: {median_score:.2f}')
             ax.legend()
         else:
-            ax.text(0.5, 0.5, 'No non-zero scores', 
+                ax.text(0.5, 0.5, 'No scores',
                     horizontalalignment='center', verticalalignment='center')

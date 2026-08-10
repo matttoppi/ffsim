@@ -3,12 +3,11 @@ from urllib.request import urlopen
 
 from ffsim.loaders.data_merger import DataMerger
 from ffsim.loaders.fantasy_calc import FantasyCalcLoader
-from ffsim.loaders.injuries import InjuryDataLoader
 from ffsim.loaders.pff import PFFLoader
 from ffsim.loaders.sleeper import SleeperLoader
 from ffsim.models.player import PFFProjections, Player
-from ffsim.paths import CACHE_DIR, DATA_DIR
-from ffsim.simulation.special_teams import SpecialTeamScorer
+from ffsim.paths import CACHE_DIR
+from ffsim.simulation.empirical import EmpiricalLibrary
 
 
 class PlayerLoader:
@@ -16,36 +15,28 @@ class PlayerLoader:
         self.players_file = CACHE_DIR / "players.json"
         self.enriched_players = []
         self.players_by_id = {}
-        self.special_team_scorer = SpecialTeamScorer(
-            DATA_DIR / "projections" / "kickers.csv",
-            DATA_DIR / "projections" / "defenses.csv",
-        )
 
     def refresh(self):
         sleeper_players = self.fetch_sleeper_players()
         fantasy_calc = FantasyCalcLoader.get_and_clean_data()
         sleeper = SleeperLoader.get_and_clean_data(sleeper_players.values())
         projections = PFFLoader.get_and_clean_data()
-        injuries = InjuryDataLoader.get_and_clean_data()
-
-        for dataframe in (fantasy_calc, sleeper, projections, injuries):
-            for column in ("full_name", "first_name", "last_name"):
-                if column in dataframe.columns:
-                    dataframe[column] = dataframe[column].apply(Player.clean_name)
-
-        merged = DataMerger.merge_data(fantasy_calc, sleeper, projections, injuries)
+        merged = DataMerger.merge_data(fantasy_calc, sleeper, projections)
         self.enriched_players = []
         for _, row in merged.iterrows():
             player_data = row.to_dict()
-            player_data["pff_projections"] = player_data.copy()
+            player_data["pff_projections"] = (
+                player_data.copy() if player_data["projection_match_status"] == "matched" else None
+            )
             player = Player(player_data)
-            player.normalize_injury_probability()
-            player.initialize_st_scorer(self.special_team_scorer)
             self.enriched_players.append(player)
 
         self._index_players()
         self.save_players()
+        report_file = CACHE_DIR / "projection_matches.json"
+        report_file.write_text(json.dumps(DataMerger.last_projection_report, indent=2) + "\n")
         print(f"Refreshed {len(self.enriched_players)} players.")
+        print(f"Projection match report: {report_file}")
 
     @staticmethod
     def fetch_sleeper_players():
@@ -66,13 +57,20 @@ class PlayerLoader:
             pff_data = data.get("pff_projections")
             data["pff_projections"] = PFFProjections(pff_data) if pff_data else None
             player = Player(data)
-            player.initialize_st_scorer(self.special_team_scorer)
             self.enriched_players.append(player)
+        empirical_library = EmpiricalLibrary()
+        for player in self.enriched_players:
+            player.initialize_empirical_sampler(empirical_library)
         self._index_players()
 
     def save_players(self):
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
-        data = [self.to_serializable(player.to_dict()) for player in self.enriched_players]
+        data = []
+        for player in self.enriched_players:
+            row = player.to_dict()
+            row["pff_projections"] = player.pff_projections.data if player.pff_projections else None
+            row["missed_weeks"] = []
+            data.append(self.to_serializable(row))
         self.players_file.write_text(json.dumps(data, indent=2) + "\n")
 
     def _index_players(self):

@@ -16,7 +16,9 @@ class InjuryDataLoader:
             return 0
 
     @staticmethod
-    def get_and_clean_data():
+    def get_and_clean_data(enabled=False):
+        if not enabled:
+            return pd.DataFrame()
         csv_file_path = DATA_DIR / "injuries" / "risk.csv"
         try:
             injury_df = pd.read_csv(csv_file_path)

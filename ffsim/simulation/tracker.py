@@ -9,6 +9,7 @@ class SimulationTracker:
         self.regular_season_weeks = regular_season_weeks
         self.team_season_results = defaultdict(list)
         self.player_scores = defaultdict(lambda: defaultdict(list))
+        self.player_availability = defaultdict(lambda: defaultdict(list))
         self.player_games_missed = defaultdict(list)
         self.special_team_scores = defaultdict(lambda: defaultdict(list))
         self.playoff_appearances = defaultdict(int)
@@ -54,14 +55,15 @@ class SimulationTracker:
             score
             for weekly_scores in self.player_scores[player_id].values()
             for score in weekly_scores
-            if score > 0
         ]
         if not scores:
             return 0, 0, 0, 0, 0
         return sum(scores) / len(scores), sum(scores), len(scores), min(scores), max(scores)
 
-    def record_player_score(self, player_id, week, score):
-        self.player_scores[player_id][week].append(score)
+    def record_player_score(self, player_id, week, score, played=True):
+        self.player_availability[player_id][week].append(bool(played))
+        if played:
+            self.player_scores[player_id][week].append(score)
 
     def print_player_average_scores(self, top_n=5):
         print(f"\nTop {top_n} Players by Average Score for Each Team:")

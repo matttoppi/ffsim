@@ -1,4 +1,5 @@
 import json
+from urllib.parse import quote
 from urllib.request import urlopen
 
 from ffsim.models.league import League
@@ -6,15 +7,48 @@ from ffsim.models.team import FantasyTeam
 from ffsim.paths import CACHE_DIR
 
 
-def refresh_league(league_id):
-    def fetch(path):
-        with urlopen(f"https://api.sleeper.app/v1/{path}", timeout=30) as response:
-            return json.load(response)
+def _fetch_json(path):
+    with urlopen(f"https://api.sleeper.app/v1/{path}", timeout=30) as response:
+        return json.load(response)
 
+
+def league_id_for_username(username, season=2026):
+    username = username.strip()
+    if not username:
+        raise ValueError("Sleeper username cannot be empty")
+
+    user = _fetch_json(f"user/{quote(username, safe='')}")
+    if not user or not user.get("user_id"):
+        raise ValueError(f"Sleeper user not found: {username}")
+
+    leagues = _fetch_json(f"user/{user['user_id']}/leagues/nfl/{season}")
+    leagues = sorted(
+        leagues,
+        key=lambda league: (
+            league.get("name", "").casefold(),
+            str(league.get("league_id", "")),
+        ),
+    )
+    if not leagues:
+        raise ValueError(f"No {season} NFL leagues found for Sleeper user {username}")
+    if len(leagues) > 1:
+        choices = ", ".join(
+            f"{league.get('name', 'Unnamed')} ({league['league_id']})"
+            for league in leagues
+        )
+        raise ValueError(
+            f"Multiple {season} NFL leagues found for {username}; "
+            f"use --league-id: {choices}"
+        )
+    return str(leagues[0]["league_id"])
+
+
+def refresh_league(league_id):
     snapshot = {
-        "league": fetch(f"league/{league_id}"),
-        "rosters": fetch(f"league/{league_id}/rosters"),
-        "users": fetch(f"league/{league_id}/users"),
+        "league": _fetch_json(f"league/{league_id}"),
+        "rosters": _fetch_json(f"league/{league_id}/rosters"),
+        "users": _fetch_json(f"league/{league_id}/users"),
+        "winners_bracket": _fetch_json(f"league/{league_id}/winners_bracket"),
     }
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     path = CACHE_DIR / f"league_{league_id}.json"
@@ -33,6 +67,7 @@ class LeagueLoader:
     def load_league(self):
         league = League(self.snapshot["league"])
         league.rosters = self.load_rosters(league)
+        league.winners_bracket = self.snapshot.get("winners_bracket", [])
         print(f"League {league.name} loaded with {len(league.rosters)} teams.")
         return league
 
@@ -51,6 +86,11 @@ class LeagueLoader:
             for player_id in roster_data.get("players", []):
                 player = self.player_loader.load_player(player_id)
                 if player:
+                    if player.position in {"QB", "RB", "WR", "TE", "K", "DEF"} and player.projection_match_status != "matched":
+                        raise ValueError(
+                            f"Rostered player has no unique position-consistent PFF projection: "
+                            f"{player.name} ({player.position}, {player.team}, Sleeper {player.sleeper_id})"
+                        )
                     team.add_player(player)
 
             team.calculate_metadata()

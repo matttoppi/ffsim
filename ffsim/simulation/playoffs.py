@@ -8,8 +8,6 @@ class PlayoffMatch:
 
     def simulate(self):
         for team in (self.home_team, self.away_team):
-            for player in team.players:
-                player.update_injury_status(self.week)
             team.fill_starters(self.week)
 
         home_score = self.simulation_season.simulate_team_week(self.home_team, self.week)

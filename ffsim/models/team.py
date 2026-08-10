@@ -22,10 +22,6 @@ class FantasyTeam:
         self.points_against = 0
         self.total_value_1qb = 0
 
-    def create_season_modifiers(self):
-        for player in self.players:
-            player.create_players_season_modifiers()
-
     def add_player(self, player):
         self.players.append(player)
         self.player_sleeper_ids.append(player.sleeper_id)
@@ -49,13 +45,9 @@ class FantasyTeam:
         available = [
             player
             for player in self.players
-            if not player.is_injured(week) or player.is_partially_injured(week)
+            if player.is_available(week)
         ]
-        score = (
-            (lambda player: player.redraft_value)
-            if week == 1
-            else (lambda player: player.get_average_weekly_score())
-        )
+        score = lambda player: player.expected_weekly_score(self.league.scoring_settings)
         available.sort(key=score, reverse=True)
 
         for position, count in slots.items():
@@ -83,7 +75,7 @@ class FantasyTeam:
             player
             for players in self.starters.values()
             for player in players
-            if not player.is_injured(week) or player.is_partially_injured(week)
+            if player.is_available(week)
         ]
 
     def reset_stats(self):

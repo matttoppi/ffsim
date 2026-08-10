@@ -40,6 +40,10 @@ Edit `config.json` with the Sleeper league ID and desired simulation settings:
 }
 ```
 
+The checked-in ID is a completed 2024 league. Supply the correct 2026 Sleeper
+league ID before live verification; the simulator does not invent or roll a
+league ID forward.
+
 ## Refresh data
 
 Before the first simulation, and whenever source data changes, run:
@@ -53,7 +57,7 @@ This fetches Sleeper league, roster, matchup, and player data plus FantasyCalc v
 - `data/projections/players.csv`
 - `data/projections/kickers.csv`
 - `data/projections/defenses.csv`
-- `data/injuries/risk.csv`
+- `data/historical/nflverse/`
 
 Generated player, league, and matchup snapshots are written to the ignored `data/cache/` directory. See [data/README.md](data/README.md) for source and season details.
 
@@ -69,15 +73,21 @@ python tools/extract_special_teams.py
 python -m ffsim simulate
 ```
 
-The run reads only local snapshots and writes structured output to `output/results.json`. The seed makes repeated runs against the same snapshots reproducible.
+The run reads only local snapshots and writes structured output to `output/results.json`. The seed makes repeated runs against the same snapshots reproducible, including repeated calls on one simulation object.
 
 Command-line options can override the config without editing it:
 
 ```bash
+python -m ffsim refresh --username YOUR_SLEEPER_USERNAME
+python -m ffsim simulate --username YOUR_SLEEPER_USERNAME
 python -m ffsim simulate --simulations 1000 --seed 42
 python -m ffsim simulate --output output/week-1.json
 python -m ffsim simulate --plots
 ```
+
+Username lookup uses the 2026 NFL season by default. If the user belongs to
+multiple leagues, the command lists their names and IDs and requires an
+explicit `--league-id`; it never guesses which league to simulate.
 
 The JSON result is the intended boundary for a future API or website: it contains run metadata plus team probabilities and player summaries.
 
@@ -112,9 +122,54 @@ Before rewriting the simulator in Rust:
 
 Consider extracting the simulation kernel into Rust only if users need uncached, interactive scenarios and profiling shows that optimized Python cannot meet the latency target. Rust compiled to WebAssembly could then run in the browser while preserving static hosting.
 
-### Current in-season limitation
+## Correctness and calibration
 
-The simulator uses Sleeper matchup snapshots to determine pairings, but it starts every simulated season at 0-0 and does not incorporate completed matchup scores or current standings. Frequent in-season recomputation will not produce true rest-of-season playoff odds until completed weeks are preserved and only future weeks are simulated.
+PFF raw season projections are rescored under the cached league's Sleeper
+settings. Nonzero settings that cannot be calculated from the checked-in
+aggregates fail with the unsupported keys listed. Exact long-touchdown bonuses
+require play-by-play, field-goal distance scoring requires exact kick
+distances, and unequal kick/punt-return coefficients cannot be applied to a
+combined return-yard projection.
+
+Projection joins prefer a stable Sleeper ID when an input supplies one;
+otherwise they require exact normalized name, position, and canonical team.
+Refresh writes `data/cache/projection_matches.json`. A rostered player without
+one unique, position-consistent projection stops league loading.
+
+Weekly outcomes use normalized joint 2024-2025 nflverse vectors centered on
+league-rescored 2026 PFF means. The corrected mean-preserving parametric kernel
+remains the explicit baseline when a `Player` has no runtime empirical library.
+The old injury CSV and age, depth-chart, boom/bust, injury, rank, and score-cap
+modifiers are inactive.
+
+Availability is separate from weekly shape. Across `H` future non-bye fantasy
+weeks, a player projected for `G` of the NFL's 17 games has expected games
+`H * G / 17`; stochastic rounding avoids fractional-game bias. A 14-week
+fantasy regular season plus Weeks 15-17 playoffs covers 16 eligible games
+because one NFL bye occurs in Weeks 1-14. Current rest-of-season projections
+are required after completed games; preseason totals are not current ROS means.
+
+Completed Sleeper matchup points and starters are preserved and only future
+weeks are simulated. Fully completed playoff brackets are preserved. A
+partially completed fantasy playoff fails explicitly instead of being
+resimulated.
+
+## Backtest
+
+```bash
+python tools/backtest.py --samples 100
+```
+
+The split trains on 2024 and evaluates 2025. Because no 2025 preseason PFF
+snapshot is present, this is explicitly an "oracle-mean distribution-shape"
+backtest, not an end-to-end preseason forecast. Its JSON report includes bias,
+error, dispersion, percentiles, skew, zero/bust/boom rates, CRPS, PIT,
+coverage, Brier scores, correlations, and the Phase 3 feature grids.
+
+The checked-in calibration keeps position/volume-tier joint vectors. Finite
+personal-history shrinkage worsened 2025 CRPS, opponent weight 0 won its grid,
+and a shared team factor failed to materially improve CRPS while worsening team
+variance before repairing stack correlation, so those features are not active.
 
 ## Checks
 

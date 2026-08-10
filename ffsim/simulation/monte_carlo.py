@@ -1,5 +1,3 @@
-import random
-
 import numpy as np
 from tqdm import tqdm
 from ffsim.simulation.season import SimulationSeason
@@ -17,13 +15,21 @@ class MonteCarloSimulation:
         self.visualizer = SimulationVisualizer(self.league, self.tracker)
 
     def run(self):
-        random.seed(self.seed)
-        np.random.seed(self.seed)
-        for _ in tqdm(range(self.num_simulations), desc="Running Simulations", unit="sim"):
+        self.tracker = SimulationTracker(
+            self.league, self.num_simulations, self.regular_season_weeks
+        )
+        self.visualizer = SimulationVisualizer(self.league, self.tracker)
+        streams = np.random.SeedSequence(self.seed).spawn(self.num_simulations)
+        for stream in tqdm(streams, desc="Running Simulations", unit="sim"):
             for team in self.league.rosters:
                 team.reset_stats()
 
-            season = SimulationSeason(self.league, self.tracker, self.regular_season_weeks)
+            season = SimulationSeason(
+                self.league,
+                self.tracker,
+                self.regular_season_weeks,
+                np.random.default_rng(stream),
+            )
             season.simulate()
             self.record_season_results(season)
 

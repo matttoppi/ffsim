@@ -14,9 +14,11 @@ These files must not be substituted for the active 2026 inputs without explicitl
 ## `data/research/`
 
 - `pff_stats/`: 2025 PFF passing, receiving, and D/ST season aggregates
-- `nflverse/`: 2024-2025 weekly player/team stats, snap counts, schedules, and ID mappings
 
-These datasets were staged for future empirical variance and calibration work but are not integrated into the simulation.
+The nflverse weekly data, IDs, and schedule moved to
+`data/historical/nflverse/` because they are active runtime and backtesting
+inputs. The archived PFF aggregates remain research-only and do not modify
+2026 means.
 
 ## `scripts/`
 

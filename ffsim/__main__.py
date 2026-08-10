@@ -10,7 +10,10 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Run fantasy football season simulations.")
     parser.add_argument("command", choices=("simulate", "refresh"), nargs="?", default="simulate")
     parser.add_argument("--config", default="config.json")
-    parser.add_argument("--league-id")
+    league = parser.add_mutually_exclusive_group()
+    league.add_argument("--league-id")
+    league.add_argument("--username", help="Sleeper username used to find a single NFL league")
+    parser.add_argument("--season", type=int, default=2026, help="NFL season used with --username")
     parser.add_argument("--simulations", type=int)
     parser.add_argument("--seed", type=int)
     parser.add_argument("--output")
@@ -21,9 +24,18 @@ def parse_args():
 def main():
     args = parse_args()
     config = AppConfig.from_file(args.config)
+    league_id = args.league_id or config.league_id
+    if args.username:
+        from ffsim.loaders.league import league_id_for_username
+
+        try:
+            league_id = league_id_for_username(args.username, args.season)
+        except ValueError as error:
+            raise SystemExit(str(error)) from error
+        print(f"Using Sleeper league {league_id} for {args.username} ({args.season}).")
     config = replace(
         config,
-        league_id=args.league_id or config.league_id,
+        league_id=league_id,
         simulations=config.simulations if args.simulations is None else args.simulations,
         seed=config.seed if args.seed is None else args.seed,
         results_file=args.output or config.results_file,
@@ -38,7 +50,7 @@ def main():
 
         player_loader.refresh()
         refresh_league(config.league_id)
-        refresh_matchups(config.league_id, config.regular_season_weeks)
+        refresh_matchups(config.league_id, config.regular_season_weeks + 3)
         return
 
     from ffsim.loaders.league import LeagueLoader

@@ -1,13 +1,6 @@
 from collections import Counter
 
-
-class ScoringSettings:
-    def __init__(self, scoring_data):
-        for key, value in scoring_data.items():
-            setattr(self, key, value)
-
-        self.rec = scoring_data.get("rec", 1)
-        self.te_rec = scoring_data.get("te_rec", 2)
+from ffsim.scoring import ScoringSettings
 
 
 class League:
@@ -23,6 +16,11 @@ class League:
             if position not in {"BN", "IR", "TAXI"}
         )
         self.playoff_teams = int(league_data.get("settings", {}).get("playoff_teams", 6))
+        self.league_average_match = bool(league_data.get("settings", {}).get("league_average_match", 0))
+        self.status = league_data.get("status")
+        self.last_scored_week = int(league_data.get("settings", {}).get("last_scored_leg", 0) or 0)
+        self.winners_bracket = []
+        self.completed_starters = {}
 
     def print_rosters_ids(self):
         for team in self.rosters:

@@ -1,102 +1,143 @@
 import pandas as pd
-import numpy as np
-from difflib import get_close_matches
+
+from ffsim.loaders.pff import canonical_team, normalized_name
+
 
 class DataMerger:
-    @staticmethod
-    def merge_data(fantasy_calc_df, sleeper_df, pff_df, injury_df):
-        merged_df = pd.merge(fantasy_calc_df, sleeper_df, left_on='sleeper_id', right_on='player_id', how='outer', suffixes=('_fc', '_sl'))
+    last_projection_report = {}
 
-        for column in ('team', 'position', 'age'):
-            merged_df[column] = merged_df[f'{column}_sl'].fillna(merged_df[f'{column}_fc'])
-        merged_df.drop(
-            columns=[f'{column}_{source}' for column in ('team', 'position', 'age') for source in ('fc', 'sl')],
-            inplace=True,
+    @staticmethod
+    def merge_data(fantasy_calc_df, sleeper_df, pff_df, injury_df=None):
+        del injury_df  # The unverified injury snapshot is intentionally inactive.
+        sleeper = sleeper_df.copy()
+        fantasy_calc = fantasy_calc_df.copy()
+        projections = pff_df.copy()
+
+        sleeper["player_id"] = sleeper["player_id"].astype(str)
+        if not fantasy_calc.empty:
+            fantasy_calc["sleeper_id"] = fantasy_calc["sleeper_id"].astype(str)
+            fantasy_columns = [
+                column for column in ("sleeper_id", "value_1qb", "redraft_value")
+                if column in fantasy_calc.columns
+            ]
+            sleeper = sleeper.merge(
+                fantasy_calc[fantasy_columns].drop_duplicates("sleeper_id"),
+                left_on="player_id",
+                right_on="sleeper_id",
+                how="left",
+            )
+
+        sleeper["normalized_name"] = sleeper["full_name"].map(normalized_name)
+        sleeper["canonical_team"] = sleeper["team"].map(canonical_team)
+        sleeper["position"] = sleeper["position"].astype(str).str.upper().replace({"DST": "DEF"})
+        sleeper["projection_key"] = sleeper.apply(DataMerger._projection_key, axis=1)
+        projections["projection_key"] = projections.apply(DataMerger._projection_key, axis=1)
+
+        id_column = next(
+            (column for column in ("sleeperId", "sleeper_id") if column in projections.columns),
+            None,
         )
-        
-        merged_df['name_lower'] = merged_df['full_name'].str.lower()
-        pff_df['playerName'] = pff_df['playerName'].str.lower()
-        
-        def fuzzy_match(name, choices, cutoff=80):
-            if pd.isna(name):
-                return None
-            matches = get_close_matches(name, choices, n=1, cutoff=cutoff / 100)
-            return choices.index(matches[0]) if matches else None
+        valid_stable_ids = set()
+        position_mismatches = set()
+        if id_column:
+            projections["_stable_id"] = projections[id_column].fillna("").astype(str)
+            projection_ids = projections[projections["_stable_id"] != ""]
+            for stable_id, rows in projection_ids.groupby("_stable_id"):
+                sleeper_rows = sleeper[sleeper["player_id"] == stable_id]
+                if len(rows) == len(sleeper_rows) == 1:
+                    if rows.iloc[0]["position"] == sleeper_rows.iloc[0]["position"]:
+                        valid_stable_ids.add(stable_id)
+                    else:
+                        position_mismatches.add(stable_id)
+        sleeper["join_key"] = sleeper.apply(
+            lambda row: ("id", row["player_id"])
+            if row["player_id"] in valid_stable_ids
+            else (("position_mismatch", row["player_id"]) if row["player_id"] in position_mismatches else ("identity", *row["projection_key"])),
+            axis=1,
+        )
+        projections["join_key"] = projections.apply(
+            lambda row: ("id", row["_stable_id"])
+            if row.get("_stable_id", "") in valid_stable_ids
+            else ("identity", *row["projection_key"]),
+            axis=1,
+        )
 
-        pff_names = pff_df['playerName'].tolist()
-        merged_df['pff_index'] = merged_df['name_lower'].apply(lambda x: fuzzy_match(x, pff_names))
-        
-        final_df = pd.merge(merged_df, pff_df, left_on='pff_index', right_index=True, how='left', suffixes=('', '_pff'))
-        
-        if 'position_pff' in final_df.columns:
-            final_df['position'] = final_df.apply(lambda row: row['position_pff'] if pd.isna(row['position']) or row['position'] == 'UNKNOWN' else row['position'], axis=1)
-            final_df.drop('position_pff', axis=1, inplace=True)
-        
-        injury_df['player_lower'] = injury_df['player'].str.lower().str.strip()
-        final_df['name_lower'] = final_df['full_name'].str.lower().str.strip()
-        
-        injury_df = injury_df.rename(columns={
-            'probability_of_injury_in_the_season': 'injury_probability_season',
-            'probability_of_injury_per_game': 'injury_probability_game'
-        })
-        
-        final_df = DataMerger.merge_injury_data(final_df, injury_df)
-        final_df = DataMerger.clean_merged_data(final_df)
-        return final_df
+        sleeper_counts = sleeper["join_key"].value_counts()
+        projection_counts = projections["join_key"].value_counts()
+        unique_keys = {
+            key for key, count in sleeper_counts.items()
+            if count == 1 and projection_counts.get(key, 0) == 1
+        }
+        projections = projections.copy()
+        projections["_projection_index"] = projections.index
+        matched = sleeper.merge(
+            projections.drop(columns=["normalized_name", "canonical_team", "projection_key"], errors="ignore"),
+            on="join_key",
+            how="left",
+            suffixes=("", "_pff"),
+        )
+        matched.loc[~matched["join_key"].isin(unique_keys), "_projection_index"] = pd.NA
+        matched["projection_match_status"] = matched.apply(
+            lambda row: DataMerger._match_status(row, sleeper_counts, projection_counts), axis=1
+        )
+
+        report_rows = [
+            {
+                "sleeper_id": str(row.player_id),
+                "name": DataMerger._text(row.full_name),
+                "position": DataMerger._text(row.position),
+                "team": DataMerger._text(row.canonical_team),
+                "status": row.projection_match_status,
+            }
+            for row in matched.itertuples()
+            if row.projection_match_status != "matched"
+        ]
+        used = {int(value) for value in matched["_projection_index"].dropna()}
+        DataMerger.last_projection_report = {
+            "matched": int((matched["projection_match_status"] == "matched").sum()),
+            "unmatched_or_ambiguous": sorted(
+                report_rows,
+                key=lambda row: (row["status"], row["name"], row["position"], row["team"], row["sleeper_id"]),
+            ),
+            "unused_projections": sorted(
+                {
+                    f"{row.playerName}/{row.position}/{row.canonical_team}"
+                    for row in pff_df.itertuples()
+                    if row.Index not in used
+                }
+            ),
+        }
+        return DataMerger.clean_merged_data(matched)
 
     @staticmethod
-    def merge_injury_data(final_df, injury_df):
-        # Function to find the best match
-        def find_best_match(name, choices, cutoff=80):
-            if pd.isna(name):
-                return None
-            matches = get_close_matches(name, list(choices), n=1, cutoff=cutoff / 100)
-            return matches[0] if matches else None
+    def _projection_key(row):
+        position = str(row.get("position") or "").upper().replace("DST", "DEF")
+        team = canonical_team(row.get("canonical_team") or row.get("team") or row.get("teamName"))
+        if position == "DEF":
+            return (team, position, team)
+        return (normalized_name(row.get("normalized_name") or row.get("full_name") or row.get("playerName")), position, team)
 
-        # Create a dictionary of injury data
-        injury_dict = injury_df.set_index('player_lower').to_dict('index')
-        
-        # Function to get injury data
-        def get_injury_data(row):
-            name = row['name_lower']
-            position = row['position'].upper() if pd.notna(row['position']) else ''
-            
-            if pd.isna(name):
-                return pd.Series({col: np.nan for col in injury_df.columns if col != 'player_lower'})
-            
-            # Try exact match first
-            if name in injury_dict and injury_dict[name]['position'].upper() == position:
-                return pd.Series({col: injury_dict[name].get(col, np.nan) for col in injury_df.columns if col != 'player_lower'})
-            
-            # If no exact match, try fuzzy matching
-            best_match = find_best_match(name, injury_dict.keys())
-            if best_match and injury_dict[best_match]['position'].upper() == position:
-                return pd.Series({col: injury_dict[best_match].get(col, np.nan) for col in injury_df.columns if col != 'player_lower'})
-            
-            # If still no match, return NaN
-            return pd.Series({col: np.nan for col in injury_df.columns if col != 'player_lower'})
+    @staticmethod
+    def _match_status(row, sleeper_counts, projection_counts):
+        key = row["join_key"]
+        if key[0] == "position_mismatch":
+            return "position_mismatch"
+        if sleeper_counts.get(key, 0) > 1 or projection_counts.get(key, 0) > 1:
+            return "ambiguous"
+        return "matched" if projection_counts.get(key, 0) == 1 else "unmatched"
 
-        # Apply the function to merge injury data
-        injury_columns = [col for col in injury_df.columns if col != 'player_lower']
-        injury_data = final_df.apply(get_injury_data, axis=1)
-        return pd.concat([final_df, injury_data], axis=1)
+    @staticmethod
+    def _text(value):
+        return "" if pd.isna(value) else str(value)
 
     @staticmethod
     def clean_merged_data(df):
-        injury_columns = ['career_injuries', 'injury_risk', 'probability_of_injury_in_the_season', 
-                          'projected_games_missed', 'probability_of_injury_per_game', 'durability']
-        for col in df.columns:
-            if col in injury_columns:
-                if pd.api.types.is_object_dtype(df[col]):
-                    df[col] = df[col].fillna('Unknown')
-                else:
-                    df[col] = df[col].fillna(0)
-            else:
-                if pd.api.types.is_object_dtype(df[col]):
-                    df[col] = df[col].fillna('')
-                else:
-                    df[col] = df[col].fillna(0)
-        
-        df['byeWeek'] = df['byeWeek'].replace({0: None})
-        df['sleeper_id'] = df['sleeper_id'].fillna(df['player_id'])
+        df = df.copy()
+        for column in df.columns:
+            if pd.api.types.is_object_dtype(df[column]):
+                df[column] = df[column].fillna("")
+            elif column not in {"byeWeek", "_projection_index"}:
+                df[column] = df[column].fillna(0)
+        df["byeWeek"] = df["byeWeek"].where(df["byeWeek"].notna(), None)
+        df["sleeper_id"] = df["player_id"]
         return df
