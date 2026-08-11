@@ -186,6 +186,26 @@ class ScoringTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Separate kick_return_yards"):
             score_raw_stats({"return_yards": 10}, "RB", {"kr_yd": 0.1, "pr_yd": 0.05})
 
+    def test_long_pass_yards_allowed_and_60_plus_kick_league_is_supported(self):
+        settings = ScoringSettings({
+            "pass_td": 4, "pass_td_40p": 1, "pass_td_50p": 0.5, "fgm_60p": 1,
+            "yds_allow_0_100": 5, "yds_allow_350_399": -1, "yds_allow_550p": -7,
+        })
+        stats = {
+            "passing_tds": 3, "passing_tds_40_plus": 2, "passing_tds_50_plus": 1,
+            "yards_allowed_350_399": 1, "field_goals_made_60_plus": 1,
+        }
+        self.assertEqual(score_raw_stats(stats, "QB", settings), 12 + 2 + 0.5 - 1 + 1)
+
+    def test_yards_allowed_bins_partition_all_outcomes(self):
+        from ffsim.simulation.empirical import YARDS_ALLOWED_BINS
+
+        edges = [bounds for _, *bounds in YARDS_ALLOWED_BINS]
+        self.assertEqual(edges[0][0], 0)
+        self.assertEqual(edges[-1][1], float("inf"))
+        for (_, upper), (lower, _) in zip(edges, edges[1:]):
+            self.assertEqual(upper, lower)
+
     def test_unsupported_nonzero_keys_are_listed(self):
         with self.assertRaisesRegex(ValueError, "bonus_pass_yd_300, pass_fd"):
             ScoringSettings({"pass_fd": 0.5, "bonus_pass_yd_300": 1})
@@ -495,10 +515,15 @@ class CompletedAndReproducibilityTest(unittest.TestCase):
                 self.playoff_sim = SimpleNamespace(bracket=bracket, champion=self.league.rosters[0])
 
         simulation = MonteCarloSimulation(league, num_simulations=4, seed=42)
+        events = []
         with patch("ffsim.simulation.monte_carlo.SimulationSeason", FakeSeason):
-            first = simulation.run()
+            first = simulation.run(
+                on_simulation_complete=events.append, show_progress=False
+            )
             second = simulation.run()
         self.assertEqual(first, second)
+        self.assertEqual(len(events), 4)
+        self.assertEqual(events[0]["champion"], "T0")
 
 
 if __name__ == "__main__":

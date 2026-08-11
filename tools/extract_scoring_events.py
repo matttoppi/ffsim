@@ -46,6 +46,12 @@ def extract(source, season):
     ):
         player_events.append(_events(plays[mask], "td_player_id", stat, PLAYER_KEYS))
 
+    for stat, mask in (
+        ("passing_tds_40_plus", plays.pass_touchdown.eq(1) & plays.yards_gained.ge(40)),
+        ("passing_tds_50_plus", plays.pass_touchdown.eq(1) & plays.yards_gained.ge(50)),
+    ):
+        player_events.append(_events(plays[mask], "passer_player_id", stat, PLAYER_KEYS))
+
     pick_six = plays.interception.eq(1) & plays.return_touchdown.eq(1)
     player_events.append(
         _events(plays[pick_six], "passer_player_id", "pick_sixes_thrown", PLAYER_KEYS)

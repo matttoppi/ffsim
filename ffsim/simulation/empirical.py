@@ -46,6 +46,8 @@ PLAYER_CONDITIONAL_STATS = (
     "receiving_tds_50_plus",
     "rushing_tds_40_plus",
     "rushing_tds_50_plus",
+    "passing_tds_40_plus",
+    "passing_tds_50_plus",
     "pick_sixes_thrown",
 )
 TEAM_EMPIRICAL_STATS = {
@@ -102,6 +104,19 @@ POINTS_ALLOWED_BINS = (
     "points_allowed_14_20", "points_allowed_21_27", "points_allowed_28_34",
     "points_allowed_35_plus",
 )
+# (stat, inclusive lower bound, exclusive upper bound) for opponent net yards.
+YARDS_ALLOWED_BINS = (
+    ("yards_allowed_0_100", 0, 100),
+    ("yards_allowed_100_199", 100, 200),
+    ("yards_allowed_200_299", 200, 300),
+    ("yards_allowed_300_349", 300, 350),
+    ("yards_allowed_350_399", 350, 400),
+    ("yards_allowed_400_449", 400, 450),
+    ("yards_allowed_450_499", 450, 500),
+    ("yards_allowed_500_549", 500, 550),
+    ("yards_allowed_550_plus", 550, float("inf")),
+)
+YARDS_ALLOWED_STATS = tuple(stat for stat, _, _ in YARDS_ALLOWED_BINS)
 FIELD_GOAL_SUFFIXES = ("0_19", "20_29", "30_39", "40_49", "50_plus")
 KICKER_FACTOR_STATS = tuple(
     f"field_goals_{outcome}_{suffix}"
@@ -168,6 +183,23 @@ class EmpiricalLibrary:
             suffix: float(distances.mean())
             for suffix, distances in self.field_goal_distances.items()
         }
+        # Distances are stored minus 30, so a 60+ yard make reads as >= 30.
+        self.field_goal_60_plus_share = float(
+            (self.field_goal_distances["50_plus"] >= 30).mean()
+        )
+        # Yards allowed has no PFF projection; model it through the projected
+        # points-allowed distribution with the historical joint P(yards | points).
+        marginal = defense_rows[list(YARDS_ALLOWED_STATS)].sum().to_numpy(dtype=float)
+        self.yards_allowed_by_points = {}
+        for points_stat in POINTS_ALLOWED_BINS:
+            counts = (
+                defense_rows.loc[defense_rows[points_stat] == 1, list(YARDS_ALLOWED_STATS)]
+                .sum()
+                .to_numpy(dtype=float)
+            )
+            if counts.sum() == 0:
+                counts = marginal
+            self.yards_allowed_by_points[points_stat] = counts / counts.sum()
         team_stats = sorted(
             set(self.team_rows.columns)
             & (set(PFF_STAT_FIELDS) | DERIVED_KICKING_STATS | TEAM_EMPIRICAL_STATS)
@@ -360,6 +392,12 @@ class EmpiricalLibrary:
             chosen = int(rng.choice(len(POINTS_ALLOWED_BINS), p=weights / weights.sum()))
             for index, stat in enumerate(POINTS_ALLOWED_BINS):
                 stats[stat] = int(index == chosen)
+            # Yards allowed rides the sampled points bucket through the
+            # historical joint distribution, preserving their correlation.
+            yards_weights = self.yards_allowed_by_points[POINTS_ALLOWED_BINS[chosen]]
+            yards_chosen = int(rng.choice(len(YARDS_ALLOWED_STATS), p=yards_weights))
+            for index, stat in enumerate(YARDS_ALLOWED_STATS):
+                stats[stat] = int(index == yards_chosen)
         return stats
 
     def projected_stats(self, player, base_stats):
@@ -378,6 +416,8 @@ class EmpiricalLibrary:
                 ("receiving_tds_50_plus", "receiving_tds"),
                 ("rushing_tds_40_plus", "rushing_tds"),
                 ("rushing_tds_50_plus", "rushing_tds"),
+                ("passing_tds_40_plus", "passing_tds"),
+                ("passing_tds_50_plus", "passing_tds"),
                 ("pick_sixes_thrown", "passing_interceptions"),
             ):
                 source_total = stats.get(source, 0)
@@ -392,12 +432,20 @@ class EmpiricalLibrary:
                 * self.field_goal_extra_means[suffix]
                 for suffix in self.field_goal_distances
             )
+            stats["field_goals_made_60_plus"] = (
+                stats.get("field_goals_made_50_plus", 0) * self.field_goal_60_plus_share
+            )
         elif player.position == "DEF":
             total = stats.get("defense_return_yards", 0)
             stats["defense_kick_return_yards"] = total * self.defense_kick_return_share
             stats["defense_punt_return_yards"] = total - stats["defense_kick_return_yards"]
             for event, rate in self.team_event_rates.items():
                 stats[event] = player.projected_games * rate
+            for index, yards_stat in enumerate(YARDS_ALLOWED_STATS):
+                stats[yards_stat] = sum(
+                    stats.get(points_stat, 0) * self.yards_allowed_by_points[points_stat][index]
+                    for points_stat in POINTS_ALLOWED_BINS
+                )
         return stats
 
     def correction_report(self):
@@ -496,11 +544,19 @@ class EmpiricalLibrary:
                 "rushing_tds_40_plus",
                 "rushing_tds_50_plus",
             )
+            passing_40, passing_50 = nested_counts(
+                int(stats.get("passing_tds", 0)),
+                "passing_tds",
+                "passing_tds_40_plus",
+                "passing_tds_50_plus",
+            )
             stats.update(
                 receiving_tds_40_plus=receiving_40,
                 receiving_tds_50_plus=receiving_50,
                 rushing_tds_40_plus=rushing_40,
                 rushing_tds_50_plus=rushing_50,
+                passing_tds_40_plus=passing_40,
+                passing_tds_50_plus=passing_50,
             )
             interceptions = int(stats.get("passing_interceptions", 0))
             probability = (
@@ -510,11 +566,19 @@ class EmpiricalLibrary:
             )
             stats["pick_sixes_thrown"] = int(rng.binomial(interceptions, probability))
         if position == "K":
-            stats["field_goal_yards_over_30"] = sum(
-                float(rng.choice(self.field_goal_distances[suffix], count).sum())
-                for suffix in self.field_goal_distances
-                if (count := int(stats.get(f"field_goals_made_{suffix}", 0)))
-            )
+            yards_over_30 = 0.0
+            sixty_plus = 0
+            for suffix in self.field_goal_distances:
+                count = int(stats.get(f"field_goals_made_{suffix}", 0))
+                if not count:
+                    continue
+                draws = rng.choice(self.field_goal_distances[suffix], count)
+                yards_over_30 += float(draws.sum())
+                if suffix == "50_plus":
+                    # Stored distances are minus 30, so 60+ yards reads as >= 30.
+                    sixty_plus = int((draws >= 30).sum())
+            stats["field_goal_yards_over_30"] = yards_over_30
+            stats["field_goals_made_60_plus"] = sixty_plus
             self._apply_ceilings(stats, position, ("field_goal_yards_over_30",))
 
     def _correct(self, stats):
@@ -569,6 +633,8 @@ class EmpiricalLibrary:
                 "receiving_tds_50_plus": _ratio(group.receiving_tds_50_plus.sum(), group.receiving_tds.sum()),
                 "rushing_tds_40_plus": _ratio(group.rushing_tds_40_plus.sum(), group.rushing_tds.sum()),
                 "rushing_tds_50_plus": _ratio(group.rushing_tds_50_plus.sum(), group.rushing_tds.sum()),
+                "passing_tds_40_plus": _ratio(group.passing_tds_40_plus.sum(), group.passing_tds.sum()),
+                "passing_tds_50_plus": _ratio(group.passing_tds_50_plus.sum(), group.passing_tds.sum()),
                 "pick_sixes_thrown": _ratio(group.pick_sixes_thrown.sum(), group.passing_interceptions.sum()),
                 "kick_return_share": _ratio(
                     group.kick_return_yards.sum(),
@@ -732,6 +798,15 @@ class EmpiricalLibrary:
             )
             source[list(PBP_TEAM_STATS)] = source[list(PBP_TEAM_STATS)].fillna(0)
             source["points_allowed"] = [scores[(game, team)] for game, team in zip(source.game_id, source.team)]
+            # Opponent net yards: official total yards is gross passing minus
+            # sack yardage plus rushing.
+            source["offense_yards"] = (
+                source.passing_yards - source.sack_yards_lost + source.rushing_yards
+            )
+            source["yards_allowed"] = (
+                source.groupby("game_id").offense_yards.transform("sum")
+                - source.offense_yards
+            )
             for position in ("K", "DEF"):
                 frame = source[["season", "week", "game_id", "team"]].copy()
                 frame["position"] = position
@@ -795,6 +870,8 @@ def _add_defense_stats(frame, source):
     )
     for stat, values in bins:
         frame[stat] = values.astype(int)
+    for stat, lower, upper in YARDS_ALLOWED_BINS:
+        frame[stat] = ((source.yards_allowed >= lower) & (source.yards_allowed < upper)).astype(int)
 
 
 def _ratio(numerator, denominator):

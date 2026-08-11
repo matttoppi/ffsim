@@ -10,7 +10,8 @@ from ffsim.config import AppConfig
 def parse_args():
     parser = argparse.ArgumentParser(description="Run fantasy football season simulations.")
     parser.add_argument(
-        "command", choices=("setup", "simulate", "refresh"), nargs="?", default="simulate"
+        "command", choices=("setup", "simulate", "refresh", "serve"), nargs="?",
+        default="simulate",
     )
     parser.add_argument("--config", default="config.json")
     league = parser.add_mutually_exclusive_group()
@@ -25,6 +26,8 @@ def parse_args():
     )
     parser.add_argument("--output")
     parser.add_argument("--scenario")
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--port", type=int, default=8000)
     output = parser.add_mutually_exclusive_group()
     output.add_argument("--plots", action="store_true")
     output.add_argument(
@@ -73,6 +76,14 @@ def main():
             raise SystemExit(str(error)) from error
         return
 
+    if args.command == "serve":
+        import uvicorn
+
+        from ffsim.api import create_app
+
+        uvicorn.run(create_app(args.config), host=args.host, port=args.port)
+        return
+
     config = AppConfig.from_file(args.config)
     league_id = args.league_id or config.league_id
     if args.username:
@@ -92,36 +103,26 @@ def main():
         scenario_file=args.scenario or config.scenario_file,
     )
 
-    from ffsim.loaders.players import PlayerLoader
-
-    player_loader = PlayerLoader()
     if args.command == "refresh":
         from ffsim.loaders.league import refresh_league
+        from ffsim.loaders.players import PlayerLoader
         from ffsim.simulation.season import refresh_matchups
 
+        player_loader = PlayerLoader()
         player_loader.refresh()
         refresh_league(config.league_id)
         refresh_matchups(config.league_id, config.regular_season_weeks + 3)
         return
 
-    from ffsim.loaders.league import LeagueLoader
-    from ffsim.simulation.monte_carlo import MonteCarloSimulation
-    from ffsim.simulation.scenarios import apply_scenario, load_scenario
+    from ffsim.runtime import create_simulation
 
-    league = LeagueLoader(config.league_id, player_loader).load_league()
-    scenario = load_scenario(config.scenario_file)
-    apply_scenario(league, scenario)
-    league.set_replacement_levels(player_loader.enriched_players)
-    simulation = MonteCarloSimulation(
-        league,
-        num_simulations=config.simulations,
-        seed=config.seed,
-        regular_season_weeks=config.regular_season_weeks,
-        scenario=scenario,
+    simulation = create_simulation(
+        config,
         track_players=not args.teams_only,
         keep_samples=args.plots,
         workers=args.workers,
     )
+    league = simulation.league
     results = simulation.run()
 
     output = Path(config.results_file)

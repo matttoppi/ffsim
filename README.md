@@ -103,6 +103,61 @@ skips bench-player score generation and omits the `players` result object when
 only standings and playoff probabilities are needed. Simulations use up to
 four worker processes by default; `--workers 1` disables multiprocessing.
 
+## Backend API
+
+Start the local backend without a frontend:
+
+```bash
+python -m ffsim serve
+```
+
+Interactive API documentation is available at `http://127.0.0.1:8000/docs`.
+The backend accepts one active simulation at a time and keeps job state in
+memory.
+
+```http
+POST /api/simulations
+Content-Type: application/json
+
+{"simulations": 300, "seed": 2026, "workers": 4, "teams_only": false}
+```
+
+The response contains a job `id`. A frontend can then use:
+
+- `GET /api/simulations/{id}` for the latest counters and status.
+- `GET /api/simulations/{id}/events` for an SSE stream.
+- `GET /api/simulations/{id}/results` for the final result object.
+
+SSE event types are `queued`, `status`, `progress`, `complete`, and `failed`.
+Every `progress` event includes the completed count, speed, championship
+counts, playoff appearances, division wins, and the latest simulated outcome.
+
+## Web frontend
+
+A live dashboard for running and watching simulations lives in `web/`
+(Vite + React + TypeScript).
+
+```bash
+python -m ffsim serve          # terminal 1: backend on http://127.0.0.1:8000
+cd web
+npm install
+npm run dev                    # terminal 2: frontend on http://localhost:5173
+```
+
+The dashboard includes league selection: enter a Sleeper username, pick one
+of that user's 2026 leagues, and the backend saves it to `config.json` and
+refreshes its data snapshots (`GET /api/leagues?username=...`,
+`POST /api/league`, `GET /api/league`).
+
+The backend URL defaults to `http://127.0.0.1:8000`; override it with
+`VITE_API_URL` (for example in `web/.env.local`). Frontend checks:
+
+```bash
+cd web
+npm test                       # vitest unit tests
+npm run build                  # type-check and production build
+```
+
 Use `--scenario scenarios.json` (or `scenario_file` in `config.json`) for
 forward-looking assumptions:
 
@@ -185,8 +240,12 @@ browser while preserving static hosting.
 PFF raw season projections are rescored under the cached league's Sleeper
 settings. Nonzero settings that cannot be calculated from the checked-in
 inputs fail with the unsupported keys listed. Compact 2024-2025 nflverse
-play-by-play extracts support long-touchdown bonuses, pick-sixes, blocked
-kicks, fumble-recovery touchdowns, and special-teams turnovers. Historical
+play-by-play extracts support long-touchdown bonuses (rushing, receiving, and
+passing), pick-sixes, blocked kicks, fumble-recovery touchdowns, and
+special-teams turnovers. Defense yards-allowed buckets are modeled through the
+projected points-allowed distribution using the historical joint
+yards-versus-points table, and 60+ yard field-goal bonuses reuse the same
+historical kick-distance draws as the yardage bonus. Historical
 kick distances distribute PFF field-goal buckets, while historical return
 splits divide PFF's combined kick/punt return-yard totals without changing
 their combined mean.

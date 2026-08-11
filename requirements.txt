@@ -1,4 +1,6 @@
 matplotlib
+fastapi
 numpy
 pandas
 tqdm
+uvicorn

@@ -22,6 +22,8 @@ DIRECT_KEYS = {
     "rec_td_50p": "receiving_tds_50_plus",
     "rush_td_40p": "rushing_tds_40_plus",
     "rush_td_50p": "rushing_tds_50_plus",
+    "pass_td_40p": "passing_tds_40_plus",
+    "pass_td_50p": "passing_tds_50_plus",
     "st_td": "return_tds",
     "st_ff": "special_teams_fumbles_forced",
     "st_fum_rec": "special_teams_fumbles_recovered",
@@ -33,6 +35,7 @@ DIRECT_KEYS = {
     "fgm_30_39": "field_goals_made_30_39",
     "fgm_40_49": "field_goals_made_40_49",
     "fgm_50p": "field_goals_made_50_plus",
+    "fgm_60p": "field_goals_made_60_plus",
     "fgmiss_0_19": "field_goals_missed_0_19",
     "fgmiss_20_29": "field_goals_missed_20_29",
     "fgmiss_30_39": "field_goals_missed_30_39",
@@ -57,6 +60,15 @@ DIRECT_KEYS = {
     "pts_allow_21_27": "points_allowed_21_27",
     "pts_allow_28_34": "points_allowed_28_34",
     "pts_allow_35p": "points_allowed_35_plus",
+    "yds_allow_0_100": "yards_allowed_0_100",
+    "yds_allow_100_199": "yards_allowed_100_199",
+    "yds_allow_200_299": "yards_allowed_200_299",
+    "yds_allow_300_349": "yards_allowed_300_349",
+    "yds_allow_350_399": "yards_allowed_350_399",
+    "yds_allow_400_449": "yards_allowed_400_449",
+    "yds_allow_450_499": "yards_allowed_450_499",
+    "yds_allow_500_549": "yards_allowed_500_549",
+    "yds_allow_550p": "yards_allowed_550_plus",
 }
 
 POSITION_RECEPTION_BONUSES = {"TE": "bonus_rec_te", "RB": "bonus_rec_rb", "WR": "bonus_rec_wr"}

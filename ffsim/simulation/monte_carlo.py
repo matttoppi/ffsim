@@ -6,19 +6,19 @@ from ffsim.simulation.tracker import SimulationTracker
 
 
 _WORKER_SIMULATION = None
-_WORKER_PROGRESS = None
+_WORKER_EVENTS = None
 
 
-def _initialize_worker(simulation, progress):
-    global _WORKER_SIMULATION, _WORKER_PROGRESS
+def _initialize_worker(simulation, events):
+    global _WORKER_SIMULATION, _WORKER_EVENTS
     _WORKER_SIMULATION = simulation
-    _WORKER_PROGRESS = progress
+    _WORKER_EVENTS = events
 
 
 def _run_worker(streams):
     simulation = _WORKER_SIMULATION
     simulation.tracker = simulation._new_tracker()
-    simulation._run_streams(streams, progress_counter=_WORKER_PROGRESS)
+    simulation._run_streams(streams, event_queue=_WORKER_EVENTS)
     return simulation.tracker.worker_state()
 
 
@@ -80,14 +80,18 @@ class MonteCarloSimulation:
                 names = ", ".join(sorted(player.name for player in unprojected))
                 print(f"NOTE: {team.name} has {len(unprojected)} rostered players without projections (always 0): {names}")
 
-    def run(self):
+    def run(self, on_simulation_complete=None, show_progress=True):
         self.report_lineup_gaps()
         self.tracker = self._new_tracker()
         streams = np.random.SeedSequence(self.seed).spawn(self.num_simulations)
         if self.workers == 1:
-            self._run_streams(streams, progress=True)
+            self._run_streams(
+                streams,
+                progress=show_progress,
+                on_simulation_complete=on_simulation_complete,
+            )
         else:
-            self._run_parallel(streams)
+            self._run_parallel(streams, on_simulation_complete, show_progress)
 
         self.tracker.calculate_averages()
         results = self.tracker.to_dict(self.seed)
@@ -97,7 +101,9 @@ class MonteCarloSimulation:
             results["team_only"] = True
         return results
 
-    def _run_streams(self, streams, progress=False, progress_counter=None):
+    def _run_streams(
+        self, streams, progress=False, event_queue=None, on_simulation_complete=None
+    ):
         kwargs = {"scenario": self.scenario} if self.scenario else {}
         season = SimulationSeason(
             self.league,
@@ -113,31 +119,50 @@ class MonteCarloSimulation:
 
             season.rng = np.random.default_rng(stream)
             season.simulate()
-            self.record_season_results(season)
-            if progress_counter is not None:
-                with progress_counter.get_lock():
-                    progress_counter.value += 1
+            event = self.record_season_results(season)
+            if event_queue is not None:
+                event_queue.put(event)
+            elif on_simulation_complete is not None:
+                on_simulation_complete(event)
 
-    def _run_parallel(self, streams):
+    def _run_parallel(self, streams, on_simulation_complete, show_progress):
         import multiprocessing as mp
         import time
+        from queue import Empty
 
         workers = min(self.workers, len(streams))
         chunk_size = (len(streams) + workers - 1) // workers
         chunks = [streams[start:start + chunk_size] for start in range(0, len(streams), chunk_size)]
         method = "forkserver" if "forkserver" in mp.get_all_start_methods() else "spawn"
         context = mp.get_context(method)
-        completed = context.Value("i", 0)
+        events = context.Queue()
         with context.Pool(
-            workers, initializer=_initialize_worker, initargs=(self, completed)
+            workers, initializer=_initialize_worker, initargs=(self, events)
         ) as pool:
             results = [pool.apply_async(_run_worker, (chunk,)) for chunk in chunks]
-            with tqdm(total=len(streams), desc="Running Simulations", unit="sim") as progress:
+            completed = 0
+            with tqdm(
+                total=len(streams), desc="Running Simulations", unit="sim",
+                disable=not show_progress,
+            ) as progress:
                 while not all(result.ready() for result in results):
-                    progress.update(completed.value - progress.n)
+                    while True:
+                        try:
+                            event = events.get_nowait()
+                        except Empty:
+                            break
+                        completed += 1
+                        progress.update(1)
+                        if on_simulation_complete is not None:
+                            on_simulation_complete(event)
                     time.sleep(0.05)
-                progress.update(completed.value - progress.n)
-            states = [result.get() for result in results]
+                states = [result.get() for result in results]
+                while completed < len(streams):
+                    event = events.get()
+                    completed += 1
+                    progress.update(1)
+                    if on_simulation_complete is not None:
+                        on_simulation_complete(event)
         for state in states:
             self.tracker.merge_worker_state(state)
 
@@ -154,3 +179,11 @@ class MonteCarloSimulation:
             [playoff_sim.bracket.division1_winner, playoff_sim.bracket.division2_winner],
             playoff_sim.champion,
         )
+        return {
+            "champion": playoff_sim.champion.name,
+            "playoff_teams": [team.name for team in playoff_sim.bracket.teams],
+            "division_winners": [
+                playoff_sim.bracket.division1_winner.name,
+                playoff_sim.bracket.division2_winner.name,
+            ],
+        }
