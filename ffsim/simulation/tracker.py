@@ -1,20 +1,31 @@
 from collections import defaultdict
 import math
 
+import numpy as np
+
 
 class SimulationTracker:
-    def __init__(self, league, num_simulations, regular_season_weeks=14):
+    def __init__(
+        self,
+        league,
+        num_simulations,
+        regular_season_weeks=14,
+        track_players=True,
+        keep_samples=False,
+    ):
         self.league = league
         self.num_simulations = num_simulations
         self.regular_season_weeks = regular_season_weeks
+        self.track_players = track_players
+        self.keep_samples = keep_samples
         self.team_season_results = defaultdict(list)
         self.player_scores = defaultdict(lambda: defaultdict(list))
-        self.player_availability = defaultdict(lambda: defaultdict(list))
-        self.player_games_missed = defaultdict(list)
-        self.special_team_scores = defaultdict(lambda: defaultdict(list))
+        self.player_stats = defaultdict(lambda: [0.0, 0, None, None])
+        self.player_games_missed = defaultdict(int)
         self.playoff_appearances = defaultdict(int)
         self.division_wins = defaultdict(int)
         self.championships = defaultdict(int)
+        self.seeds = defaultdict(lambda: defaultdict(int))
         self.average_results = {}
 
     def calculate_averages(self):
@@ -51,18 +62,20 @@ class SimulationTracker:
         )
 
     def get_player_average_score(self, player_id):
-        scores = [
-            score
-            for weekly_scores in self.player_scores[player_id].values()
-            for score in weekly_scores
-        ]
-        if not scores:
+        total, games, minimum, maximum = self.player_stats[player_id]
+        if not games:
             return 0, 0, 0, 0, 0
-        return sum(scores) / len(scores), sum(scores), len(scores), min(scores), max(scores)
+        return total / games, total, games, minimum, maximum
 
     def record_player_score(self, player_id, week, score, played=True):
-        self.player_availability[player_id][week].append(bool(played))
-        if played:
+        if not self.track_players or not played:
+            return
+        stats = self.player_stats[player_id]
+        stats[0] += score
+        stats[1] += 1
+        stats[2] = score if stats[2] is None else min(stats[2], score)
+        stats[3] = score if stats[3] is None else max(stats[3], score)
+        if self.keep_samples:
             self.player_scores[player_id][week].append(score)
 
     def print_player_average_scores(self, top_n=5):
@@ -90,20 +103,17 @@ class SimulationTracker:
             print(separator)
 
     def record_player_games_missed(self, player_id, games_missed):
-        if games_missed:
-            self.player_games_missed[player_id].append(games_missed)
+        if self.track_players:
+            self.player_games_missed[player_id] += games_missed
 
     def get_player_avg_games_missed(self, player_id):
-        return sum(self.player_games_missed[player_id]) / self.num_simulations
+        return self.player_games_missed[player_id] / self.num_simulations
 
     def print_top_players_by_position(self, top_n=30):
         print("\nTop Players by Position:")
-        for position in ["QB", "RB", "WR", "TE", "KICKER", "DEFENSE"]:
+        for position in ["QB", "RB", "WR", "TE", "K", "DEF"]:
             print(f"\nTop {top_n} {position}s:")
-            if position in {"KICKER", "DEFENSE"}:
-                self._print_special_teams(position, top_n)
-            else:
-                self._print_position_players(position, top_n)
+            self._print_position_players(position, top_n)
 
     def _print_position_players(self, position, top_n):
         stats = []
@@ -133,54 +143,6 @@ class SimulationTracker:
                 f"{maximum:<8.2f}{missed:<12.5f}"
             )
 
-    def _print_special_teams(self, position, top_n):
-        stats = []
-        for team in self.league.rosters:
-            team_stats = self.get_special_team_stats(team.name, position)
-            if not team_stats:
-                continue
-            names = self.get_defense_names(team.name) if position == "DEFENSE" else [f"{team.name} {position}"]
-            for name in names:
-                stats.append((name, team_stats["avg_score"], team_stats["min_score"], team_stats["max_score"]))
-
-        print(f"{'Rank':<5}{'Team':<30}{'Avg':<8}{'Min':<8}{'Max':<8}{'Avg Miss':<12}")
-        print("-" * 71)
-        for rank, (name, average, minimum, maximum) in enumerate(
-            sorted(stats, key=lambda result: result[1], reverse=True)[:top_n], 1
-        ):
-            print(f"{rank:<5}{name:<30}{average:<8.2f}{minimum:<8.2f}{maximum:<8.2f}{'N/A':<12}")
-
-    def get_defense_names(self, team_name):
-        names = [
-            f"{player.team} {player.position}"
-            for team in self.league.rosters
-            if team.name == team_name
-            for player in team.players
-            if player.position.upper() == "DEF"
-        ]
-        return names or [f"{team_name} DEF"]
-
-    def record_special_team_score(self, team_name, position, week, score):
-        names = self.get_defense_names(team_name) if position == "DEFENSE" else [team_name]
-        for name in names:
-            self.special_team_scores[f"{position}_{name}"][week].append(score)
-
-    def get_special_team_stats(self, team_name, position):
-        names = self.get_defense_names(team_name) if position == "DEFENSE" else [team_name]
-        scores = [
-            score
-            for name in names
-            for weekly_scores in self.special_team_scores[f"{position}_{name}"].values()
-            for score in weekly_scores
-        ]
-        if not scores:
-            return None
-        return {
-            "avg_score": sum(scores) / len(scores),
-            "min_score": min(scores),
-            "max_score": max(scores),
-        }
-
     def record_playoff_results(self, playoff_teams, division_winners, champion):
         for team in playoff_teams:
             self.playoff_appearances[team.name] += 1
@@ -192,7 +154,8 @@ class SimulationTracker:
         print("\nMonte Carlo Simulation Results:")
         self.print_projected_standings()
         self.print_playoff_stats()
-        self.print_top_players_by_position()
+        if self.track_players:
+            self.print_top_players_by_position()
 
     def to_dict(self, seed):
         teams = {}
@@ -210,8 +173,36 @@ class SimulationTracker:
                 / self.num_simulations,
                 "championship_probability": self.championships[team.name]
                 / self.num_simulations,
+                "win_percentiles": _percentiles(
+                    [season["wins"] for season in self.team_season_results[team.name]]
+                ),
+                "points_percentiles": _percentiles(
+                    [season["points_for"] for season in self.team_season_results[team.name]]
+                ),
+                "seed_probabilities": {
+                    str(seed): count / self.num_simulations
+                    for seed, count in sorted(self.seeds[team.name].items())
+                },
+                "top_two_probability": sum(
+                    self.seeds[team.name][seed] for seed in (1, 2)
+                ) / self.num_simulations,
+                "bottom_two_probability": sum(
+                    self.seeds[team.name][seed]
+                    for seed in range(max(1, len(self.league.rosters) - 1), len(self.league.rosters) + 1)
+                ) / self.num_simulations,
             }
 
+        results = {
+            "league": {"id": self.league.league_id, "name": self.league.name},
+            "simulations": self.num_simulations,
+            "seed": seed,
+            "teams": teams,
+        }
+        if self.track_players:
+            results["players"] = self._players_to_dict()
+        return results
+
+    def _players_to_dict(self):
         players = {}
         for team in self.league.rosters:
             for player in team.players:
@@ -231,14 +222,7 @@ class SimulationTracker:
                         player.sleeper_id
                     ),
                 }
-
-        return {
-            "league": {"id": self.league.league_id, "name": self.league.name},
-            "simulations": self.num_simulations,
-            "seed": seed,
-            "teams": teams,
-            "players": players,
-        }
+        return players
 
     def print_playoff_stats(self):
         print(f"\nPlayoff Statistics (Total Simulations: {self.num_simulations}):")
@@ -259,8 +243,10 @@ class SimulationTracker:
                 f"     {championships:>3} ({championships / self.num_simulations * 100:>6.1f}%)"
             )
 
-    def record_team_season(self, team_name, wins, points_for):
+    def record_team_season(self, team_name, wins, points_for, seed=None):
         self.team_season_results[team_name].append({"wins": wins, "points_for": points_for})
+        if seed is not None:
+            self.seeds[team_name][seed] += 1
 
     def print_projected_standings(self):
         print("\nProjected Overall Standings:")
@@ -275,3 +261,10 @@ class SimulationTracker:
                 f"{rank}. {team_name}: {average_wins:.2f} wins | "
                 f"Points per week: {average_points / self.regular_season_weeks:.2f} points"
             )
+
+
+def _percentiles(values):
+    return {
+        str(percentile): float(value)
+        for percentile, value in zip((10, 25, 50, 75, 90), np.percentile(values, (10, 25, 50, 75, 90)))
+    }

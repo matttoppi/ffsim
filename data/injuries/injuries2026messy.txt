@@ -1,0 +1,5585 @@
+Player
+Injury
+Risk
+Career Injuries
+Injuries
+Per Season
+Injury Risk
+Per Season
+Injury Risk
+Per Game
+Durability
+PPR Points
+Projected Games Missed
+
+Josh Allen
+BUF
+QB1
+
+
+Low Risk
+12
+1.1/yr
+33%
+2%
+5.0
+379
+2.0
+
+Puka Nacua
+LAR
+WR1
+
+
+Medium Risk
+10
+2/yr
+51%
+4%
+4.1
+358
+2.2
+
+Jahmyr Gibbs
+DET
+RB1
+
+
+Medium Risk
+4
+0.7/yr
+54%
+4%
+5.0
+354
+1.5
+
+Bijan Robinson
+ATL
+RB2
+
+
+Low Risk
+1
+0/yr
+25%
+2%
+5.0
+346
+0.5
+
+Drake Maye
+NE
+QB2
+
+
+Low Risk
+4
+1.5/yr
+35%
+3%
+5.0
+340
+2.5
+
+Lamar Jackson
+BAL
+QB3
+
+
+Medium Risk
+8
+0.8/yr
+42%
+3%
+5.0
+340
+2.5
+
+Ja'Marr Chase
+CIN
+WR2
+
+
+Low Risk
+4
+0.6/yr
+37%
+3%
+5.0
+339
+0.7
+
+Joe Burrow
+CIN
+QB4
+
+
+Low Risk
+12
+1.7/yr
+34%
+2%
+4.5
+337
+2.3
+
+Jayden Daniels
+WAS
+QB5
+
+
+Low Risk
+8
+2.5/yr
+41%
+3%
+2.8
+334
+1.2
+
+Jalen Hurts
+PHI
+QB6
+
+
+Low Risk
+5
+0.7/yr
+33%
+2%
+5.0
+331
+1.4
+
+Christian McCaffrey
+SF
+RB3
+
+
+Very High Risk
+11
+1.1/yr
+78%
+9%
+3.2
+331
+2.1
+
+Trevor Lawrence
+JAC
+QB7
+
+
+Low Risk
+11
+1.8/yr
+34%
+2%
+5.0
+329
+2.5
+
+Brock Purdy
+SF
+QB8
+
+
+Low Risk
+8
+1.6/yr
+36%
+3%
+5.0
+327
+2.7
+
+Justin Herbert
+LAC
+QB9
+
+
+Low Risk
+11
+1.5/yr
+36%
+3%
+5.0
+326
+2.5
+
+Kyler Murray
+MIN
+QB10
+
+
+Low Risk
+8
+1/yr
+33%
+2%
+3.1
+325
+2.5
+
+Dak Prescott
+DAL
+QB11
+
+
+Low Risk
+8
+0.7/yr
+34%
+2%
+5.0
+325
+2.0
+
+Caleb Williams
+CHI
+QB12
+
+
+Very Low Risk
+2
+0.5/yr
+20%
+1%
+5.0
+324
+1.0
+
+Jaxson Dart
+NYG
+QB13
+
+
+Low Risk
+2
+1/yr
+36%
+3%
+2.2
+319
+1.1
+
+Amon-Ra St. Brown
+DET
+WR3
+
+
+Low Risk
+7
+0.8/yr
+37%
+3%
+5.0
+316
+0.9
+
+Jaxon Smith-Njigba
+SEA
+WR4
+
+
+Low Risk
+2
+0.3/yr
+39%
+3%
+5.0
+315
+1.3
+
+Bo Nix
+DEN
+QB14
+
+
+Low Risk
+4
+1/yr
+28%
+2%
+5.0
+312
+1.5
+
+Patrick Mahomes
+KC
+QB15
+
+
+Low Risk
+11
+1/yr
+37%
+3%
+5.0
+309
+3.0
+
+Jared Goff
+DET
+QB16
+
+
+Low Risk
+4
+0.4/yr
+23%
+2%
+5.0
+303
+0.8
+
+CeeDee Lamb
+DAL
+WR5
+
+
+Medium Risk
+9
+1.3/yr
+44%
+3%
+5.0
+301
+2.3
+
+Jonathan Taylor
+IND
+RB4
+
+
+Low Risk
+7
+1/yr
+37%
+3%
+5.0
+299
+0.4
+
+Matthew Stafford
+LAR
+QB17
+
+
+Low Risk
+24
+1.4/yr
+39%
+3%
+5.0
+299
+2.6
+
+Tyler Shough
+NO
+QB18
+
+
+Very Low Risk
+3
+0/yr
+17%
+1%
+5.0
+298
+0.5
+
+Jordan Love
+GB
+QB19
+
+
+Very High Risk
+7
+1/yr
+82%
+10%
+5.0
+296
+2.4
+
+James Cook
+BUF
+RB5
+
+
+Low Risk
+4
+0.2/yr
+36%
+3%
+5.0
+293
+1.0
+
+Ashton Jeanty
+LVR
+RB6
+
+
+Low Risk
+5
+1/yr
+39%
+3%
+5.0
+293
+1.1
+
+Baker Mayfield
+TB
+QB20
+
+
+Low Risk
+10
+0.9/yr
+37%
+3%
+5.0
+291
+2.5
+
+Justin Jefferson
+MIN
+WR6
+
+
+Low Risk
+8
+1.2/yr
+36%
+3%
+5.0
+290
+0.5
+
+Rashee Rice
+KC
+WR7
+
+
+Very High Risk
+4
+1/yr
+74%
+8%
+3.8
+283
+2.2
+
+A.J. Brown
+NE
+WR8
+
+
+High Risk
+11
+1.4/yr
+61%
+5%
+5.0
+279
+2.6
+
+C.J. Stroud
+HOU
+QB21
+
+
+Low Risk
+4
+1/yr
+29%
+2%
+5.0
+278
+1.2
+
+Daniel Jones
+IND
+QB22
+
+
+Low Risk
+12
+1.6/yr
+36%
+3%
+3.5
+278
+2.4
+
+Drake London
+ATL
+WR9
+
+
+Very High Risk
+9
+1.4/yr
+73%
+7%
+5.0
+277
+2.6
+
+Nico Collins
+HOU
+WR10
+
+
+Medium Risk
+8
+1.6/yr
+49%
+4%
+4.0
+274
+1.3
+
+Malik Willis
+MIA
+QB23
+
+
+Very Low Risk
+3
+0.2/yr
+15%
+1%
+5.0
+273
+0.7
+
+De'Von Achane
+MIA
+RB7
+
+
+Very High Risk
+7
+2/yr
+68%
+6%
+5.0
+270
+0.8
+
+Kenneth Walker III
+KC
+RB8
+
+
+Low Risk
+10
+1.6/yr
+34%
+2%
+5.0
+268
+1.1
+
+Saquon Barkley
+PHI
+RB9
+
+
+Low Risk
+12
+1.3/yr
+35%
+3%
+5.0
+268
+0.9
+
+Chase Brown
+CIN
+RB10
+
+
+Medium Risk
+3
+1/yr
+45%
+3%
+5.0
+267
+1.5
+
+Josh Jacobs
+GB
+RB11
+
+
+High Risk
+10
+1.1/yr
+67%
+6%
+5.0
+264
+1.3
+
+Cameron Ward
+TEN
+QB24
+
+
+Low Risk
+1
+1/yr
+39%
+3%
+5.0
+264
+0.9
+
+Derrick Henry
+BAL
+RB12
+
+
+Low Risk
+5
+0.4/yr
+33%
+2%
+5.0
+263
+0.6
+
+George Pickens
+DAL
+WR11
+
+
+Low Risk
+3
+0.2/yr
+36%
+3%
+4.8
+262
+1.2
+
+Sam Darnold
+SEA
+QB25
+
+
+Low Risk
+9
+1/yr
+29%
+2%
+4.1
+261
+1.4
+
+Brock Bowers
+LVR
+TE1
+
+
+Very High Risk
+5
+2/yr
+81%
+9%
+5.0
+259
+2.7
+
+Aaron Rodgers
+PIT
+QB26
+
+
+Very High Risk
+17
+0.8/yr
+53%
+4%
+4.8
+258
+2.9
+
+Omarion Hampton
+LAC
+RB13
+
+
+Very High Risk
+3
+1/yr
+73%
+7%
+2.5
+254
+2.1
+
+Trey McBride
+ARI
+TE2
+
+
+Medium Risk
+2
+0.4/yr
+46%
+4%
+5.0
+254
+2.5
+
+Zay Flowers
+BAL
+WR12
+
+
+Low Risk
+3
+1/yr
+36%
+3%
+5.0
+253
+1.3
+
+Chris Olave
+NO
+WR13
+
+
+Very High Risk
+9
+1.2/yr
+75%
+8%
+5.0
+252
+2.2
+
+Breece Hall
+NYJ
+RB14
+
+
+Medium Risk
+2
+0.4/yr
+43%
+3%
+5.0
+248
+1.4
+
+Jacoby Brissett
+ARI
+QB27
+
+
+Very Low Risk
+2
+0.2/yr
+10%
+1%
+5.0
+247
+0.4
+
+Bryce Young
+CAR
+QB28
+
+
+Low Risk
+3
+0.7/yr
+32%
+2%
+5.0
+247
+1.8
+
+Tee Higgins
+CIN
+WR14
+
+
+High Risk
+16
+2.3/yr
+66%
+6%
+5.0
+244
+1.6
+
+Garrett Wilson
+NYJ
+WR15
+
+
+Low Risk
+5
+1/yr
+38%
+3%
+5.0
+244
+1.5
+
+Jeremiyah Love
+ARI
+RB15
+
+
+Low Risk
+1
+TBD
+34%
+2%
+5.0
+243
+1.2
+
+DeVonta Smith
+PHI
+WR16
+
+
+Medium Risk
+10
+1.2/yr
+50%
+4%
+5.0
+242
+3.5
+
+Geno Smith
+NYJ
+QB29
+
+
+Low Risk
+9
+0.7/yr
+36%
+3%
+5.0
+241
+2.3
+
+Colston Loveland
+CHI
+TE3
+
+
+High Risk
+4
+2/yr
+60%
+5%
+3.8
+241
+1.0
+
+Malik Nabers
+NYG
+WR17
+
+
+Low Risk
+7
+2.5/yr
+39%
+3%
+1.1
+241
+0.9
+
+Fernando Mendoza
+LVR
+QB30
+
+
+Low Risk
+0
+TBD
+23%
+2%
+5.0
+241
+0.9
+
+Javonte Williams
+DAL
+RB16
+
+
+Medium Risk
+5
+0.8/yr
+43%
+3%
+5.0
+240
+1.9
+
+Jaylen Waddle
+DEN
+WR18
+
+
+Low Risk
+8
+1/yr
+37%
+3%
+5.0
+235
+1.5
+
+Kyren Williams
+LAR
+RB17
+
+
+Medium Risk
+5
+1/yr
+52%
+4%
+4.3
+233
+1.7
+
+Davante Adams
+LAR
+WR19
+
+
+Medium Risk
+13
+1.1/yr
+49%
+4%
+5.0
+230
+2.9
+
+Cameron Skattebo
+NYG
+RB18
+
+
+Very High Risk
+2
+1/yr
+72%
+7%
+0.8
+230
+0.9
+
+Tyler Warren
+IND
+TE4
+
+
+Low Risk
+0
+0/yr
+36%
+3%
+5.0
+229
+1.3
+
+Travis Etienne
+NO
+RB19
+
+
+Medium Risk
+5
+0.5/yr
+45%
+3%
+3.5
+229
+1.4
+
+Christian Watson
+GB
+WR20
+
+
+Low Risk
+11
+2.2/yr
+25%
+2%
+2.4
+226
+0.8
+
+Tetairoa McMillan
+CAR
+WR21
+
+
+Low Risk
+2
+1/yr
+37%
+3%
+5.0
+223
+1.4
+
+Emeka Egbuka
+TB
+WR22
+
+
+Medium Risk
+2
+1/yr
+42%
+3%
+4.9
+223
+3.3
+
+Luther Burden III
+CHI
+WR23
+
+
+Medium Risk
+6
+3/yr
+54%
+4%
+5.0
+223
+1.4
+
+D'Andre Swift
+CHI
+RB20
+
+
+Medium Risk
+7
+0.8/yr
+42%
+3%
+5.0
+221
+1.6
+
+Ladd McConkey
+LAC
+WR24
+
+
+Medium Risk
+4
+1/yr
+42%
+3%
+5.0
+221
+3.1
+
+Terry McLaurin
+WAS
+WR25
+
+
+Low Risk
+10
+1.4/yr
+37%
+3%
+5.0
+219
+2.1
+
+Mike Evans
+SF
+WR26
+
+
+High Risk
+16
+1.2/yr
+65%
+6%
+5.0
+218
+2.4
+
+David Montgomery
+HOU
+RB21
+
+
+Very High Risk
+9
+1.1/yr
+85%
+11%
+5.0
+210
+1.9
+
+Jameson Williams
+DET
+WR27
+
+
+Low Risk
+4
+0.8/yr
+36%
+3%
+5.0
+210
+1.4
+
+Bucky Irving
+TB
+RB22
+
+
+High Risk
+4
+1.5/yr
+63%
+6%
+4.2
+210
+2.1
+
+D.J. Moore
+BUF
+WR28
+
+
+Medium Risk
+8
+1/yr
+54%
+4%
+5.0
+209
+2.7
+
+D.K. Metcalf
+PIT
+WR29
+
+
+Low Risk
+8
+0.9/yr
+36%
+3%
+5.0
+207
+1.1
+
+Rome Odunze
+CHI
+WR30
+
+
+Low Risk
+4
+1/yr
+36%
+3%
+5.0
+206
+1.5
+
+Jaylen Warren
+PIT
+RB23
+
+
+High Risk
+5
+1/yr
+66%
+6%
+5.0
+202
+1.4
+
+Michael Pittman Jr.
+PIT
+WR31
+
+
+High Risk
+12
+1.5/yr
+60%
+5%
+5.0
+202
+2.8
+
+Courtland Sutton
+DEN
+WR32
+
+
+Medium Risk
+7
+0.8/yr
+43%
+3%
+4.9
+201
+3.6
+
+Carnell Tate
+TEN
+WR33
+
+
+Low Risk
+1
+TBD
+40%
+3%
+4.0
+201
+2.9
+
+Tucker Kraft
+GB
+TE5
+
+
+Low Risk
+5
+1.3/yr
+39%
+3%
+2.7
+200
+2.2
+
+Quinshon Judkins
+CLE
+RB24
+
+
+Medium Risk
+3
+2/yr
+48%
+4%
+5.0
+200
+0.9
+
+Jayden Reed
+GB
+WR34
+
+
+Low Risk
+8
+1.3/yr
+36%
+3%
+4.1
+198
+2.0
+
+TreVeyon Henderson
+NE
+RB25
+
+
+High Risk
+2
+1/yr
+64%
+6%
+5.0
+198
+1.1
+
+Harold Fannin Jr.
+CLE
+TE6
+
+
+Medium Risk
+1
+1/yr
+57%
+5%
+5.0
+197
+1.6
+
+Jordan Addison
+MIN
+WR35
+
+
+Low Risk
+5
+1.3/yr
+37%
+3%
+5.0
+197
+2.1
+
+Sam LaPorta
+DET
+TE7
+
+
+High Risk
+6
+2/yr
+60%
+5%
+5.0
+196
+2.4
+
+Marvin Harrison Jr.
+ARI
+WR36
+
+
+Medium Risk
+8
+2.5/yr
+55%
+5%
+5.0
+196
+1.8
+
+Jordyn Tyson
+NO
+WR37
+
+
+Medium Risk
+7
+TBD
+45%
+3%
+0.7
+195
+3.2
+
+Jakobi Meyers
+JAC
+WR38
+
+
+Low Risk
+5
+0.6/yr
+37%
+3%
+5.0
+194
+1.6
+
+Josh Downs
+IND
+WR39
+
+
+High Risk
+7
+1.7/yr
+61%
+5%
+5.0
+193
+2.7
+
+Rhamondre Stevenson
+NE
+RB26
+
+
+High Risk
+7
+1.4/yr
+64%
+6%
+5.0
+191
+2.0
+
+Brian Thomas Jr.
+JAC
+WR40
+
+
+Low Risk
+5
+2.5/yr
+35%
+3%
+5.0
+189
+1.9
+
+Quentin Johnston
+LAC
+WR41
+
+
+Medium Risk
+8
+1.3/yr
+56%
+5%
+5.0
+189
+2.8
+
+Chris Godwin
+TB
+WR42
+
+
+Low Risk
+9
+1/yr
+40%
+3%
+5.0
+187
+3.3
+
+Alec Pierce
+IND
+WR43
+
+
+High Risk
+7
+0.8/yr
+67%
+6%
+5.0
+186
+2.7
+
+Kyle Pitts
+ATL
+TE8
+
+
+Medium Risk
+8
+1/yr
+53%
+4%
+5.0
+186
+3.1
+
+George Kittle
+SF
+TE9
+
+
+Medium Risk
+18
+1.8/yr
+44%
+3%
+4.7
+185
+2.3
+
+Travis Kelce
+KC
+TE10
+
+
+Medium Risk
+10
+0.8/yr
+42%
+3%
+5.0
+184
+2.4
+
+Xavier Worthy
+KC
+WR44
+
+
+Low Risk
+5
+1/yr
+35%
+3%
+5.0
+183
+1.9
+
+Bhayshul Tuten
+JAC
+RB27
+
+
+Medium Risk
+3
+2/yr
+43%
+3%
+5.0
+182
+0.7
+
+Rico Dowdle
+PIT
+RB28
+
+
+Low Risk
+0
+0/yr
+27%
+2%
+5.0
+182
+1.0
+
+Tony Pollard
+TEN
+RB29
+
+
+Low Risk
+3
+0.4/yr
+35%
+3%
+5.0
+181
+0.9
+
+Romeo Doubs
+NE
+WR45
+
+
+Low Risk
+7
+1/yr
+37%
+3%
+5.0
+180
+2.0
+
+Stefon Diggs
+WAS
+WR46
+
+
+Low Risk
+8
+0.7/yr
+31%
+2%
+5.0
+179
+1.0
+
+Chuba Hubbard
+CAR
+RB30
+
+
+Low Risk
+4
+0.4/yr
+36%
+3%
+5.0
+177
+0.8
+
+KC Concepcion
+CLE
+WR47
+
+
+Low Risk
+0
+TBD
+29%
+2%
+5.0
+176
+1.0
+
+Jayden Higgins
+HOU
+WR48
+
+
+Very Low Risk
+0
+0/yr
+23%
+2%
+5.0
+174
+1.4
+
+Michael Wilson
+ARI
+WR49
+
+
+Medium Risk
+6
+1.3/yr
+42%
+3%
+4.9
+174
+2.7
+
+Khalil Shakir
+BUF
+WR50
+
+
+Low Risk
+6
+0.6/yr
+35%
+3%
+5.0
+173
+0.9
+
+Jadarian Price
+SEA
+RB31
+
+
+Low Risk
+1
+TBD
+29%
+2%
+0.5
+173
+0.8
+
+Wan'Dale Robinson
+TEN
+WR51
+
+
+Low Risk
+6
+0.6/yr
+36%
+3%
+4.5
+172
+1.8
+
+Deebo Samuel
+SF
+WR52
+
+
+Medium Risk
+21
+2.6/yr
+51%
+4%
+2.5
+172
+3.6
+
+Minkah Fitzpatrick
+NYJ
+S1
+
+
+Low Risk
+10
+1/yr
+31%
+2%
+5.0
+172
+1.3
+
+J.K. Dobbins
+DEN
+RB32
+
+
+Low Risk
+9
+1.2/yr
+39%
+3%
+0.9
+171
+2.2
+
+Makai Lemon
+PHI
+WR53
+
+
+Low Risk
+2
+TBD
+33%
+2%
+0.0
+169
+1.7
+
+Jeremy Chinn
+LVR
+S2
+
+
+Low Risk
+2
+0.3/yr
+34%
+2%
+5.0
+166
+1.3
+
+Jake Ferguson
+DAL
+TE11
+
+
+Medium Risk
+7
+0.8/yr
+55%
+5%
+5.0
+165
+2.8
+
+RJ Harvey
+DEN
+RB33
+
+
+Low Risk
+2
+1/yr
+36%
+3%
+5.0
+165
+1.3
+
+Jordan Mason
+MIN
+RB34
+
+
+Low Risk
+5
+1/yr
+39%
+3%
+5.0
+162
+1.9
+
+Matthew Golden
+GB
+WR54
+
+
+Low Risk
+4
+1/yr
+37%
+3%
+1.9
+162
+0.9
+
+Dallas Goedert
+PHI
+TE12
+
+
+Very High Risk
+11
+1.3/yr
+83%
+10%
+4.5
+162
+3.6
+
+Mark Andrews
+BAL
+TE13
+
+
+Low Risk
+7
+0.6/yr
+36%
+3%
+5.0
+162
+0.9
+
+Kyle Hamilton
+BAL
+S3
+
+
+Low Risk
+3
+0.6/yr
+30%
+2%
+5.0
+161
+1.2
+
+Dalton Kincaid
+BUF
+TE14
+
+
+High Risk
+8
+2/yr
+62%
+6%
+5.0
+160
+2.3
+
+Brenton Strange
+JAC
+TE15
+
+
+Medium Risk
+2
+0.7/yr
+48%
+4%
+5.0
+159
+3.4
+
+Rashid Shaheed
+SEA
+WR55
+
+
+Low Risk
+5
+1/yr
+38%
+3%
+3.6
+159
+2.4
+
+Myles Garrett
+LAR
+DE1
+
+
+Low Risk
+8
+0.8/yr
+36%
+3%
+5.0
+158
+1.3
+
+Grant Delpit
+CLE
+S4
+
+
+Low Risk
+2
+0.3/yr
+26%
+2%
+4.4
+158
+0.6
+
+Jonathon Brooks
+CAR
+RB35
+
+
+Low Risk
+2
+0.5/yr
+35%
+3%
+0.4
+156
+0.9
+
+Jacory Croskey-Merritt
+WAS
+RB36
+
+
+Low Risk
+0
+0/yr
+30%
+2%
+5.0
+156
+0.9
+
+Derwin James
+LAC
+S5
+
+
+Low Risk
+7
+0.7/yr
+31%
+2%
+2.3
+155
+1.0
+
+Isaiah Likely
+NYG
+TE16
+
+
+High Risk
+3
+0.6/yr
+73%
+7%
+5.0
+153
+3.0
+
+Hunter Henry
+NE
+TE17
+
+
+Medium Risk
+9
+0.9/yr
+47%
+4%
+5.0
+153
+2.8
+
+Jalen McMillan
+TB
+WR56
+
+
+Low Risk
+6
+1/yr
+39%
+3%
+5.0
+153
+1.9
+
+Keenan Allen
+UNS
+WR57
+
+
+Medium Risk
+16
+1.1/yr
+49%
+4%
+4.2
+153
+4.1
+
+Talanoa Hufanga
+DEN
+S6
+
+
+Medium Risk
+2
+0.4/yr
+42%
+3%
+3.9
+152
+1.8
+
+Juwan Johnson
+NO
+TE18
+
+
+Medium Risk
+3
+0.8/yr
+45%
+3%
+5.0
+152
+2.9
+
+Devon Witherspoon
+SEA
+CB1
+
+
+Low Risk
+2
+0.7/yr
+23%
+2%
+5.0
+152
+0.5
+
+Kenneth Gainwell
+TB
+RB37
+
+
+Low Risk
+2
+0.4/yr
+31%
+2%
+5.0
+151
+1.2
+
+Brandon Jones
+DEN
+S7
+
+
+Low Risk
+2
+0.3/yr
+36%
+3%
+5.0
+150
+1.6
+
+Jalen Coker
+CAR
+WR58
+
+
+Very Low Risk
+0
+0/yr
+18%
+1%
+5.0
+150
+1.7
+
+Rachaad White
+WAS
+RB38
+
+
+Low Risk
+3
+0.4/yr
+39%
+3%
+5.0
+149
+1.2
+
+Tyjae Spears
+TEN
+RB39
+
+
+Low Risk
+8
+1.7/yr
+37%
+3%
+4.6
+149
+1.0
+
+Dalton Schultz
+HOU
+TE19
+
+
+Medium Risk
+6
+0.8/yr
+57%
+5%
+5.0
+148
+2.8
+
+Budda Baker
+ARI
+S8
+
+
+Low Risk
+9
+1/yr
+35%
+3%
+5.0
+148
+1.6
+
+T.J. Hockenson
+MIN
+TE20
+
+
+Medium Risk
+8
+1.1/yr
+51%
+4%
+4.5
+147
+2.9
+
+Omar Cooper Jr.
+NYJ
+WR59
+
+
+Low Risk
+3
+TBD
+38%
+3%
+1.6
+147
+2.2
+
+Kenyon Sadiq
+NYJ
+TE21
+
+
+Low Risk
+1
+TBD
+24%
+2%
+5.0
+146
+0.9
+
+Denzel Boston
+CLE
+WR60
+
+
+Medium Risk
+2
+TBD
+42%
+3%
+5.0
+145
+2.9
+
+Chigoziem Okonkwo
+WAS
+TE22
+
+
+Very Low Risk
+1
+0.2/yr
+22%
+1%
+5.0
+143
+0.6
+
+Aaron Jones
+MIN
+RB40
+
+
+High Risk
+19
+2.1/yr
+65%
+6%
+5.0
+143
+2.4
+
+Blake Corum
+LAR
+RB41
+
+
+Low Risk
+5
+0.5/yr
+33%
+2%
+3.5
+141
+0.6
+
+Calvin Ridley
+TEN
+WR61
+
+
+Medium Risk
+5
+0.6/yr
+48%
+4%
+5.0
+140
+3.7
+
+Adonai Mitchell
+NYJ
+WR62
+
+
+Low Risk
+1
+0/yr
+28%
+2%
+3.9
+140
+1.1
+
+Jalen Pitre
+HOU
+S9
+
+
+Low Risk
+2
+0.4/yr
+36%
+3%
+5.0
+137
+1.8
+
+Jerry Jeudy
+CLE
+WR63
+
+
+Low Risk
+9
+1.3/yr
+32%
+2%
+5.0
+136
+0.7
+
+Germie Bernard
+PIT
+WR64
+
+
+Low Risk
+1
+TBD
+37%
+3%
+5.0
+135
+1.3
+
+Cade Otton
+TB
+TE23
+
+
+High Risk
+5
+0.4/yr
+64%
+6%
+5.0
+135
+2.9
+
+Aidan Hutchinson
+DET
+DE2
+
+
+Very Low Risk
+2
+0.2/yr
+21%
+1%
+3.5
+134
+0.6
+
+Will Anderson Jr.
+HOU
+DE3
+
+
+Low Risk
+2
+0.7/yr
+25%
+2%
+5.0
+133
+1.3
+
+Jauan Jennings
+MIN
+WR65
+
+
+Low Risk
+9
+1.5/yr
+33%
+2%
+5.0
+132
+0.7
+
+Marlon Humphrey
+BAL
+CB2
+
+
+Low Risk
+9
+1/yr
+39%
+3%
+5.0
+131
+2.2
+
+Pat Freiermuth
+PIT
+TE24
+
+
+Low Risk
+7
+1.4/yr
+39%
+3%
+5.0
+130
+1.6
+
+Jalen Ramsey
+PIT
+CB3
+
+
+Low Risk
+7
+0.7/yr
+28%
+2%
+5.0
+128
+1.3
+
+Chauncey Gardner-Johnson
+BUF
+S10
+
+
+Low Risk
+4
+0.3/yr
+33%
+2%
+4.2
+128
+1.6
+
+AJ Barner
+SEA
+TE25
+
+
+Low Risk
+0
+0/yr
+28%
+2%
+5.0
+128
+1.1
+
+Michael Penix Jr.
+ATL
+QB31
+
+
+Low Risk
+6
+1/yr
+39%
+3%
+1.9
+127
+3.3
+
+Dylan Sampson
+CLE
+RB42
+
+
+Low Risk
+2
+1/yr
+34%
+2%
+5.0
+127
+1.0
+
+Christian Gonzalez
+NE
+CB4
+
+
+High Risk
+4
+1.3/yr
+60%
+5%
+5.0
+127
+3.2
+
+Charvarius Ward
+IND
+CB5
+
+
+Low Risk
+5
+0.5/yr
+37%
+3%
+5.0
+126
+1.6
+
+Zach Charbonnet
+SEA
+RB43
+
+
+Low Risk
+6
+1/yr
+37%
+3%
+5.0
+124
+0.8
+
+T.J. Watt
+PIT
+DE4
+
+
+Low Risk
+11
+1.2/yr
+36%
+3%
+5.0
+122
+1.8
+
+Danielle Hunter
+HOU
+DE5
+
+
+Low Risk
+2
+0.2/yr
+24%
+2%
+5.0
+121
+0.8
+
+Rashod Bateman
+BAL
+WR66
+
+
+Low Risk
+6
+1.2/yr
+33%
+2%
+4.3
+120
+0.8
+
+Jaylin Noel
+HOU
+WR67
+
+
+Very Low Risk
+1
+0/yr
+19%
+1%
+5.0
+120
+1.6
+
+Cooper Kupp
+SEA
+WR68
+
+
+Low Risk
+10
+1.1/yr
+36%
+3%
+4.4
+120
+0.9
+
+Jeffery Simmons
+TEN
+DT1
+
+
+Low Risk
+4
+0.4/yr
+35%
+3%
+5.0
+118
+1.8
+
+Bradley Chubb
+BUF
+DE6
+
+
+Low Risk
+8
+0.9/yr
+28%
+2%
+4.2
+117
+0.6
+
+Carlton Davis
+NE
+CB6
+
+
+Medium Risk
+5
+0.6/yr
+45%
+3%
+5.0
+117
+2.5
+
+Darius Slayton
+NYG
+WR69
+
+
+Low Risk
+12
+1.6/yr
+39%
+3%
+5.0
+116
+2.4
+
+Jamel Dean
+PIT
+CB7
+
+
+Medium Risk
+4
+0.6/yr
+45%
+3%
+5.0
+116
+2.6
+
+Josh Hines-Allen
+JAC
+DE7
+
+
+Very Low Risk
+2
+0.3/yr
+21%
+1%
+5.0
+116
+0.8
+
+Isiah Pacheco
+DET
+RB44
+
+
+Low Risk
+8
+1.2/yr
+36%
+3%
+5.0
+116
+1.3
+
+Tre Harris
+LAC
+WR70
+
+
+Medium Risk
+2
+0/yr
+42%
+3%
+5.0
+116
+1.8
+
+Jaelan Phillips
+CAR
+DE8
+
+
+Very Low Risk
+4
+0.8/yr
+19%
+1%
+3.3
+116
+0.7
+
+Ryan Flournoy
+DAL
+WR71
+
+
+Low Risk
+1
+0.5/yr
+33%
+2%
+5.0
+115
+0.8
+
+Brandon Aiyuk
+UNS
+WR72
+
+
+Low Risk
+6
+0.8/yr
+33%
+2%
+2.7
+115
+1.0
+
+Tua Tagovailoa
+ATL
+QB32
+
+
+Low Risk
+18
+1.7/yr
+27%
+2%
+3.8
+114
+1.3
+
+Montez Sweat
+CHI
+DE9
+
+
+Very Low Risk
+1
+0.1/yr
+17%
+1%
+5.0
+114
+1.0
+
+Harold Landry
+NE
+DE10
+
+
+High Risk
+2
+0.2/yr
+67%
+6%
+5.0
+113
+2.2
+
+Zachariah Branch
+ATL
+WR73
+
+
+Very Low Risk
+0
+TBD
+20%
+1%
+5.0
+113
+1.0
+
+Alvin Kamara
+NO
+RB45
+
+
+Low Risk
+10
+0.9/yr
+39%
+3%
+3.4
+111
+1.2
+
+Trey Hendrickson
+BAL
+DE11
+
+
+Very Low Risk
+6
+0.7/yr
+22%
+1%
+5.0
+110
+0.7
+
+Greg Dulcich
+MIA
+TE26
+
+
+Very Low Risk
+4
+0.8/yr
+22%
+1%
+2.0
+110
+0.3
+
+Mike Gesicki
+CIN
+TE27
+
+
+Medium Risk
+5
+0.5/yr
+42%
+3%
+5.0
+109
+2.3
+
+Leonard Williams
+SEA
+DE12
+
+
+Low Risk
+4
+0.4/yr
+37%
+3%
+5.0
+108
+1.6
+
+Shedeur Sanders
+CLE
+QB33
+
+
+Low Risk
+3
+2/yr
+34%
+2%
+5.0
+108
+1.2
+
+Tyrone Tracy Jr.
+NYG
+RB46
+
+
+Low Risk
+3
+1/yr
+34%
+2%
+5.0
+107
+1.5
+
+DeForest Buckner
+IND
+DT2
+
+
+Low Risk
+5
+0.5/yr
+25%
+2%
+5.0
+107
+0.8
+
+Keaton Mitchell
+LAC
+RB47
+
+
+Low Risk
+4
+1.3/yr
+33%
+2%
+5.0
+107
+2.1
+
+Chris Rodriguez
+JAC
+RB48
+
+
+Low Risk
+2
+0.7/yr
+27%
+2%
+5.0
+107
+0.5
+
+Pat Bryant
+DEN
+WR74
+
+
+High Risk
+4
+4/yr
+65%
+6%
+5.0
+107
+2.0
+
+Evan Engram
+DEN
+TE28
+
+
+Low Risk
+12
+1.2/yr
+39%
+3%
+5.0
+107
+1.6
+
+Deshaun Watson
+CLE
+QB34
+
+
+Low Risk
+10
+0.7/yr
+29%
+2%
+1.3
+105
+1.1
+
+Derek Stingley
+HOU
+CB8
+
+
+Low Risk
+6
+0.4/yr
+39%
+3%
+2.8
+105
+3.2
+
+Darnell Mooney
+NYG
+WR75
+
+
+Medium Risk
+10
+1.7/yr
+55%
+5%
+5.0
+105
+3.3
+
+Chase Young
+NO
+DE13
+
+
+Very Low Risk
+3
+0.5/yr
+19%
+1%
+2.9
+105
+0.6
+
+Tyler Allgeier
+ARI
+RB49
+
+
+Low Risk
+0
+0/yr
+23%
+2%
+5.0
+104
+0.7
+
+Dontayvion Wicks
+PHI
+WR76
+
+
+Low Risk
+4
+1.3/yr
+35%
+3%
+5.0
+104
+0.8
+
+A.J. Terrell
+ATL
+CB9
+
+
+Very High Risk
+5
+0.8/yr
+82%
+10%
+5.0
+103
+3.8
+
+Ahmad Gardner
+IND
+CB10
+
+
+Low Risk
+1
+0.2/yr
+32%
+2%
+5.0
+103
+2.8
+
+Jaycee Horn
+CAR
+CB11
+
+
+Low Risk
+4
+0.8/yr
+34%
+2%
+2.0
+101
+1.3
+
+Jevon Holland
+NYG
+S11
+
+
+Low Risk
+3
+0.6/yr
+39%
+3%
+5.0
+101
+1.9
+
+Quinnen Williams
+DAL
+DT3
+
+
+Low Risk
+7
+1/yr
+39%
+3%
+5.0
+101
+1.9
+
+Brian Robinson Jr.
+ATL
+RB50
+
+
+Low Risk
+6
+0.8/yr
+36%
+3%
+5.0
+100
+1.3
+
+Tyquan Thornton
+KC
+WR77
+
+
+Very Low Risk
+3
+0.6/yr
+14%
+1%
+5.0
+100
+1.0
+
+Kendrick Bourne
+ARI
+WR78
+
+
+Low Risk
+1
+0.1/yr
+25%
+2%
+5.0
+100
+0.5
+
+Laiatu Latu
+IND
+DE14
+
+
+Very Low Risk
+2
+0.5/yr
+18%
+1%
+1.9
+100
+0.8
+
+Derrick Brown
+CAR
+DT4
+
+
+Low Risk
+3
+0.5/yr
+36%
+3%
+5.0
+98
+1.6
+
+Darnell Washington
+PIT
+TE29
+
+
+Low Risk
+5
+1/yr
+34%
+2%
+5.0
+97
+1.5
+
+Jalen Carter
+PHI
+DT5
+
+
+Low Risk
+4
+1/yr
+35%
+3%
+5.0
+97
+2.0
+
+Keon Coleman
+BUF
+WR79
+
+
+Low Risk
+2
+0.5/yr
+24%
+2%
+5.0
+96
+1.4
+
+David Njoku
+LAC
+TE30
+
+
+Very High Risk
+11
+1.2/yr
+81%
+9%
+4.5
+96
+2.7
+
+Justice Hill
+BAL
+RB51
+
+
+Low Risk
+8
+1/yr
+32%
+2%
+2.9
+96
+1.4
+
+Denzel Ward
+CLE
+CB12
+
+
+High Risk
+10
+1.3/yr
+70%
+7%
+5.0
+95
+2.4
+
+Marvin Mims Jr.
+DEN
+WR80
+
+
+Low Risk
+3
+1/yr
+41%
+3%
+5.0
+95
+1.7
+
+Abdul Carter
+NYG
+DE15
+
+
+Very Low Risk
+2
+0/yr
+12%
+1%
+5.0
+95
+0.4
+
+Travis Hunter
+JAC
+WR81
+
+
+Medium Risk
+4
+2/yr
+44%
+3%
+0.4
+94
+2.2
+
+Travon Walker
+JAC
+DE16
+
+
+Very Low Risk
+1
+0.2/yr
+22%
+1%
+5.0
+94
+0.9
+
+Jahan Dotson
+ATL
+WR82
+
+
+Low Risk
+1
+0.2/yr
+25%
+2%
+5.0
+92
+0.8
+
+Michael Mayer
+LVR
+TE31
+
+
+Low Risk
+4
+1/yr
+36%
+3%
+5.0
+92
+1.7
+
+Darren Waller
+UNS
+TE32
+
+
+Medium Risk
+14
+1.4/yr
+54%
+4%
+2.5
+92
+2.1
+
+MarShawn Lloyd
+GB
+RB52
+
+
+Very High Risk
+7
+2.5/yr
+72%
+7%
+0.6
+90
+2.7
+
+Joshua Palmer
+BUF
+WR83
+
+
+Medium Risk
+8
+1.6/yr
+42%
+3%
+5.0
+89
+3.0
+
+Jaydon Blue
+DAL
+RB53
+
+
+Very Low Risk
+2
+2/yr
+22%
+1%
+5.0
+88
+1.0
+
+Andrei Iosivas
+CIN
+WR84
+
+
+Very Low Risk
+0
+0/yr
+8%
+0%
+5.0
+87
+0.6
+
+Rashan Gary
+DAL
+DE17
+
+
+Low Risk
+3
+0.4/yr
+32%
+2%
+5.0
+87
+1.7
+
+Lukas Van Ness
+GB
+DE18
+
+
+Very Low Risk
+0
+0/yr
+15%
+1%
+5.0
+87
+0.4
+
+Cameron Heyward
+PIT
+DE19
+
+
+Low Risk
+6
+0.3/yr
+32%
+2%
+5.0
+87
+1.5
+
+James Conner
+ARI
+RB54
+
+
+Low Risk
+17
+1.9/yr
+34%
+2%
+3.4
+87
+1.3
+
+Troy Franklin
+DEN
+WR85
+
+
+Low Risk
+2
+0.5/yr
+36%
+3%
+5.0
+86
+1.3
+
+Samaje Perine
+CIN
+RB55
+
+
+Low Risk
+5
+0.4/yr
+36%
+3%
+5.0
+86
+1.2
+
+Xavier Legette
+CAR
+WR86
+
+
+Low Risk
+6
+2/yr
+35%
+3%
+5.0
+85
+1.3
+
+Micah Parsons
+GB
+DE20
+
+
+Low Risk
+4
+0.8/yr
+33%
+2%
+5.0
+85
+1.9
+
+Nathaniel Dell
+HOU
+WR87
+
+
+Very Low Risk
+5
+1.3/yr
+17%
+1%
+3.1
+84
+0.5
+
+Jonnu Smith
+UNS
+TE33
+
+
+Low Risk
+10
+1.1/yr
+29%
+2%
+5.0
+84
+1.2
+
+Elijah Sarratt
+BAL
+WR88
+
+
+Low Risk
+1
+TBD
+40%
+3%
+5.0
+83
+2.2
+
+DeAndre Hopkins
+UNS
+WR89
+
+
+Low Risk
+16
+1.2/yr
+28%
+2%
+5.0
+83
+0.9
+
+Ty Johnson
+BUF
+RB56
+
+
+Low Risk
+4
+0.4/yr
+29%
+2%
+5.0
+82
+1.2
+
+Curtis Samuel
+UNS
+WR90
+
+
+Low Risk
+11
+1.2/yr
+36%
+3%
+5.0
+82
+1.2
+
+Mike Green
+BAL
+DE21
+
+
+Low Risk
+1
+0/yr
+29%
+2%
+5.0
+81
+1.1
+
+Charlie Kolar
+LAC
+TE34
+
+
+Very Low Risk
+3
+0.2/yr
+14%
+1%
+2.6
+81
+0.3
+
+Joseph Ossai
+NYJ
+DE22
+
+
+Very Low Risk
+3
+0.6/yr
+18%
+1%
+3.2
+79
+0.4
+
+Jack Bech
+LVR
+WR91
+
+
+Low Risk
+2
+0/yr
+29%
+2%
+5.0
+78
+0.5
+
+Antonio Williams
+WAS
+WR92
+
+
+Medium Risk
+3
+TBD
+52%
+4%
+5.0
+78
+3.5
+
+Emmett Johnson
+KC
+RB57
+
+
+Very Low Risk
+0
+TBD
+18%
+1%
+5.0
+78
+0.8
+
+Kwity Paye
+LVR
+DE23
+
+
+Low Risk
+10
+1.8/yr
+35%
+3%
+5.0
+78
+1.1
+
+Tory Horton
+SEA
+WR93
+
+
+Medium Risk
+3
+1/yr
+46%
+4%
+1.8
+77
+1.2
+
+Olamide Zaccheaus
+ATL
+WR94
+
+
+Very Low Risk
+0
+0/yr
+7%
+0%
+5.0
+77
+0.6
+
+Eli Stowers
+PHI
+TE35
+
+
+Low Risk
+3
+TBD
+24%
+2%
+0.7
+77
+0.9
+
+Nolan Smith
+PHI
+DE24
+
+
+Very Low Risk
+0
+0/yr
+12%
+1%
+5.0
+76
+0.2
+
+Khalil Mack
+LAC
+DE25
+
+
+High Risk
+4
+0.3/yr
+74%
+8%
+5.0
+76
+3.4
+
+Daron Payne
+WAS
+DT6
+
+
+Low Risk
+4
+0.5/yr
+36%
+3%
+5.0
+76
+1.6
+
+Malik Hooker
+DAL
+S12
+
+
+Very Low Risk
+7
+0.6/yr
+18%
+1%
+5.0
+75
+0.3
+
+Vita Vea
+TB
+DT7
+
+
+Low Risk
+8
+0.9/yr
+33%
+2%
+5.0
+75
+1.4
+
+Jonathan Allen
+CIN
+DT8
+
+
+High Risk
+7
+0.6/yr
+64%
+6%
+5.0
+75
+3.4
+
+Will McDonald
+NYJ
+DE26
+
+
+Very Low Risk
+0
+0/yr
+8%
+0%
+5.0
+74
+0.2
+
+Elic Ayomanor
+TEN
+WR95
+
+
+Very Low Risk
+1
+0/yr
+7%
+0%
+5.0
+74
+0.6
+
+Calvin Austin III
+NYG
+WR96
+
+
+Low Risk
+5
+0.8/yr
+27%
+2%
+4.0
+73
+0.7
+
+Elijah Arroyo
+SEA
+TE36
+
+
+Medium Risk
+3
+1/yr
+48%
+4%
+0.7
+73
+2.1
+
+Dexter Lawrence
+CIN
+DE27
+
+
+Low Risk
+2
+0.3/yr
+29%
+2%
+5.0
+72
+1.6
+
+Chris Jones
+KC
+DT9
+
+
+Very Low Risk
+0
+0/yr
+7%
+0%
+5.0
+72
+0.5
+
+Marquise Brown
+PHI
+WR97
+
+
+Very Low Risk
+14
+1.9/yr
+19%
+1%
+3.7
+71
+0.6
+
+Braelon Allen
+NYJ
+RB58
+
+
+Medium Risk
+5
+1/yr
+42%
+3%
+1.2
+71
+2.9
+
+Sterling Shepard
+UNS
+WR98
+
+
+Low Risk
+16
+1.4/yr
+26%
+2%
+2.8
+71
+0.4
+
+Mike Washington Jr.
+LVR
+RB59
+
+
+Very Low Risk
+0
+TBD
+21%
+1%
+5.0
+71
+0.7
+
+Trey Benson
+ARI
+RB60
+
+
+Low Risk
+7
+1/yr
+25%
+2%
+1.4
+70
+0.3
+
+Brashard Smith
+KC
+RB61
+
+
+Very Low Risk
+0
+0/yr
+22%
+1%
+5.0
+70
+0.8
+
+Chris Bell
+MIA
+WR99
+
+
+Low Risk
+2
+TBD
+36%
+3%
+5.0
+70
+2.2
+
+LeQuint Allen
+JAC
+RB62
+
+
+Very Low Risk
+0
+0/yr
+21%
+1%
+5.0
+70
+0.7
+
+Calijah Kancey
+TB
+DT10
+
+
+Medium Risk
+4
+1/yr
+46%
+4%
+2.7
+69
+2.6
+
+Kalif Raymond
+CHI
+WR100
+
+
+Very Low Risk
+0
+0/yr
+7%
+0%
+5.0
+69
+0.5
+
+Najee Harris
+UNS
+RB63
+
+
+Low Risk
+10
+1.4/yr
+39%
+3%
+5.0
+69
+4.5
+
+Kayvon Thibodeaux
+NYG
+DE28
+
+
+Low Risk
+3
+0.4/yr
+31%
+2%
+5.0
+69
+1.9
+
+Mason Taylor
+NYJ
+TE37
+
+
+Low Risk
+2
+1/yr
+39%
+3%
+5.0
+69
+1.0
+
+Sean Tucker
+TB
+RB64
+
+
+Very Low Risk
+0
+0/yr
+20%
+1%
+5.0
+69
+0.7
+
+Uchenna Nwosu
+SEA
+DE29
+
+
+Low Risk
+3
+0.4/yr
+29%
+2%
+5.0
+68
+0.8
+
+Dawson Knox
+BUF
+TE38
+
+
+Very Low Risk
+6
+0.9/yr
+21%
+1%
+5.0
+67
+0.8
+
+Ja'Tavion Sanders
+CAR
+TE39
+
+
+Low Risk
+4
+1.5/yr
+31%
+2%
+4.3
+67
+0.9
+
+Christian Kirk
+SF
+WR101
+
+
+Low Risk
+8
+0.9/yr
+35%
+3%
+5.0
+66
+1.4
+
+Kaytron Allen
+WAS
+RB65
+
+
+Low Risk
+0
+TBD
+24%
+2%
+5.0
+66
+0.9
+
+Isaiah Bond
+CLE
+WR102
+
+
+Very Low Risk
+1
+0/yr
+12%
+1%
+5.0
+65
+1.0
+
+Mason Graham
+CLE
+DT11
+
+
+Very Low Risk
+1
+0/yr
+18%
+1%
+5.0
+65
+0.5
+
+Nicholas Singleton
+TEN
+RB66
+
+
+Very Low Risk
+2
+TBD
+19%
+1%
+5.0
+65
+0.9
+
+Cole Kmet
+CHI
+TE40
+
+
+Low Risk
+6
+0.7/yr
+35%
+3%
+5.0
+65
+2.9
+
+Javon Hargrave
+GB
+DT12
+
+
+Low Risk
+4
+0.4/yr
+35%
+3%
+5.0
+64
+2.0
+
+Kareem Hunt
+UNS
+RB67
+
+
+Low Risk
+7
+0.8/yr
+36%
+3%
+5.0
+64
+1.4
+
+Luke McCaffrey
+WAS
+WR103
+
+
+Very Low Risk
+1
+0.5/yr
+13%
+1%
+3.5
+63
+1.0
+
+Mack Hollins
+NE
+WR104
+
+
+Very Low Risk
+1
+0.1/yr
+22%
+1%
+5.0
+62
+1.0
+
+Antonio Gibson
+UNS
+RB68
+
+
+Low Risk
+9
+1.5/yr
+31%
+2%
+4.3
+61
+1.8
+
+Malachi Fields
+NYG
+WR105
+
+
+Very Low Risk
+1
+TBD
+19%
+1%
+2.6
+61
+0.6
+
+Tank Bigsby
+PHI
+RB69
+
+
+Very Low Risk
+2
+0.7/yr
+22%
+1%
+5.0
+60
+0.7
+
+Noah Fant
+NO
+TE41
+
+
+Low Risk
+9
+1.3/yr
+29%
+2%
+5.0
+59
+1.0
+
+Theo Johnson
+NYG
+TE42
+
+
+Very Low Risk
+0
+0/yr
+23%
+2%
+5.0
+58
+1.3
+
+Roman Wilson
+PIT
+WR106
+
+
+Very Low Risk
+2
+0.5/yr
+7%
+0%
+5.0
+58
+0.7
+
+Austin Hooper
+ATL
+TE43
+
+
+Very Low Risk
+4
+0.4/yr
+16%
+1%
+5.0
+58
+0.7
+
+Grady Jarrett
+CHI
+DT13
+
+
+Low Risk
+1
+0.1/yr
+30%
+2%
+5.0
+57
+1.9
+
+Hunter Renfrow
+UNS
+WR107
+
+
+Very Low Risk
+5
+0.4/yr
+18%
+1%
+5.0
+56
+0.7
+
+Treylon Burks
+WAS
+WR108
+
+
+Low Risk
+10
+1.6/yr
+29%
+2%
+4.0
+56
+1.2
+
+Nick Chubb
+UNS
+RB70
+
+
+Low Risk
+8
+0.9/yr
+28%
+2%
+3.3
+56
+0.6
+
+Kyle Williams
+NE
+WR109
+
+
+Very Low Risk
+0
+0/yr
+6%
+0%
+5.0
+56
+0.8
+
+Dyami Brown
+WAS
+WR110
+
+
+Low Risk
+7
+1.2/yr
+36%
+3%
+5.0
+56
+1.3
+
+Carson Beck
+ARI
+QB35
+
+
+Low Risk
+1
+TBD
+29%
+2%
+5.0
+56
+1.3
+
+Tyler Higbee
+LAR
+TE44
+
+
+Low Risk
+14
+1.2/yr
+34%
+2%
+5.0
+55
+1.6
+
+Jalen Royals
+KC
+WR111
+
+
+Low Risk
+2
+1/yr
+28%
+2%
+1.9
+54
+0.9
+
+Kirk Cousins
+LVR
+QB36
+
+
+Very Low Risk
+3
+0.1/yr
+19%
+1%
+5.0
+53
+0.7
+
+Kenny Clark
+DAL
+DT14
+
+
+Low Risk
+3
+0.3/yr
+24%
+2%
+5.0
+53
+0.6
+
+Daniel Bellinger
+TEN
+TE45
+
+
+Low Risk
+5
+1/yr
+28%
+2%
+5.0
+52
+1.0
+
+Mykel Williams
+SF
+DE30
+
+
+Low Risk
+2
+1/yr
+33%
+2%
+0.9
+52
+0.6
+
+Jaylen Wright
+MIA
+RB71
+
+
+Low Risk
+2
+0.5/yr
+23%
+2%
+5.0
+52
+0.5
+
+Austin Ekeler
+UNS
+RB72
+
+
+Low Risk
+14
+1.6/yr
+36%
+3%
+3.6
+51
+2.2
+
+Arik Armstead
+JAC
+DE31
+
+
+Very Low Risk
+7
+0.6/yr
+19%
+1%
+4.9
+50
+0.4
+
+Kendre Miller
+NO
+RB73
+
+
+Low Risk
+8
+2.3/yr
+33%
+2%
+1.4
+50
+2.4
+
+Devin Singletary
+NYG
+RB74
+
+
+Low Risk
+2
+0.3/yr
+29%
+2%
+5.0
+49
+0.7
+
+Greg Dortch
+DET
+WR112
+
+
+Very Low Risk
+2
+0.3/yr
+18%
+1%
+5.0
+47
+0.8
+
+Demario Douglas
+NE
+WR113
+
+
+Very Low Risk
+2
+0.7/yr
+15%
+1%
+5.0
+47
+0.8
+
+Cade Stover
+HOU
+TE46
+
+
+Low Risk
+6
+2.5/yr
+36%
+3%
+3.3
+47
+0.9
+
+Donte Jackson
+LAC
+CB13
+
+
+Very Low Risk
+3
+0.4/yr
+22%
+1%
+5.0
+47
+0.5
+
+Alexander Mattison
+UNS
+RB75
+
+
+Low Risk
+7
+1/yr
+27%
+2%
+5.0
+46
+0.7
+
+Miles Sanders
+UNS
+RB76
+
+
+Low Risk
+14
+2/yr
+35%
+3%
+3.0
+46
+1.9
+
+Will Dissly
+UNS
+TE47
+
+
+Very Low Risk
+4
+0.5/yr
+8%
+0%
+3.8
+45
+0.2
+
+Tyreek Hill
+UNS
+WR114
+
+
+Medium Risk
+11
+1.1/yr
+42%
+3%
+5.0
+45
+2.5
+
+Ray Davis
+BUF
+RB77
+
+
+Low Risk
+1
+0.5/yr
+24%
+2%
+5.0
+45
+1.2
+
+Baron Browning
+ARI
+DE32
+
+
+Very Low Risk
+2
+0.4/yr
+17%
+1%
+5.0
+44
+0.6
+
+Ben Sinnott
+WAS
+TE48
+
+
+Very Low Risk
+1
+0/yr
+20%
+1%
+5.0
+42
+1.3
+
+Jerome Ford
+WAS
+RB78
+
+
+Medium Risk
+8
+1.2/yr
+44%
+3%
+4.6
+42
+3.3
+
+David Ojabo
+MIA
+DE33
+
+
+Very Low Risk
+2
+0.2/yr
+13%
+1%
+2.1
+41
+0.4
+
+Devontez Walker
+BAL
+WR115
+
+
+Very Low Risk
+1
+0/yr
+8%
+0%
+2.2
+41
+0.4
+
+Cedric Tillman
+CLE
+WR116
+
+
+Low Risk
+6
+1.3/yr
+34%
+2%
+3.1
+41
+0.9
+
+Emari Demercado
+KC
+RB79
+
+
+Very Low Risk
+5
+1.7/yr
+23%
+2%
+5.0
+40
+0.4
+
+John Metchie
+CAR
+WR117
+
+
+Very Low Risk
+5
+0.6/yr
+13%
+1%
+5.0
+40
+0.9
+
+Adam Trautman
+DEN
+TE49
+
+
+Very Low Risk
+3
+0.5/yr
+12%
+1%
+5.0
+39
+0.6
+
+Trevor Etienne
+CAR
+RB80
+
+
+Very Low Risk
+0
+0/yr
+18%
+1%
+5.0
+39
+0.9
+
+Marquez Valdes-Scantling
+DAL
+WR118
+
+
+Very Low Risk
+9
+1/yr
+17%
+1%
+5.0
+38
+0.3
+
+Luke Musgrave
+GB
+TE50
+
+
+Very Low Risk
+5
+1/yr
+16%
+1%
+2.3
+38
+0.5
+
+JuJu Smith-Schuster
+NYG
+WR119
+
+
+Medium Risk
+17
+1.6/yr
+56%
+5%
+4.4
+38
+2.8
+
+Ty Chandler
+NO
+RB81
+
+
+Very Low Risk
+2
+0/yr
+17%
+1%
+4.6
+38
+0.7
+
+DJ Giddens
+IND
+RB82
+
+
+Very Low Risk
+0
+0/yr
+17%
+1%
+5.0
+37
+0.8
+
+Van Jefferson
+WAS
+WR120
+
+
+Very Low Risk
+7
+0.8/yr
+22%
+1%
+5.0
+37
+0.7
+
+Kaleb Johnson
+PIT
+RB83
+
+
+Very Low Risk
+1
+0/yr
+19%
+1%
+2.4
+36
+0.9
+
+K.J. Osborn
+TEN
+WR121
+
+
+Very Low Risk
+2
+0.3/yr
+17%
+1%
+5.0
+35
+0.7
+
+Will Shipley
+PHI
+RB84
+
+
+Very Low Risk
+4
+0/yr
+19%
+1%
+3.3
+35
+0.9
+
+Josh Oliver
+MIN
+TE51
+
+
+Very Low Risk
+3
+0.4/yr
+9%
+1%
+3.7
+34
+0.4
+
+Tyler Conklin
+DET
+TE52
+
+
+Very Low Risk
+3
+0.3/yr
+13%
+1%
+5.0
+34
+0.7
+
+Jonathan Mingo
+DAL
+WR122
+
+
+Very Low Risk
+5
+1/yr
+18%
+1%
+3.4
+34
+0.6
+
+J.J. McCarthy
+MIN
+QB37
+
+
+Low Risk
+7
+2.5/yr
+36%
+3%
+0.9
+33
+1.4
+
+Jermod McCoy
+LVR
+CB14
+
+
+Very Low Risk
+1
+TBD
+19%
+1%
+1.0
+33
+0.5
+
+Michael Carter
+TEN
+RB85
+
+
+Very Low Risk
+4
+0.6/yr
+19%
+1%
+5.0
+33
+0.7
+
+Odell Beckham Jr.
+NYG
+WR123
+
+
+Low Risk
+18
+1.4/yr
+30%
+2%
+2.8
+32
+1.0
+
+Audric Estime
+NO
+RB86
+
+
+Very Low Risk
+2
+1/yr
+14%
+1%
+5.0
+30
+0.4
+
+Eric McAlister
+RK
+WR124
+
+
+Very Low Risk
+1
+TBD
+12%
+1%
+5.0
+30
+0.6
+
+Isaac Guerendo
+SF
+RB87
+
+
+Low Risk
+7
+3.5/yr
+33%
+2%
+5.0
+30
+0.9
+
+Ty Simpson
+LAR
+QB38
+
+
+Low Risk
+3
+TBD
+35%
+3%
+0.1
+30
+1.7
+
+Drew Sample
+CIN
+TE53
+
+
+Very Low Risk
+3
+0.3/yr
+10%
+1%
+4.8
+29
+0.3
+
+Luke Schoonmaker
+DAL
+TE54
+
+
+Very Low Risk
+3
+0.3/yr
+13%
+1%
+5.0
+28
+0.9
+
+Tim Patrick
+NYJ
+WR125
+
+
+Very Low Risk
+2
+0.3/yr
+7%
+0%
+2.9
+28
+0.1
+
+Arian Smith
+NYJ
+WR126
+
+
+Very Low Risk
+0
+0/yr
+6%
+0%
+5.0
+28
+0.5
+
+Jalin Hyatt
+NYG
+WR127
+
+
+Very Low Risk
+3
+0.7/yr
+15%
+1%
+5.0
+23
+0.6
+
+Mo Alie-Cox
+IND
+TE55
+
+
+Very Low Risk
+3
+0.4/yr
+13%
+1%
+5.0
+23
+0.6
+
+Malachi Corley
+CLE
+WR128
+
+
+Very Low Risk
+1
+0/yr
+11%
+1%
+5.0
+20
+0.9
+
+Roschon Johnson
+CHI
+RB88
+
+
+Very Low Risk
+2
+0.5/yr
+18%
+1%
+5.0
+20
+0.8
+
+Johnny Wilson
+PHI
+WR129
+
+
+Very Low Risk
+3
+1/yr
+8%
+0%
+5.0
+19
+0.3
+
+Mecole Hardman
+BUF
+WR130
+
+
+Very Low Risk
+3
+0.3/yr
+9%
+1%
+5.0
+18
+0.5
+
+Jaleel McLaughlin
+DEN
+RB89
+
+
+Very Low Risk
+1
+0.3/yr
+17%
+1%
+5.0
+17
+0.8
+
+Quez Watkins
+PHI
+WR131
+
+
+Very Low Risk
+0
+0/yr
+7%
+0%
+5.0
+17
+0.6
+
+Durham Smythe
+BAL
+TE56
+
+
+Very Low Risk
+2
+0.3/yr
+15%
+1%
+5.0
+12
+1.2
+
+Hunter Long
+JAC
+TE57
+
+
+Very Low Risk
+1
+0.2/yr
+12%
+1%
+5.0
+11
+0.7
+
+Jaret Patterson
+LAC
+RB90
+
+
+Very Low Risk
+1
+0/yr
+15%
+1%
+5.0
+9
+0.6
+
+Skyy Moore
+GB
+WR132
+
+
+Low Risk
+5
+1/yr
+28%
+2%
+5.0
+0
+0.6
+
+Braxton Berrios
+NYG
+WR133
+
+
+Very Low Risk
+0
+0/yr
+6%
+0%
+5.0
+0
+0.6
+
+Dylan Laube
+LVR
+RB91
+
+
+Very Low Risk
+0
+0/yr
+7%
+0%
+5.0
+0
+0.3
+
+Tyler Lockett
+UNS
+WR134
+
+
+Low Risk
+8
+0.7/yr
+33%
+2%
+5.0
+0
+1.9
+
+Taysom Hill
+UNS
+TE58
+
+
+Low Risk
+18
+1.4/yr
+34%
+2%
+2.9
+0
+1.3
+
+Ja'Lynn Polk
+UNS
+WR135
+
+
+Low Risk
+4
+1.5/yr
+35%
+3%
+1.1
+0
+0.8
+
+Devin Duvernay
+ARI
+WR136
+
+
+Very Low Risk
+0
+0/yr
+6%
+0%
+5.0
+0
+0.6
+
+Kene Nwangwu
+NYJ
+RB92
+
+
+Very Low Risk
+0
+0/yr
+7%
+0%
+5.0
+0
+0.3
+
+Joe Mixon
+UNS
+RB93
+
+
+High Risk
+10
+1.1/yr
+66%
+6%
+5.0
+0
+2.6

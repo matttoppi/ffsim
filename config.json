@@ -1,7 +1,8 @@
 {
-  "league_id": "1048288271089983488",
-  "simulations": 150,
+  "league_id": "1312074476493484032",
+  "simulations": 300,
   "seed": 2026,
   "regular_season_weeks": 14,
-  "results_file": "output/results.json"
+  "results_file": "output/results.json",
+  "scenario_file": "scenarios.json"
 }

@@ -94,7 +94,12 @@ def main():
     )
 
     grid = (2.0, 4.0, 8.0, 16.0, 32.0)
-    tuning = {}
+    tuning = {
+        "infinity": {
+            "crps": results["models"]["joint_vectors"]["overall"]["crps"],
+            "mean_bias_percent": results["models"]["joint_vectors"]["overall"]["mean_bias_percent"],
+        }
+    }
     tuning_samples = max(30, args.samples // 2)
     for shrinkage in grid:
         train.shrinkage = shrinkage
@@ -107,18 +112,21 @@ def main():
             "crps": metrics["crps"],
             "mean_bias_percent": metrics["mean_bias_percent"],
         }
-    eligible = [
+    eligible = [float("inf"), *[
         value for value in grid
         if abs(tuning[str(int(value))]["mean_bias_percent"]) <= 1.0
-    ] or list(grid)
-    selected = min(eligible, key=lambda value: tuning[str(int(value))]["crps"])
+    ]]
+    selected = min(
+        eligible,
+        key=lambda value: tuning["infinity" if np.isinf(value) else str(int(value))]["crps"],
+    )
     train.shrinkage = selected
     personal_predictions = predict_cases(
         cases,
         lambda case: sample_empirical_scores(train, case, args.samples, rng),
     )
     results["shrinkage_tuning"] = tuning
-    results["selected_shrinkage"] = selected
+    results["selected_shrinkage"] = "infinity" if np.isinf(selected) else selected
     results["models"]["joint_plus_history"] = summarize(cases, personal_predictions)
     results["models"]["joint_plus_history"]["correlation_matrix_error"] = empirical_correlation_error(
         train, cases, rng, args.samples
@@ -141,7 +149,7 @@ def main():
     output.write_text(json.dumps(results, indent=2, sort_keys=True) + "\n")
     print(json.dumps({
         "output": str(output),
-        "selected_shrinkage": selected,
+        "selected_shrinkage": results["selected_shrinkage"],
         "selected_opponent_weight": results["selected_opponent_weight"],
         "overall": {name: model["overall"] for name, model in results["models"].items()},
     }, indent=2))
@@ -161,8 +169,9 @@ def build_cases(evaluation):
 
 def make_case(rows, position, player_id, team, library):
     stats = [stat for stat in PFF_STAT_FIELDS if stat in rows.columns]
-    totals = rows[stats].sum().to_dict()
-    projection = {"games": len(rows), "byeWeek": 0, "fantasyPoints": 0}
+    scale = 17 / len(rows)
+    totals = (rows[stats].sum() * scale).to_dict()
+    projection = {"games": 17, "byeWeek": 0, "fantasyPoints": 0}
     for stat, field in PFF_STAT_FIELDS.items():
         if stat in totals:
             projection[field] = totals[stat]
@@ -174,12 +183,12 @@ def make_case(rows, position, player_id, team, library):
         ("50_plus", "fgMade50plus", "fgAtt50plus"),
     ):
         if f"field_goals_made_{suffix}" in rows:
-            made = rows[f"field_goals_made_{suffix}"].sum()
+            made = rows[f"field_goals_made_{suffix}"].sum() * scale
             projection[field_made] = made
-            projection[field_attempted] = made + rows[f"field_goals_missed_{suffix}"].sum()
+            projection[field_attempted] = made + rows[f"field_goals_missed_{suffix}"].sum() * scale
     if "extra_points_made" in rows:
-        projection["patMade"] = rows.extra_points_made.sum()
-        projection["patAtt"] = projection["patMade"] + rows.extra_points_missed.sum()
+        projection["patMade"] = rows.extra_points_made.sum() * scale
+        projection["patAtt"] = projection["patMade"] + rows.extra_points_missed.sum() * scale
     data = {
         "player_id": str(player_id), "full_name": str(player_id), "position": position,
         "team": team, "projection_match_status": "matched", "pff_projections": projection,

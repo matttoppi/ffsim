@@ -107,6 +107,54 @@ class EmpiricalSamplingTest(unittest.TestCase):
                 self.assertLessEqual(stats["completions"], stats["attempts"])
                 if stats["receptions"] == 0:
                     self.assertEqual((stats["receiving_yards"], stats["receiving_tds"]), (0, 0))
+                self.assertLessEqual(stats["receiving_tds_50_plus"], stats["receiving_tds_40_plus"])
+                self.assertLessEqual(stats["receiving_tds_40_plus"], stats["receiving_tds"])
+                self.assertLessEqual(stats["rushing_tds_50_plus"], stats["rushing_tds_40_plus"])
+                self.assertLessEqual(stats["rushing_tds_40_plus"], stats["rushing_tds"])
+                self.assertLessEqual(stats["pick_sixes_thrown"], stats["passing_interceptions"])
+
+    def test_return_yard_splits_match_combined_total(self):
+        rng = np.random.default_rng(34)
+        for position in ("RB", "DEF"):
+            prefix = "defense_" if position == "DEF" else ""
+            subject = self.projected_player(position)
+            for _ in range(1_000):
+                stats = self.library.sample(subject, rng)
+                self.assertAlmostEqual(
+                    stats[f"{prefix}return_yards"],
+                    stats[f"{prefix}kick_return_yards"]
+                    + stats[f"{prefix}punt_return_yards"],
+                )
+
+    def test_selected_league_scoring_extensions_are_centered(self):
+        settings = ScoringSettings(
+            {
+                "blk_kick": 2,
+                "def_kr_yd": 0.05,
+                "def_pr_yd": 0.1,
+                "def_st_ff": 1,
+                "def_st_fum_rec": 1,
+                "fgm_yds_over_30": 0.1,
+                "fum_rec_td": 6,
+                "pass_int_td": -2,
+                "rec_td_40p": 2,
+                "rec_td_50p": 2,
+                "rush_td_40p": 2,
+                "rush_td_50p": 4,
+                "st_ff": 1,
+                "st_fum_rec": 1,
+            }
+        )
+        rng = np.random.default_rng(23)
+        for position in ("QB", "RB", "WR", "TE", "K", "DEF"):
+            subject = self.projected_player(position)
+            scores = [
+                score_raw_stats(self.library.sample(subject, rng), position, settings)
+                for _ in range(30_000)
+            ]
+            target = subject.expected_weekly_score(settings)
+            with self.subTest(position=position):
+                self.assertAlmostEqual(np.mean(scores), target, delta=max(0.03, abs(target) * 0.02))
 
     def test_empirical_kicker_and_defense_keep_shape_and_center(self):
         rng = np.random.default_rng(21)
@@ -124,6 +172,69 @@ class EmpiricalSamplingTest(unittest.TestCase):
         defense_scores = [score_raw_stats(self.library.sample(defense, rng), "DEF", SCORING) for _ in range(20_000)]
         self.assertLess(min(defense_scores), 0)
         self.assertGreater(max(defense_scores), 20)
+
+    def test_sampled_stat_lines_never_exceed_physical_ceilings(self):
+        rng = np.random.default_rng(31)
+        for position in ("QB", "RB", "WR", "TE", "K", "DEF"):
+            subject = self.projected_player(position)
+            worst = {}
+            for _ in range(20_000):
+                for stat, value in self.library.sample(subject, rng).items():
+                    worst[stat] = max(worst.get(stat, 0), value)
+            for stat, value in worst.items():
+                ceiling = self.library.stat_ceilings.get((position, stat))
+                if ceiling is not None:
+                    with self.subTest(position=position, stat=stat):
+                        self.assertLessEqual(value, ceiling)
+
+    def test_dual_threat_qb_tails_match_historical_shape(self):
+        # A dual-threat QB is where multiplicative transfer used to explode:
+        # Stafford's near-zero rushing average turned a 6-yard scramble into a
+        # 102x factor and gave Jayden Daniels 460-point weeks.
+        row = self.projections[self.projections.position == "QB"].iloc[0].to_dict()
+        row.update(rushAtt=170, rushYds=891, rushTd=6.8)
+        row.update(
+            player_id="dual-threat-qb",
+            full_name="Test Dual QB",
+            projection_match_status="matched",
+            pff_projections=row.copy(),
+        )
+        subject = Player(row)
+        subject.initialize_empirical_sampler(self.library)
+        rng = np.random.default_rng(31)
+        samples = [self.library.sample(subject, rng) for _ in range(50_000)]
+        scores = np.array([score_raw_stats(stats, "QB", SCORING) for stats in samples])
+        target = subject.expected_weekly_score(SCORING)
+
+        self.assertAlmostEqual(scores.mean(), target, delta=target * 0.02)
+        # Top-tier 2024-25 QB weeks peak near 2.2x their own season mean.
+        # Allow headroom for projection error, but nothing near the old 24x.
+        self.assertLess(np.percentile(scores, 99.9) / scores.mean(), 3.0)
+        self.assertLess(max(stats["rushing_yards"] for stats in samples), 300)
+
+    def test_scoring_events_ride_on_sampled_volume(self):
+        rng = np.random.default_rng(32)
+        subject = self.projected_player("WR")
+        for _ in range(20_000):
+            stats = self.library.sample(subject, rng)
+            if not stats["receptions"]:
+                self.assertEqual(stats["receiving_tds"], 0)
+            if not stats["attempts"]:
+                self.assertEqual(stats["passing_interceptions"], 0)
+            if not stats["carries"] + stats["receptions"] + stats["attempts"]:
+                self.assertEqual(stats["fumbles"], 0)
+
+    def test_defense_allows_exactly_one_points_bracket(self):
+        rng = np.random.default_rng(33)
+        subject = self.projected_player("DEF")
+        brackets = [
+            "points_allowed_0", "points_allowed_1_6", "points_allowed_7_13",
+            "points_allowed_14_20", "points_allowed_21_27", "points_allowed_28_34",
+            "points_allowed_35_plus",
+        ]
+        for _ in range(20_000):
+            stats = self.library.sample(subject, rng)
+            self.assertEqual(sum(stats[bracket] for bracket in brackets), 1)
 
     def test_empirical_sampling_and_availability_preserve_reduced_total(self):
         subject = self.projected_player("WR", games=8.5)

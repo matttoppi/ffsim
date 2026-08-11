@@ -137,9 +137,12 @@ class PlayoffSimulation:
 
     def simulate_playoffs(self):
         first_week = self.bracket.first_week
+        self.simulation_season.prepare_week_factors(first_week)
         first_round_winners = self.bracket.simulate_round()
         self.bracket.create_semifinal(first_round_winners, first_week + 1)
 
+        self.simulation_season.prepare_week_factors(first_week + 1)
         semifinal_winners = self.bracket.simulate_round()
         self.bracket.create_final(semifinal_winners, first_week + 2)
+        self.simulation_season.prepare_week_factors(first_week + 2)
         return self.bracket.simulate_round()[0]

@@ -1,8 +1,9 @@
 import json
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 from ffsim.loaders.data_merger import DataMerger
 from ffsim.loaders.fantasy_calc import FantasyCalcLoader
+from ffsim.loaders.injuries import InjuryDataLoader
 from ffsim.loaders.pff import PFFLoader
 from ffsim.loaders.sleeper import SleeperLoader
 from ffsim.models.player import PFFProjections, Player
@@ -18,6 +19,12 @@ class PlayerLoader:
 
     def refresh(self):
         sleeper_players = self.fetch_sleeper_players()
+        sleeper_projections = self.fetch_sleeper_projections()
+        injuries = InjuryDataLoader.get_and_clean_data()
+        injuries = {
+            row.sleeper_id: row._asdict()
+            for row in injuries.itertuples(index=False)
+        }
         fantasy_calc = FantasyCalcLoader.get_and_clean_data()
         sleeper = SleeperLoader.get_and_clean_data(sleeper_players.values())
         projections = PFFLoader.get_and_clean_data()
@@ -28,6 +35,10 @@ class PlayerLoader:
             player_data["pff_projections"] = (
                 player_data.copy() if player_data["projection_match_status"] == "matched" else None
             )
+            player_data["sleeper_projections"] = sleeper_projections.get(
+                str(player_data["player_id"]), {}
+            )
+            player_data.update(injuries.get(str(player_data["player_id"]), {}))
             player = Player(player_data)
             self.enriched_players.append(player)
 
@@ -45,6 +56,18 @@ class PlayerLoader:
         for player_id, player in players.items():
             player["player_id"] = player.get("player_id") or player_id
         return players
+
+    @staticmethod
+    def fetch_sleeper_projections(season=2026):
+        url = f"https://api.sleeper.com/projections/nfl/{season}?season_type=regular"
+        request = Request(url, headers={"User-Agent": "ffsim/1.0"})
+        with urlopen(request, timeout=30) as response:
+            rows = json.load(response)
+        return {
+            str(row["player_id"]): row.get("stats", {})
+            for row in rows
+            if row.get("player_id")
+        }
 
     def load_players(self):
         if not self.players_file.exists():

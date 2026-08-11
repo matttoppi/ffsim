@@ -1,0 +1,7 @@
+{
+  "use_sleeper_projections": true,
+  "game_environment_cv": 0.08,
+  "team_environment_cv": 0.05,
+  "competition_cv": 0.1,
+  "players": {}
+}

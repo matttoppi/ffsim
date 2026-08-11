@@ -12,7 +12,7 @@ def _fetch_json(path):
         return json.load(response)
 
 
-def league_id_for_username(username, season=2026):
+def leagues_for_username(username, season=2026):
     username = username.strip()
     if not username:
         raise ValueError("Sleeper username cannot be empty")
@@ -22,13 +22,17 @@ def league_id_for_username(username, season=2026):
         raise ValueError(f"Sleeper user not found: {username}")
 
     leagues = _fetch_json(f"user/{user['user_id']}/leagues/nfl/{season}")
-    leagues = sorted(
+    return sorted(
         leagues,
         key=lambda league: (
             league.get("name", "").casefold(),
             str(league.get("league_id", "")),
         ),
     )
+
+
+def league_id_for_username(username, season=2026):
+    leagues = leagues_for_username(username, season)
     if not leagues:
         raise ValueError(f"No {season} NFL leagues found for Sleeper user {username}")
     if len(leagues) > 1:
@@ -63,12 +67,17 @@ class LeagueLoader:
         self.snapshot = json.loads(path.read_text())
         self.player_loader = player_loader
         self.player_loader.ensure_players_loaded()
+        self.unmatched_rostered = []
 
     def load_league(self):
         league = League(self.snapshot["league"])
         league.rosters = self.load_rosters(league)
         league.winners_bracket = self.snapshot.get("winners_bracket", [])
         print(f"League {league.name} loaded with {len(league.rosters)} teams.")
+        if self.unmatched_rostered:
+            print("Rostered players without 2026 projections are unavailable:")
+            for player in sorted(self.unmatched_rostered, key=lambda player: (player.name, str(player.sleeper_id))):
+                print(f"  {player.name} ({player.position}, {player.team}, Sleeper {player.sleeper_id})")
         return league
 
     def load_rosters(self, league):
@@ -86,11 +95,13 @@ class LeagueLoader:
             for player_id in roster_data.get("players", []):
                 player = self.player_loader.load_player(player_id)
                 if player:
-                    if player.position in {"QB", "RB", "WR", "TE", "K", "DEF"} and player.projection_match_status != "matched":
+                    if player.position in {"QB", "RB", "WR", "TE", "K", "DEF"} and player.projection_match_status in {"ambiguous", "position_mismatch"}:
                         raise ValueError(
                             f"Rostered player has no unique position-consistent PFF projection: "
                             f"{player.name} ({player.position}, {player.team}, Sleeper {player.sleeper_id})"
                         )
+                    if player.position in {"QB", "RB", "WR", "TE", "K", "DEF"} and player.projection_match_status == "unmatched":
+                        self.unmatched_rostered.append(player)
                     team.add_player(player)
 
             team.calculate_metadata()

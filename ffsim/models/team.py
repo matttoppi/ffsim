@@ -1,3 +1,6 @@
+from ffsim.models.player import mean_preserving_lognormal
+
+
 FLEX_ELIGIBILITY = {
     "FLEX": {"RB", "WR", "TE"},
     "REC_FLEX": {"RB", "WR", "TE"},
@@ -77,6 +80,15 @@ class FantasyTeam:
             for player in players
             if player.is_available(week)
         ]
+
+    def streamer_score(self, rng):
+        total = 0.0
+        for slot, count in self.league.roster_slots.items():
+            missing = count - len(self.starters.get(slot, ()))
+            eligible = FLEX_ELIGIBILITY.get(slot, {slot})
+            mean = max((self.league.replacement_scores.get(pos, 0.0) for pos in eligible), default=0.0)
+            total += sum(mean_preserving_lognormal(mean, 0.5, rng) for _ in range(missing))
+        return total
 
     def reset_stats(self):
         self.wins = 0

@@ -6,10 +6,11 @@ from pathlib import Path
 @dataclass(frozen=True)
 class AppConfig:
     league_id: str
-    simulations: int = 1000
+    simulations: int = 300
     seed: int = 2026
     regular_season_weeks: int = 14
     results_file: str = "output/results.json"
+    scenario_file: str | None = None
 
     def __post_init__(self):
         if not self.league_id.strip():
@@ -27,10 +28,11 @@ class AppConfig:
             league_id = data["league_id"]
             return cls(
                 league_id="" if league_id is None else str(league_id).strip(),
-                simulations=int(data.get("simulations", 1000)),
+                simulations=int(data.get("simulations", 300)),
                 seed=int(data.get("seed", 2026)),
                 regular_season_weeks=int(data.get("regular_season_weeks", 14)),
                 results_file=str(data.get("results_file", "output/results.json")),
+                scenario_file=data.get("scenario_file"),
             )
         except (json.JSONDecodeError, KeyError, TypeError, ValueError) as error:
             raise ValueError(f"Invalid config file {path}: {error}") from error

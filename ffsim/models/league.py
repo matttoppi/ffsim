@@ -1,4 +1,5 @@
 from collections import Counter
+from statistics import median
 
 from ffsim.scoring import ScoringSettings
 
@@ -21,6 +22,27 @@ class League:
         self.last_scored_week = int(league_data.get("settings", {}).get("last_scored_leg", 0) or 0)
         self.winners_bracket = []
         self.completed_starters = {}
+        self.replacement_scores = {}
+
+    def set_replacement_levels(self, players):
+        rostered = {
+            str(player.sleeper_id)
+            for team in self.rosters
+            for player in team.players
+        }
+        for position in {"QB", "RB", "WR", "TE", "K", "DEF"}:
+            scores = sorted(
+                (
+                    player.expected_weekly_score(self.scoring_settings)
+                    for player in players
+                    if str(player.sleeper_id) not in rostered
+                    and player.position == position
+                    and player.pff_projections
+                ),
+                reverse=True,
+            )[: len(self.rosters)]
+            if scores:
+                self.replacement_scores[position] = median(scores)
 
     def print_rosters_ids(self):
         for team in self.rosters:

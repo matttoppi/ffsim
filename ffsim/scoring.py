@@ -16,8 +16,17 @@ DIRECT_KEYS = {
     "rec_td": "receiving_tds",
     "fum": "fumbles",
     "fum_lost": "fumbles_lost",
+    "fum_rec_td": "fumble_recovery_tds",
+    "pass_int_td": "pick_sixes_thrown",
+    "rec_td_40p": "receiving_tds_40_plus",
+    "rec_td_50p": "receiving_tds_50_plus",
+    "rush_td_40p": "rushing_tds_40_plus",
+    "rush_td_50p": "rushing_tds_50_plus",
     "st_td": "return_tds",
+    "st_ff": "special_teams_fumbles_forced",
+    "st_fum_rec": "special_teams_fumbles_recovered",
     "fgm": "field_goals_made",
+    "fgm_yds_over_30": "field_goal_yards_over_30",
     "fgmiss": "field_goals_missed",
     "fgm_0_19": "field_goals_made_0_19",
     "fgm_20_29": "field_goals_made_20_29",
@@ -38,6 +47,9 @@ DIRECT_KEYS = {
     "safe": "defense_safeties",
     "def_td": "defense_tds",
     "def_st_td": "defense_return_tds",
+    "blk_kick": "blocked_kicks",
+    "def_st_ff": "defense_special_teams_fumbles_forced",
+    "def_st_fum_rec": "defense_special_teams_fumbles_recovered",
     "pts_allow_0": "points_allowed_0",
     "pts_allow_1_6": "points_allowed_1_6",
     "pts_allow_7_13": "points_allowed_7_13",
@@ -59,6 +71,17 @@ class ScoringSettings:
                 "Unsupported nonzero Sleeper scoring keys for available projection data: "
                 + ", ".join(unsupported)
             )
+        self.direct_coefficients = tuple(
+            (stat, self.get(key)) for key, stat in DIRECT_KEYS.items()
+        )
+        self.reception_bonuses = {
+            position: self.get(key) for position, key in POSITION_RECEPTION_BONUSES.items()
+        }
+        self.two_point_coefficient = self.get("pass_2pt")
+        self.return_coefficients = {
+            "": (self.get("kr_yd"), self.get("pr_yd")),
+            "def_": (self.get("def_kr_yd"), self.get("def_pr_yd")),
+        }
 
     def get(self, key):
         return self.values.get(key, 0.0)
@@ -69,27 +92,47 @@ class ScoringSettings:
 
 def unsupported_scoring_keys(settings):
     nonzero = {key for key, value in settings.items() if float(value) != 0}
-    supported = set(DIRECT_KEYS) | set(POSITION_RECEPTION_BONUSES.values())
+    supported = (
+        set(DIRECT_KEYS)
+        | set(POSITION_RECEPTION_BONUSES.values())
+        | {"kr_yd", "pr_yd", "def_kr_yd", "def_pr_yd"}
+    )
 
     if _equal_coefficients(settings, ("pass_2pt", "rush_2pt", "rec_2pt")):
         supported.update(("pass_2pt", "rush_2pt", "rec_2pt"))
-    if _equal_coefficients(settings, ("kr_yd", "pr_yd")):
-        supported.update(("kr_yd", "pr_yd"))
-    if _equal_coefficients(settings, ("def_kr_yd", "def_pr_yd")):
-        supported.update(("def_kr_yd", "def_pr_yd"))
     return sorted(nonzero - supported)
 
 
 def score_raw_stats(stats, position, scoring_settings):
     settings = scoring_settings if isinstance(scoring_settings, ScoringSettings) else ScoringSettings(scoring_settings)
-    score = sum(stats.get(stat, 0) * settings.get(key) for key, stat in DIRECT_KEYS.items())
+    score = sum(
+        stats.get(stat, 0) * coefficient
+        for stat, coefficient in settings.direct_coefficients
+    )
 
     position = str(position).upper()
-    score += stats.get("receptions", 0) * settings.get(POSITION_RECEPTION_BONUSES.get(position, ""))
-    score += stats.get("two_point_conversions", 0) * settings.get("pass_2pt")
-    score += stats.get("return_yards", 0) * settings.get("kr_yd")
-    score += stats.get("defense_return_yards", 0) * settings.get("def_kr_yd")
+    score += stats.get("receptions", 0) * settings.reception_bonuses.get(position, 0.0)
+    score += stats.get("two_point_conversions", 0) * settings.two_point_coefficient
+    score += _return_score(stats, settings, "", "return_yards")
+    score += _return_score(stats, settings, "defense_", "defense_return_yards", "def_")
     return float(score)
+
+
+def _return_score(stats, settings, stat_prefix, combined_stat, setting_prefix=""):
+    kick = f"{stat_prefix}kick_return_yards"
+    punt = f"{stat_prefix}punt_return_yards"
+    if kick in stats or punt in stats:
+        coefficients = settings.return_coefficients[setting_prefix]
+        return (
+            stats.get(kick, 0) * coefficients[0]
+            + stats.get(punt, 0) * coefficients[1]
+        )
+    coefficients = settings.return_coefficients[setting_prefix]
+    if coefficients[0] != coefficients[1] and stats.get(combined_stat, 0):
+        raise ValueError(
+            f"Separate {kick} and {punt} are required when return-yard coefficients differ"
+        )
+    return stats.get(combined_stat, 0) * coefficients[0]
 
 
 def _equal_coefficients(settings, keys):

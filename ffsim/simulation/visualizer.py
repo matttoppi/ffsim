@@ -13,6 +13,8 @@ class SimulationVisualizer:
         self.tracker = tracker
             
     def plot_scoring_distributions(self):
+        if not self.tracker.keep_samples:
+            raise ValueError("Scoring distribution plots require keep_samples=True")
         positions = ['QB', 'RB', 'WR', 'TE']
         
         if PLOTS_DIR.exists():

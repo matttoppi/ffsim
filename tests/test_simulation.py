@@ -5,6 +5,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import call, patch
 
+from ffsim.__main__ import setup_league
 from ffsim.config import AppConfig
 from ffsim.loaders.league import league_id_for_username
 from ffsim.models.league import League
@@ -50,8 +51,30 @@ class FakeTeam:
     def get_active_starters(self, week):
         return [self.starter]
 
+    def streamer_score(self, rng):
+        return 0
+
 
 class SimulationTest(unittest.TestCase):
+    @patch("ffsim.loaders.league.leagues_for_username")
+    def test_setup_prompts_until_a_valid_league_is_selected(self, leagues):
+        leagues.return_value = [
+            {"league_id": "1", "name": "A League", "status": "pre_draft"},
+            {"league_id": "2", "name": "B League", "status": "in_season"},
+        ]
+        answers = iter(["matt", "nope", "2"])
+        output = []
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "config.json"
+            path.write_text('{"league_id": "old", "simulations": 10}\n')
+
+            setup_league(path, input_fn=lambda _: next(answers), print_fn=output.append)
+
+            self.assertEqual(json.loads(path.read_text())["league_id"], "2")
+
+        self.assertIn("Enter a number from 1 to 2.", output)
+        leagues.assert_called_once_with("matt", 2026)
+
     @patch("ffsim.loaders.league._fetch_json")
     def test_username_resolves_one_league_and_rejects_ambiguous_leagues(self, fetch):
         fetch.side_effect = [
@@ -111,10 +134,22 @@ class SimulationTest(unittest.TestCase):
         bench = FakePlayer("bench", 20, partial=True)
         matchup = SimulationMatchup(FakeTeam(starter, bench), None, week=1)
 
-        total, scores = matchup.simulate_all_players(matchup.home_team, None, 1, None)
+        total, scores = matchup.simulate_all_players(matchup.home_team, None, 1)
 
         self.assertEqual(total, 10)
         self.assertEqual(scores, {"starter": 10, "bench": 20})
+
+    def test_team_only_matchup_does_not_simulate_bench_players(self):
+        starter = FakePlayer("starter", 10)
+        bench = FakePlayer("bench", 20)
+        matchup = SimulationMatchup(FakeTeam(starter, bench), None, week=1)
+
+        total, scores = matchup.simulate_all_players(
+            matchup.home_team, None, 1, track_players=False
+        )
+
+        self.assertEqual(total, 10)
+        self.assertEqual(scores, {"starter": 10})
 
     def test_lineup_uses_league_roster_slots(self):
         league = League(
@@ -168,8 +203,18 @@ class SimulationTest(unittest.TestCase):
         self.assertEqual(results["seed"], 42)
         self.assertEqual(results["teams"]["Team"]["average_wins"], 9)
         self.assertEqual(results["teams"]["Team"]["playoff_probability"], 0.5)
+        self.assertEqual(results["teams"]["Team"]["win_percentiles"]["50"], 9)
+        self.assertEqual(results["teams"]["Team"]["points_percentiles"]["50"], 1540)
         self.assertEqual(results["players"]["player"]["average_score"], 12)
+        self.assertEqual(tracker.player_scores, {})
         json.dumps(results)
+
+    def test_tracker_keeps_raw_samples_only_when_requested(self):
+        tracker = SimulationTracker(None, 1, keep_samples=True)
+
+        tracker.record_player_score("player", 2, 12)
+
+        self.assertEqual(tracker.player_scores["player"][2], [12])
 
     def test_playoffs_start_after_the_configured_regular_season(self):
         teams = [object() for _ in range(6)]

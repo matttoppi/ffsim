@@ -2,33 +2,19 @@ import pandas as pd
 
 from ffsim.paths import DATA_DIR
 
+
 class InjuryDataLoader:
     @staticmethod
-    def convert_to_decimal(value):
-        if value is None or value == '':
-            return 0
-        if isinstance(value, str):
-            value = value.replace('%', '').strip()
-        try:
-            float_value = float(value)
-            return float_value / 100  # Always convert to decimal
-        except ValueError:
-            return 0
-
-    @staticmethod
-    def get_and_clean_data(enabled=False):
-        if not enabled:
+    def get_and_clean_data(season=2026):
+        path = DATA_DIR / "injuries" / "risk.csv"
+        if not path.exists():
             return pd.DataFrame()
-        csv_file_path = DATA_DIR / "injuries" / "risk.csv"
-        try:
-            injury_df = pd.read_csv(csv_file_path)
-            injury_df.columns = injury_df.columns.str.strip().str.lower().str.replace(' ', '_')
-            
-            # Convert probabilities to decimals
-            for col in ['probability_of_injury_in_the_season', 'probability_of_injury_per_game']:
-                injury_df[col] = injury_df[col].apply(InjuryDataLoader.convert_to_decimal)
-            
-            return injury_df
-        except FileNotFoundError:
-            print(f"Injury data file not found: {csv_file_path}")
+        data = pd.read_csv(path)
+        required = {
+            "season", "sleeper_id", "injury_probability", "projected_games_missed"
+        }
+        if not required <= set(data.columns):
             return pd.DataFrame()
+        data = data[data.season == season].copy()
+        data["sleeper_id"] = data.sleeper_id.astype(str)
+        return data

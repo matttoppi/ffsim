@@ -46,6 +46,15 @@ league ID forward.
 
 ## Refresh data
 
+Select a 2026 league interactively the first time:
+
+```bash
+python -m ffsim setup
+```
+
+The setup prompt asks for a Sleeper username, lists that user's leagues, and
+saves the selected league ID to `config.json`.
+
 Before the first simulation, and whenever source data changes, run:
 
 ```bash
@@ -80,10 +89,48 @@ Command-line options can override the config without editing it:
 ```bash
 python -m ffsim refresh --username YOUR_SLEEPER_USERNAME
 python -m ffsim simulate --username YOUR_SLEEPER_USERNAME
-python -m ffsim simulate --simulations 1000 --seed 42
+python -m ffsim simulate --simulations 300 --seed 42
 python -m ffsim simulate --output output/week-1.json
 python -m ffsim simulate --plots
+python -m ffsim simulate --teams-only
 ```
+
+Normal runs keep aggregate player summaries without retaining every sampled
+score. `--plots` retains the raw samples needed for histograms. `--teams-only`
+skips bench-player score generation and omits the `players` result object when
+only standings and playoff probabilities are needed.
+
+Use `--scenario scenarios.json` (or `scenario_file` in `config.json`) for
+forward-looking assumptions:
+
+```json
+{
+  "use_sleeper_projections": true,
+  "game_environment_cv": 0.08,
+  "team_environment_cv": 0.05,
+  "competition_cv": 0.10,
+  "players": {
+    "SLEEPER_PLAYER_ID": {
+      "projection_points": [275, 290],
+      "projected_games": 14,
+      "play_probability": {"1": 0.5, "2": 0.8},
+      "missed_weeks": [3]
+    }
+  }
+}
+```
+
+When `use_sleeper_projections` is true, refresh downloads Sleeper's current
+season stat projections and the simulator rescores them under the league's
+settings. `projection_points` adds other external full-season projections; the
+simulator averages them with its league-rescored PFF total and uses their
+disagreement to widen season uncertainty. Direct `projection_multiplier` and
+`season_cv` values can override that calculation. Play probabilities and
+missed weeks express player-specific availability. Game factors are shared by
+both NFL opponents, team factors move teammates together, and competition
+factors redistribute outcomes among same-team, same-position players while
+preserving their projected group mean. All fields are optional and scenarios
+are assumptions, not calibrated probabilities.
 
 Username lookup uses the 2026 NFL season by default. If the user belongs to
 multiple leagues, the command lists their names and IDs and requires an
@@ -111,30 +158,40 @@ For a casual league, 5,000 simulations is a good hosted default. The approximate
 | 5,000 | +/- 1.4 percentage points |
 | 10,000 | +/- 1 percentage point |
 
-A representative synthetic benchmark took about 1-2 seconds for 150 simulations, 8 seconds for 1,000, and 80 seconds for 10,000 on a development machine. These are directional figures, not production guarantees. A scheduled run remains inexpensive, while each website visit only downloads the generated JSON.
+A cached 10-team development league with 418 rostered players took about 121 ms
+per simulation with player summaries and 60 ms with `--teams-only`. These are
+directional figures, not production guarantees. A scheduled run remains
+inexpensive, while each website visit only downloads the generated JSON.
 
-Before rewriting the simulator in Rust:
+The Python simulator already:
 
-- Load and parse matchup snapshots once per run instead of once per simulated season.
-- Precompute immutable per-player distribution parameters.
-- Track running aggregates instead of retaining every score when plots are not requested.
-- Import refresh and plotting dependencies only for commands that use them.
+- Loads and parses matchup snapshots once per run.
+- Precomputes immutable per-player distribution parameters and scoring coefficients.
+- Tracks running aggregates unless plots require raw samples.
+- Imports refresh and plotting dependencies only for commands that use them.
 
-Consider extracting the simulation kernel into Rust only if users need uncached, interactive scenarios and profiling shows that optimized Python cannot meet the latency target. Rust compiled to WebAssembly could then run in the browser while preserving static hosting.
+Consider extracting the simulation kernel into Rust only if users need uncached,
+interactive scenarios and another profile shows that optimized Python cannot
+meet the latency target. Rust compiled to WebAssembly could then run in the
+browser while preserving static hosting.
 
 ## Correctness and calibration
 
 PFF raw season projections are rescored under the cached league's Sleeper
 settings. Nonzero settings that cannot be calculated from the checked-in
-aggregates fail with the unsupported keys listed. Exact long-touchdown bonuses
-require play-by-play, field-goal distance scoring requires exact kick
-distances, and unequal kick/punt-return coefficients cannot be applied to a
-combined return-yard projection.
+inputs fail with the unsupported keys listed. Compact 2024-2025 nflverse
+play-by-play extracts support long-touchdown bonuses, pick-sixes, blocked
+kicks, fumble-recovery touchdowns, and special-teams turnovers. Historical
+kick distances distribute PFF field-goal buckets, while historical return
+splits divide PFF's combined kick/punt return-yard totals without changing
+their combined mean.
 
 Projection joins prefer a stable Sleeper ID when an input supplies one;
 otherwise they require exact normalized name, position, and canonical team.
 Refresh writes `data/cache/projection_matches.json`. A rostered player without
-one unique, position-consistent projection stops league loading.
+one unique, position-consistent projection is reported and unavailable. An
+ambiguous or position-mismatched rostered projection still stops league
+loading rather than borrowing another player's projection.
 
 Weekly outcomes use normalized joint 2024-2025 nflverse vectors centered on
 league-rescored 2026 PFF means. The corrected mean-preserving parametric kernel
@@ -148,6 +205,10 @@ weeks, a player projected for `G` of the NFL's 17 games has expected games
 fantasy regular season plus Weeks 15-17 playoffs covers 16 eligible games
 because one NFL bye occurs in Weeks 1-14. Current rest-of-season projections
 are required after completed games; preseason totals are not current ROS means.
+When a current DraftSharks profile is imported, its season injury probability
+decides whether an injury occurs and its projected games missed determines the
+conditional absence length; this replaces the PFF-games availability path for
+that player.
 
 Completed Sleeper matchup points and starters are preserved and only future
 weeks are simulated. Fully completed playoff brackets are preserved. A

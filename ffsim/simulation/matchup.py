@@ -10,10 +10,10 @@ class SimulationMatchup:
 
     def simulate(self, scoring_settings, tracker):
         self.home_score, home_scores = self.simulate_all_players(
-            self.home_team, scoring_settings, self.week, tracker
+            self.home_team, scoring_settings, self.week, tracker.track_players
         )
         self.away_score, away_scores = self.simulate_all_players(
-            self.away_team, scoring_settings, self.week, tracker
+            self.away_team, scoring_settings, self.week, tracker.track_players
         )
         for player_id, score in {**home_scores, **away_scores}.items():
             tracker.record_player_score(
@@ -32,18 +32,17 @@ class SimulationMatchup:
             self.home_team.update_record(False, True, self.away_score, self.home_score)
             self.away_team.update_record(False, True, self.home_score, self.away_score)
 
-    def simulate_all_players(self, team, scoring_settings, week, tracker):
+    def simulate_all_players(self, team, scoring_settings, week, track_players=True):
         total_score = 0.0
         player_scores = {}
-        starters = set(team.get_active_starters(week))
-        for player in team.players:
+        starters = team.get_active_starters(week)
+        starter_set = set(starters)
+        for player in team.players if track_players else starters:
             available = player.is_available(week)
             score = player.calculate_score(scoring_settings, week, self.rng) if available else 0.0
             player_scores[player.sleeper_id] = score
             self.player_availability[player.sleeper_id] = available
-            if available and player.position in {"K", "DEF"} and tracker:
-                position = "KICKER" if player.position == "K" else "DEFENSE"
-                tracker.record_special_team_score(team.name, position, week, score)
-            if player in starters:
+            if player in starter_set:
                 total_score += score
+        total_score += team.streamer_score(self.rng)
         return total_score, player_scores
