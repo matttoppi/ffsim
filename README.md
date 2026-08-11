@@ -93,12 +93,15 @@ python -m ffsim simulate --simulations 300 --seed 42
 python -m ffsim simulate --output output/week-1.json
 python -m ffsim simulate --plots
 python -m ffsim simulate --teams-only
+python -m ffsim simulate --teams-only
+python -m ffsim simulate --workers 1
 ```
 
 Normal runs keep aggregate player summaries without retaining every sampled
 score. `--plots` retains the raw samples needed for histograms. `--teams-only`
 skips bench-player score generation and omits the `players` result object when
-only standings and playoff probabilities are needed.
+only standings and playoff probabilities are needed. Simulations use up to
+four worker processes by default; `--workers 1` disables multiprocessing.
 
 Use `--scenario scenarios.json` (or `scenario_file` in `config.json`) for
 forward-looking assumptions:
@@ -158,10 +161,12 @@ For a casual league, 5,000 simulations is a good hosted default. The approximate
 | 5,000 | +/- 1.4 percentage points |
 | 10,000 | +/- 1 percentage point |
 
-A cached 10-team development league with 418 rostered players took about 121 ms
-per simulation with player summaries and 60 ms with `--teams-only`. These are
-directional figures, not production guarantees. A scheduled run remains
-inexpensive, while each website visit only downloads the generated JSON.
+A cached 10-team development league with 418 rostered players took about 84 ms
+per simulation with player summaries and 41 ms with `--teams-only`. Four workers
+ran 100 simulations in 3.7 and 2.5 seconds respectively, including startup and
+data loading. These are directional figures, not production guarantees. A
+scheduled run remains inexpensive, while each website visit only downloads the
+generated JSON.
 
 The Python simulator already:
 

@@ -216,6 +216,18 @@ class SimulationTest(unittest.TestCase):
 
         self.assertEqual(tracker.player_scores["player"][2], [12])
 
+    def test_tracker_merges_process_results(self):
+        tracker = SimulationTracker(None, 2)
+        worker = SimulationTracker(None, 2)
+        tracker.record_player_score("player", 1, 4)
+        worker.record_player_score("player", 1, -2)
+        worker.player_games_missed["player"] = 3
+
+        tracker.merge_worker_state(worker.worker_state())
+
+        self.assertEqual(tracker.get_player_average_score("player"), (1, 2, 2, -2, 4))
+        self.assertEqual(tracker.get_player_avg_games_missed("player"), 1.5)
+
     def test_playoffs_start_after_the_configured_regular_season(self):
         teams = [object() for _ in range(6)]
         bracket = PlayoffBracket(

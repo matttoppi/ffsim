@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 from dataclasses import replace
 from pathlib import Path
 
@@ -18,6 +19,10 @@ def parse_args():
     parser.add_argument("--season", type=int, default=2026, help="NFL season used with --username")
     parser.add_argument("--simulations", type=int)
     parser.add_argument("--seed", type=int)
+    parser.add_argument(
+        "--workers", type=int, default=min(4, os.cpu_count() or 1),
+        help="parallel worker processes (default: up to 4 CPUs)",
+    )
     parser.add_argument("--output")
     parser.add_argument("--scenario")
     output = parser.add_mutually_exclusive_group()
@@ -115,6 +120,7 @@ def main():
         scenario=scenario,
         track_players=not args.teams_only,
         keep_samples=args.plots,
+        workers=args.workers,
     )
     results = simulation.run()
 

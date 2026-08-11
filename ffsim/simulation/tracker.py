@@ -4,6 +4,18 @@ import math
 import numpy as np
 
 
+def _week_scores():
+    return defaultdict(list)
+
+
+def _player_stats():
+    return [0.0, 0, None, None]
+
+
+def _seed_counts():
+    return defaultdict(int)
+
+
 class SimulationTracker:
     def __init__(
         self,
@@ -19,13 +31,13 @@ class SimulationTracker:
         self.track_players = track_players
         self.keep_samples = keep_samples
         self.team_season_results = defaultdict(list)
-        self.player_scores = defaultdict(lambda: defaultdict(list))
-        self.player_stats = defaultdict(lambda: [0.0, 0, None, None])
+        self.player_scores = defaultdict(_week_scores)
+        self.player_stats = defaultdict(_player_stats)
         self.player_games_missed = defaultdict(int)
         self.playoff_appearances = defaultdict(int)
         self.division_wins = defaultdict(int)
         self.championships = defaultdict(int)
-        self.seeds = defaultdict(lambda: defaultdict(int))
+        self.seeds = defaultdict(_seed_counts)
         self.average_results = {}
 
     def calculate_averages(self):
@@ -34,6 +46,46 @@ class SimulationTracker:
                 "avg_wins": sum(season["wins"] for season in seasons) / len(seasons),
                 "avg_points": sum(season["points_for"] for season in seasons) / len(seasons),
             }
+
+    def worker_state(self):
+        return {
+            "team_season_results": dict(self.team_season_results),
+            "player_scores": {
+                player_id: dict(weeks) for player_id, weeks in self.player_scores.items()
+            },
+            "player_stats": dict(self.player_stats),
+            "player_games_missed": dict(self.player_games_missed),
+            "playoff_appearances": dict(self.playoff_appearances),
+            "division_wins": dict(self.division_wins),
+            "championships": dict(self.championships),
+            "seeds": {team: dict(seeds) for team, seeds in self.seeds.items()},
+        }
+
+    def merge_worker_state(self, state):
+        for team, seasons in state["team_season_results"].items():
+            self.team_season_results[team].extend(seasons)
+        for player_id, weeks in state["player_scores"].items():
+            for week, scores in weeks.items():
+                self.player_scores[player_id][week].extend(scores)
+        for player_id, (total, games, minimum, maximum) in state["player_stats"].items():
+            if not games:
+                continue
+            stats = self.player_stats[player_id]
+            stats[0] += total
+            stats[1] += games
+            stats[2] = minimum if stats[2] is None else min(stats[2], minimum)
+            stats[3] = maximum if stats[3] is None else max(stats[3], maximum)
+        for source, target in (
+            (state["player_games_missed"], self.player_games_missed),
+            (state["playoff_appearances"], self.playoff_appearances),
+            (state["division_wins"], self.division_wins),
+            (state["championships"], self.championships),
+        ):
+            for key, value in source.items():
+                target[key] += value
+        for team, seeds in state["seeds"].items():
+            for seed, count in seeds.items():
+                self.seeds[team][seed] += count
 
     def get_overall_standings(self):
         return sorted(

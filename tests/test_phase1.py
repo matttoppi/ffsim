@@ -1,5 +1,6 @@
 import json
 import io
+import pickle
 import tempfile
 import unittest
 from contextlib import redirect_stdout
@@ -14,7 +15,7 @@ import pandas as pd
 from ffsim.loaders.data_merger import DataMerger
 from ffsim.loaders.league import LeagueLoader
 from ffsim.models.league import League
-from ffsim.models.player import Player, mean_preserving_lognormal
+from ffsim.models.player import PFFProjections, Player, mean_preserving_lognormal
 from ffsim.models.team import FantasyTeam
 from ffsim.scoring import DIRECT_KEYS, ScoringSettings, score_raw_stats
 from ffsim.simulation.monte_carlo import MonteCarloSimulation
@@ -188,6 +189,26 @@ class ScoringTest(unittest.TestCase):
     def test_unsupported_nonzero_keys_are_listed(self):
         with self.assertRaisesRegex(ValueError, "bonus_pass_yd_300, pass_fd"):
             ScoringSettings({"pass_fd": 0.5, "bonus_pass_yd_300": 1})
+
+    def test_position_compilation_keeps_only_relevant_nonzero_terms(self):
+        settings = ScoringSettings({"pass_yd": 0.04, "pass_td": 4, "rush_yd": 0.1})
+        subject = player(position="QB", passYds=4250, passTd=34)
+        expected = score_raw_stats(subject.modeled_weekly_raw_stats(), "QB", settings)
+
+        settings.compile_positions([subject])
+
+        self.assertEqual(
+            settings.direct_coefficients_by_position["QB"],
+            (("passing_yards", 0.04), ("passing_tds", 4.0)),
+        )
+        self.assertEqual(score_raw_stats(subject.modeled_weekly_raw_stats(), "QB", settings), expected)
+
+    def test_scoring_and_projection_models_survive_worker_serialization(self):
+        settings = pickle.loads(pickle.dumps(ScoringSettings({"rec": 1})))
+        projections = pickle.loads(pickle.dumps(PFFProjections({"games": 17})))
+
+        self.assertEqual(settings.rec, 1)
+        self.assertTrue(projections)
 
 
 class CenteringAndAvailabilityTest(unittest.TestCase):

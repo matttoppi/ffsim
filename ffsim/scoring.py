@@ -74,6 +74,7 @@ class ScoringSettings:
         self.direct_coefficients = tuple(
             (stat, self.get(key)) for key, stat in DIRECT_KEYS.items()
         )
+        self.direct_coefficients_by_position = {}
         self.reception_bonuses = {
             position: self.get(key) for position, key in POSITION_RECEPTION_BONUSES.items()
         }
@@ -83,11 +84,31 @@ class ScoringSettings:
             "def_": (self.get("def_kr_yd"), self.get("def_pr_yd")),
         }
 
+    def compile_positions(self, players):
+        stats_by_position = {}
+        for player in players:
+            if not player.pff_projections or player.projected_games <= 0:
+                continue
+            stats_by_position.setdefault(player.position, set()).update(
+                stat for stat, value in player.modeled_weekly_raw_stats().items() if value
+            )
+        self.direct_coefficients_by_position = {
+            position: tuple(
+                (stat, coefficient)
+                for stat, coefficient in self.direct_coefficients
+                if coefficient and stat in stats
+            )
+            for position, stats in stats_by_position.items()
+        }
+
     def get(self, key):
         return self.values.get(key, 0.0)
 
     def __getattr__(self, key):
-        return self.get(key)
+        values = self.__dict__.get("values")
+        if values is None:
+            raise AttributeError(key)
+        return values.get(key, 0.0)
 
 
 def unsupported_scoring_keys(settings):
@@ -105,12 +126,14 @@ def unsupported_scoring_keys(settings):
 
 def score_raw_stats(stats, position, scoring_settings):
     settings = scoring_settings if isinstance(scoring_settings, ScoringSettings) else ScoringSettings(scoring_settings)
+    position = str(position).upper()
     score = sum(
         stats.get(stat, 0) * coefficient
-        for stat, coefficient in settings.direct_coefficients
+        for stat, coefficient in settings.direct_coefficients_by_position.get(
+            position, settings.direct_coefficients
+        )
     )
 
-    position = str(position).upper()
     score += stats.get("receptions", 0) * settings.reception_bonuses.get(position, 0.0)
     score += stats.get("two_point_conversions", 0) * settings.two_point_coefficient
     score += _return_score(stats, settings, "", "return_yards")

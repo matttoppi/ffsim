@@ -349,6 +349,9 @@ class PFFProjections:
         return self.data.get(key, default)
 
     def __getattr__(self, key):
+        data = self.__dict__.get("data")
+        if data is None:
+            raise AttributeError(key)
         aliases = {
             "bye_week": "byeWeek",
             "fantasy_points": "fantasyPoints",
@@ -361,7 +364,7 @@ class PFFProjections:
             "recv_yds": "recvYds",
             "recv_td": "recvTd",
         }
-        return self.data.get(aliases.get(key, key))
+        return data.get(aliases.get(key, key))
 
     def __bool__(self):
         return _number(self.data.get("games")) > 0

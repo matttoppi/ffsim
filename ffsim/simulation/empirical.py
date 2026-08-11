@@ -1,6 +1,7 @@
 """Normalized joint weekly-vector sampling from active nflverse history."""
 
 from collections import Counter, defaultdict
+import math
 
 import numpy as np
 import pandas as pd
@@ -102,6 +103,12 @@ POINTS_ALLOWED_BINS = (
     "points_allowed_35_plus",
 )
 FIELD_GOAL_SUFFIXES = ("0_19", "20_29", "30_39", "40_49", "50_plus")
+KICKER_FACTOR_STATS = tuple(
+    f"field_goals_{outcome}_{suffix}"
+    for suffix in FIELD_GOAL_SUFFIXES
+    for outcome in ("made", "missed")
+) + ("extra_points_made", "extra_points_missed")
+TEAM_FACTOR_STATS = {"K": KICKER_FACTOR_STATS, "DEF": DEFENSE_YARDAGE_STATS}
 OFFENSE_EXCLUDED_STATS = {*PLAYER_CONDITIONAL_STATS, "field_goal_yards_over_30"}
 OFFENSE_EVENT_STATS = (
     "passing_tds", "passing_interceptions", "rushing_tds", "receiving_tds",
@@ -128,7 +135,7 @@ class EmpiricalLibrary:
         )
         self.player_pools = self._build_player_pools()
         self.player_pool_samples = {
-            key: self._compile(group, self.player_stats) for key, group in self.player_pools.items()
+            key: self._compile(group, PLAYER_SCALED_STATS) for key, group in self.player_pools.items()
         }
         self.personal_pools = {} if np.isinf(self.shrinkage) else {
             (str(player_id), position): group.reset_index(drop=True)
@@ -136,7 +143,7 @@ class EmpiricalLibrary:
             if str(player_id) not in {"", "nan", "None"}
         }
         self.personal_samples = {
-            key: self._compile(group, self.player_stats) for key, group in self.personal_pools.items()
+            key: self._compile(group, PLAYER_SCALED_STATS) for key, group in self.personal_pools.items()
         }
         self.personal_profiles = {
             key: (
@@ -175,20 +182,36 @@ class EmpiricalLibrary:
             for (team, position), group in self.team_vectors.groupby(["team", "position"])
         }
         self.team_pool_samples = {
-            key: self._compile(group, team_stats) for key, group in self.team_pools.items()
+            key: self._compile(group, TEAM_FACTOR_STATS[key])
+            for key, group in self.team_pools.items()
+            if key in TEAM_FACTOR_STATS
         }
         self.personal_team_samples = {
-            key: self._compile(group, team_stats) for key, group in self.personal_team_pools.items()
+            key: self._compile(group, TEAM_FACTOR_STATS[key[1]])
+            for key, group in self.personal_team_pools.items()
+            if key[1] in TEAM_FACTOR_STATS
         }
         self.stat_ceilings = self._stat_ceilings()
+        self.stat_ceilings_by_position = defaultdict(dict)
+        for (position, stat), ceiling in self.stat_ceilings.items():
+            self.stat_ceilings_by_position[position][stat] = ceiling
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        for name in (
+            "player_rows", "player_vectors", "player_pools", "personal_pools",
+            "team_rows", "team_vectors", "team_pools",
+        ):
+            state[name] = None
+        return state
 
     def _stat_ceilings(self):
         # A ratio-transfer sampler can compose a stat line no one has ever
         # produced (10 passing touchdowns; the NFL record is 7). Bound every
-        # stat at 1.5x the most extreme game in the library: generous enough
-        # that a 300-season run can still break a record, tight enough that
-        # it cannot break physics.
-        # ponytail: 1.5x headroom on a two-season window. Widen the seasons
+        # stat at 1.2x the most extreme game in the library: enough headroom
+        # for a new record without turning a 509-yard passing ceiling into
+        # 763 yards.
+        # ponytail: 1.2x headroom on a two-season window. Widen the seasons
         # before widening the multiplier if the ceilings ever start binding.
         # The nested long-touchdown stats are excluded: they are drawn from
         # the touchdown count that is already capped, and a separate ceiling
@@ -199,13 +222,17 @@ class EmpiricalLibrary:
             for position, group in numeric.groupby(rows.position):
                 for stat, value in group.max().items():
                     if value > 0:
-                        ceilings[(position, stat)] = float(value) * 1.5
+                        ceiling = float(value) * 1.2
+                        ceilings[(position, stat)] = math.ceil(ceiling) if stat in COUNT_STATS else ceiling
         return ceilings
 
     def _apply_ceilings(self, stats, position, fields=None):
+        ceilings = self.stat_ceilings_by_position[position]
         for stat in fields or stats:
             value = stats.get(stat, 0.0)
-            ceiling = self.stat_ceilings.get((position, stat))
+            if value <= 0:
+                continue
+            ceiling = ceilings.get(stat)
             if ceiling is not None and value > ceiling:
                 stats[stat] = int(ceiling) if stat in COUNT_STATS else ceiling
                 self.corrections[f"ceiling_{stat}"] += 1
@@ -217,7 +244,7 @@ class EmpiricalLibrary:
             for stat, value in player.modeled_weekly_raw_stats().items()
         }
         if player.position == "K":
-            stats = self._sample_kicker_stats(means, rng)
+            stats = self._sample_kicker_stats(player, means, rng)
         elif player.position == "DEF":
             stats = self._sample_defense_stats(player, means, rng)
         else:
@@ -241,62 +268,80 @@ class EmpiricalLibrary:
         factors = self._sample_player_factors(player, means, rng)
         stats = {stat: 0.0 for stat in means if stat not in OFFENSE_EXCLUDED_STATS}
         for stat in PLAYER_SCALED_STATS:
-            if stat in means:
+            if means.get(stat, 0.0) > 0:
                 stats[stat] = self._scale(means[stat], factors.get(stat, 1.0), stat, rng)
         self._correct(stats)
         # Cap volume before the scoring events ride on it, so a runaway
         # completion count cannot manufacture touchdowns downstream.
         self._apply_ceilings(stats, player.position, PLAYER_SCALED_STATS)
-        stats["passing_tds"] = _event_count(
-            rng, stats["completions"], means.get("passing_tds", 0.0), means.get("completions", 0.0)
-        )
-        stats["passing_interceptions"] = _event_count(
-            rng,
-            stats["attempts"] - stats["completions"],
-            means.get("passing_interceptions", 0.0),
-            max(0.0, means.get("attempts", 0.0) - means.get("completions", 0.0)),
-        )
-        stats["rushing_tds"] = _event_count(
-            rng, stats["carries"], means.get("rushing_tds", 0.0), means.get("carries", 0.0)
-        )
-        stats["receiving_tds"] = _event_count(
-            rng, stats["receptions"], means.get("receiving_tds", 0.0), means.get("receptions", 0.0)
-        )
-        touches = stats["attempts"] + stats["carries"] + stats["receptions"]
-        mean_touches = means.get("attempts", 0.0) + means.get("carries", 0.0) + means.get("receptions", 0.0)
-        stats["fumbles"] = _event_count(rng, touches, means.get("fumbles", 0.0), mean_touches)
-        stats["fumbles_lost"] = _event_count(
-            rng, stats["fumbles"], means.get("fumbles_lost", 0.0), means.get("fumbles", 0.0)
-        )
-        dropback_ratio = stats["attempts"] / means["attempts"] if means.get("attempts") else 0.0
-        stats["sacks_suffered"] = int(rng.poisson(means.get("sacks_suffered", 0.0) * dropback_ratio))
+        if means.get("passing_tds"):
+            stats["passing_tds"] = _event_count(
+                rng, stats["completions"], means["passing_tds"], means.get("completions", 0.0)
+            )
+        if means.get("passing_interceptions"):
+            stats["passing_interceptions"] = _event_count(
+                rng,
+                stats["attempts"] - stats["completions"],
+                means["passing_interceptions"],
+                max(0.0, means.get("attempts", 0.0) - means.get("completions", 0.0)),
+            )
+        if means.get("rushing_tds"):
+            stats["rushing_tds"] = _event_count(
+                rng, stats["carries"], means["rushing_tds"], means.get("carries", 0.0)
+            )
+        if means.get("receiving_tds"):
+            stats["receiving_tds"] = _event_count(
+                rng, stats["receptions"], means["receiving_tds"], means.get("receptions", 0.0)
+            )
+        if means.get("fumbles"):
+            touches = stats["attempts"] + stats["carries"] + stats["receptions"]
+            mean_touches = (
+                means.get("attempts", 0.0)
+                + means.get("carries", 0.0)
+                + means.get("receptions", 0.0)
+            )
+            stats["fumbles"] = _event_count(rng, touches, means["fumbles"], mean_touches)
+        if means.get("fumbles_lost"):
+            stats["fumbles_lost"] = _event_count(
+                rng, stats["fumbles"], means["fumbles_lost"], means.get("fumbles", 0.0)
+            )
+        if means.get("sacks_suffered"):
+            dropback_ratio = stats["attempts"] / means["attempts"] if means.get("attempts") else 0.0
+            stats["sacks_suffered"] = int(rng.poisson(means["sacks_suffered"] * dropback_ratio))
         for stat in ("two_point_conversions", "return_tds", *PLAYER_EMPIRICAL_STATS[2:]):
             if means.get(stat, 0.0) > 0:
                 stats[stat] = int(rng.poisson(means[stat]))
         return stats
 
-    @staticmethod
-    def _reconcile_return_yards(stats, position):
+    def _reconcile_return_yards(self, stats, position):
         prefix = "defense_" if position == "DEF" else ""
         combined = f"{prefix}return_yards"
         kick, punt = f"{prefix}kick_return_yards", f"{prefix}punt_return_yards"
         split_total = stats.get(kick, 0) + stats.get(punt, 0)
         if split_total:
-            scale = stats.get(combined, 0) / split_total
-            stats[kick] *= scale
-            stats[punt] *= scale
+            total = stats.get(combined, 0)
+            ceilings = self.stat_ceilings_by_position[position]
+            kick_cap = ceilings.get(kick, total)
+            punt_cap = ceilings.get(punt, total)
+            stats[kick] = min(kick_cap, max(total - punt_cap, total * stats[kick] / split_total))
+            stats[punt] = total - stats[kick]
 
-    def _sample_kicker_stats(self, means, rng):
+    def _sample_kicker_stats(self, player, means, rng):
+        factors = self._sample_team_factors(player, rng)
         stats = {stat: 0.0 for stat in means if stat != "field_goal_yards_over_30"}
         for suffix in FIELD_GOAL_SUFFIXES:
             for outcome in ("made", "missed"):
                 stat = f"field_goals_{outcome}_{suffix}"
-                stats[stat] = int(rng.poisson(means.get(stat, 0.0)))
+                stats[stat] = self._scale(
+                    means.get(stat, 0.0), factors.get(stat, 1.0), stat, rng
+                )
             stats[f"field_goals_attempted_{suffix}"] = (
                 stats[f"field_goals_made_{suffix}"] + stats[f"field_goals_missed_{suffix}"]
             )
-        stats["extra_points_made"] = int(rng.poisson(means.get("extra_points_made", 0.0)))
-        stats["extra_points_missed"] = int(rng.poisson(means.get("extra_points_missed", 0.0)))
+        for stat in ("extra_points_made", "extra_points_missed"):
+            stats[stat] = self._scale(
+                means.get(stat, 0.0), factors.get(stat, 1.0), stat, rng
+            )
         stats["extra_points_attempted"] = stats["extra_points_made"] + stats["extra_points_missed"]
         self._correct(stats)
         return stats
@@ -470,6 +515,7 @@ class EmpiricalLibrary:
                 for suffix in self.field_goal_distances
                 if (count := int(stats.get(f"field_goals_made_{suffix}", 0)))
             )
+            self._apply_ceilings(stats, position, ("field_goal_yards_over_30",))
 
     def _correct(self, stats):
         if "field_goals_made_0_19" in stats:
@@ -712,6 +758,13 @@ def _add_kicker_stats(frame, source):
     frame["extra_points_made"] = source.pat_made
     frame["extra_points_missed"] = source.pat_missed
     frame["field_goal_made_list"] = source.fg_made_list
+    frame["field_goal_yards_over_30"] = source.fg_made_list.map(
+        lambda value: sum(
+            max(0, int(distance) - 30)
+            for distance in str(value).split(";")
+            if distance and distance != "nan"
+        )
+    )
 
 
 def _add_defense_stats(frame, source):

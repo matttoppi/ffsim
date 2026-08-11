@@ -1,4 +1,5 @@
 import json
+import math
 from functools import lru_cache
 from types import SimpleNamespace
 from urllib.error import HTTPError
@@ -52,14 +53,9 @@ class SimulationSeason:
             raise FileNotFoundError("Matchup cache is missing. Run `python -m ffsim refresh` first.")
         self.matchups = json.loads(path.read_text())
         self.players = tuple(player for team in league.rosters for player in team.players)
+        league.scoring_settings.compile_positions(self.players)
         self.teams_by_roster_id = {team.roster_id: team for team in league.rosters}
-        self.factor_groups = tuple(
-            (
-                tuple(group),
-                tuple(player.expected_weekly_score(league.scoring_settings) for player in group),
-            )
-            for group in _groups(self.players, lambda player: (player.team, player.position))
-        )
+        self.factor_groups = _competition_groups(self.players, league.scoring_settings)
         self.week_contexts = {
             week: tuple(self._player_week_context(player, week) for player in self.players)
             for week in range(1, weeks + 4)
@@ -253,19 +249,11 @@ class SimulationSeason:
             return
         groups = getattr(self, "factor_groups", None)
         if groups is None:
-            groups = tuple(
-                (
-                    tuple(group),
-                    tuple(
-                        player.expected_weekly_score(self.league.scoring_settings)
-                        for player in group
-                    ),
-                )
-                for group in _groups(players, lambda player: (player.team, player.position))
-            )
-        for group, weights in groups:
-            shocks = [mean_preserving_lognormal(1, competition_cv, self.rng) for _ in group]
-            normalizer = np.average(shocks, weights=weights) if sum(weights) else 1.0
+            groups = _competition_groups(players, self.league.scoring_settings)
+        for group, weights, weight_total in groups:
+            sigma_log = math.sqrt(math.log(1 + competition_cv**2))
+            shocks = self.rng.lognormal(-0.5 * sigma_log**2, sigma_log, len(group))
+            normalizer = np.dot(shocks, weights) / weight_total if weight_total else 1.0
             for player, shock in zip(group, shocks):
                 player.week_factor *= shock / normalizer
 
@@ -309,3 +297,14 @@ def _groups(values, key):
     for value in values:
         groups.setdefault(key(value), []).append(value)
     return groups.values()
+
+
+def _competition_groups(players, scoring_settings):
+    result = []
+    for group in _groups(players, lambda player: (player.team, player.position)):
+        group = tuple(group)
+        weights = np.array([
+            player.expected_weekly_score(scoring_settings) for player in group
+        ])
+        result.append((group, weights, float(weights.sum())))
+    return tuple(result)

@@ -187,6 +187,22 @@ class EmpiricalSamplingTest(unittest.TestCase):
                     with self.subTest(position=position, stat=stat):
                         self.assertLessEqual(value, ceiling)
 
+    def test_stat_ceilings_leave_twenty_percent_record_headroom(self):
+        for position, stat in (("QB", "passing_yards"), ("RB", "rushing_yards")):
+            historical_max = self.library.player_rows.loc[
+                self.library.player_rows.position == position, stat
+            ].max()
+            self.assertEqual(
+                self.library.stat_ceilings[(position, stat)],
+                historical_max * 1.2,
+            )
+        self.assertGreater(
+            self.library.team_rows.loc[
+                self.library.team_rows.position == "K", "field_goal_yards_over_30"
+            ].max(),
+            0,
+        )
+
     def test_dual_threat_qb_tails_match_historical_shape(self):
         # A dual-threat QB is where multiplicative transfer used to explode:
         # Stafford's near-zero rushing average turned a 6-yard scramble into a
