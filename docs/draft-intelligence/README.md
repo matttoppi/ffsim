@@ -4,6 +4,21 @@ Implementation and research plan for the live fantasy-football draft decision en
 
 The full specification is split into chapter files to keep the repository version easy for coding agents and reviewers to navigate. The source specification was developed against `ffsim` `main` at commit `efd2d3c`; audit the local repository before implementation because local commits may be newer.
 
+## Agent entrypoint
+
+A coding agent should **not** begin by reading all specification chapters sequentially and immediately changing code.
+
+Start in this order:
+
+1. [`/AGENTS.md`](../../AGENTS.md) — operating rules, correctness invariants, sequencing, research discipline, and stop conditions.
+2. [`IMPLEMENTATION_LEDGER.md`](IMPLEMENTATION_LEDGER.md) — current phase, completed work, validation state, blockers, and exact next tasks.
+3. [`DECISIONS.md`](DECISIONS.md) — durable architectural decisions already accepted.
+4. The relevant specification chapters below for the active phase.
+
+For a fresh Codex session, [`CODEX_HANDOFF_PROMPT.md`](CODEX_HANDOFF_PROMPT.md) contains the ready-to-paste autonomous handoff prompt.
+
+The specification describes the destination. The implementation ledger describes where the project is now. Git and tests describe what is actually implemented.
+
 ## Specification
 
 1. [Product definition, goals, current ffsim baseline, architecture, and domain model](01-product-architecture.md)
