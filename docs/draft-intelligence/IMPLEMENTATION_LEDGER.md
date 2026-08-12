@@ -7,8 +7,8 @@ This file is the current operational state of the project. Keep it short, factua
 **Phase:** Phase 1 — Foundational draft intelligence data layer
 **State:** In progress
 **Branch:** `feat/draft-intelligence`  
-**Implementation code changed:** No  
-**Primary next action:** Add fixture-driven Sleeper historical draft discovery, global `draft_id` deduplication, and normalized draft/pick records without changing the season simulator.
+**Implementation code changed:** Yes
+**Primary next action:** Add explicit historical-draft inclusion/exclusion classification and canonical player match coverage to `draft-audit`; then freeze representative API fixtures before adding persistence.
 
 ## Project entrypoints
 
@@ -35,7 +35,9 @@ Read in this order:
 
 ## In progress
 
-- [ ] Phase 1 historical Sleeper ingestion vertical slice.
+- [x] Read-only `draft-audit` command with manager history discovery and normalized draft/pick records.
+- [x] Global draft deduplication by `draft_id` and pick deduplication by `(draft_id, pick_no)`.
+- [ ] Context classification, canonical player match reporting, frozen realistic fixtures, and raw/normalized persistence.
 
 ## Next tasks
 
@@ -55,8 +57,8 @@ Read in this order:
 Do not begin until Phase 0 is complete and reconciled.
 
 - [ ] Introduce canonical draft/player/manager domain types without breaking current simulation behavior.
-- [ ] Add historical Sleeper draft discovery and ingestion.
-- [ ] Deduplicate shared drafts by `draft_id` and picks by `(draft_id, pick_no)`.
+- [x] Add historical Sleeper draft discovery and read-only ingestion.
+- [x] Deduplicate shared drafts by `draft_id` and picks by `(draft_id, pick_no)`.
 - [ ] Normalize historical draft context: season, format, scoring, team count, roster configuration, draft type, timestamps, keeper state.
 - [ ] Add canonical/external player identity mapping.
 - [ ] Add tests against realistic fixture data.
@@ -71,11 +73,11 @@ Record results here after the first local audit.
 
 | Check | Status | Notes |
 |---|---|---|
-| Existing Python tests | Pass | 68 tests in 19.96s; initial system-Python collection failed only because dependencies were absent, then passed in `.venv` |
+| Existing Python tests | Pass | 70 tests in 20.26s after the first Phase 1 slice |
 | Frontend tests/build | Pass | 28 Vitest tests; TypeScript/Vite production build passed |
 | Current simulation benchmark | Pass | M5 Max single-worker baselines recorded below |
 | Sleeper live API smoke test | Pass | Verified 2026 league, draft, picks, traded picks, roster, and per-user history payloads |
-| Historical draft ingestion | Not implemented | Phase 1 |
+| Historical draft ingestion | Partial/pass | Live audit normalized 6,031 picks from 63 unique drafts; persistence and full classification remain |
 | ADP source validation | Partial by design | Official consensus/manual paths identified; provider-key payload checks deferred to Phase 2 |
 
 ## Phase 0 audit — 2026-08-12
@@ -130,8 +132,8 @@ None. A FantasyPros API key will be needed in Phase 2 to validate actual tier-sp
 
 ## Handoff note
 
-Phase 0 is complete against merged `main` commit `022d1db`. Start with the smallest Phase 1 slice: raw/normalized Sleeper history discovery with global draft and pick deduplication, frozen fixtures, and no season-simulation changes.
+Phase 0 is complete against merged `main` commit `022d1db`. The first Phase 1 slice adds `python -m ffsim draft-audit`, normalized records, and deduplication without season-simulation changes. Next, report explicit exclusions and active canonical-ID coverage, then freeze representative real payload shapes before persistence.
 
 ## Last updated
 
-2026-08-12 — Phase 0 completed; Phase 1 Sleeper history ingestion started.
+2026-08-12 — Phase 0 completed; first Phase 1 Sleeper history/deduplication slice validated live and locally.

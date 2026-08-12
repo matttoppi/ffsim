@@ -8,9 +8,9 @@ from ffsim.config import AppConfig
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Run fantasy football season simulations.")
+    parser = argparse.ArgumentParser(description="Run fantasy football simulation and draft tools.")
     parser.add_argument(
-        "command", choices=("setup", "simulate", "refresh", "serve"), nargs="?",
+        "command", choices=("setup", "simulate", "refresh", "serve", "draft-audit"), nargs="?",
         default="simulate",
     )
     parser.add_argument("--config", default="config.json")
@@ -102,6 +102,14 @@ def main():
         results_file=args.output or config.results_file,
         scenario_file=args.scenario or config.scenario_file,
     )
+
+    if args.command == "draft-audit":
+        from ffsim.draft_intel.history import load_history, summarize_history
+
+        seasons = range(args.season, args.season - 3, -1)
+        history = load_history(config.league_id, seasons)
+        print(json.dumps(summarize_history(history, args.season), indent=2))
+        return
 
     if args.command == "refresh":
         from ffsim.loaders.league import refresh_league

@@ -97,6 +97,14 @@ python -m ffsim simulate --teams-only
 python -m ffsim simulate --workers 1
 ```
 
+Audit the current league's managers and their Sleeper draft history without changing local data:
+
+```bash
+python -m ffsim draft-audit --league-id YOUR_LEAGUE_ID --season 2026
+```
+
+The audit checks the requested season and two prior seasons, fetches every shared draft once, and reports normalized draft/pick counts and format coverage.
+
 Normal runs keep aggregate player summaries without retaining every sampled
 score. `--plots` retains the raw samples needed for histograms. `--teams-only`
 skips bench-player score generation and omits the `players` result object when
