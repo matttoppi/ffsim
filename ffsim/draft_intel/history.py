@@ -73,7 +73,10 @@ def load_history(
             raw_responses[path] = payload
         return payload
 
-    canonical_player_ids = {str(player_id) for player_id in canonical_player_ids}
+    canonical_player_ids = {
+        str(source_id): str(canonical_id)
+        for source_id, canonical_id in dict(canonical_player_ids).items()
+    }
     seasons = tuple(dict.fromkeys(int(season) for season in seasons))
     if not seasons:
         raise ValueError("At least one history season is required")
@@ -171,7 +174,7 @@ def summarize_history(history, current_season):
             "exclusion_reasons": dict(sorted(exclusion_reasons.items())),
         },
         "canonical_player_coverage": {
-            "method": "active_sleeper_id",
+            "method": "known_sleeper_external_id",
             "all_picks": _canonical_coverage(history.picks),
             "model_eligible_picks": _canonical_coverage(model_picks),
         },
@@ -240,7 +243,7 @@ def _normalize_pick(pick, canonical_player_ids):
         roster_id=_int(pick.get("roster_id")),
         manager_id=_text(pick.get("picked_by")),
         player_id=player_id,
-        canonical_player_id=player_id if player_id in canonical_player_ids else None,
+        canonical_player_id=canonical_player_ids.get(player_id),
         position=_text(metadata.get("position")),
         is_keeper=pick.get("is_keeper") if isinstance(pick.get("is_keeper"), bool) else None,
     )

@@ -18,6 +18,27 @@ CREATE TABLE IF NOT EXISTS managers (
     updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS canonical_players (
+    canonical_player_id TEXT PRIMARY KEY,
+    full_name TEXT NOT NULL,
+    normalized_name TEXT NOT NULL,
+    position TEXT NOT NULL,
+    nfl_team TEXT,
+    active INTEGER NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS player_external_ids (
+    canonical_player_id TEXT NOT NULL REFERENCES canonical_players(canonical_player_id),
+    source TEXT NOT NULL,
+    external_id TEXT NOT NULL,
+    first_seen_at TEXT NOT NULL,
+    last_seen_at TEXT NOT NULL,
+    confidence REAL NOT NULL,
+    PRIMARY KEY (source, external_id),
+    UNIQUE (canonical_player_id, source)
+);
+
 CREATE TABLE IF NOT EXISTS historical_drafts (
     draft_id TEXT PRIMARY KEY,
     league_id TEXT,
@@ -65,7 +86,13 @@ CREATE TABLE IF NOT EXISTS historical_picks (
 """
 
 
-def store_history(history, raw_responses, storage_dir=None, observed_at=None):
+def store_history(
+    history,
+    raw_responses,
+    canonical_players,
+    storage_dir=None,
+    observed_at=None,
+):
     if not raw_responses:
         raise ValueError("Raw Sleeper responses are required for persistence")
 
@@ -94,6 +121,7 @@ def store_history(history, raw_responses, storage_dir=None, observed_at=None):
         _store_normalized(
             connection,
             history,
+            tuple(canonical_players),
             snapshot_hash,
             snapshot_relative.as_posix(),
             observed_at,
@@ -108,7 +136,36 @@ def store_history(history, raw_responses, storage_dir=None, observed_at=None):
     }
 
 
-def _store_normalized(connection, history, snapshot_hash, snapshot_path, observed_at):
+def load_sleeper_identity_map(storage_dir=None):
+    database_path = Path(storage_dir or CACHE_DIR / "draft_intel") / "history.sqlite3"
+    if not database_path.exists():
+        return {}
+    connection = sqlite3.connect(database_path)
+    try:
+        table_exists = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'player_external_ids'"
+        ).fetchone()
+        if not table_exists:
+            return {}
+        return dict(connection.execute(
+            """
+            SELECT external_id, canonical_player_id
+            FROM player_external_ids
+            WHERE source = 'sleeper'
+            """
+        ))
+    finally:
+        connection.close()
+
+
+def _store_normalized(
+    connection,
+    history,
+    canonical_players,
+    snapshot_hash,
+    snapshot_path,
+    observed_at,
+):
     picks_by_draft = defaultdict(list)
     for pick in history.picks:
         picks_by_draft[pick.draft_id].append(pick)
@@ -125,6 +182,66 @@ def _store_normalized(connection, history, snapshot_hash, snapshot_path, observe
             (
                 (manager.user_id, manager.display_name, observed_at, observed_at)
                 for manager in history.managers
+            ),
+        )
+        connection.execute(
+            """
+            UPDATE canonical_players
+            SET active = 0, updated_at = ?
+            WHERE canonical_player_id IN (
+                SELECT canonical_player_id
+                FROM player_external_ids
+                WHERE source = 'sleeper'
+            )
+            """,
+            (observed_at,),
+        )
+        connection.executemany(
+            """
+            INSERT INTO canonical_players (
+                canonical_player_id, full_name, normalized_name, position,
+                nfl_team, active, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(canonical_player_id) DO UPDATE SET
+                full_name = excluded.full_name,
+                normalized_name = excluded.normalized_name,
+                position = excluded.position,
+                nfl_team = excluded.nfl_team,
+                active = excluded.active,
+                updated_at = excluded.updated_at
+            """,
+            (
+                (
+                    player.canonical_player_id,
+                    player.full_name,
+                    player.normalized_name,
+                    player.position,
+                    player.nfl_team,
+                    int(player.active),
+                    observed_at,
+                )
+                for player in canonical_players
+            ),
+        )
+        connection.executemany(
+            """
+            INSERT INTO player_external_ids (
+                canonical_player_id, source, external_id,
+                first_seen_at, last_seen_at, confidence
+            ) VALUES (?, 'sleeper', ?, ?, ?, 1.0)
+            ON CONFLICT(source, external_id) DO UPDATE SET
+                canonical_player_id = excluded.canonical_player_id,
+                last_seen_at = excluded.last_seen_at,
+                confidence = excluded.confidence
+            """,
+            (
+                (
+                    player.canonical_player_id,
+                    player.sleeper_id,
+                    observed_at,
+                    observed_at,
+                )
+                for player in canonical_players
             ),
         )
         for draft in history.drafts:
