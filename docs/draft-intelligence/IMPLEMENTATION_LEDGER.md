@@ -4,11 +4,11 @@ This file is the current operational state of the project. Keep it short, factua
 
 ## Current status
 
-**Phase:** Phase 0 — Repository and data audit  
-**State:** Not started  
+**Phase:** Phase 1 — Foundational draft intelligence data layer
+**State:** In progress
 **Branch:** `feat/draft-intelligence`  
 **Implementation code changed:** No  
-**Primary next action:** Audit the current local repository against the specification and any unpublished local commits before introducing new architecture.
+**Primary next action:** Add fixture-driven Sleeper historical draft discovery, global `draft_id` deduplication, and normalized draft/pick records without changing the season simulator.
 
 ## Project entrypoints
 
@@ -31,23 +31,24 @@ Read in this order:
 - [x] Implementation ledger added.
 - [x] Architecture decision log initialized.
 - [x] Ready-to-paste Codex handoff prompt added.
+- [x] Phase 0 repository, test, performance, API, source, and target-history audit completed.
 
 ## In progress
 
-None. No production implementation should be considered started yet.
+- [ ] Phase 1 historical Sleeper ingestion vertical slice.
 
 ## Next tasks
 
 ### Phase 0 — repository/data audit
 
-- [ ] Inspect local Git status, branches, unpublished commits, and diffs relative to `origin/feat/draft-intelligence` and `origin/main`.
-- [ ] Reconcile any newer local `ffsim` work before applying this plan.
-- [ ] Run the existing test suite and record baseline failures, if any.
-- [ ] Profile the current simulation path sufficiently to identify actual cost centers before performance refactors.
-- [ ] Inventory current models/loaders/simulation APIs and map them to the proposed boundaries in the spec.
-- [ ] Verify current Sleeper league/draft endpoint behavior needed by the project.
-- [ ] Verify accessible ADP/projection sources, especially source-level platform ADP, auth, rate limits, and licensing constraints.
-- [ ] Produce a short audit note in this ledger: what already exists, what must change, and what spec assumptions need revision.
+- [x] Inspect local Git status, branches, unpublished commits, and diffs relative to `origin/feat/draft-intelligence` and `origin/main`.
+- [x] Reconcile newer `main` work before applying this plan.
+- [x] Run the existing test suite and record the baseline.
+- [x] Profile the current simulation path sufficiently to identify actual cost centers before performance refactors.
+- [x] Inventory current models/loaders/simulation APIs and map them to the proposed boundaries in the spec.
+- [x] Verify current Sleeper league/draft endpoint behavior needed by the project.
+- [x] Audit accessible ADP/projection sources, auth, published rate guidance, and licensing constraints; real-key FantasyPros payload validation remains a Phase 2 prerequisite.
+- [x] Record what exists, what must change, and revised assumptions below.
 
 ### Phase 1 — foundational draft intelligence data layer
 
@@ -70,12 +71,26 @@ Record results here after the first local audit.
 
 | Check | Status | Notes |
 |---|---|---|
-| Existing Python tests | Not run in this branch handoff | Run locally before structural changes |
-| Frontend tests/build | Not run in this branch handoff | Run if local web app remains present |
-| Current simulation benchmark | Not re-run | README contains historical directional benchmarks only |
-| Sleeper live API smoke test | Not run | Verify during Phase 0 |
+| Existing Python tests | Pass | 68 tests in 19.96s; initial system-Python collection failed only because dependencies were absent, then passed in `.venv` |
+| Frontend tests/build | Pass | 28 Vitest tests; TypeScript/Vite production build passed |
+| Current simulation benchmark | Pass | M5 Max single-worker baselines recorded below |
+| Sleeper live API smoke test | Pass | Verified 2026 league, draft, picks, traded picks, roster, and per-user history payloads |
 | Historical draft ingestion | Not implemented | Phase 1 |
-| ADP source validation | Not completed | Phase 0 research |
+| ADP source validation | Partial by design | Official consensus/manual paths identified; provider-key payload checks deferred to Phase 2 |
+
+## Phase 0 audit — 2026-08-12
+
+- **Git:** Worktree was clean. Fetched `origin/main` at `022d1db` and merged it as `a287e35`; no conflicts or unpublished local changes were found.
+- **Runtime boundary:** `PlayerLoader` builds one active Sleeper/PFF player map; `LeagueLoader` snapshots league/users/rosters but no draft data; mutable `Player`/`FantasyTeam` objects currently combine weekly world generation with lineup, standings, and playoff evaluation. Draft ingestion can be additive, while the later `SeasonWorldBank` seam belongs between player-week score generation and roster evaluation.
+- **Benchmark environment:** Apple M5 Max, 48 GB, arm64 macOS 26.5.1, Python 3.14.6. Command shape: `python -m ffsim simulate --league-id ID --simulations 100 --seed 2026 --workers 1 --teams-only`.
+- **10-team baseline:** 0.472s load, 3.810s simulation, 26.25 simulations/s, 278 MB process peak RSS.
+- **12-team baseline:** 0.470s load, 3.378s simulation, 29.60 simulations/s, 278 MB process peak RSS. Different league settings/rosters explain why team count alone does not order runtime.
+- **Profile:** A 30-simulation 12-team `cProfile` run took 3.755s including load/import overhead. `SimulationSeason.simulate` used 2.439s; player sampling/scoring 1.812s cumulative; lineup filling 0.277s; playoffs 0.156s; standings were negligible. This supports world reuse before lineup micro-optimization.
+- **Sleeper target:** The discovered upcoming league is a 10-team PPR snake draft, 16 rounds, 90-second timer. Before draft-order assignment, `draft_order` is `null` while `slot_to_roster_id` is populated. The league allows one keeper but currently reports none; these states must remain distinct.
+- **Sleeper ownership:** Completed traded picks retain the original `draft_slot` but the pick row's `roster_id`/`picked_by` identify the actual recipient. Real pick rows contain `draft_id`, `pick_no`, `round`, `draft_slot`, `roster_id`, `picked_by`, `player_id`, `is_keeper`, and player metadata.
+- **History coverage:** A bounded crawl of the 10 target managers over 2024-2026 produced 104 draft discoveries but only 63 unique `draft_id` values: 41 duplicate discoveries removed and 12 drafts shared by multiple target managers. Nineteen completed snake drafts are provisional redraft candidates pending keeper/best-ball/context filters; manager coverage is sparse (1-7 candidates each), reinforcing partial pooling.
+- **Sources checked:** Sleeper's official API remains tokenless/read-only for non-commercial use with guidance below 1000 calls/minute, and documents no ADP/default-board endpoint. FantasyPros documents keyed consensus ADP/ECR, projections, and external IDs; production personal use requires its premium tier and commercial/redistribution use requires a commercial agreement. Its public schema does not establish platform-specific ADP splits or a numeric quota, and no local key is configured. Yahoo requires OAuth and authorized-user access. Fleaflicker documents draft-board/rules/roster APIs, not market ADP. No official permitted ESPN ADP API was found, so ESPN remains optional/manual.
+- **Conclusion:** Existing identity matching can be reused for current active Sleeper IDs, but historical ingestion must preserve inactive/unresolved source IDs and cannot rely on the active-player table alone. Phase 1 should add draft-specific records and ingestion without changing the season engine.
 
 ## Non-negotiable invariants to watch
 
@@ -111,12 +126,12 @@ See `DECISIONS.md`. The foundational decisions currently include:
 
 ## Blockers
 
-None.
+None. A FantasyPros API key will be needed in Phase 2 to validate actual tier-specific response fields and quotas; it does not block Sleeper ingestion.
 
 ## Handoff note
 
-The GitHub specification was originally developed against `ffsim` `main` at commit `efd2d3c`. Local commits may be newer. The first coding agent must treat local repository state as potentially authoritative and reconcile it before implementation.
+Phase 0 is complete against merged `main` commit `022d1db`. Start with the smallest Phase 1 slice: raw/normalized Sleeper history discovery with global draft and pick deduplication, frozen fixtures, and no season-simulation changes.
 
 ## Last updated
 
-2026-08-12 — project execution layer initialized; implementation not started.
+2026-08-12 — Phase 0 completed; Phase 1 Sleeper history ingestion started.
