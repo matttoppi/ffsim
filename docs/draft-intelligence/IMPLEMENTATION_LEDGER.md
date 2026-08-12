@@ -4,11 +4,11 @@ This file is the current operational state of the project. Keep it short, factua
 
 ## Current status
 
-**Phase:** Phase 2 — Market data foundation
-**State:** In progress; local/manual slice complete, external adapters owner-deferred
+**Phase:** Phase 3 — Historical manager profiles
+**State:** In progress; exact market-independent baseline started
 **Branch:** `feat/draft-intelligence`  
 **Implementation code changed:** Yes
-**Primary next action:** Begin Phase 3 with available-set reconstruction and opportunity-aware manager/player evidence using the persisted eligible drafts.
+**Primary next action:** Add market-independent roster-construction/context summaries; defer plausible-window affinity and board-adherence scoring until historical market snapshots exist.
 
 ## Project entrypoints
 
@@ -49,6 +49,13 @@ Read in this order:
 - [x] Strict manual CSV import with canonical Sleeper-ID mapping and exact raw-byte preservation.
 - [x] Historical latest-at-or-before snapshot lookup with optional maximum staleness.
 - [x] Idempotent re-import and historical reconstruction tests.
+
+## Phase 3 in progress
+
+- [x] Reconstruct target-manager roster state and the observed available player pool before each eligible non-keeper pick.
+- [x] Seed keeper ownership before pick one regardless of the round containing the keeper row.
+- [x] Add transparent position counts, round timing, and first-position timing summaries.
+- [x] Validate the baseline against 1,507 picks by 9 target managers across 79 eligible historical drafts.
 
 ## Next tasks
 
@@ -91,7 +98,7 @@ Record results here after the first local audit.
 
 | Check | Status | Notes |
 |---|---|---|
-| Existing Python tests | Pass | 74 tests in 21.15s after the local Phase 2 slice |
+| Existing Python tests | Pass | 75 tests in 21.12s after the initial Phase 3 slice |
 | Frontend tests/build | Pass | 28 Vitest tests; TypeScript/Vite production build passed |
 | Current simulation benchmark | Pass | M5 Max single-worker baselines recorded below |
 | Sleeper live API smoke test | Pass | Verified 2026 league, draft, picks, traded picks, roster, and per-user history payloads |
@@ -155,8 +162,8 @@ External market adapters are intentionally deferred by the owner. A FantasyPros 
 
 ## Handoff note
 
-Phase 1 is complete. Phase 2 now has append-only manual market snapshots, strict canonical mapping, and historical reconstruction. External adapters remain owner-deferred; do not invent FantasyPros fields without a real key.
+Phase 1 is complete. Phase 2 has append-only manual market snapshots, strict canonical mapping, and historical reconstruction. Phase 3 has exact pick/roster/observed-availability reconstruction and basic position timing. External adapters remain owner-deferred; do not calculate plausible-window passes or board adherence without time-local market evidence.
 
 ## Last updated
 
-2026-08-12 — Local Phase 2 market snapshot/import slice completed; full Python suite passes 74 tests.
+2026-08-12 — Initial Phase 3 manager observation/profile slice completed; full Python suite passes 75 tests.
