@@ -10,7 +10,9 @@ from ffsim.config import AppConfig
 def parse_args():
     parser = argparse.ArgumentParser(description="Run fantasy football simulation and draft tools.")
     parser.add_argument(
-        "command", choices=("setup", "simulate", "refresh", "serve", "draft-audit"), nargs="?",
+        "command",
+        choices=("setup", "simulate", "refresh", "serve", "draft-audit", "market-import"),
+        nargs="?",
         default="simulate",
     )
     parser.add_argument("--config", default="config.json")
@@ -33,6 +35,11 @@ def parse_args():
         action="store_true",
         help="persist raw and normalized history when running draft-audit",
     )
+    parser.add_argument("--market-file")
+    parser.add_argument("--market-source")
+    parser.add_argument("--market-scoring")
+    parser.add_argument("--market-observed-at")
+    parser.add_argument("--market-team-count", type=int)
     output = parser.add_mutually_exclusive_group()
     output.add_argument("--plots", action="store_true")
     output.add_argument(
@@ -87,6 +94,32 @@ def main():
         from ffsim.api import create_app
 
         uvicorn.run(create_app(args.config), host=args.host, port=args.port)
+        return
+
+    if args.command == "market-import":
+        from ffsim.draft_intel.market import import_market_csv
+
+        required = {
+            "--market-file": args.market_file,
+            "--market-source": args.market_source,
+            "--market-scoring": args.market_scoring,
+            "--market-observed-at": args.market_observed_at,
+        }
+        missing = [name for name, value in required.items() if not value]
+        if missing:
+            raise SystemExit(f"market-import requires {', '.join(missing)}")
+        try:
+            result = import_market_csv(
+                args.market_file,
+                source=args.market_source,
+                season=args.season,
+                scoring=args.market_scoring,
+                observed_at=args.market_observed_at,
+                team_count=args.market_team_count,
+            )
+        except (FileNotFoundError, ValueError) as error:
+            raise SystemExit(str(error)) from error
+        print(json.dumps(result, indent=2))
         return
 
     config = AppConfig.from_file(args.config)

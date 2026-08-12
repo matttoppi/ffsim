@@ -4,11 +4,11 @@ This file is the current operational state of the project. Keep it short, factua
 
 ## Current status
 
-**Phase:** Phase 1 — Foundational draft intelligence data layer
-**State:** Complete
+**Phase:** Phase 2 — Market data foundation
+**State:** In progress; local/manual slice complete, external adapters owner-deferred
 **Branch:** `feat/draft-intelligence`  
 **Implementation code changed:** Yes
-**Primary next action:** Begin Phase 2 with the append-only market snapshot schema and manual CSV adapter; validate the FantasyPros adapter when an API key is available.
+**Primary next action:** Begin Phase 3 with available-set reconstruction and opportunity-aware manager/player evidence using the persisted eligible drafts.
 
 ## Project entrypoints
 
@@ -43,6 +43,13 @@ Read in this order:
 - [x] Persistent canonical players and one-to-one Sleeper external-ID mappings.
 - [x] Deduplicated historical league context with best-ball and missing-context exclusions.
 
+## Phase 2 local slice completed
+
+- [x] Append-only, content-addressed market snapshot and observation schema.
+- [x] Strict manual CSV import with canonical Sleeper-ID mapping and exact raw-byte preservation.
+- [x] Historical latest-at-or-before snapshot lookup with optional maximum staleness.
+- [x] Idempotent re-import and historical reconstruction tests.
+
 ## Next tasks
 
 ### Phase 0 — repository/data audit
@@ -71,13 +78,20 @@ Do not begin until Phase 0 is complete and reconciled.
 
 Follow the dependency order and acceptance criteria in the specification. Do not skip directly to live UI, GPU work, or final championship optimization before the underlying data and probabilistic models are validated.
 
+### Phase 2 — deferred external work
+
+- [ ] Validate and add the FantasyPros adapter with a real owner-provided API key.
+- [ ] Add target-platform adapters only where official or authorized data is available.
+- [ ] Add a shared adapter protocol when a second source implementation exists.
+- [ ] Surface freshness/status in the War Room when that UI phase begins.
+
 ## Validation baseline
 
 Record results here after the first local audit.
 
 | Check | Status | Notes |
 |---|---|---|
-| Existing Python tests | Pass | 72 tests in 21.25s after Phase 1 completion |
+| Existing Python tests | Pass | 74 tests in 21.15s after the local Phase 2 slice |
 | Frontend tests/build | Pass | 28 Vitest tests; TypeScript/Vite production build passed |
 | Current simulation benchmark | Pass | M5 Max single-worker baselines recorded below |
 | Sleeper live API smoke test | Pass | Verified 2026 league, draft, picks, traded picks, roster, and per-user history payloads |
@@ -137,12 +151,12 @@ See `DECISIONS.md`. The foundational decisions currently include:
 
 ## Blockers
 
-None for the next Phase 2 schema/manual-import slice. A FantasyPros API key is required to validate actual tier-specific response fields and quotas before enabling that adapter.
+External market adapters are intentionally deferred by the owner. A FantasyPros API key is required to validate actual tier-specific response fields and quotas before enabling that adapter; no local implementation work is blocked.
 
 ## Handoff note
 
-Phase 1 is complete. `python -m ffsim draft-audit` provides normalized records, global deduplication, league-context exclusions, keeper handling, canonical coverage, and opt-in content-addressed raw/SQLite persistence. Begin Phase 2 with append-only market snapshots and the manual CSV path; do not invent FantasyPros fields without a real key.
+Phase 1 is complete. Phase 2 now has append-only manual market snapshots, strict canonical mapping, and historical reconstruction. External adapters remain owner-deferred; do not invent FantasyPros fields without a real key.
 
 ## Last updated
 
-2026-08-12 — Phase 1 completed and validated against 399 live drafts, 318 live historical league contexts, and the full 72-test suite.
+2026-08-12 — Local Phase 2 market snapshot/import slice completed; full Python suite passes 74 tests.

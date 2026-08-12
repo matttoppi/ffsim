@@ -106,6 +106,17 @@ python -m ffsim draft-audit --league-id YOUR_LEAGUE_ID --season 2026
 The audit checks the requested season and two prior seasons, fetches every shared draft once, and reports normalized draft/pick counts and format coverage.
 Add `--persist` to store a content-addressed raw snapshot and idempotent normalized SQLite rows under `data/cache/draft_intel/`.
 
+Import a timestamped manual market snapshot after persisting draft history:
+
+```bash
+python -m ffsim market-import --market-file market.csv --market-source consensus \
+  --market-scoring ppr --market-team-count 10 --market-observed-at 2026-08-12T12:00:00Z
+```
+
+The UTF-8 CSV requires `sleeper_id` and at least one of `adp` or `rank`.
+Optional columns are `std_dev` and `tier`. Imports fail on unknown players and
+are stored append-only with their exact source bytes.
+
 Normal runs keep aggregate player summaries without retaining every sampled
 score. `--plots` retains the raw samples needed for histograms. `--teams-only`
 skips bench-player score generation and omits the `players` result object when

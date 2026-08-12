@@ -97,6 +97,31 @@ CREATE TABLE IF NOT EXISTS historical_picks (
     is_keeper INTEGER,
     PRIMARY KEY (draft_id, pick_no)
 );
+
+CREATE TABLE IF NOT EXISTS market_snapshots (
+    snapshot_id TEXT PRIMARY KEY,
+    source TEXT NOT NULL,
+    source_type TEXT NOT NULL,
+    season INTEGER NOT NULL,
+    scoring TEXT NOT NULL,
+    team_count INTEGER,
+    observed_at TEXT NOT NULL,
+    retrieved_at TEXT NOT NULL,
+    raw_snapshot_hash TEXT NOT NULL,
+    raw_snapshot_path TEXT NOT NULL,
+    observation_count INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS market_observations (
+    snapshot_id TEXT NOT NULL REFERENCES market_snapshots(snapshot_id),
+    canonical_player_id TEXT NOT NULL REFERENCES canonical_players(canonical_player_id),
+    source_player_id TEXT NOT NULL,
+    adp REAL,
+    rank INTEGER,
+    std_dev REAL,
+    tier INTEGER,
+    PRIMARY KEY (snapshot_id, canonical_player_id)
+);
 """
 
 
