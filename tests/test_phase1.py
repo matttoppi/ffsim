@@ -511,7 +511,7 @@ class CompletedAndReproducibilityTest(unittest.TestCase):
                 for team in self.league.rosters:
                     team.wins = int(self.rng.integers(0, 15))
                     team.points_for = float(self.rng.integers(1000, 2000))
-                bracket = SimpleNamespace(teams=self.league.rosters, division1_winner=self.league.rosters[0], division2_winner=self.league.rosters[3])
+                bracket = SimpleNamespace(teams=self.league.rosters, division_winners=[self.league.rosters[0], self.league.rosters[3]])
                 self.playoff_sim = SimpleNamespace(bracket=bracket, champion=self.league.rosters[0])
 
         simulation = MonteCarloSimulation(league, num_simulations=4, seed=42)

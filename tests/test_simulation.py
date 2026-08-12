@@ -232,8 +232,7 @@ class SimulationTest(unittest.TestCase):
         teams = [object() for _ in range(6)]
         bracket = PlayoffBracket(
             teams,
-            division1_winner=teams[0],
-            division2_winner=teams[1],
+            division_winners=teams[:2],
             simulation_season=SimpleNamespace(weeks=17),
         )
 
@@ -241,8 +240,6 @@ class SimulationTest(unittest.TestCase):
 
         self.assertEqual(bracket.first_week, 18)
         self.assertEqual([match.week for match in bracket.matches], [18, 18])
-        with self.assertRaises(ValueError):
-            bracket.create_final([], 20)
 
 
 if __name__ == "__main__":

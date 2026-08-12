@@ -37,13 +37,14 @@ class ApiTest(unittest.TestCase):
     def test_runner_completes_job_with_structured_results(self):
         class FakeSimulation:
             league = SimpleNamespace(
-                rosters=[SimpleNamespace(name="Alpha"), SimpleNamespace(name="Beta")]
+                rosters=[SimpleNamespace(name="Alpha"), SimpleNamespace(name="Beta")],
+                divisions={},
             )
 
             def run(self, on_simulation_complete, show_progress):
                 self.callback = on_simulation_complete
                 self.show_progress = show_progress
-                on_simulation_complete(RESULT)
+                on_simulation_complete({**RESULT, "division_winners": []})
                 return {"teams": {"Alpha": {}, "Beta": {}}}
 
         job = SimulationJob("job", total=1, seed=7, workers=1, teams_only=True)
@@ -53,6 +54,7 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(job.status, "completed")
         self.assertEqual(job.completed, 1)
         self.assertEqual(job.results, {"teams": {"Alpha": {}, "Beta": {}}})
+        self.assertEqual(job.division_wins, {})
 
     def test_api_contract_and_request_limits(self):
         paths = create_app("config.json").openapi()["paths"]

@@ -80,7 +80,7 @@ class SimulationJob:
                 "error": self.error,
             }
 
-    def set_status(self, status, teams=()):
+    def set_status(self, status, teams=(), division_teams=()):
         with self.condition:
             self.status = status
             if status == "running":
@@ -88,6 +88,7 @@ class SimulationJob:
             for team in teams:
                 self.championships[team] = 0
                 self.playoff_appearances[team] = 0
+            for team in division_teams:
                 self.division_wins[team] = 0
             self._publish_locked("status", self.snapshot())
 
@@ -141,7 +142,8 @@ def _run_job(job, base_config):
             workers=job.workers,
             track_players=not job.teams_only,
         )
-        job.set_status("running", [team.name for team in simulation.league.rosters])
+        teams = [team.name for team in simulation.league.rosters]
+        job.set_status("running", teams, teams if simulation.league.divisions else ())
         results = simulation.run(on_simulation_complete=job.record, show_progress=False)
         job.complete(results)
     except Exception as error:

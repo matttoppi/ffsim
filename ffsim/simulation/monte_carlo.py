@@ -176,14 +176,11 @@ class MonteCarloSimulation:
         playoff_sim = season.playoff_sim
         self.tracker.record_playoff_results(
             playoff_sim.bracket.teams,
-            [playoff_sim.bracket.division1_winner, playoff_sim.bracket.division2_winner],
+            playoff_sim.bracket.division_winners,
             playoff_sim.champion,
         )
         return {
             "champion": playoff_sim.champion.name,
             "playoff_teams": [team.name for team in playoff_sim.bracket.teams],
-            "division_winners": [
-                playoff_sim.bracket.division1_winner.name,
-                playoff_sim.bracket.division2_winner.name,
-            ],
+            "division_winners": [team.name for team in playoff_sim.bracket.division_winners],
         }
