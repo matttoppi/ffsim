@@ -17,6 +17,7 @@ class PickObservation:
     round: int | None
     draft_slot: int | None
     manager_id: str
+    manager_display_name: str
     selected_player_id: str | None
     selected_position: str | None
     roster_before_pick: tuple[str, ...]
@@ -41,9 +42,10 @@ def load_pick_observations(storage_dir=None):
             """
             SELECT p.draft_id, d.season, d.scoring_type, d.team_count,
                    d.start_time, p.pick_no, p.round, p.draft_slot, p.manager_id,
-                   p.canonical_player_id, p.position, p.is_keeper
+                   m.display_name, p.canonical_player_id, p.position, p.is_keeper
             FROM historical_picks AS p
             JOIN historical_drafts AS d ON d.draft_id = p.draft_id
+            LEFT JOIN managers AS m ON m.sleeper_user_id = p.manager_id
             WHERE d.included = 1
             ORDER BY p.draft_id, p.pick_no
             """
@@ -88,6 +90,7 @@ def load_pick_observations(storage_dir=None):
                     round=pick["round"],
                     draft_slot=pick["draft_slot"],
                     manager_id=manager_id,
+                    manager_display_name=pick["display_name"] or "",
                     selected_player_id=player_id,
                     selected_position=pick["position"],
                     roster_before_pick=tuple(rosters[manager_id]),
@@ -129,10 +132,23 @@ def summarize_manager_profiles(observations):
                     first_by_position.setdefault(pick.selected_position, pick.round)
             for position, round_number in first_by_position.items():
                 first_rounds[position].append(round_number)
+        drafts = [draft_picks[0] for draft_picks in picks_by_draft.values()]
 
         profiles[manager_id] = {
+            "display_name": picks[0].manager_display_name,
             "draft_count": len(picks_by_draft),
             "pick_count": len(picks),
+            "drafts_by_season": dict(sorted(Counter(
+                pick.season for pick in drafts
+            ).items())),
+            "drafts_by_scoring": dict(sorted(Counter(
+                pick.scoring_type or "unknown"
+                for pick in drafts
+            ).items())),
+            "drafts_by_team_count": dict(sorted(Counter(
+                str(pick.team_count) if pick.team_count is not None else "unknown"
+                for pick in drafts
+            ).items())),
             "position_picks": dict(sorted(position_counts.items())),
             "position_picks_by_round": {
                 str(round_number): dict(sorted(

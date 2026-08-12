@@ -8,7 +8,7 @@ This file is the current operational state of the project. Keep it short, factua
 **State:** In progress; exact market-independent baseline started
 **Branch:** `feat/draft-intelligence`  
 **Implementation code changed:** Yes
-**Primary next action:** Add market-independent roster-construction/context summaries; defer plausible-window affinity and board-adherence scoring until historical market snapshots exist.
+**Primary next action:** Resume Phase 2 historical market collection when the owner supplies data/source access, then compute plausible-window affinity, passes, and board adherence in Phase 3.
 
 ## Project entrypoints
 
@@ -55,6 +55,7 @@ Read in this order:
 - [x] Reconstruct target-manager roster state and the observed available player pool before each eligible non-keeper pick.
 - [x] Seed keeper ownership before pick one regardless of the round containing the keeper row.
 - [x] Add transparent position counts, round timing, and first-position timing summaries.
+- [x] Add exact season/scoring/team-count context counts and a read-only `manager-audit` command.
 - [x] Validate the baseline against 1,507 picks by 9 target managers across 79 eligible historical drafts.
 
 ## Next tasks
@@ -98,7 +99,7 @@ Record results here after the first local audit.
 
 | Check | Status | Notes |
 |---|---|---|
-| Existing Python tests | Pass | 75 tests in 21.12s after the initial Phase 3 slice |
+| Existing Python tests | Pass | 75 tests in 21.01s after the initial Phase 3 slice |
 | Frontend tests/build | Pass | 28 Vitest tests; TypeScript/Vite production build passed |
 | Current simulation benchmark | Pass | M5 Max single-worker baselines recorded below |
 | Sleeper live API smoke test | Pass | Verified 2026 league, draft, picks, traded picks, roster, and per-user history payloads |

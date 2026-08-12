@@ -72,8 +72,12 @@ class PickObservationTest(unittest.TestCase):
                 ("sleeper:4",),
             )
             self.assertEqual(summarize_manager_profiles(observations)["u1"], {
+                "display_name": "One",
                 "draft_count": 1,
                 "pick_count": 2,
+                "drafts_by_season": {2026: 1},
+                "drafts_by_scoring": {"unknown": 1},
+                "drafts_by_team_count": {"unknown": 1},
                 "position_picks": {"WR": 2},
                 "position_picks_by_round": {"1": {"WR": 2}},
                 "first_position_rounds": {"WR": [1]},

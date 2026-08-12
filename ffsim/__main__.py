@@ -11,7 +11,10 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Run fantasy football simulation and draft tools.")
     parser.add_argument(
         "command",
-        choices=("setup", "simulate", "refresh", "serve", "draft-audit", "market-import"),
+        choices=(
+            "setup", "simulate", "refresh", "serve", "draft-audit", "market-import",
+            "manager-audit",
+        ),
         nargs="?",
         default="simulate",
     )
@@ -120,6 +123,21 @@ def main():
         except (FileNotFoundError, ValueError) as error:
             raise SystemExit(str(error)) from error
         print(json.dumps(result, indent=2))
+        return
+
+    if args.command == "manager-audit":
+        from ffsim.draft_intel.profiles import load_pick_observations, summarize_manager_profiles
+
+        try:
+            observations = load_pick_observations()
+        except FileNotFoundError as error:
+            raise SystemExit(str(error)) from error
+        profiles = summarize_manager_profiles(observations)
+        print(json.dumps({
+            "observation_count": len(observations),
+            "manager_count": len(profiles),
+            "profiles": profiles,
+        }, indent=2))
         return
 
     config = AppConfig.from_file(args.config)

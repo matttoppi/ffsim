@@ -117,6 +117,16 @@ The UTF-8 CSV requires `sleeper_id` and at least one of `adp` or `rank`.
 Optional columns are `std_dev` and `tier`. Imports fail on unknown players and
 are stored append-only with their exact source bytes.
 
+Inspect the market-independent historical manager profile baseline:
+
+```bash
+python -m ffsim manager-audit
+```
+
+This reports sample counts, draft contexts, position timing, and first-position
+rounds. It does not infer reach/pass behavior without a compatible historical
+market snapshot.
+
 Normal runs keep aggregate player summaries without retaining every sampled
 score. `--plots` retains the raw samples needed for histograms. `--teams-only`
 skips bench-player score generation and omits the `players` result object when
