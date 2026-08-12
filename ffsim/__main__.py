@@ -28,6 +28,11 @@ def parse_args():
     parser.add_argument("--scenario")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8000)
+    parser.add_argument(
+        "--persist",
+        action="store_true",
+        help="persist raw and normalized history when running draft-audit",
+    )
     output = parser.add_mutually_exclusive_group()
     output.add_argument("--plots", action="store_true")
     output.add_argument(
@@ -116,12 +121,19 @@ def main():
             for player in json.loads(players_path.read_text())
             if (player_id := player.get("sleeper_id") or player.get("player_id"))
         }
+        raw_responses = {} if args.persist else None
         history = load_history(
             config.league_id,
             seasons,
             canonical_player_ids=player_ids,
+            raw_responses=raw_responses,
         )
-        print(json.dumps(summarize_history(history, args.season), indent=2))
+        summary = summarize_history(history, args.season)
+        if args.persist:
+            from ffsim.draft_intel.storage import store_history
+
+            summary["storage"] = store_history(history, raw_responses)
+        print(json.dumps(summary, indent=2))
         return
 
     if args.command == "refresh":

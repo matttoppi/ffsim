@@ -8,7 +8,7 @@ This file is the current operational state of the project. Keep it short, factua
 **State:** In progress
 **Branch:** `feat/draft-intelligence`  
 **Implementation code changed:** Yes
-**Primary next action:** Add raw and normalized historical-draft persistence, preserving source payloads and unresolved player IDs.
+**Primary next action:** Persist canonical player and external-ID records for the active Sleeper map, while retaining unresolved historical source IDs.
 
 ## Project entrypoints
 
@@ -39,7 +39,7 @@ Read in this order:
 - [x] Global draft deduplication by `draft_id` and pick deduplication by `(draft_id, pick_no)`.
 - [x] Explicit draft inclusion/exclusion classification and keeper-pick exclusion.
 - [x] Active Sleeper-ID canonical match reporting and frozen representative API fixtures.
-- [ ] Raw and normalized persistence.
+- [x] Content-addressed raw snapshots and idempotent normalized SQLite persistence.
 
 ## Next tasks
 
@@ -75,11 +75,11 @@ Record results here after the first local audit.
 
 | Check | Status | Notes |
 |---|---|---|
-| Existing Python tests | Pass | 70 tests in 21.36s after draft classification/coverage slice |
+| Existing Python tests | Pass | 71 tests in 20.97s after local persistence slice |
 | Frontend tests/build | Pass | 28 Vitest tests; TypeScript/Vite production build passed |
 | Current simulation benchmark | Pass | M5 Max single-worker baselines recorded below |
 | Sleeper live API smoke test | Pass | Verified 2026 league, draft, picks, traded picks, roster, and per-user history payloads |
-| Historical draft ingestion | Partial/pass | Current configured league: 52,785 picks from 399 unique drafts; 107 draft environments and 19,594 non-keeper picks are model-eligible; persistence remains |
+| Historical draft ingestion | Partial/pass | Current configured league: 52,803 picks from 399 unique drafts persisted; 107 draft environments and 19,594 non-keeper picks are model-eligible |
 | ADP source validation | Partial by design | Official consensus/manual paths identified; provider-key payload checks deferred to Phase 2 |
 
 ## Phase 0 audit — 2026-08-12
@@ -93,8 +93,9 @@ Record results here after the first local audit.
 - **Sleeper target:** The discovered upcoming league is a 10-team PPR snake draft, 16 rounds, 90-second timer. Before draft-order assignment, `draft_order` is `null` while `slot_to_roster_id` is populated. The league allows one keeper but currently reports none; these states must remain distinct.
 - **Sleeper ownership:** Completed traded picks retain the original `draft_slot` but the pick row's `roster_id`/`picked_by` identify the actual recipient. Real pick rows contain `draft_id`, `pick_no`, `round`, `draft_slot`, `roster_id`, `picked_by`, `player_id`, `is_keeper`, and player metadata.
 - **History coverage:** A bounded crawl of the 10 target managers over 2024-2026 produced 104 draft discoveries but only 63 unique `draft_id` values: 41 duplicate discoveries removed and 12 drafts shared by multiple target managers. Nineteen completed snake drafts are provisional redraft candidates pending keeper/best-ball/context filters; manager coverage is sparse (1-7 candidates each), reinforcing partial pooling.
-- **Current configured-league classification:** A later full crawl produced 470 discoveries, 399 unique drafts, and 52,785 unique picks. Explicit status/type/scoring filters retain 107 completed non-dynasty, non-IDP snake drafts and 19,594 non-keeper picks. Active Sleeper-ID coverage is 19,593/19,594 eligible picks (99.99%) and 626/627 unique eligible players (99.84%).
+- **Current configured-league classification:** The latest full crawl produced 470 discoveries, 399 unique drafts, and 52,803 unique picks. Explicit status/type/scoring filters retain 107 completed non-dynasty, non-IDP snake drafts and 19,594 non-keeper picks. Active Sleeper-ID coverage is 19,593/19,594 eligible picks (99.99%) and 626/627 unique eligible players (99.84%).
 - **Undocumented draft field:** Current payloads include `settings.player_type`, but Sleeper's public API documentation does not define its values. The raw integer and roster slots are preserved without inferring rookie/veteran semantics; dynasty drafts are excluded from redraft modeling using `metadata.scoring_type`.
+- **Persistence:** Explicit `draft-audit --persist` keeps the default audit read-only while writing a content-addressed raw response snapshot and transactional SQLite rows for managers, drafts, manager participation, and picks. The live store contains 399 drafts and 52,803 current picks; 25 unresolved picks retain their Sleeper source IDs with null canonical IDs. Repeated imports replace authoritative picks and upsert cumulative manager evidence.
 - **Sources checked:** Sleeper's official API remains tokenless/read-only for non-commercial use with guidance below 1000 calls/minute, and documents no ADP/default-board endpoint. FantasyPros documents keyed consensus ADP/ECR, projections, and external IDs; production personal use requires its premium tier and commercial/redistribution use requires a commercial agreement. Its public schema does not establish platform-specific ADP splits or a numeric quota, and no local key is configured. Yahoo requires OAuth and authorized-user access. Fleaflicker documents draft-board/rules/roster APIs, not market ADP. No official permitted ESPN ADP API was found, so ESPN remains optional/manual.
 - **Conclusion:** Existing identity matching can be reused for current active Sleeper IDs, but historical ingestion must preserve inactive/unresolved source IDs and cannot rely on the active-player table alone. Phase 1 should add draft-specific records and ingestion without changing the season engine.
 
@@ -136,8 +137,8 @@ None. A FantasyPros API key will be needed in Phase 2 to validate actual tier-sp
 
 ## Handoff note
 
-Phase 0 is complete against merged `main` commit `022d1db`. `python -m ffsim draft-audit` now provides normalized records, deduplication, explicit environment exclusions, keeper-pick exclusion, and active canonical-ID coverage against representative fixtures. Next, persist raw and normalized history without changing season simulation.
+Phase 0 is complete against merged `main` commit `022d1db`. `python -m ffsim draft-audit` now provides normalized records, deduplication, exclusions, keeper handling, active-ID coverage, and opt-in raw/SQLite persistence. Next, persist the canonical player/external-ID layer before historical league-context enrichment.
 
 ## Last updated
 
-2026-08-12 — Phase 1 classification/coverage slice validated against 399 live drafts and the full 70-test suite.
+2026-08-12 — Phase 1 raw/normalized persistence validated against 399 live drafts and the full 71-test suite.

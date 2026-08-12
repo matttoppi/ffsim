@@ -23,6 +23,8 @@
     "season_type": "regular",
     "status": "complete",
     "type": "snake",
+    "draft_order": {"u1": 1, "u2": 2},
+    "slot_to_roster_id": {"1": 2, "2": 3},
     "start_time": 1785027074222,
     "last_picked": 1785805867082,
     "settings": {

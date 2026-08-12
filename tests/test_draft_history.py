@@ -1,8 +1,12 @@
 import json
+import sqlite3
+import tempfile
 import unittest
+from contextlib import closing
 from pathlib import Path
 
 from ffsim.draft_intel.history import load_history, summarize_history
+from ffsim.draft_intel.storage import store_history
 
 
 class DraftHistoryTest(unittest.TestCase):
@@ -54,8 +58,87 @@ class DraftHistoryTest(unittest.TestCase):
         )
         self.assertEqual(history.drafts[0].player_type, 0)
         self.assertIn(("super_flex", 1), history.drafts[0].roster_slots)
+        self.assertEqual(history.drafts[0].draft_order, (("u1", 1), ("u2", 2)))
+        self.assertEqual(history.drafts[0].slot_to_roster_id, ((1, 2), (2, 3)))
         self.assertTrue(history.drafts[0].included)
         self.assertEqual(history.drafts[1].exclusion_reasons, ("auction",))
+
+    def test_persistence_is_idempotent_and_preserves_raw_source_ids(self):
+        fixture = Path(__file__).parent / "fixtures" / "sleeper_history.json"
+        responses = json.loads(fixture.read_text())
+        captured = {}
+        history = load_history(
+            "target",
+            (2026, 2025),
+            responses.__getitem__,
+            canonical_player_ids={"9509", "6803"},
+            raw_responses=captured,
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            first = store_history(
+                history,
+                captured,
+                directory,
+                observed_at="2026-08-12T12:00:00+00:00",
+            )
+            with closing(sqlite3.connect(first["database_path"])) as database, database:
+                database.execute(
+                    "INSERT INTO managers VALUES (?, ?, ?, ?)",
+                    ("other-target", "Other", "earlier", "earlier"),
+                )
+                database.execute(
+                    "INSERT INTO historical_draft_managers VALUES (?, ?, ?, ?)",
+                    ("a", "other-target", 3, 4),
+                )
+            second = store_history(
+                history,
+                captured,
+                directory,
+                observed_at="2026-08-12T13:00:00+00:00",
+            )
+
+            self.assertEqual(first["raw_snapshot_hash"], second["raw_snapshot_hash"])
+            raw = json.loads(Path(first["raw_snapshot_path"]).read_text())
+            self.assertEqual(
+                raw["responses"]["draft/a/picks"][1]["player_id"],
+                "retired-player",
+            )
+            with closing(sqlite3.connect(first["database_path"])) as database:
+                self.assertEqual(
+                    database.execute("SELECT COUNT(*) FROM historical_drafts").fetchone()[0],
+                    5,
+                )
+                self.assertEqual(
+                    database.execute("SELECT COUNT(*) FROM historical_picks").fetchone()[0],
+                    5,
+                )
+                self.assertEqual(
+                    database.execute(
+                        "SELECT COUNT(*) FROM historical_draft_managers WHERE draft_id = 'a'"
+                    ).fetchone()[0],
+                    3,
+                )
+                self.assertEqual(
+                    database.execute(
+                        """
+                        SELECT source_player_id, canonical_player_id
+                        FROM historical_picks
+                        WHERE source_player_id = 'retired-player'
+                        """
+                    ).fetchone(),
+                    ("retired-player", None),
+                )
+                self.assertEqual(
+                    database.execute(
+                        """
+                        SELECT draft_slot, roster_id
+                        FROM historical_draft_managers
+                        WHERE draft_id = 'a' AND manager_id = 'u1'
+                        """
+                    ).fetchone(),
+                    (1, 2),
+                )
 
     def test_conflicting_duplicate_pick_fails_closed(self):
         draft = {

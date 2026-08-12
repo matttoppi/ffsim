@@ -26,6 +26,8 @@ class HistoricalDraft:
     created_at: int | None
     start_time: int | None
     last_picked_at: int | None
+    draft_order: tuple[tuple[str, int], ...]
+    slot_to_roster_id: tuple[tuple[int, int], ...]
     manager_ids: tuple[str, ...]
     exclusion_reasons: tuple[str, ...] = ()
 
@@ -56,8 +58,21 @@ class DraftHistory:
     draft_discoveries: int
 
 
-def load_history(league_id, seasons, fetch_json=None, canonical_player_ids=()):
-    fetch_json = fetch_json or _fetch_json
+def load_history(
+    league_id,
+    seasons,
+    fetch_json=None,
+    canonical_player_ids=(),
+    raw_responses=None,
+):
+    source_fetch = fetch_json or _fetch_json
+
+    def fetch_json(path):
+        payload = source_fetch(path)
+        if raw_responses is not None:
+            raw_responses[path] = payload
+        return payload
+
     canonical_player_ids = {str(player_id) for player_id in canonical_player_ids}
     seasons = tuple(dict.fromkeys(int(season) for season in seasons))
     if not seasons:
@@ -198,6 +213,18 @@ def _normalize_draft(draft, manager_ids):
         created_at=_int(draft.get("created")),
         start_time=_int(draft.get("start_time")),
         last_picked_at=_int(draft.get("last_picked")),
+        draft_order=tuple(sorted(
+            (manager_id, slot)
+            for raw_manager_id, raw_slot in (draft.get("draft_order") or {}).items()
+            if (manager_id := _text(raw_manager_id)) is not None
+            and (slot := _int(raw_slot)) is not None
+        )),
+        slot_to_roster_id=tuple(sorted(
+            (slot, roster_id)
+            for raw_slot, raw_roster_id in (draft.get("slot_to_roster_id") or {}).items()
+            if (slot := _int(raw_slot)) is not None
+            and (roster_id := _int(raw_roster_id)) is not None
+        )),
         manager_ids=tuple(sorted(manager_ids)),
     )
 

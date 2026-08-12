@@ -104,6 +104,7 @@ python -m ffsim draft-audit --league-id YOUR_LEAGUE_ID --season 2026
 ```
 
 The audit checks the requested season and two prior seasons, fetches every shared draft once, and reports normalized draft/pick counts and format coverage.
+Add `--persist` to store a content-addressed raw snapshot and idempotent normalized SQLite rows under `data/cache/draft_intel/`.
 
 Normal runs keep aggregate player summaries without retaining every sampled
 score. `--plots` retains the raw samples needed for histograms. `--teams-only`
