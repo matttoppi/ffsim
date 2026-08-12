@@ -41,8 +41,22 @@ export interface TeamResult {
   playoff_probability: number
   division_win_probability: number
   championship_probability: number
+  win_percentiles: Record<string, number>
+  points_percentiles: Record<string, number>
+  seed_probabilities: Record<string, number>
   top_two_probability: number
   bottom_two_probability: number
+}
+
+export interface PlayerResult {
+  name: string
+  team: string
+  position: string
+  average_score: number
+  games_per_simulation: number
+  minimum_score: number
+  maximum_score: number
+  average_games_missed: number
 }
 
 export interface FinalResults {
@@ -50,6 +64,8 @@ export interface FinalResults {
   simulations: number
   seed: number
   teams: Record<string, TeamResult>
+  players?: Record<string, PlayerResult>
+  team_only?: boolean
 }
 
 export class ApiError extends Error {

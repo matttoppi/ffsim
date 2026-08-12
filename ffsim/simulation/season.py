@@ -11,7 +11,11 @@ import pandas as pd
 from ffsim.paths import CACHE_DIR, DATA_DIR
 from ffsim.models.player import mean_preserving_lognormal
 from ffsim.simulation.matchup import SimulationMatchup
-from ffsim.simulation.playoffs import PlayoffSimulation
+from ffsim.simulation.playoffs import (
+    PlayoffSimulation,
+    get_division_winners,
+    validate_playoff_format,
+)
 
 
 MATCHUP_WEIGHTS = {
@@ -126,6 +130,7 @@ class SimulationSeason:
             self._apply_median_game(completed_matchups)
 
     def _completed_playoffs(self):
+        validate_playoff_format(self.league)
         bracket = self.league.winners_bracket
         final = max(bracket, key=lambda matchup: matchup.get("r", 0), default=None)
         if not final or not final.get("w"):
@@ -138,17 +143,10 @@ class SimulationSeason:
         })
         teams = [self.get_team_by_roster_id(roster_id) for roster_id in roster_ids]
         teams = [team for team in teams if team]
-        division_winners = [
-            max(
-                (team for team in self.league.rosters if team.roster_id in roster_ids_in_division),
-                key=lambda team: (team.wins, team.points_for),
-            )
-            for roster_ids_in_division in self.league.divisions.values()
-        ]
+        division_winners = get_division_winners(self.league, self.get_standings())
         bracket_state = SimpleNamespace(
             teams=teams,
-            division1_winner=division_winners[0],
-            division2_winner=division_winners[1],
+            division_winners=division_winners,
         )
         return SimpleNamespace(
             bracket=bracket_state,

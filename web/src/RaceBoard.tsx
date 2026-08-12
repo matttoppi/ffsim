@@ -71,26 +71,30 @@ export function RaceBoard({
   completed: boolean
 }) {
   const [metric, setMetric] = useState<Metric>('championships')
-  const rows = teamRows(snapshot, metric)
+  const hasDivisions = Object.keys(snapshot?.division_wins ?? {}).length > 0
+  const activeMetric = metric === 'division_wins' && !hasDivisions ? 'championships' : metric
+  const rows = teamRows(snapshot, activeMetric)
   const leaderCount = rows[0]?.count ?? 0
-  const winner = completed && metric === 'championships' ? rows[0]?.team : undefined
+  const winner = completed && activeMetric === 'championships' ? rows[0]?.team : undefined
 
   return (
     <section className="panel race" aria-label="Live leaderboard">
       <header className="race-header">
         <h2 className="panel-title">Championship race</h2>
         <div className="race-tabs" role="group" aria-label="Leaderboard metric">
-          {METRICS.map(({ key, label }) => (
-            <button
-              key={key}
-              type="button"
-              className="race-tab"
-              aria-pressed={metric === key}
-              onClick={() => setMetric(key)}
-            >
-              {label}
-            </button>
-          ))}
+          {METRICS.filter(({ key }) => key !== 'division_wins' || hasDivisions).map(
+            ({ key, label }) => (
+              <button
+                key={key}
+                type="button"
+                className="race-tab"
+                aria-pressed={activeMetric === key}
+                onClick={() => setMetric(key)}
+              >
+                {label}
+              </button>
+            ),
+          )}
         </div>
       </header>
       {rows.length === 0 ? (
@@ -109,7 +113,7 @@ export function RaceBoard({
               rank={index + 1}
               leaderCount={leaderCount}
               isLatestChampion={
-                metric === 'championships' &&
+                activeMetric === 'championships' &&
                 !completed &&
                 lastResult?.champion === row.team
               }
