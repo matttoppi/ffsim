@@ -1,0 +1,169 @@
+{
+  "league/target/users": [
+    {"user_id": "u2", "display_name": "Two"},
+    {"user_id": "u1", "display_name": "One"}
+  ],
+  "user/u1/drafts/nfl/2026": [
+    {"draft_id": "a"},
+    {"draft_id": "b"},
+    {"draft_id": "d"}
+  ],
+  "user/u1/drafts/nfl/2025": [],
+  "user/u2/drafts/nfl/2026": [
+    {"draft_id": "a"},
+    {"draft_id": "c"},
+    {"draft_id": "e"}
+  ],
+  "user/u2/drafts/nfl/2025": [],
+  "draft/a": {
+    "created": 1779683845240,
+    "draft_id": "a",
+    "league_id": "la",
+    "season": "2026",
+    "season_type": "regular",
+    "status": "complete",
+    "type": "snake",
+    "start_time": 1785027074222,
+    "last_picked": 1785805867082,
+    "settings": {
+      "player_type": 0,
+      "rounds": 16,
+      "slots_bn": 7,
+      "slots_flex": 2,
+      "slots_qb": 1,
+      "slots_rb": 2,
+      "slots_super_flex": 1,
+      "slots_te": 1,
+      "slots_wr": 3,
+      "teams": 10
+    },
+    "metadata": {"description": "", "name": "Redraft", "scoring_type": "ppr"}
+  },
+  "draft/a/picks": [
+    {
+      "draft_id": "a",
+      "pick_no": 1,
+      "round": 1,
+      "draft_slot": 1,
+      "roster_id": "2",
+      "picked_by": "u1",
+      "player_id": "9509",
+      "is_keeper": null,
+      "metadata": {"first_name": "Player", "last_name": "One", "position": "RB", "team": "ATL"}
+    },
+    {
+      "draft_id": "a",
+      "pick_no": 2,
+      "round": 1,
+      "draft_slot": 2,
+      "roster_id": "3",
+      "picked_by": "u2",
+      "player_id": "retired-player",
+      "is_keeper": true,
+      "metadata": {"first_name": "Past", "last_name": "Player", "position": "WR", "team": "PIT"}
+    },
+    {
+      "draft_id": "a",
+      "pick_no": 2,
+      "round": 1,
+      "draft_slot": 2,
+      "roster_id": "3",
+      "picked_by": "u2",
+      "player_id": "retired-player",
+      "is_keeper": true,
+      "metadata": {"first_name": "Past", "last_name": "Player", "position": "WR", "team": "PIT"}
+    }
+  ],
+  "draft/b": {
+    "created": 1779683845241,
+    "draft_id": "b",
+    "league_id": "lb",
+    "season": "2026",
+    "season_type": "regular",
+    "status": "complete",
+    "type": "auction",
+    "start_time": 1785027074223,
+    "last_picked": 1785805867083,
+    "settings": {"player_type": 0, "rounds": 16, "slots_qb": 1, "teams": 12},
+    "metadata": {"description": "", "name": "Auction", "scoring_type": "ppr"}
+  },
+  "draft/b/picks": [
+    {
+      "draft_id": "b",
+      "pick_no": 1,
+      "round": 1,
+      "draft_slot": 1,
+      "roster_id": 4,
+      "picked_by": "u1",
+      "player_id": "6803",
+      "is_keeper": null,
+      "metadata": {"position": "WR"}
+    }
+  ],
+  "draft/c": {
+    "created": 1779683845242,
+    "draft_id": "c",
+    "league_id": "lc",
+    "season": "2026",
+    "season_type": "regular",
+    "status": "complete",
+    "type": "linear",
+    "start_time": 1785027074224,
+    "last_picked": 1785805867084,
+    "settings": {"player_type": 1, "rounds": 4, "slots_super_flex": 1, "teams": 12},
+    "metadata": {"description": "", "name": "Rookie draft", "scoring_type": "dynasty_2qb"}
+  },
+  "draft/c/picks": [
+    {
+      "draft_id": "c",
+      "pick_no": 1,
+      "round": 1,
+      "draft_slot": 1,
+      "roster_id": 5,
+      "picked_by": "u2",
+      "player_id": "rookie-player",
+      "is_keeper": null,
+      "metadata": {"position": "RB"}
+    }
+  ],
+  "draft/d": {
+    "created": 1779683845243,
+    "draft_id": "d",
+    "league_id": "ld",
+    "season": "2026",
+    "season_type": "regular",
+    "status": "complete",
+    "type": "snake",
+    "start_time": 1785027074225,
+    "last_picked": 1785805867085,
+    "settings": {"player_type": 2, "rounds": 25, "slots_super_flex": 1, "teams": 12},
+    "metadata": {"description": "", "name": "Dynasty startup", "scoring_type": "dynasty_2qb"}
+  },
+  "draft/d/picks": [
+    {
+      "draft_id": "d",
+      "pick_no": 1,
+      "round": 1,
+      "draft_slot": 1,
+      "roster_id": 6,
+      "picked_by": "u1",
+      "player_id": "dynasty-player",
+      "is_keeper": null,
+      "metadata": {"position": "QB"}
+    }
+  ],
+  "draft/e": {
+    "created": 1779683845244,
+    "draft_id": "e",
+    "league_id": "le",
+    "season": "2026",
+    "season_type": "regular",
+    "status": "pre_draft",
+    "type": "snake",
+    "start_time": null,
+    "last_picked": null,
+    "settings": {"player_type": 0, "rounds": 16, "slots_qb": 1, "teams": 10},
+    "metadata": {"description": "", "name": "Upcoming", "scoring_type": "ppr"}
+  },
+  "draft/e/picks": []
+}

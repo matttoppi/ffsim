@@ -1,5 +1,5 @@
 from collections import Counter, defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from ffsim.loaders.league import _fetch_json
 
@@ -15,13 +15,23 @@ class HistoricalDraft:
     draft_id: str
     league_id: str | None
     season: int
+    season_type: str | None
     status: str
     draft_type: str
     scoring_type: str | None
     teams: int | None
     rounds: int | None
+    player_type: int | None
+    roster_slots: tuple[tuple[str, int], ...]
+    created_at: int | None
     start_time: int | None
+    last_picked_at: int | None
     manager_ids: tuple[str, ...]
+    exclusion_reasons: tuple[str, ...] = ()
+
+    @property
+    def included(self):
+        return not self.exclusion_reasons
 
 
 @dataclass(frozen=True)
@@ -33,6 +43,7 @@ class HistoricalPick:
     roster_id: int | None
     manager_id: str | None
     player_id: str
+    canonical_player_id: str | None
     position: str | None
     is_keeper: bool | None
 
@@ -45,8 +56,9 @@ class DraftHistory:
     draft_discoveries: int
 
 
-def load_history(league_id, seasons, fetch_json=None):
+def load_history(league_id, seasons, fetch_json=None, canonical_player_ids=()):
     fetch_json = fetch_json or _fetch_json
+    canonical_player_ids = {str(player_id) for player_id in canonical_player_ids}
     seasons = tuple(dict.fromkeys(int(season) for season in seasons))
     if not seasons:
         raise ValueError("At least one history season is required")
@@ -77,15 +89,19 @@ def load_history(league_id, seasons, fetch_json=None):
         raw_draft = fetch_json(f"draft/{draft_id}")
         if _required_text(raw_draft, "draft_id") != draft_id:
             raise ValueError(f"Sleeper returned the wrong draft for {draft_id}")
-        drafts.append(_normalize_draft(raw_draft, manager_ids_by_draft[draft_id]))
+        draft = _normalize_draft(raw_draft, manager_ids_by_draft[draft_id])
+        draft_picks = []
         for raw_pick in fetch_json(f"draft/{draft_id}/picks"):
-            pick = _normalize_pick(raw_pick)
+            pick = _normalize_pick(raw_pick, canonical_player_ids)
             if pick.draft_id != draft_id:
                 raise ValueError(f"Sleeper pick {pick.pick_no} belongs to draft {pick.draft_id}, not {draft_id}")
             key = (pick.draft_id, pick.pick_no)
             if key in picks_by_key and picks_by_key[key] != pick:
                 raise ValueError(f"Conflicting duplicate Sleeper pick {draft_id}/{pick.pick_no}")
+            if key not in picks_by_key:
+                draft_picks.append(pick)
             picks_by_key[key] = pick
+        drafts.append(replace(draft, exclusion_reasons=_draft_exclusion_reasons(draft, draft_picks)))
 
     return DraftHistory(
         managers=managers,
@@ -103,13 +119,28 @@ def summarize_history(history, current_season):
     manager_counts = []
     for manager in history.managers:
         manager_drafts = [draft for draft in history.drafts if manager.user_id in draft.manager_ids]
+        included_drafts = [draft for draft in manager_drafts if draft.included]
         manager_counts.append({
             "user_id": manager.user_id,
             "display_name": manager.display_name,
             "same_season": sum(draft.season == current_season for draft in manager_drafts),
             "prior_seasons": sum(draft.season != current_season for draft in manager_drafts),
+            "included_same_season": sum(
+                draft.season == current_season for draft in included_drafts
+            ),
+            "included_prior_seasons": sum(
+                draft.season != current_season for draft in included_drafts
+            ),
         })
     keeper_picks = sum(pick.is_keeper is True for pick in history.picks)
+    included_draft_ids = {draft.draft_id for draft in history.drafts if draft.included}
+    model_picks = tuple(
+        pick for pick in history.picks
+        if pick.draft_id in included_draft_ids and pick.is_keeper is not True
+    )
+    exclusion_reasons = Counter(
+        reason for draft in history.drafts for reason in draft.exclusion_reasons
+    )
     return {
         "managers": manager_counts,
         "draft_discoveries": history.draft_discoveries,
@@ -118,6 +149,17 @@ def summarize_history(history, current_season):
         "shared_drafts": sum(len(draft.manager_ids) > 1 for draft in history.drafts),
         "unique_picks": len(history.picks),
         "keeper_picks": keeper_picks,
+        "model_eligible_picks": len(model_picks),
+        "draft_classification": {
+            "included": len(included_draft_ids),
+            "excluded": len(history.drafts) - len(included_draft_ids),
+            "exclusion_reasons": dict(sorted(exclusion_reasons.items())),
+        },
+        "canonical_player_coverage": {
+            "method": "active_sleeper_id",
+            "all_picks": _canonical_coverage(history.picks),
+            "model_eligible_picks": _canonical_coverage(model_picks),
+        },
         "format_breakdown": [
             {
                 "season": season,
@@ -141,18 +183,28 @@ def _normalize_draft(draft, manager_ids):
         draft_id=_required_text(draft, "draft_id"),
         league_id=_text(draft.get("league_id")),
         season=_required_int(draft, "season"),
+        season_type=_text(draft.get("season_type")),
         status=str(draft.get("status") or "unknown"),
         draft_type=str(draft.get("type") or "unknown"),
         scoring_type=_text(metadata.get("scoring_type")),
         teams=_int(settings.get("teams")),
         rounds=_int(settings.get("rounds")),
+        player_type=_int(settings.get("player_type")),
+        roster_slots=tuple(sorted(
+            (key.removeprefix("slots_"), int(value))
+            for key, value in settings.items()
+            if key.startswith("slots_") and _int(value) is not None
+        )),
+        created_at=_int(draft.get("created")),
         start_time=_int(draft.get("start_time")),
+        last_picked_at=_int(draft.get("last_picked")),
         manager_ids=tuple(sorted(manager_ids)),
     )
 
 
-def _normalize_pick(pick):
+def _normalize_pick(pick, canonical_player_ids):
     metadata = pick.get("metadata") or {}
+    player_id = _required_text(pick, "player_id")
     return HistoricalPick(
         draft_id=_required_text(pick, "draft_id"),
         pick_no=_required_int(pick, "pick_no"),
@@ -160,10 +212,49 @@ def _normalize_pick(pick):
         draft_slot=_int(pick.get("draft_slot")),
         roster_id=_int(pick.get("roster_id")),
         manager_id=_text(pick.get("picked_by")),
-        player_id=_required_text(pick, "player_id"),
+        player_id=player_id,
+        canonical_player_id=player_id if player_id in canonical_player_ids else None,
         position=_text(metadata.get("position")),
         is_keeper=pick.get("is_keeper") if isinstance(pick.get("is_keeper"), bool) else None,
     )
+
+
+def _draft_exclusion_reasons(draft, picks):
+    reasons = []
+    if draft.status != "complete":
+        reasons.append("not_complete")
+    if draft.draft_type == "auction":
+        reasons.append("auction")
+    elif draft.draft_type != "snake":
+        reasons.append("non_snake")
+
+    scoring_type = (draft.scoring_type or "").casefold()
+    if not scoring_type:
+        reasons.append("unknown_scoring")
+    if "dynasty" in scoring_type:
+        reasons.append("dynasty")
+    if "idp" in scoring_type:
+        reasons.append("idp")
+    if draft.status == "complete" and not picks:
+        reasons.append("no_picks")
+    return tuple(reasons)
+
+
+def _canonical_coverage(picks):
+    matched = [pick for pick in picks if pick.canonical_player_id is not None]
+    source_player_ids = {pick.player_id for pick in picks}
+    matched_source_ids = {pick.player_id for pick in matched}
+    return {
+        "matched_picks": len(matched),
+        "total_picks": len(picks),
+        "pick_match_rate": round(len(matched) / len(picks), 4) if picks else None,
+        "matched_players": len(matched_source_ids),
+        "total_players": len(source_player_ids),
+        "player_match_rate": (
+            round(len(matched_source_ids) / len(source_player_ids), 4)
+            if source_player_ids else None
+        ),
+    }
 
 
 def _required_text(data, key):

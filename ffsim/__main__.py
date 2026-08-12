@@ -105,9 +105,22 @@ def main():
 
     if args.command == "draft-audit":
         from ffsim.draft_intel.history import load_history, summarize_history
+        from ffsim.paths import CACHE_DIR
 
         seasons = range(args.season, args.season - 3, -1)
-        history = load_history(config.league_id, seasons)
+        players_path = CACHE_DIR / "players.json"
+        if not players_path.exists():
+            raise SystemExit("Player cache is missing. Run `python -m ffsim refresh` first.")
+        player_ids = {
+            str(player_id)
+            for player in json.loads(players_path.read_text())
+            if (player_id := player.get("sleeper_id") or player.get("player_id"))
+        }
+        history = load_history(
+            config.league_id,
+            seasons,
+            canonical_player_ids=player_ids,
+        )
         print(json.dumps(summarize_history(history, args.season), indent=2))
         return
 
