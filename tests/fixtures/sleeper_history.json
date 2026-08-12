@@ -15,6 +15,39 @@
     {"draft_id": "e"}
   ],
   "user/u2/drafts/nfl/2025": [],
+  "league/la": {
+    "league_id": "la",
+    "name": "Redraft",
+    "season": "2026",
+    "status": "pre_draft",
+    "settings": {"best_ball": 0, "max_keepers": 1, "type": 0},
+    "roster_positions": ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "BN"]
+  },
+  "league/lb": {
+    "league_id": "lb",
+    "name": "Best Ball Auction",
+    "season": "2026",
+    "status": "pre_draft",
+    "settings": {"best_ball": 1, "max_keepers": 0, "type": 0},
+    "roster_positions": ["QB", "RB", "WR", "TE", "FLEX", "BN"]
+  },
+  "league/lc": {
+    "league_id": "lc",
+    "name": "Dynasty Rookie",
+    "season": "2026",
+    "status": "in_season",
+    "settings": {"max_keepers": 0, "type": 2},
+    "roster_positions": ["QB", "RB", "WR", "TE", "SUPER_FLEX", "BN"]
+  },
+  "league/ld": {
+    "league_id": "ld",
+    "name": "Dynasty Startup",
+    "season": "2026",
+    "status": "pre_draft",
+    "settings": {"best_ball": 0, "max_keepers": 0, "type": 2},
+    "roster_positions": ["QB", "RB", "WR", "TE", "SUPER_FLEX", "BN"]
+  },
+  "league/le": null,
   "draft/a": {
     "created": 1779683845240,
     "draft_id": "a",

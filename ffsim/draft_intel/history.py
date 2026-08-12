@@ -1,5 +1,6 @@
 from collections import Counter, defaultdict
 from dataclasses import dataclass, replace
+from urllib.error import HTTPError
 
 from ffsim.loaders.league import _fetch_json
 
@@ -8,6 +9,18 @@ from ffsim.loaders.league import _fetch_json
 class Manager:
     user_id: str
     display_name: str
+
+
+@dataclass(frozen=True)
+class HistoricalLeague:
+    league_id: str
+    season: int | None
+    status: str
+    name: str
+    best_ball: bool | None
+    max_keepers: int | None
+    league_type: int | None
+    roster_positions: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -53,6 +66,7 @@ class HistoricalPick:
 @dataclass(frozen=True)
 class DraftHistory:
     managers: tuple[Manager, ...]
+    leagues: tuple[HistoricalLeague, ...]
     drafts: tuple[HistoricalDraft, ...]
     picks: tuple[HistoricalPick, ...]
     draft_discoveries: int
@@ -103,6 +117,7 @@ def load_history(
 
     drafts = []
     picks_by_key = {}
+    picks_by_draft = {}
     for draft_id in sorted(draft_ids):
         raw_draft = fetch_json(f"draft/{draft_id}")
         if _required_text(raw_draft, "draft_id") != draft_id:
@@ -119,10 +134,43 @@ def load_history(
             if key not in picks_by_key:
                 draft_picks.append(pick)
             picks_by_key[key] = pick
-        drafts.append(replace(draft, exclusion_reasons=_draft_exclusion_reasons(draft, draft_picks)))
+        drafts.append(draft)
+        picks_by_draft[draft_id] = draft_picks
+
+    league_ids = sorted({draft.league_id for draft in drafts if draft.league_id})
+    leagues = []
+    for league_id in league_ids:
+        path = f"league/{league_id}"
+        try:
+            raw_league = fetch_json(path)
+        except HTTPError as error:
+            if error.code != 404:
+                raise
+            error.close()
+            raw_league = None
+            if raw_responses is not None:
+                raw_responses[path] = None
+        if raw_league is None:
+            continue
+        if _required_text(raw_league, "league_id") != league_id:
+            raise ValueError(f"Sleeper returned the wrong league for {league_id}")
+        leagues.append(_normalize_league(raw_league))
+    leagues_by_id = {league.league_id: league for league in leagues}
+    drafts = [
+        replace(
+            draft,
+            exclusion_reasons=_draft_exclusion_reasons(
+                draft,
+                picks_by_draft[draft.draft_id],
+                leagues_by_id.get(draft.league_id),
+            ),
+        )
+        for draft in drafts
+    ]
 
     return DraftHistory(
         managers=managers,
+        leagues=tuple(leagues),
         drafts=tuple(drafts),
         picks=tuple(picks_by_key[key] for key in sorted(picks_by_key)),
         draft_discoveries=discoveries,
@@ -159,6 +207,8 @@ def summarize_history(history, current_season):
     exclusion_reasons = Counter(
         reason for draft in history.drafts for reason in draft.exclusion_reasons
     )
+    league_ids = {draft.league_id for draft in history.drafts if draft.league_id}
+    loaded_league_ids = {league.league_id for league in history.leagues}
     return {
         "managers": manager_counts,
         "draft_discoveries": history.draft_discoveries,
@@ -168,6 +218,16 @@ def summarize_history(history, current_season):
         "unique_picks": len(history.picks),
         "keeper_picks": keeper_picks,
         "model_eligible_picks": len(model_picks),
+        "league_context": {
+            "unique_leagues": len(league_ids),
+            "loaded_leagues": len(loaded_league_ids),
+            "leagues_unknown_best_ball": sum(
+                league.best_ball is None for league in history.leagues
+            ),
+            "drafts_missing_context": sum(
+                draft.league_id not in loaded_league_ids for draft in history.drafts
+            ),
+        },
         "draft_classification": {
             "included": len(included_draft_ids),
             "excluded": len(history.drafts) - len(included_draft_ids),
@@ -232,6 +292,22 @@ def _normalize_draft(draft, manager_ids):
     )
 
 
+def _normalize_league(league):
+    settings = league.get("settings") or {}
+    return HistoricalLeague(
+        league_id=_required_text(league, "league_id"),
+        season=_int(league.get("season")),
+        status=str(league.get("status") or "unknown"),
+        name=str(league.get("name") or ""),
+        best_ball=_bool(settings.get("best_ball")),
+        max_keepers=_int(settings.get("max_keepers")),
+        league_type=_int(settings.get("type")),
+        roster_positions=tuple(
+            str(position) for position in league.get("roster_positions") or ()
+        ),
+    )
+
+
 def _normalize_pick(pick, canonical_player_ids):
     metadata = pick.get("metadata") or {}
     player_id = _required_text(pick, "player_id")
@@ -249,7 +325,7 @@ def _normalize_pick(pick, canonical_player_ids):
     )
 
 
-def _draft_exclusion_reasons(draft, picks):
+def _draft_exclusion_reasons(draft, picks, league):
     reasons = []
     if draft.status != "complete":
         reasons.append("not_complete")
@@ -265,6 +341,12 @@ def _draft_exclusion_reasons(draft, picks):
         reasons.append("dynasty")
     if "idp" in scoring_type:
         reasons.append("idp")
+    if league is None:
+        reasons.append("unknown_league_context")
+    elif league.best_ball is None:
+        reasons.append("unknown_best_ball")
+    elif league.best_ball is True:
+        reasons.append("best_ball")
     if draft.status == "complete" and not picks:
         reasons.append("no_picks")
     return tuple(reasons)
@@ -310,3 +392,8 @@ def _int(value):
         return None if value is None else int(value)
     except (TypeError, ValueError):
         return None
+
+
+def _bool(value):
+    value = _int(value)
+    return bool(value) if value in {0, 1} else None

@@ -39,6 +39,20 @@ CREATE TABLE IF NOT EXISTS player_external_ids (
     UNIQUE (canonical_player_id, source)
 );
 
+CREATE TABLE IF NOT EXISTS historical_leagues (
+    league_id TEXT PRIMARY KEY,
+    season INTEGER,
+    status TEXT NOT NULL,
+    name TEXT NOT NULL,
+    best_ball INTEGER,
+    max_keepers INTEGER,
+    league_type INTEGER,
+    roster_positions_json TEXT NOT NULL,
+    raw_snapshot_hash TEXT NOT NULL,
+    raw_snapshot_path TEXT NOT NULL,
+    observed_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS historical_drafts (
     draft_id TEXT PRIMARY KEY,
     league_id TEXT,
@@ -244,6 +258,43 @@ def _store_normalized(
                 for player in canonical_players
             ),
         )
+        connection.executemany(
+            """
+            INSERT INTO historical_leagues (
+                league_id, season, status, name, best_ball, max_keepers,
+                league_type, roster_positions_json, raw_snapshot_hash,
+                raw_snapshot_path, observed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(league_id) DO UPDATE SET
+                season = excluded.season,
+                status = excluded.status,
+                name = excluded.name,
+                best_ball = excluded.best_ball,
+                max_keepers = excluded.max_keepers,
+                league_type = excluded.league_type,
+                roster_positions_json = excluded.roster_positions_json,
+                raw_snapshot_hash = excluded.raw_snapshot_hash,
+                raw_snapshot_path = excluded.raw_snapshot_path,
+                observed_at = excluded.observed_at
+            """,
+            (
+                (
+                    league.league_id,
+                    league.season,
+                    league.status,
+                    league.name,
+                    None if league.best_ball is None else int(league.best_ball),
+                    league.max_keepers,
+                    league.league_type,
+                    json.dumps(league.roster_positions),
+                    snapshot_hash,
+                    snapshot_path,
+                    observed_at,
+                )
+                for league in history.leagues
+            ),
+        )
+        leagues_by_id = {league.league_id: league for league in history.leagues}
         for draft in history.drafts:
             connection.execute(
                 """
@@ -289,7 +340,7 @@ def _store_normalized(
                     draft.created_at,
                     draft.start_time,
                     draft.last_picked_at,
-                    _context_hash(draft),
+                    _context_hash(draft, leagues_by_id.get(draft.league_id)),
                     int(draft.included),
                     json.dumps(draft.exclusion_reasons),
                     snapshot_hash,
@@ -354,7 +405,7 @@ def _store_normalized(
             )
 
 
-def _context_hash(draft):
+def _context_hash(draft, league):
     return hashlib.sha256(_json_bytes({
         "season": draft.season,
         "season_type": draft.season_type,
@@ -364,6 +415,10 @@ def _context_hash(draft):
         "rounds": draft.rounds,
         "player_type": draft.player_type,
         "roster_slots": draft.roster_slots,
+        "best_ball": league.best_ball if league else None,
+        "max_keepers": league.max_keepers if league else None,
+        "league_type": league.league_type if league else None,
+        "league_roster_positions": league.roster_positions if league else None,
     })).hexdigest()
 
 
