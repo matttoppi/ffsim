@@ -5,7 +5,7 @@ This file is the current operational state of the project. Keep it short, factua
 ## Current status
 
 **Phase:** Phase 3 — Historical manager profiles
-**State:** In progress; exact market-independent baseline started
+**State:** Market-independent slice complete; market-dependent profiling owner-deferred
 **Branch:** `feat/draft-intelligence`  
 **Implementation code changed:** Yes
 **Primary next action:** Resume Phase 2 historical market collection when the owner supplies data/source access, then compute plausible-window affinity, passes, and board adherence in Phase 3.
@@ -56,7 +56,12 @@ Read in this order:
 - [x] Seed keeper ownership before pick one regardless of the round containing the keeper row.
 - [x] Add transparent position counts, round timing, and first-position timing summaries.
 - [x] Add exact season/scoring/team-count context counts and a read-only `manager-audit` command.
+- [x] Add keeper-aware, context-weighted roster counts after every observed round.
+- [x] Add raw and weighted four-round zero/hero/heavy-RB and WR-heavy start evidence.
+- [x] Add raw and weighted QB/TE first-round timing, including drafts without the position.
+- [x] Apply transparent per-draft season, scoring-type, and league-size relevance components while retaining raw counts and component values.
 - [x] Validate the baseline against 1,507 picks by 9 target managers across 79 eligible historical drafts.
+- [x] Validate `manager-audit` against the current cached target context: 2026, 12-team superflex (`2qb`). This supersedes the Phase 0 target description after the configured league changed.
 
 ## Next tasks
 
@@ -99,7 +104,7 @@ Record results here after the first local audit.
 
 | Check | Status | Notes |
 |---|---|---|
-| Existing Python tests | Pass | 75 tests in 21.01s after the initial Phase 3 slice |
+| Existing Python tests | Pass | 76 tests in 19.50s after the market-independent Phase 3 slice |
 | Frontend tests/build | Pass | 28 Vitest tests; TypeScript/Vite production build passed |
 | Current simulation benchmark | Pass | M5 Max single-worker baselines recorded below |
 | Sleeper live API smoke test | Pass | Verified 2026 league, draft, picks, traded picks, roster, and per-user history payloads |
@@ -159,12 +164,12 @@ See `DECISIONS.md`. The foundational decisions currently include:
 
 ## Blockers
 
-External market adapters are intentionally deferred by the owner. A FantasyPros API key is required to validate actual tier-specific response fields and quotas before enabling that adapter; no local implementation work is blocked.
+External market adapters are intentionally deferred by the owner. A FantasyPros API key is required to validate actual tier-specific response fields and quotas before enabling that adapter. Remaining Phase 3 affinity, pass, and board-adherence work requires time-local market snapshots.
 
 ## Handoff note
 
-Phase 1 is complete. Phase 2 has append-only manual market snapshots, strict canonical mapping, and historical reconstruction. Phase 3 has exact pick/roster/observed-availability reconstruction and basic position timing. External adapters remain owner-deferred; do not calculate plausible-window passes or board adherence without time-local market evidence.
+Phase 1 is complete. Phase 2 has append-only manual market snapshots, strict canonical mapping, and historical reconstruction. Phase 3 has exact pick/roster/observed-availability reconstruction plus keeper-aware, context-weighted roster construction and position timing. External adapters remain owner-deferred; do not calculate plausible-window passes or board adherence without time-local market evidence.
 
 ## Last updated
 
-2026-08-12 — Initial Phase 3 manager observation/profile slice completed; full Python suite passes 75 tests.
+2026-08-12 — Market-independent Phase 3 manager profile slice completed; full Python suite passes 76 tests.

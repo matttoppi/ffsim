@@ -123,9 +123,14 @@ Inspect the market-independent historical manager profile baseline:
 python -m ffsim manager-audit
 ```
 
-This reports sample counts, draft contexts, position timing, and first-position
-rounds. It does not infer reach/pass behavior without a compatible historical
-market snapshot.
+This reports sample counts, context-weighted roster counts after each round,
+first-position timing, and four-round start shapes. `zero_rb`, `hero_rb`, and
+`heavy_rb` mean zero, one, or at least two rostered RBs after Round 4;
+`wr_heavy` means at least three rostered WRs. Keeper ownership is included.
+Context weights use `1.0 / 0.35 / 0.15` season decay, a visible `0.5` scoring
+mismatch factor, and the smaller/larger league-size ratio. Raw counts and every
+per-draft component remain in the output. Reach/pass behavior remains disabled
+without a compatible historical market snapshot.
 
 Normal runs keep aggregate player summaries without retaining every sampled
 score. `--plots` retains the raw samples needed for histograms. `--teams-only`

@@ -1,8 +1,10 @@
+import json
 import sqlite3
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 
+from ffsim.config import AppConfig
 from ffsim.paths import CACHE_DIR
 
 
@@ -21,6 +23,7 @@ class PickObservation:
     selected_player_id: str | None
     selected_position: str | None
     roster_before_pick: tuple[str, ...]
+    roster_positions_before_pick: tuple[str, ...]
     observed_available_player_ids: tuple[str, ...]
 
 
@@ -74,8 +77,10 @@ def load_pick_observations(storage_dir=None):
             player_id = sorted(keepers & available)[0]
             raise ValueError(f"Keeper {player_id} was also selected in draft {draft_id}")
         for pick in draft_picks:
-            if pick["canonical_player_id"] and pick["is_keeper"] == 1 and pick["manager_id"]:
-                rosters[pick["manager_id"]].append(pick["canonical_player_id"])
+            if pick["is_keeper"] == 1 and pick["manager_id"]:
+                rosters[pick["manager_id"]].append(
+                    (pick["canonical_player_id"], pick["position"])
+                )
         for pick in draft_picks:
             player_id = pick["canonical_player_id"]
             manager_id = pick["manager_id"]
@@ -93,7 +98,12 @@ def load_pick_observations(storage_dir=None):
                     manager_display_name=pick["display_name"] or "",
                     selected_player_id=player_id,
                     selected_position=pick["position"],
-                    roster_before_pick=tuple(rosters[manager_id]),
+                    roster_before_pick=tuple(
+                        player_id for player_id, _ in rosters[manager_id] if player_id
+                    ),
+                    roster_positions_before_pick=tuple(
+                        position for _, position in rosters[manager_id] if position
+                    ),
                     observed_available_player_ids=tuple(sorted(available)),
                 ))
             if player_id:
@@ -103,12 +113,52 @@ def load_pick_observations(storage_dir=None):
                             f"Player {player_id} was selected more than once in draft {pick['draft_id']}"
                         )
                     available.remove(player_id)
-                if manager_id and pick["is_keeper"] != 1:
-                    rosters[manager_id].append(player_id)
+            if manager_id and pick["is_keeper"] != 1:
+                rosters[manager_id].append((player_id, pick["position"]))
     return tuple(observations)
 
 
-def summarize_manager_profiles(observations):
+def load_target_context(config_path, season, league_id=None, cache_dir=None):
+    config = AppConfig.from_file(config_path)
+    league_id = str(league_id or config.league_id)
+    path = Path(cache_dir or CACHE_DIR) / f"league_{league_id}.json"
+    if not path.exists():
+        raise FileNotFoundError("League cache is missing. Run `python -m ffsim refresh` first.")
+
+    snapshot = json.loads(path.read_text())
+    league = snapshot["league"]
+    roster_positions = league.get("roster_positions") or ()
+    reception_points = league.get("scoring_settings", {}).get("rec", 0)
+    if "SUPER_FLEX" in roster_positions or roster_positions.count("QB") > 1:
+        scoring_type = "2qb"
+    elif reception_points == 1:
+        scoring_type = "ppr"
+    elif reception_points == 0.5:
+        scoring_type = "half_ppr"
+    elif reception_points == 0:
+        scoring_type = "std"
+    else:
+        raise ValueError(f"Unsupported reception scoring for manager profiles: {reception_points}")
+
+    team_count = len(snapshot.get("rosters") or ())
+    if season <= 0 or team_count <= 0:
+        raise ValueError("Target season and cached team count must be positive")
+    return {
+        "season": season,
+        "scoring_type": scoring_type,
+        "team_count": team_count,
+    }
+
+
+def summarize_manager_profiles(
+    observations,
+    *,
+    target_season,
+    target_scoring_type,
+    target_team_count,
+):
+    if target_season <= 0 or target_team_count <= 0 or not target_scoring_type:
+        raise ValueError("Complete positive target context is required")
     by_manager = defaultdict(list)
     for observation in observations:
         by_manager[observation.manager_id].append(observation)
@@ -122,17 +172,42 @@ def summarize_manager_profiles(observations):
             if pick.round is not None and pick.selected_position
         )
         first_rounds = defaultdict(list)
+        first_positions_by_draft = {}
         picks_by_draft = defaultdict(list)
         for pick in picks:
             picks_by_draft[pick.draft_id].append(pick)
-        for draft_picks in picks_by_draft.values():
+        for draft_id, draft_picks in picks_by_draft.items():
+            draft_picks.sort(key=lambda pick: pick.pick_no)
             first_by_position = {}
             for pick in draft_picks:
                 if pick.selected_position and pick.round is not None:
                     first_by_position.setdefault(pick.selected_position, pick.round)
             for position, round_number in first_by_position.items():
                 first_rounds[position].append(round_number)
+            first_positions_by_draft[draft_id] = first_by_position
         drafts = [draft_picks[0] for draft_picks in picks_by_draft.values()]
+        roster_counts = _roster_counts_by_round(picks_by_draft)
+        context_weights = {
+            draft.draft_id: _context_weight(
+                draft,
+                target_season,
+                target_scoring_type,
+                target_team_count,
+            )
+            for draft in drafts
+        }
+        four_round_starts = [
+            (draft_id, counts[4])
+            for draft_id, counts in roster_counts.items()
+            if 4 in counts
+        ]
+        weighted_rb_shapes = Counter()
+        weighted_wr_heavy = 0.0
+        for draft_id, counts in four_round_starts:
+            weight = context_weights[draft_id]["weight"]
+            weighted_rb_shapes[_rb_shape(counts)] += weight
+            if counts["WR"] >= 3:
+                weighted_wr_heavy += weight
 
         profiles[manager_id] = {
             "display_name": picks[0].manager_display_name,
@@ -162,8 +237,153 @@ def summarize_manager_profiles(observations):
                 position: sorted(rounds)
                 for position, rounds in sorted(first_rounds.items())
             },
+            "qb_te_timing": _position_timing(
+                first_positions_by_draft,
+                context_weights,
+                ("QB", "TE"),
+            ),
+            "average_roster_after_round": _average_roster_counts(
+                roster_counts,
+                context_weights,
+            ),
+            "four_round_starts": {
+                "sample_size": len(four_round_starts),
+                "rb_shape": dict(sorted(Counter(
+                    _rb_shape(counts) for _, counts in four_round_starts
+                ).items())),
+                "wr_heavy": sum(counts["WR"] >= 3 for _, counts in four_round_starts),
+                "sample_weight": round(sum(
+                    context_weights[draft_id]["weight"]
+                    for draft_id, _ in four_round_starts
+                ), 4),
+                "weighted_rb_shape": {
+                    shape: round(weight, 4)
+                    for shape, weight in sorted(weighted_rb_shapes.items())
+                },
+                "weighted_wr_heavy": round(weighted_wr_heavy, 4),
+            },
+            "context": {
+                "weighted_draft_count": round(sum(
+                    context["weight"] for context in context_weights.values()
+                ), 4),
+                "draft_weights": dict(sorted(context_weights.items())),
+            },
         }
     return profiles
+
+
+def _roster_counts_by_round(picks_by_draft):
+    by_draft = {}
+    for draft_id, picks in picks_by_draft.items():
+        picks = sorted(picks, key=lambda pick: pick.pick_no)
+        counts = Counter(picks[0].roster_positions_before_pick)
+        picks_by_round = defaultdict(list)
+        for pick in picks:
+            if pick.round is not None and pick.selected_position:
+                picks_by_round[pick.round].append(pick.selected_position)
+        snapshots = {}
+        for round_number in range(1, max(picks_by_round, default=0) + 1):
+            counts.update(picks_by_round[round_number])
+            snapshots[round_number] = counts.copy()
+        by_draft[draft_id] = snapshots
+    return by_draft
+
+
+def _average_roster_counts(roster_counts, context_weights):
+    rounds = sorted({round_number for counts in roster_counts.values() for round_number in counts})
+    positions = sorted({
+        position
+        for counts in roster_counts.values()
+        for snapshot in counts.values()
+        for position in snapshot
+    })
+    return {
+        str(round_number): _weighted_round_summary(samples, positions, context_weights)
+        for round_number in rounds
+        if (samples := [
+            (draft_id, counts[round_number])
+            for draft_id, counts in roster_counts.items()
+            if round_number in counts
+        ])
+    }
+
+
+def _weighted_round_summary(samples, positions, context_weights):
+    total_weight = sum(context_weights[draft_id]["weight"] for draft_id, _ in samples)
+    return {
+        "draft_count": len(samples),
+        "draft_weight": round(total_weight, 4),
+        "positions": {
+            position: (
+                round(sum(
+                    counts[position] * context_weights[draft_id]["weight"]
+                    for draft_id, counts in samples
+                ) / total_weight, 3)
+                if total_weight else None
+            )
+            for position in positions
+        },
+    }
+
+
+def _position_timing(first_positions_by_draft, context_weights, positions):
+    sample_weight = sum(context["weight"] for context in context_weights.values())
+    result = {}
+    for position in positions:
+        selected = {
+            draft_id: first_rounds[position]
+            for draft_id, first_rounds in first_positions_by_draft.items()
+            if position in first_rounds
+        }
+        weighted_rounds = Counter()
+        for draft_id, round_number in selected.items():
+            weighted_rounds[round_number] += context_weights[draft_id]["weight"]
+        result[position] = {
+            "selected_drafts": len(selected),
+            "not_selected_drafts": len(first_positions_by_draft) - len(selected),
+            "first_round_counts": dict(sorted(Counter(selected.values()).items())),
+            "sample_weight": round(sample_weight, 4),
+            "selected_weight": round(sum(
+                context_weights[draft_id]["weight"] for draft_id in selected
+            ), 4),
+            "weighted_first_rounds": {
+                str(round_number): round(weight, 4)
+                for round_number, weight in sorted(weighted_rounds.items())
+            },
+        }
+    return result
+
+
+def _rb_shape(counts):
+    if counts["RB"] == 0:
+        return "zero_rb"
+    if counts["RB"] == 1:
+        return "hero_rb"
+    return "heavy_rb"
+
+
+def _context_weight(draft, target_season, target_scoring_type, target_team_count):
+    if draft.scoring_type is None or draft.team_count is None:
+        raise ValueError(f"Draft {draft.draft_id} lacks context required for weighting")
+    season_delta = target_season - draft.season
+    if season_delta < 0:
+        raise ValueError(f"Draft {draft.draft_id} is newer than the target season")
+
+    # ponytail: transparent V1 heuristic; tune only after draft-level backtests exist.
+    season_weight = {0: 1.0, 1: 0.35, 2: 0.15}.get(season_delta, 0.0)
+    scoring_weight = 1.0 if draft.scoring_type == target_scoring_type else 0.5
+    team_count_weight = min(draft.team_count, target_team_count) / max(
+        draft.team_count, target_team_count
+    )
+    return {
+        "season": draft.season,
+        "scoring_type": draft.scoring_type,
+        "team_count": draft.team_count,
+        "season_weight": season_weight,
+        "scoring_weight": scoring_weight,
+        "team_count_weight": round(team_count_weight, 4),
+        "weight": round(season_weight * scoring_weight * team_count_weight, 4),
+    }
 
 
 def _by_draft(picks):

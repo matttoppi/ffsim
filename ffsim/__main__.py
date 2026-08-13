@@ -126,16 +126,31 @@ def main():
         return
 
     if args.command == "manager-audit":
-        from ffsim.draft_intel.profiles import load_pick_observations, summarize_manager_profiles
+        from ffsim.draft_intel.profiles import (
+            load_pick_observations,
+            load_target_context,
+            summarize_manager_profiles,
+        )
 
         try:
             observations = load_pick_observations()
-        except FileNotFoundError as error:
+            target_context = load_target_context(
+                args.config,
+                args.season,
+                league_id=args.league_id,
+            )
+        except (FileNotFoundError, ValueError) as error:
             raise SystemExit(str(error)) from error
-        profiles = summarize_manager_profiles(observations)
+        profiles = summarize_manager_profiles(
+            observations,
+            target_season=target_context["season"],
+            target_scoring_type=target_context["scoring_type"],
+            target_team_count=target_context["team_count"],
+        )
         print(json.dumps({
             "observation_count": len(observations),
             "manager_count": len(profiles),
+            "target_context": target_context,
             "profiles": profiles,
         }, indent=2))
         return
