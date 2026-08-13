@@ -335,12 +335,14 @@ def live_candidate_pool(prepared, state, breadth):
         pool,
         key=lambda player_id: (abs(adp[player_id] - anchor), adp[player_id], player_id),
     )
-    positions = set()
+    # Guarantee early coverage only for positions someone might actually be
+    # weighing at this pick; K/DEF enter by ADP distance in the late rounds.
+    uncovered = {"QB", "RB", "WR", "TE"}
     diverse = []
     for player_id in sorted(pool, key=lambda player_id: (-board[player_id], player_id)):
         position = prepared.player_details.get(player_id, {}).get("position")
-        if position not in positions:
-            positions.add(position)
+        if position in uncovered:
+            uncovered.remove(position)
             diverse.append(player_id)
     return list(dict.fromkeys(diverse + by_distance))[:breadth]
 

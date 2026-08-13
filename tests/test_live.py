@@ -63,6 +63,7 @@ class LiveDraftTest(unittest.TestCase):
             "p11": ("QB", 11.0),
             "p14": ("QB", 14.0),
             "p30": ("TE", 30.0),
+            "p90": ("K", 90.0),   # never forced into the early window
         }
         prepared = SimpleNamespace(
             market_snapshot={
@@ -86,13 +87,15 @@ class LiveDraftTest(unittest.TestCase):
             current_pick_no=10,
         )
         # Positional coverage by best market player first (RB2, WR9, QB11,
-        # TE30), then the remaining players by distance from pick 10.
+        # TE30), then the remaining players by distance from pick 10; the
+        # kicker only enters once the window reaches its ADP.
         self.assertEqual(
             live_candidate_pool(prepared, state, 10),
-            ["p02", "p09", "p11", "p30", "p10", "p14"],
+            ["p02", "p09", "p11", "p30", "p10", "p14", "p90"],
         )
         self.assertEqual(live_candidate_pool(prepared, state, 5)[:5],
                          ["p02", "p09", "p11", "p30", "p10"])
+        self.assertNotIn("p90", live_candidate_pool(prepared, state, 6))
         with self.assertRaisesRegex(ValueError, "No available market players"):
             live_candidate_pool(
                 SimpleNamespace(
