@@ -10,10 +10,16 @@ import sqlite3
 
 from ffsim.draft_intel.market import FANTASYPROS_CONTEXTS, load_market_snapshot_at
 from ffsim.draft_intel.rollout import choice_probabilities
+from ffsim.models.team import FLEX_ELIGIBILITY
 from ffsim.paths import CACHE_DIR
 
 
 MODEL_VERSION = "sleeper-adp-inverse-rank-v1"
+# Reach component temperature: softmax(-log(adp)/0.3) concentrates most reach
+# mass within roughly the next ten board spots while keeping a real tail, the
+# shape of observed human reaches. The sharp component temperature stays a
+# fitted parameter (ADR-015); this one is structural.
+REACH_TEMPERATURE = 0.3
 SLEEPER_ADP_SOURCE = "fantasypros:sleeper"
 DEFAULT_BACKTEST_MAX_AGE = timedelta(hours=24)
 SCORING_POINTS = {"STD": 0.0, "HALF": 0.5, "PPR": 1.0}
@@ -144,12 +150,66 @@ def sleeper_adp_utilities(snapshot):
     return utilities
 
 
-def sleeper_adp_choice(snapshot):
-    """Build the rollout callback accepted by ``complete_drafts``."""
+def position_caps(slot_counts):
+    """Realistic per-roster position maximums implied by the slot structure.
+
+    Humans never roster a second kicker or defense in a redraft, and cap
+    QB/TE at their startable seats plus one backup; RB/WR depth is uncapped.
+    """
+    slot_counts = dict(slot_counts)
+    flex_seats = Counter()
+    for slot, count in slot_counts.items():
+        for flex_position in FLEX_ELIGIBILITY.get(slot, ()):
+            flex_seats[flex_position] += int(count)
+    caps = {position: int(slot_counts.get(position, 0)) for position in ("K", "DEF")}
+    for position in ("QB", "TE"):
+        caps[position] = int(slot_counts.get(position, 0)) + flex_seats[position] + 1
+    return caps
+
+
+def mixture_choice_probabilities(utilities, temperature, reach_rate):
+    """Mix a sharp board-follower with an occasional broader reach pick."""
+    reach_rate = float(reach_rate)
+    if not 0 <= reach_rate < 1:
+        raise ValueError("reach_rate must be in [0, 1)")
+    sharp = choice_probabilities(utilities, temperature)
+    if not reach_rate:
+        return sharp
+    reach = dict(choice_probabilities(utilities, REACH_TEMPERATURE))
+    return tuple(
+        (player_id, (1 - reach_rate) * probability + reach_rate * reach[player_id])
+        for player_id, probability in sharp
+    )
+
+
+def sleeper_adp_choice(
+    snapshot,
+    *,
+    temperature=1.0,
+    reach_rate=0.0,
+    positions=None,
+    slot_counts=None,
+):
+    """Build the rollout callback accepted by ``complete_drafts``.
+
+    The callback owns the full opponent choice distribution and returns final
+    log-probabilities, so rollouts must run at temperature 1.0. Each pick is a
+    mixture: with probability ``1 - reach_rate`` a board follower at the
+    fitted sharp ``temperature``, with probability ``reach_rate`` a reach at
+    ``REACH_TEMPERATURE``. When ``positions`` and ``slot_counts`` are given,
+    players at positions the roster has realistically filled (see
+    ``position_caps``) are excluded before mixing.
+    """
     board = sleeper_adp_utilities(snapshot)
+    caps = (
+        position_caps(slot_counts)
+        if positions is not None and slot_counts is not None
+        else {}
+    )
+    positions = dict(positions or {})
 
     def choose(roster_id, pick_no, rosters, available):
-        del roster_id, pick_no, rosters
+        del pick_no
         # Iterate the small ADP board, not the full availability pool: the
         # pool holds every cached Sleeper player and dominates rollout time.
         utilities = {
@@ -159,7 +219,24 @@ def sleeper_adp_choice(snapshot):
         }
         if not utilities:
             raise ValueError("Sleeper ADP board has no remaining available players")
-        return utilities
+        if caps:
+            counts = Counter(
+                positions.get(player_id) for player_id in dict(rosters)[roster_id]
+            )
+            eligible = {
+                player_id: utility
+                for player_id, utility in utilities.items()
+                if (cap := caps.get(positions.get(player_id))) is None
+                or counts[positions.get(player_id)] < cap
+            }
+            if eligible:
+                utilities = eligible
+        return {
+            player_id: math.log(probability)
+            for player_id, probability in mixture_choice_probabilities(
+                utilities, temperature, reach_rate
+            )
+        }
 
     return choose
 
@@ -175,6 +252,7 @@ def backtest_sleeper_adp(
     *,
     storage_dir=None,
     temperature=1.0,
+    reach_rate=0.0,
     max_age=DEFAULT_BACKTEST_MAX_AGE,
 ):
     """Evaluate only drafts with a snapshot retrieved before the draft began."""
@@ -277,9 +355,10 @@ def backtest_sleeper_adp(
                 )
             ranked = sorted(available, key=lambda candidate: (-board[candidate], candidate))
             rank = ranked.index(player_id) + 1
-            probabilities = dict(choice_probabilities(
+            probabilities = dict(mixture_choice_probabilities(
                 {candidate: board[candidate] for candidate in available},
                 temperature,
+                reach_rate,
             ))
             probability = probabilities[player_id]
             log_loss -= math.log(probability)
@@ -295,6 +374,7 @@ def backtest_sleeper_adp(
             "version": MODEL_VERSION,
             "source": SLEEPER_ADP_SOURCE,
             "temperature": temperature,
+            "reach_rate": float(reach_rate),
             "calibration": "not_run",
             "decision_eligible": False,
         },

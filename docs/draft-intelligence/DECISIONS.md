@@ -352,8 +352,9 @@ while Sleeper was at pick 24).
 ### Consequences
 
 - The monitor exposes explicit recommendation states (idle, pending,
-  calculating, ready, failed) plus the pick a result was computed for and the
-  last discarded pick, so the UI never shows vague or stale activity.
+  calculating, expanding, refining, ready, failed) plus the pick a result was
+  computed for and the last discarded pick, so the UI never shows vague or
+  stale activity.
 - Every recommendation carries its source pick number; the frontend refuses
   to render it against a different current pick.
 - League equity carries its source state, publishes preliminary and refined
@@ -364,11 +365,9 @@ while Sleeper was at pick 24).
 - The worker publishes an exact preliminary pass (12 rollouts) before the
   full budget; rollout IDs are deterministic prefixes, so refinement uses the
   same coupled randomness and supersedes the preliminary result exactly.
-- After the core window is ready, the candidate window keeps expanding
-  outward from the current pick in small ADP-distance batches while the user
-  remains on the clock. Candidate evaluations are independent of their batch
-  under coupled randomness, so merged boards are exactly equal to one large
-  evaluation; parallel worker processes remain profiling-gated.
+- The core window publishes first, then the remainder of the broad market
+  window is screened with the same coupled rollout IDs. Only screening
+  finalists receive the full rollout budget (ADR-018).
 - Normal polling uses one picks request per interval; draft metadata and
   traded picks refresh every fifteenth poll, and completion is detected from
   a full pick sheet even when the cached metadata status is stale.
@@ -491,3 +490,109 @@ the requested rankings without multiplying work by roster count.
 - The sidebar may show the prior labeled result while the newest state is
   pending, then replaces it with preliminary and refined current-state odds.
 - Absolute percentages remain explicitly uncalibrated under ADR-015.
+
+---
+
+## ADR-018 — Screen broadly, refine finalists, and gate statistical ties
+
+**Status:** Accepted
+**Date:** 2026-08-13
+
+### Decision
+
+The live monitor evaluates the nine-player core immediately with 12 coupled
+draft continuations, screens the rest of the 40-player market window with the
+same 12 continuations, and spends the final 300-continuation budget only on
+the top five screening candidates. Each continuation uses three season
+worlds from a default 300-world bank. World selection walks one seeded
+permutation, distributing uses evenly before repeating.
+
+A raw title-equity leader is not presented as a unique recommendation when
+its paired 95% championship-delta interval against another finalist includes
+zero. Those candidates form one low-confidence top tier. Recommendation
+payloads expose deterministic state and run signatures plus the seed, model,
+world-bank, and evaluator versions.
+
+League-wide equity retains its separate 50-continuation ceiling so increasing
+candidate depth does not multiply every-pick background latency.
+
+### Rationale
+
+The previous live pass gave every candidate the same 50 continuations, so
+most compute went to the bottom of a 40-player board while near-equal leaders
+remained noisy. In a 500-continuation blank-draft replay, Bijan Robinson and
+Jahmyr Gibbs differed by 0.6 percentage points with a paired 95% interval of
+-1.8 to +3.0 points; ten disjoint 50-continuation blocks named three different
+leaders. Their future user selections were identical, showing statistical
+indistinguishability rather than excessive rest-of-draft influence.
+
+### Consequences
+
+- The broad screen remains cheap and may be visibly provisional.
+- Five finalists receive six times the old draft-continuation depth at
+  approximately the same total candidate-rollout budget. The final UI retains
+  the rest of the broad board as explicitly labeled 12-continuation screen
+  estimates rather than hiding those options or presenting them as refined.
+- A screening miss is the known ceiling; increase the screening budget or use
+  confidence-bound elimination only if backtests show top-five recall is
+  inadequate.
+- Decision engine version 2 identifies the balanced world mapping and
+  confidence-gated recommendation contract.
+
+---
+
+## ADR-019 — Opponent reach mixture, positional caps, and scarcity-aware recommendations
+
+**Status:** Accepted
+**Date:** 2026-08-13
+
+### Decision
+
+Opponent picks are a two-component mixture. With probability `1 - reach_rate`
+(default 0.15) an opponent follows the sharp fitted board model (ADR-015
+temperature); with probability `reach_rate` they reach, drawn from the same
+inverse-ADP utilities at a structural temperature of 0.3, which concentrates
+most reach mass within roughly the next ten board spots while keeping a real
+tail. The choice callback now owns the full distribution and returns final
+log-probabilities, so rollouts run at temperature 1.0 and the fitted
+temperature is a callback parameter. Opponents also respect positional sanity
+caps derived from the league's slot structure: K/DEF are capped at their slot
+counts and QB/TE at startable seats (including eligible flex) plus one; players
+at capped positions are excluded unless nothing else remains on the board.
+
+Finalist selection guarantees that the best remaining market pick (lowest ADP)
+and the best remaining value-over-replacement pick refine alongside the screen
+leaders. Among statistically tied co-leaders, the recommended candidate is the
+one least likely to return at the user's next pick, measured from a branch that
+passed on them, tagged `SCARCITY_TIEBREAK`; the board payload leads with the
+recommendation. Marginal championship intervals use the same across-rollout
+standard error that backs the paired deltas (the Wilson interval keyed to the
+rollout count is removed), survival summaries are skipped on the user's final
+pick instead of failing, and the position-timing outlook counts a player as
+available at a future turn only when their ADP clears the pick plus
+`reach_rate` times the number of intervening picks.
+
+### Rationale
+
+The fitted sharp softmax is calibrated on bot-heavy mock rooms and assigns
+near-zero probability to the off-board reaches real humans make, so targets
+"always" survived to the next pick, waiting looked free, and market discipline
+stopped constraining the ranking. With true candidate deltas compressed below
+one point by the strong future-self policy (ADR-016), the 12-continuation
+screen (standard error near five points on 36 outcomes) promoted noise into
+the finalist set, and exactly tied branches broke on lexicographic candidate
+IDs. Each fix targets the decision the user actually faces: honest snipe
+hazard, impossible opponent rosters removed, the sensible picks always in the
+refined comparison, and ties resolved by which player cannot be recovered.
+
+### Consequences
+
+- The recommendation model version carries `reach`/`caps` tags and the reach
+  rate invalidates caches like the temperature does.
+- `reach_rate` is a prior, not a fit: the mock rooms that fit the temperature
+  cannot show human reach behavior. The backtest accepts `reach_rate`, so both
+  parameters refit together once real human drafts accumulate in the store.
+- Survival numbers shown in the UI are no longer near-binary; waiting on a
+  target carries visible risk.
+- Among co-leaders the headline is scarcity-driven and deterministic, and a
+  `toss_up` status still marks the tier as statistically tied.

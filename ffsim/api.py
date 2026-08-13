@@ -24,7 +24,8 @@ from ffsim.runtime import create_simulation
 LOGGER = logging.getLogger(__name__)
 TERMINAL_STATUSES = {"completed", "failed"}
 PRELIMINARY_ROLLOUT_COUNT = 12
-EXPANSION_BATCH_SIZE = 4
+FINALIST_COUNT = 5
+LEAGUE_EQUITY_ROLLOUT_COUNT = 50
 
 
 def _state_fingerprint(state):
@@ -61,7 +62,7 @@ class DraftPrepareRequest(BaseModel):
     username: str = Field(min_length=1)
     mock_draft_id: str | None = None
     season: int = Field(default=2026, ge=2020, le=2100)
-    world_count: int = Field(default=50, ge=2, le=500)
+    world_count: int = Field(default=300, ge=2, le=500)
 
     @field_validator("draft_id", "username", "mock_draft_id")
     @classmethod
@@ -76,7 +77,7 @@ class DraftPrepareRequest(BaseModel):
 
 class DraftMonitorRequest(BaseModel):
     poll_seconds: float = Field(default=1.0, ge=0.5, le=30)
-    rollout_count: int = Field(default=50, ge=2, le=500)
+    rollout_count: int = Field(default=300, ge=2, le=500)
     candidate_count: int = Field(default=9, ge=2, le=12)
     candidate_breadth: int = Field(default=40, ge=2, le=100)
     temperature: float | None = Field(default=None, gt=0, le=5)
@@ -240,6 +241,7 @@ class LiveDraftMonitor:
         recommendation_payload,
         evaluate_equity=None,
         equity_payload=None,
+        select_finalists=None,
     ):
         while not self.stopped.is_set():
             self.calculation_event.wait()
@@ -290,9 +292,12 @@ class LiveDraftMonitor:
 
             equity_enabled = evaluate_equity is not None and equity_payload is not None
             equity_finalized = not equity_enabled
+            equity_rollout_count = min(
+                self.rollout_count, LEAGUE_EQUITY_ROLLOUT_COUNT
+            )
             if equity_enabled:
-                preliminary = min(self.rollout_count, PRELIMINARY_ROLLOUT_COUNT)
-                equity_finalized = preliminary == self.rollout_count
+                preliminary = min(equity_rollout_count, PRELIMINARY_ROLLOUT_COUNT)
+                equity_finalized = preliminary == equity_rollout_count
                 if not update_equity(preliminary, equity_finalized):
                     if on_clock:
                         with self.lock:
@@ -316,29 +321,15 @@ class LiveDraftMonitor:
                         if self.state_fingerprint == fingerprint:
                             self.recommendation_status = "failed"
                             self.recommendation_error = str(error)
-            # Publish a quick preliminary pass on the core window, refine it
-            # with the full rollout budget, then keep widening the candidate
-            # window in small batches while the state holds. Rollout IDs are
-            # deterministic prefixes and candidate results are independent of
-            # their batch, so every published board is exact.
-            first = candidates[: self.candidate_count]
-            steps = []
-            if candidates:
-                if self.rollout_count > PRELIMINARY_ROLLOUT_COUNT:
-                    steps.append((first, PRELIMINARY_ROLLOUT_COUNT, False))
-                steps.append((first, self.rollout_count, True))
-                steps.extend(
-                    (candidates[start:start + EXPANSION_BATCH_SIZE], self.rollout_count, True)
-                    for start in range(len(first), len(candidates), EXPANSION_BATCH_SIZE)
-                )
-            evaluations = []
-            for step, (batch, rollout_count, cumulative) in enumerate(steps):
-                if step == 1 and not equity_finalized:
-                    equity_finalized = update_equity(self.rollout_count, True)
-                    if not equity_finalized:
-                        with self.lock:
-                            self.recommendation_discarded_pick_no = pick_no
-                        break
+            # Screen the broad board with one coupled 12-rollout sample, then
+            # spend the old 40-candidate budget on the five finalists.
+            first = tuple(candidates[: self.candidate_count])
+            remainder = tuple(candidates[len(first):])
+            screen_evaluations = []
+            recommendation = None
+            screen_failed = False
+            screen_count = min(self.rollout_count, PRELIMINARY_ROLLOUT_COUNT)
+            for batch_index, batch in enumerate(filter(None, (first, remainder))):
                 with self.lock:
                     if self.state_fingerprint != fingerprint or self.stopped.is_set():
                         # ponytail: no hard thread cancel; obsolete work is
@@ -349,16 +340,17 @@ class LiveDraftMonitor:
                     evaluation = evaluate_candidates(
                         self.prepared,
                         state,
-                        rollout_count,
+                        screen_count,
                         batch,
                         self.temperature,
                         self.executor,
+                        candidates,
                     )
-                    if cumulative:
-                        evaluations.append(evaluation)
+                    screen_evaluations.append(evaluation)
                     recommendation = recommendation_payload(
                         self.prepared,
-                        evaluations if cumulative else [evaluation],
+                        state,
+                        screen_evaluations,
                         len(candidates),
                     )
                 except Exception as error:
@@ -372,23 +364,97 @@ class LiveDraftMonitor:
                             self.recommendation_error = str(error)
                         else:
                             self.recommendation_discarded_pick_no = pick_no
+                    screen_failed = True
                     break
-                final = step == len(steps) - 1
+                screen_complete = batch_index == int(bool(remainder))
+                refine = screen_complete and self.rollout_count > screen_count
+                final = screen_complete and not refine
                 with self.lock:
                     if self.state_fingerprint != fingerprint or self.stopped.is_set():
                         self.recommendation_discarded_pick_no = pick_no
                         break
                     self.recommendation = recommendation
                     self.recommendation_status = (
-                        "ready" if final else ("expanding" if cumulative else "calculating")
+                        "ready" if final else ("refining" if refine else "expanding")
                     )
                     self.calculation_count += int(final)
+
+            if (
+                recommendation is not None
+                and not screen_failed
+                and self.rollout_count > screen_count
+            ):
+                with self.lock:
+                    current = (
+                        self.state_fingerprint == fingerprint
+                        and not self.stopped.is_set()
+                    )
+                if current:
+                    try:
+                        screened_candidates = recommendation["candidates"]
+                        finalists = (
+                            tuple(select_finalists(
+                                self.prepared,
+                                state,
+                                screened_candidates,
+                                FINALIST_COUNT,
+                            ))
+                            if select_finalists is not None
+                            else tuple(
+                                row["player_id"]
+                                for row in screened_candidates[:FINALIST_COUNT]
+                            )
+                        )
+                        evaluation = evaluate_candidates(
+                            self.prepared,
+                            state,
+                            self.rollout_count,
+                            finalists,
+                            self.temperature,
+                            self.executor,
+                            finalists,
+                        )
+                        recommendation = recommendation_payload(
+                            self.prepared, state, [evaluation], len(candidates)
+                        )
+                        finalist_ids = set(finalists)
+                        recommendation["screened_candidates"] = [
+                            row for row in screened_candidates
+                            if row["player_id"] not in finalist_ids
+                        ]
+                        recommendation["screened_rollout_count"] = screen_count
+                        recommendation["candidates_evaluated"] = len(screened_candidates)
+                    except Exception as error:
+                        LOGGER.exception(
+                            "Live draft recommendation failed for %s",
+                            self.prepared.live_draft_id,
+                        )
+                        with self.lock:
+                            if self.state_fingerprint == fingerprint:
+                                self.recommendation_status = "failed"
+                                self.recommendation_error = str(error)
+                            else:
+                                self.recommendation_discarded_pick_no = pick_no
+                    else:
+                        with self.lock:
+                            if (
+                                self.state_fingerprint != fingerprint
+                                or self.stopped.is_set()
+                            ):
+                                self.recommendation_discarded_pick_no = pick_no
+                            else:
+                                self.recommendation = recommendation
+                                self.recommendation_status = "ready"
+                                self.calculation_count += 1
+                else:
+                    with self.lock:
+                        self.recommendation_discarded_pick_no = pick_no
 
             if not equity_finalized:
                 with self.lock:
                     current = self.state_fingerprint == fingerprint and not self.stopped.is_set()
                 if current:
-                    update_equity(self.rollout_count, True)
+                    update_equity(equity_rollout_count, True)
 
     def run(self):
         from ffsim.draft_intel.live import (
@@ -399,6 +465,7 @@ class LiveDraftMonitor:
             live_league_equity_payload,
             live_recommendation_payload,
             live_state_summary,
+            select_finalists,
             sync_prepared_draft,
         )
 
@@ -417,6 +484,7 @@ class LiveDraftMonitor:
                 live_recommendation_payload,
                 evaluate_live_league_equity if equity_available else None,
                 live_league_equity_payload if equity_available else None,
+                select_finalists if equity_available else None,
             ),
             daemon=True,
         ).start()

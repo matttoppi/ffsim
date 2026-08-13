@@ -119,6 +119,21 @@ class DraftState:
             opponent_roster_ids_until_next=opponents,
         )
 
+    def future_turn_pick_nos(self, roster_id, count=3):
+        """First pick of each future turn, grouping adjacent snake picks."""
+        if count < 1:
+            raise ValueError("count must be positive")
+        turn = self.turn_for(roster_id, future_pick_count=len(self.pick_owners))
+        previous = self.current_pick_no if turn.user_current_pick_no is not None else None
+        result = []
+        for pick_no in turn.future_user_pick_nos:
+            if previous is None or pick_no != previous + 1:
+                result.append(pick_no)
+                if len(result) == count:
+                    break
+            previous = pick_no
+        return tuple(result)
+
 
 def replay_sleeper_draft(draft, picks, traded_picks, player_ids):
     draft_id = _required_text(draft, "draft_id")

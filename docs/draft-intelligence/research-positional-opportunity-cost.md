@@ -113,13 +113,16 @@ K/DEF usually moved to picks 120–144.
 
 Option B remains unpursued (A did not measurably under-correct).
 
-Option C landed as a display layer: each candidate evaluation summarizes,
-per position, the best available season projection now versus the expected
-best remaining at the user's next pick (averaged over the recommended
-candidate's draft continuations — reusing the completions the equity engine
-already samples, no extra rollouts). The recommendation payload carries it
-as `cost_of_waiting` and the web board renders it under the candidate list.
-The numbers are conditioned on taking the recommended pick, which slightly
-overstates the wait cost at the recommended player's own position; that is
-the decision-relevant framing ("if you take this pick, waiting on QB costs
-~X points") and is documented rather than corrected.
+Option C landed first as a one-pick display, then was superseded after the
+live snake turn exposed a bad horizon: at pick 24, the owner also held pick
+25, so every position appeared approximately free. The current display
+groups adjacent selections into one turn and shows QB/TE value across the
+next three real turns. For each turn it selects the highest-projected player
+whose Sleeper ADP is at or after that pick, then recommends taking now or
+targeting the pick immediately before the largest incremental projection
+drop. This is intentionally an ADP/projection timing curve with no forced-wait
+rollouts; the coupled championship board remains the cross-position decision.
+Each board row also shows Sleeper ADP and the player's modeled next-pick return
+chance from that player's best alternative root branch. This reuses the same
+coupled completions that determine title equity; it does not apply a separate
+ADP penalty or report the mechanically zero survival from taking the player now.

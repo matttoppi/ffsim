@@ -1,4 +1,6 @@
+from collections import Counter
 from dataclasses import asdict
+from dataclasses import replace
 import json
 import unittest
 
@@ -17,7 +19,7 @@ from ffsim.simulation.evaluator import LeagueEvaluator
 from ffsim.simulation.world_bank import SeasonWorldBank
 
 
-def draft_state():
+def draft_state(picks=()):
     draft = {
         "draft_id": "nested-offline",
         "type": "snake",
@@ -28,7 +30,7 @@ def draft_state():
     }
     return replay_sleeper_draft(
         draft,
-        picks=(),
+        picks=picks,
         traded_picks=(),
         player_ids=(f"p{index}" for index in range(1, 13)),
     )
@@ -137,30 +139,6 @@ class DecisionEvaluationTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "duplicate candidates"):
             merge_evaluations([combined, combined])
 
-    def test_position_waiting_prices_the_best_remaining_at_the_next_pick(self):
-        result = evaluate_candidates(
-            draft_state(),
-            ("p1",),
-            user_roster_id=1,
-            rollout_ids=range(4),
-            opponent_choice=market_utility,
-            user_policy=market_utility,
-            league_evaluator=evaluator(),
-            draft_model_version="manual-test-v1",
-            seed=7,
-        )
-        # Opponents deterministically take p2..p7 before the user's next pick
-        # (pick 8), so waiting on WR costs p1 (300) minus p8 (90).
-        (entry,) = result.candidate("p1").position_waiting
-        self.assertEqual(entry.position, "WR")
-        self.assertEqual(entry.best_now_player_id, "p1")
-        self.assertAlmostEqual(entry.best_now_points, 300.0)
-        self.assertAlmostEqual(entry.expected_best_next_points, 90.0)
-        self.assertAlmostEqual(entry.cost_of_waiting, 210.0)
-        self.assertEqual(
-            recommendation_summary(result).cost_of_waiting, (entry,)
-        )
-
     def test_candidates_use_many_paired_draft_paths_and_selected_season_worlds(self):
         league_evaluator = evaluator()
         result = evaluate_candidates(
@@ -174,7 +152,7 @@ class DecisionEvaluationTest(unittest.TestCase):
             draft_model_version="manual-test-v1",
             seed=19,
             season_worlds_per_rollout=3,
-            survival_player_ids=("p2", "p3"),
+            survival_player_ids=("p1", "p2", "p3"),
             tiers={"next": ("p2", "p3")},
         )
 
@@ -186,6 +164,12 @@ class DecisionEvaluationTest(unittest.TestCase):
         self.assertTrue(
             {world for worlds in result.world_indices for world in worlds}
             <= set(range(5))
+        )
+        self.assertEqual(
+            set(Counter(
+                world for worlds in result.world_indices for world in worlds
+            ).values()),
+            {12},
         )
         self.assertEqual(best.sample_count, 60)
         self.assertEqual(best.rollout_count, 20)
@@ -205,8 +189,14 @@ class DecisionEvaluationTest(unittest.TestCase):
         self.assertEqual(recommendation.runner_up_candidate_id, "p2")
         self.assertEqual(recommendation.joint_outcome_count, 60)
         self.assertEqual(recommendation.season_worlds_per_rollout, 3)
-        self.assertEqual(recommendation.decision_engine_version, 1)
+        self.assertEqual(recommendation.decision_engine_version, 2)
         self.assertEqual(recommendation.draft_model_version, "manual-test-v1")
+        self.assertEqual(recommendation.decision_status, "clear_leader")
+        self.assertEqual(recommendation.co_leader_candidate_ids, ("p1",))
+        self.assertEqual(
+            tuple(player.player_id for player in recommendation.availability.players),
+            ("p1",),
+        )
         self.assertIn("PAIRED_CHAMPIONSHIP_EDGE", recommendation.reason_codes)
         json.dumps(asdict(recommendation))
 
@@ -221,10 +211,14 @@ class DecisionEvaluationTest(unittest.TestCase):
             draft_model_version="manual-test-v1",
             seed=19,
             season_worlds_per_rollout=3,
-            survival_player_ids=("p2", "p3"),
+            survival_player_ids=("p1", "p2", "p3"),
             tiers={"next": ("p2", "p3")},
         )
         self.assertEqual(result, cached)
+        self.assertEqual(
+            recommendation.run_signature,
+            recommendation_summary(cached).run_signature,
+        )
         self.assertGreater(league_evaluator.cache_hits, 0)
 
         uncached = evaluate_candidates(
@@ -238,11 +232,124 @@ class DecisionEvaluationTest(unittest.TestCase):
             draft_model_version="manual-test-v1",
             seed=19,
             season_worlds_per_rollout=3,
-            survival_player_ids=("p2", "p3"),
+            survival_player_ids=("p1", "p2", "p3"),
             tiers={"next": ("p2", "p3")},
             use_cache=False,
         )
         self.assertEqual(result, uncached)
+
+    def test_statistically_tied_candidates_form_one_top_tier(self):
+        evaluation = evaluate_candidates(
+            draft_state(),
+            ("p1", "p2"),
+            1,
+            range(20),
+            market_utility,
+            market_utility,
+            evaluator(),
+            draft_model_version="manual-test-v1",
+            seed=19,
+            season_worlds_per_rollout=3,
+        )
+        leader = evaluation.candidate("p1")
+        tied = replace(
+            evaluation.candidate("p2"),
+            championship_probability=leader.championship_probability,
+            championship_outcomes=leader.championship_outcomes,
+            continuation_championship_probabilities=(
+                leader.continuation_championship_probabilities
+            ),
+        )
+
+        recommendation = recommendation_summary(
+            replace(evaluation, candidates=(leader, tied))
+        )
+
+        self.assertEqual(recommendation.decision_status, "toss_up")
+        self.assertEqual(recommendation.co_leader_candidate_ids, ("p1", "p2"))
+        self.assertIn("LOW_CONFIDENCE_TOSS_UP", recommendation.reason_codes)
+        self.assertNotIn("PAIRED_CHAMPIONSHIP_EDGE", recommendation.reason_codes)
+
+    def test_toss_up_recommends_the_co_leader_least_likely_to_return(self):
+        def opponents(roster_id, pick_no, rosters, available):
+            utilities = {
+                player_id: -100.0 * int(player_id[1:]) for player_id in available
+            }
+            # Opponents hunt p2 and never want p1, so p2 is the scarce
+            # co-leader while p1 always returns at the next pick.
+            if "p1" in utilities:
+                utilities["p1"] = -100000.0
+            if "p2" in utilities:
+                utilities["p2"] = 100000.0
+            return utilities
+
+        evaluation = evaluate_candidates(
+            draft_state(),
+            ("p1", "p2"),
+            1,
+            range(20),
+            opponents,
+            market_utility,
+            evaluator(),
+            draft_model_version="manual-test-v1",
+            seed=19,
+            season_worlds_per_rollout=3,
+            survival_player_ids=("p1", "p2"),
+        )
+        leader = evaluation.candidate("p1")
+        tied = replace(
+            evaluation.candidate("p2"),
+            championship_probability=leader.championship_probability,
+            playoff_probability=leader.playoff_probability,
+            expected_wins=leader.expected_wins,
+            expected_points=leader.expected_points,
+            championship_outcomes=leader.championship_outcomes,
+            continuation_championship_probabilities=(
+                leader.continuation_championship_probabilities
+            ),
+        )
+
+        recommendation = recommendation_summary(
+            replace(evaluation, candidates=(leader, tied))
+        )
+
+        self.assertEqual(recommendation.decision_status, "toss_up")
+        self.assertEqual(recommendation.recommended_candidate_id, "p2")
+        self.assertEqual(recommendation.runner_up_candidate_id, "p1")
+        self.assertEqual(recommendation.co_leader_candidate_ids, ("p1", "p2"))
+        self.assertIn("SCARCITY_TIEBREAK", recommendation.reason_codes)
+        self.assertIn("LOW_CONFIDENCE_TOSS_UP", recommendation.reason_codes)
+
+    def test_final_pick_evaluations_skip_next_pick_survival(self):
+        picks = tuple(
+            {
+                "draft_id": "nested-offline",
+                "pick_no": pick_no,
+                "round": (pick_no - 1) // 4 + 1,
+                "draft_slot": slot,
+                "roster_id": slot,
+                "player_id": f"p{pick_no}",
+            }
+            for pick_no, slot in enumerate((1, 2, 3, 4, 4, 3, 2), start=1)
+        )
+        evaluation = evaluate_candidates(
+            draft_state(picks),
+            ("p8", "p9"),
+            1,
+            range(4),
+            market_utility,
+            market_utility,
+            evaluator(),
+            draft_model_version="manual-test-v1",
+            seed=19,
+            survival_player_ids=("p8", "p9"),
+        )
+
+        self.assertIsNone(evaluation.next_user_pick_no)
+        self.assertTrue(
+            all(candidate.survival is None for candidate in evaluation.candidates)
+        )
+        self.assertIsNone(recommendation_summary(evaluation).availability)
 
     def test_nested_evaluation_rejects_one_draft_continuation(self):
         with self.assertRaisesRegex(ValueError, "at least two"):

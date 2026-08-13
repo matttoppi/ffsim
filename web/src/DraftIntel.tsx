@@ -112,18 +112,28 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
   const recommendationCurrent =
     monitor.recommendation?.pick_no != null &&
     monitor.recommendation.pick_no === currentPickNo
-  const candidates = recommendationCurrent ? (monitor.recommendation?.candidates ?? []) : []
+  const finalists = recommendationCurrent ? (monitor.recommendation?.candidates ?? []) : []
+  const screenedCandidates = recommendationCurrent
+    ? (monitor.recommendation?.screened_candidates ?? [])
+    : []
+  const candidates = [...finalists, ...screenedCandidates]
+  const screenedCandidateIds = new Set(screenedCandidates.map((candidate) => candidate.player_id))
   const maxEquity = Math.max(...candidates.map((c) => c.championship_probability), 1e-9)
   const positions = [...new Set(candidates.flatMap((c) => (c.position ? [c.position] : [])))]
   const visibleCandidates = positionFilter
     ? candidates.filter((c) => c.position === positionFilter)
     : candidates
-  const leader = candidates[0]
-  const waitingCosts = recommendationCurrent
-    ? (monitor.recommendation?.cost_of_waiting ?? [])
+  const leader = finalists[0] ?? candidates[0]
+  const positionTiming = recommendationCurrent
+    ? (monitor.recommendation?.position_timing ?? [])
     : []
   const leaderEdge =
     monitor.recommendation?.paired_delta_vs_runner_up?.championship_probability_delta
+  const tossUp = monitor.recommendation?.decision_status === 'toss_up'
+  const coLeaderIds = new Set(monitor.recommendation?.co_leader_candidate_ids ?? [])
+  const coLeaderNames = candidates.flatMap((candidate) =>
+    coLeaderIds.has(candidate.player_id) ? [candidate.name] : [],
+  )
   const backToBack =
     onClock &&
     currentPickNo != null &&
@@ -314,9 +324,13 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
               </p>
             ) : recStatus === 'expanding' ? (
               <p className="draft-progress" role="status">
-                Widening the board for pick {monitor.recommendation_pick_no} —{' '}
+                Screening the board for pick {monitor.recommendation_pick_no} —{' '}
                 {monitor.recommendation?.candidates_evaluated} of{' '}
                 {monitor.recommendation?.candidate_pool} candidates evaluated…
+              </p>
+            ) : recStatus === 'refining' ? (
+              <p className="draft-progress" role="status">
+                Refining the top candidates for pick {monitor.recommendation_pick_no}…
               </p>
             ) : recStatus === 'failed' ? (
               <p className="form-error" role="alert">
@@ -337,6 +351,21 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
             )}
           {candidates.length > 0 && (
             <>
+              {screenedCandidates.length > 0 && (
+                <p className="controls-hint">
+                  <strong>{candidates.length} options shown.</strong> The top {finalists.length}{' '}
+                  were refined over {monitor.recommendation?.rollout_count} continuations; the
+                  other {screenedCandidates.length} are labeled with their{' '}
+                  {monitor.recommendation?.screened_rollout_count}-continuation screen.
+                </p>
+              )}
+              {tossUp && (
+                <p className="controls-hint" role="status">
+                  <strong>No clear winner.</strong>{' '}
+                  {coLeaderNames.join(', ')} form the top tier; their paired title-equity
+                  uncertainty still overlaps.
+                </p>
+              )}
               {backToBack && (
                 <p className="controls-hint">
                   You also have pick {monitor.state?.user_next_pick_no}. Back-to-back
@@ -373,11 +402,13 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
               <ol className={`board${recStatus === 'ready' ? '' : ' is-preliminary'}`}>
                 {visibleCandidates.map((candidate) => {
                   const rank = candidates.indexOf(candidate)
+                  const screened = screenedCandidateIds.has(candidate.player_id)
+                  const inTopTier = tossUp && coLeaderIds.has(candidate.player_id)
                   const deltaVsLeader =
                     (candidate.championship_probability - leader.championship_probability) * 100
                   return (
                     <li key={candidate.player_id} className="board-row">
-                      <span className="board-rank">{rank + 1}</span>
+                      <span className="board-rank">{inTopTier ? 'T1' : rank + 1}</span>
                       <span className={`pos-badge pos-${candidate.position ?? 'NA'}`}>
                         {candidate.position ?? '—'}
                       </span>
@@ -387,6 +418,16 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
                           {(candidate.playoff_probability * 100).toFixed(0)}% playoffs ·{' '}
                           {candidate.expected_wins.toFixed(1)} wins
                         </small>
+                        {candidate.adp != null && (
+                          <small>
+                            ADP {candidate.adp.toFixed(0)}
+                            {candidate.survives_to_next_pick != null &&
+                              monitor.state?.user_next_pick_no != null && (
+                                <> · {(candidate.survives_to_next_pick * 100).toFixed(0)}% chance back at pick{' '}
+                                  {monitor.state.user_next_pick_no}</>
+                              )}
+                          </small>
+                        )}
                       </span>
                       <span className="board-equity">
                         <span className="board-track" aria-hidden="true">
@@ -395,10 +436,20 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
                             style={{ width: `${(candidate.championship_probability / maxEquity) * 100}%` }}
                           />
                         </span>
-                        {rank === 0 ? (
+                        {screened ? (
+                          <span className="board-numbers">
+                            <strong className="board-delta">screened</strong>
+                            <small>
+                              {(candidate.championship_probability * 100).toFixed(1)}% title ·{' '}
+                              {monitor.recommendation?.screened_rollout_count} continuations
+                            </small>
+                          </span>
+                        ) : rank === 0 ? (
                           <span className="board-numbers">
                             <strong>{(candidate.championship_probability * 100).toFixed(1)}%</strong>
-                            {leaderEdge != null && (
+                            {tossUp ? (
+                              <small>top tier · no clear edge</small>
+                            ) : leaderEdge != null && (
                               <small>
                                 {Math.abs(leaderEdge * 100) < 0.05
                                   ? 'even with next'
@@ -409,7 +460,9 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
                         ) : (
                           <span className="board-numbers">
                             <strong className="board-delta">
-                              {Math.abs(deltaVsLeader) < 0.05
+                              {inTopTier
+                                ? 'top tier'
+                                : Math.abs(deltaVsLeader) < 0.05
                                 ? 'even'
                                 : `${deltaVsLeader.toFixed(1)}%`}
                             </strong>
@@ -425,32 +478,63 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
                 {recStatus === 'ready'
                   ? 'Ready'
                   : recStatus === 'expanding'
-                    ? 'Expanding'
-                    : 'Preliminary'}{' '}
+                    ? 'Screening'
+                    : recStatus === 'refining'
+                      ? 'Refining'
+                      : 'Preliminary'}{' '}
                 for pick {monitor.recommendation?.pick_no} · title odds if drafted now, ± vs
                 the top option · uncalibrated Sleeper-ADP baseline ·{' '}
                 {monitor.recommendation?.rollout_count} draft continuations
+                {screenedCandidates.length > 0 ? ' for finalists' : ''}
+                {monitor.recommendation?.run_signature && (
+                  <> · run {monitor.recommendation.run_signature.slice(0, 12)} · seed{' '}
+                    {monitor.recommendation.seed} · engine v
+                    {monitor.recommendation.decision_engine_version} · world{' '}
+                    {monitor.recommendation.world_bank_version.slice(0, 8)} · model{' '}
+                    {monitor.recommendation.draft_model_version}</>
+                )}
+                . Title odds include ADP-driven future drafts and the chance to select players
+                who survive to later picks.
               </p>
-              {waitingCosts.length > 0 && monitor.state?.user_next_pick_no != null && (
-                <div className="pick-feed wait-cost">
-                  <h4>Cost of waiting until pick {monitor.state.user_next_pick_no}</h4>
-                  <ul className="pick-feed-list">
-                    {waitingCosts.map((row) => (
-                      <li key={row.position} className="wait-cost-row">
-                        <span className={`pos-badge pos-${row.position}`}>{row.position}</span>
-                        <strong className="wait-cost-points">
-                          {row.cost_of_waiting < 0.5
-                            ? '≈ free'
-                            : `−${row.cost_of_waiting.toFixed(0)} pts`}
-                        </strong>
-                        <small>
-                          {row.best_now_name ?? row.best_now_player_id}{' '}
-                          {row.best_now_points.toFixed(0)} now → ~
-                          {row.expected_best_next_points.toFixed(0)} projected best if you wait
-                        </small>
-                      </li>
+              {positionTiming.length > 0 && (
+                <div className="pick-feed position-timing">
+                  <h4>QB &amp; TE timing by ADP · next three turns</h4>
+                  <div className="timing-grid">
+                    {positionTiming.map((row) => (
+                      <section key={row.position} className="timing-card">
+                        <header>
+                          <span className={`pos-badge pos-${row.position}`}>{row.position}</span>
+                          <strong>
+                            {row.recommendation === 'TAKE_NOW'
+                              ? 'Take now'
+                              : row.recommendation === 'WAIT_THROUGH_PICK'
+                                ? `Wait through pick ${row.target_pick_no}`
+                              : `Target by pick ${row.target_pick_no}`}
+                          </strong>
+                        </header>
+                        <p>
+                          Now: {row.best_now_name ?? row.best_now_player_id}{' '}
+                          {row.best_now_points.toFixed(0)} pts · ADP {row.best_now_adp.toFixed(0)}
+                        </p>
+                        <ul>
+                          {row.turns.map((turn) => (
+                            <li key={turn.pick_no}>
+                              <strong>Pick {turn.pick_no}</strong>
+                              <span>
+                                {turn.name ?? 'No ADP option'} · {turn.projected_points.toFixed(0)} pts
+                                {turn.adp != null ? ` · ADP ${turn.adp.toFixed(0)}` : ''}
+                              </span>
+                              <small>−{turn.drop_from_now.toFixed(0)} vs now</small>
+                            </li>
+                          ))}
+                        </ul>
+                      </section>
                     ))}
-                  </ul>
+                  </div>
+                  <p className="board-footnote">
+                    Expected options use Sleeper ADP; the candidate board above decides whether
+                    this position beats your other choices now.
+                  </p>
                 </div>
               )}
             </>

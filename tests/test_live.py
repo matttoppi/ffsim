@@ -15,8 +15,11 @@ from ffsim.draft_intel.live import (
     evaluate_live_league_equity,
     live_candidate_pool,
     live_league_equity_payload,
+    live_recommendation_payload,
     live_state_summary,
     mock_mismatch_reasons,
+    position_timing_outlook,
+    select_finalists,
 )
 from ffsim.draft_intel.market_model import SLEEPER_ADP_SOURCE
 from ffsim.draft_intel.state import DraftPick
@@ -24,6 +27,53 @@ from tests.test_decision import draft_state, evaluator
 
 
 class LiveDraftTest(unittest.TestCase):
+    def test_position_timing_targets_the_pick_before_the_adp_value_cliff(self):
+        player_ids = ("qb1", "qb2", "qb3", "qb4", "te1", "te2")
+        prepared = SimpleNamespace(
+            user_roster_id=1,
+            market_snapshot={
+                "source": SLEEPER_ADP_SOURCE,
+                "observations": [
+                    {"canonical_player_id": player_id, "adp": adp}
+                    for player_id, adp in zip(player_ids, (30, 55, 75, 110, 80, 110))
+                ],
+            },
+            evaluator=SimpleNamespace(
+                bank=SimpleNamespace(
+                    player_ids=player_ids,
+                    player_positions=("QB", "QB", "QB", "QB", "TE", "TE"),
+                    expected_scores=(200, 180, 165, 125, 125, 90),
+                    weeks=(1, 2),
+                ),
+                slot_counts={"QB": 1, "TE": 1},
+            ),
+            player_details={player_id: {"name": player_id.upper()} for player_id in player_ids},
+        )
+        state = SimpleNamespace(
+            current_pick_no=24,
+            available_player_ids=frozenset(player_ids),
+            future_turn_pick_nos=lambda _roster_id: (48, 72, 96),
+            roster_player_ids=lambda _roster_id: (),
+        )
+
+        qb, te = position_timing_outlook(prepared, state)
+
+        self.assertEqual([turn["pick_no"] for turn in qb["turns"]], [48, 72, 96])
+        # qb3 (ADP 75) no longer counts as available at pick 72: the reach
+        # cushion expects intervening off-board picks to displace near-pick
+        # targets, so the projected board at 72 already falls to qb4.
+        self.assertEqual([turn["player_id"] for turn in qb["turns"]], [
+            "qb2", "qb4", "qb4",
+        ])
+        self.assertEqual(qb["target_pick_no"], 48)
+        self.assertEqual(qb["recommendation"], "TARGET_BY_PICK")
+        self.assertEqual(te["target_pick_no"], 72)
+
+        prepared.evaluator.bank.expected_scores = (200, 150, 140, 130, 125, 90)
+        (urgent_qb,) = position_timing_outlook(prepared, state, positions=("QB",))
+        self.assertEqual(urgent_qb["target_pick_no"], 24)
+        self.assertEqual(urgent_qb["recommendation"], "TAKE_NOW")
+
     def test_live_league_equity_payload_names_and_ranks_every_roster(self):
         prepared = PreparedDraft(
             summary={},
@@ -94,11 +144,59 @@ class LiveDraftTest(unittest.TestCase):
         self.assertEqual(sequential.rollout_ids, parallel.rollout_ids)
         self.assertEqual(sequential.world_indices, parallel.world_indices)
         self.assertEqual(sequential.draft_model_version, parallel.draft_model_version)
-        self.assertTrue(sequential.draft_model_version.endswith(":t0.11:vor2"))
+        self.assertTrue(
+            sequential.draft_model_version.endswith(
+                ":t0.11:reach0.15:caps:vor2"
+            )
+        )
         self.assertEqual(
             {candidate.candidate_id: candidate for candidate in sequential.candidates},
             {candidate.candidate_id: candidate for candidate in parallel.candidates},
         )
+
+    def test_recommendation_uses_the_best_alternative_branch_for_return_chance(self):
+        state = draft_state()
+        prepared = PreparedDraft(
+            summary={},
+            live_draft_id="draft",
+            league_id=None,
+            standalone=True,
+            user_roster_id=1,
+            market_snapshot={
+                "source": SLEEPER_ADP_SOURCE,
+                "snapshot_id": "snap",
+                "observations": [
+                    {"canonical_player_id": f"p{index}", "adp": float(index)}
+                    for index in range(1, 13)
+                ],
+            },
+            evaluator=evaluator(),
+            player_details={
+                f"p{index}": {"name": f"Player {index}", "position": "WR"}
+                for index in range(1, 13)
+            },
+        )
+        evaluation = evaluate_live_candidates(prepared, state, 20, ("p1", "p8"))
+
+        own_branch = next(
+            player for player in evaluation.candidate("p8").survival.players
+            if player.player_id == "p8"
+        )
+        row = next(
+            candidate
+            for candidate in live_recommendation_payload(
+                prepared, state, [evaluation], 2
+            )["candidates"]
+            if candidate["player_id"] == "p8"
+        )
+
+        self.assertEqual(own_branch.survives_to_next_pick, 0)
+        self.assertAlmostEqual(row["adp"], 8)
+        self.assertEqual(row["best_wait_candidate_id"], "p1")
+        # Reach-mixture opponents occasionally snipe p8 before the next
+        # pick, so the return chance is high but never certain.
+        self.assertGreater(row["survives_to_next_pick"], 0.5)
+        self.assertLess(row["survives_to_next_pick"], 1.0)
 
     def test_future_user_policy_prefers_value_over_replacement_in_open_slots(self):
         bank = SimpleNamespace(
@@ -148,6 +246,20 @@ class LiveDraftTest(unittest.TestCase):
         after_kicker = ((1, (*core_filled[0][1], "k1")), (2, ()))
         utilities = policy(1, 5, after_kicker, available - {"k1"})
         self.assertNotIn("k2", utilities)
+
+    def test_finalists_always_include_market_chalk_and_top_model_value(self):
+        prepared = SimpleNamespace(evaluator=evaluator())
+        rows = [
+            {"player_id": f"p{number}", "adp": float(adp)}
+            for number, adp in ((5, 5), (6, 6), (7, 7), (8, 8), (9, 9), (3, 50))
+        ]
+
+        finalists = select_finalists(prepared, None, rows, 5)
+
+        # p3 is the model's best value but screened last (the market prices
+        # it at ADP 50), and p5 is the best remaining market pick; both are
+        # guaranteed finalists so screen noise can only cost depth.
+        self.assertEqual(finalists, ("p5", "p6", "p7", "p8", "p3"))
 
     def test_candidate_pool_expands_outward_from_the_current_pick(self):
         adps = {

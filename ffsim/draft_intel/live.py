@@ -3,6 +3,7 @@
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict, dataclass, field
 import json
+from math import exp
 from pathlib import Path
 from urllib.parse import quote, urlparse
 
@@ -11,6 +12,7 @@ from ffsim.draft_intel.decision import (
     evaluate_candidates,
     evaluate_league_equity,
     merge_evaluations,
+    rank_candidates,
     recommendation_summary,
 )
 from ffsim.draft_intel.history import load_history, summarize_history
@@ -54,7 +56,7 @@ def prepare_draft(
     *,
     mock_draft_id=None,
     season=2026,
-    world_count=50,
+    world_count=300,
     progress=None,
 ):
     """Refresh every input needed by one live draft session."""
@@ -351,6 +353,13 @@ def live_candidate_pool(prepared, state, breadth):
 # picks from this league's Sleeper mocks (2026-08-13); see the ledger. It is
 # provisional evidence, refit as real human drafts accumulate.
 LIVE_TEMPERATURE = 0.11
+# Share of opponent picks drawn from the broad reach component instead of the
+# sharp board-follower (ADR-019). The mock rooms that fit the temperature are
+# bot-heavy and cannot show human reach/need picks, so the pure sharp model
+# assigns near-zero probability to the snipes that actually cost drafts.
+# ponytail: 0.15 is a prior, not a fit; refit with the temperature once real
+# human draft picks accumulate in the history store.
+LIVE_REACH_RATE = 0.15
 # Season worlds per continuation: outcome resolution is cheap relative to
 # continuation sampling, so take three coupled worlds per draft path.
 LIVE_SEASON_WORLDS_PER_ROLLOUT = 3
@@ -374,18 +383,28 @@ def _bank_market_snapshot(prepared):
 def _live_model_version(snapshot, temperature):
     # vor2: core starters are filled before bench depth, while K/DEF compete
     # on value once the core lineup is complete and are never duplicated.
-    return f"{sleeper_adp_model_version(snapshot)}:t{temperature}:vor2"
+    # reach/caps: opponents mix the sharp board-follower with occasional
+    # reaches and respect positional sanity caps (ADR-019).
+    return (
+        f"{sleeper_adp_model_version(snapshot)}"
+        f":t{temperature}:reach{LIVE_REACH_RATE}:caps:vor2"
+    )
 
 
-def _projection_user_policy(evaluator):
-    """Future user picks by projection over positional replacement.
+def _live_opponent_choice(snapshot, evaluator, temperature):
+    """Calibrated ADP opponents with reach mixture and positional caps."""
+    bank = evaluator.bank
+    return sleeper_adp_choice(
+        snapshot,
+        temperature=temperature,
+        reach_rate=LIVE_REACH_RATE,
+        positions=dict(zip(bank.player_ids, bank.player_positions)),
+        slot_counts=evaluator.slot_counts,
+    )
 
-    Opponents follow the calibrated market model, but the user's own later
-    picks should follow this tool's valuation: value over replacement from
-    the season projections, preferring players who still fill an open
-    starting slot. Root candidates are forced, so this only shapes the
-    simulated follow-up picks.
-    """
+
+def _value_over_replacement(evaluator):
+    """Season projections, positions, and league-wide replacement levels."""
     from ffsim.models.team import FLEX_ELIGIBILITY
 
     bank = evaluator.bank
@@ -426,6 +445,26 @@ def _projection_user_policy(evaluator):
     replacement = {
         position: max(next_projection(position), 0.0)
         for position in by_position
+    }
+    return projection, position_of, replacement
+
+
+def _projection_user_policy(evaluator):
+    """Future user picks by projection over positional replacement.
+
+    Opponents follow the calibrated market model, but the user's own later
+    picks should follow this tool's valuation: value over replacement from
+    the season projections, preferring players who still fill an open
+    starting slot. Root candidates are forced, so this only shapes the
+    simulated follow-up picks.
+    """
+    from ffsim.models.team import FLEX_ELIGIBILITY
+
+    projection, position_of, replacement = _value_over_replacement(evaluator)
+    slots = dict(evaluator.slot_counts)
+    dedicated = {
+        position: count for position, count in slots.items()
+        if position not in FLEX_ELIGIBILITY
     }
 
     def policy(roster_id, pick_no, rosters, available):
@@ -474,7 +513,7 @@ def _evaluate_candidate_batch(
     rollout_count,
     temperature,
 ):
-    choose = sleeper_adp_choice(snapshot)
+    choose = _live_opponent_choice(snapshot, evaluator, temperature)
     return evaluate_candidates(
         state,
         candidate_ids,
@@ -485,7 +524,10 @@ def _evaluate_candidate_batch(
         evaluator,
         draft_model_version=_live_model_version(snapshot, temperature),
         survival_player_ids=survival_ids,
-        temperature=temperature,
+        # The opponent callback returns final log-probabilities with the
+        # fitted temperature and reach mixture folded in, so rollouts run
+        # at temperature 1.0.
+        temperature=1.0,
         season_worlds_per_rollout=LIVE_SEASON_WORLDS_PER_ROLLOUT,
     )
 
@@ -529,6 +571,7 @@ def evaluate_live_candidates(
     candidate_ids,
     temperature=None,
     executor=None,
+    survival_ids=None,
 ):
     if state.current_roster_id != prepared.user_roster_id:
         raise ValueError("Live recommendations require the user on the clock")
@@ -536,6 +579,7 @@ def evaluate_live_candidates(
         raise ValueError("Prepared draft is missing market or season inputs")
     temperature = LIVE_TEMPERATURE if temperature is None else float(temperature)
     candidate_ids = tuple(candidate_ids)
+    survival_ids = tuple(candidate_ids if survival_ids is None else survival_ids)
     if executor is None:
         return _evaluate_candidate_batch(
             _bank_market_snapshot(prepared),
@@ -543,7 +587,7 @@ def evaluate_live_candidates(
             prepared.user_roster_id,
             state,
             candidate_ids,
-            candidate_ids,
+            survival_ids,
             rollout_count,
             temperature,
         )
@@ -554,13 +598,45 @@ def evaluate_live_candidates(
             _evaluate_candidate_task,
             state,
             candidate_id,
-            candidate_ids,
+            survival_ids,
             rollout_count,
             temperature,
         )
         for candidate_id in candidate_ids
     ]
     return merge_evaluations([future.result() for future in futures])
+
+
+def select_finalists(prepared, state, screened_rows, count):
+    """Screen leaders plus guaranteed market-chalk and top-model-value picks.
+
+    A 12-continuation screen separates statistically tied candidates by
+    noise, so the refined comparison always includes the best remaining
+    market pick and the best remaining value-over-replacement pick. A
+    screening miss can then only cost depth, never the sensible picks.
+    """
+    del state
+    rows = [str(row["player_id"]) for row in screened_rows]
+    forced = []
+    priced = [row for row in screened_rows if row.get("adp") is not None]
+    if priced:
+        forced.append(str(min(priced, key=lambda row: row["adp"])["player_id"]))
+    projection, position_of, replacement = _value_over_replacement(
+        prepared.evaluator
+    )
+    valued = [player_id for player_id in rows if player_id in projection]
+    if valued:
+        forced.append(max(
+            valued,
+            key=lambda player_id: projection[player_id]
+            - replacement.get(position_of[player_id], 0.0),
+        ))
+    keep = dict.fromkeys(forced)
+    for player_id in rows:
+        if len(keep) >= count:
+            break
+        keep.setdefault(player_id)
+    return tuple(sorted(keep, key=rows.index))
 
 
 def evaluate_live_league_equity(prepared, state, rollout_count, temperature=None):
@@ -572,11 +648,11 @@ def evaluate_live_league_equity(prepared, state, rollout_count, temperature=None
         state,
         prepared.user_roster_id,
         range(rollout_count),
-        sleeper_adp_choice(snapshot),
+        _live_opponent_choice(snapshot, prepared.evaluator, temperature),
         _projection_user_policy(prepared.evaluator),
         prepared.evaluator,
         draft_model_version=_live_model_version(snapshot, temperature),
-        temperature=temperature,
+        temperature=1.0,
         season_worlds_per_rollout=LIVE_SEASON_WORLDS_PER_ROLLOUT,
     )
 
@@ -609,20 +685,148 @@ def live_league_equity_payload(prepared, evaluation):
     }
 
 
-def live_recommendation_payload(prepared, evaluations, candidate_pool_count):
+def position_timing_outlook(prepared, state, positions=("QB", "TE")):
+    """Projected positional value at the user's next three non-adjacent turns."""
+    if prepared.market_snapshot is None or prepared.evaluator is None:
+        return []
+    pick_nos = state.future_turn_pick_nos(prepared.user_roster_id)
+    if state.current_pick_no is None or not pick_nos:
+        return []
+
+    bank = prepared.evaluator.bank
+    weeks = len(bank.weeks)
+    projection = {
+        player_id: float(score) * weeks
+        for player_id, score in zip(bank.player_ids, bank.expected_scores)
+    }
+    position_of = dict(zip(bank.player_ids, bank.player_positions))
+    adp = {
+        player_id: exp(-utility)
+        for player_id, utility in sleeper_adp_utilities(
+            prepared.market_snapshot
+        ).items()
+    }
+    roster_counts = {}
+    for player_id in state.roster_player_ids(prepared.user_roster_id):
+        position = position_of.get(player_id)
+        roster_counts[position] = roster_counts.get(position, 0) + 1
+
+    # ponytail: three turns keeps the live advice legible; extend the horizon
+    # only if real drafts show QB/TE cliffs routinely falling beyond it.
+    outlook = []
+    for position in positions:
+        if (
+            roster_counts.get(position, 0)
+            >= prepared.evaluator.slot_counts.get(position, 0)
+        ):
+            continue
+        players = [
+            player_id
+            for player_id in state.available_player_ids
+            if position_of.get(player_id) == position
+            and player_id in projection
+            and player_id in adp
+        ]
+        if not players:
+            continue
+
+        def best(player_ids):
+            return max(
+                player_ids,
+                key=lambda player_id: (
+                    projection[player_id],
+                    -adp[player_id],
+                    player_id,
+                ),
+            )
+
+        best_now = best(players)
+        turns = []
+        for pick_no in pick_nos:
+            # Reaches snipe targets ahead of market (ADR-019): a share of the
+            # intervening picks deviate from the board, so a player counts as
+            # available at a future turn only with ADP beyond the pick plus
+            # that expected displacement.
+            cushion = LIVE_REACH_RATE * (pick_no - state.current_pick_no)
+            expected_available = [
+                player_id
+                for player_id in players
+                if adp[player_id] >= pick_no + cushion
+            ]
+            player_id = best(expected_available) if expected_available else None
+            points = projection[player_id] if player_id else 0.0
+            turns.append({
+                "pick_no": pick_no,
+                "player_id": player_id,
+                "name": (
+                    prepared.player_details.get(player_id, {}).get("name", player_id)
+                    if player_id else None
+                ),
+                "projected_points": points,
+                "adp": adp[player_id] if player_id else None,
+                "drop_from_now": projection[best_now] - points,
+            })
+
+        points = [projection[best_now], *(turn["projected_points"] for turn in turns)]
+        drops = [left - right for left, right in zip(points, points[1:])]
+        cliff = drops.index(max(drops)) if max(drops) > 0 else None
+        target_pick_no = (
+            turns[-1]["pick_no"]
+            if cliff is None
+            else state.current_pick_no
+            if cliff == 0
+            else turns[cliff - 1]["pick_no"]
+        )
+        outlook.append({
+            "position": position,
+            "best_now_player_id": best_now,
+            "best_now_name": prepared.player_details.get(best_now, {}).get(
+                "name", best_now
+            ),
+            "best_now_points": projection[best_now],
+            "best_now_adp": adp[best_now],
+            "advantage_now_vs_next_turn": drops[0],
+            "target_pick_no": target_pick_no,
+            "recommendation": (
+                "WAIT_THROUGH_PICK"
+                if cliff is None
+                else "TAKE_NOW"
+                if cliff == 0
+                else "TARGET_BY_PICK"
+            ),
+            "turns": turns,
+        })
+    return outlook
+
+
+def live_recommendation_payload(prepared, state, evaluations, candidate_pool_count):
     evaluation = merge_evaluations(evaluations)
     recommendation = asdict(recommendation_summary(evaluation))
-    ranked = sorted(
-        evaluation.candidates,
-        key=lambda candidate: (
-            -candidate.championship_probability,
-            -candidate.playoff_probability,
-            -candidate.expected_wins,
-            candidate.candidate_id,
-        ),
-    )
-    recommendation["candidates"] = [
-        {
+    ranked = rank_candidates(evaluation)
+    adp = {
+        player_id: exp(-utility)
+        for player_id, utility in sleeper_adp_utilities(
+            prepared.market_snapshot
+        ).items()
+    }
+    candidates = []
+    for candidate in ranked:
+        best_wait = next(
+            (alternative for alternative in ranked if alternative is not candidate),
+            None,
+        )
+        survival = (
+            next(
+                (
+                    player for player in best_wait.survival.players
+                    if player.player_id == candidate.candidate_id
+                ),
+                None,
+            )
+            if best_wait and best_wait.survival
+            else None
+        )
+        candidates.append({
             "player_id": candidate.candidate_id,
             "name": prepared.player_details.get(candidate.candidate_id, {}).get(
                 "name", candidate.candidate_id
@@ -633,13 +837,22 @@ def live_recommendation_payload(prepared, evaluations, candidate_pool_count):
             "championship_probability": candidate.championship_probability,
             "playoff_probability": candidate.playoff_probability,
             "expected_wins": candidate.expected_wins,
-        }
-        for candidate in ranked
-    ]
-    for entry in recommendation["cost_of_waiting"] or ():
-        entry["best_now_name"] = prepared.player_details.get(
-            entry["best_now_player_id"], {}
-        ).get("name", entry["best_now_player_id"])
+            "adp": adp.get(candidate.candidate_id),
+            "survives_to_next_pick": (
+                survival.survives_to_next_pick if survival else None
+            ),
+            "best_wait_candidate_id": (
+                best_wait.candidate_id if best_wait else None
+            ),
+        })
+    # The scarcity tie-break can promote a non-argmax co-leader, so the
+    # board leads with the actual recommendation.
+    candidates.sort(
+        key=lambda row: row["player_id"]
+        != recommendation["recommended_candidate_id"]
+    )
+    recommendation["candidates"] = candidates
+    recommendation["position_timing"] = position_timing_outlook(prepared, state)
     recommendation["model_status"] = "uncalibrated_sleeper_adp_baseline"
     recommendation["pick_no"] = evaluation.state_pick_no
     recommendation["candidates_evaluated"] = len(evaluation.candidates)

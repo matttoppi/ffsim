@@ -221,24 +221,59 @@ describe('DraftIntel', () => {
             championship_probability: 0.2,
             playoff_probability: 0.5,
             expected_wins: 8,
+            adp: 42.4,
+            survives_to_next_pick: 0.82,
+            best_wait_candidate_id: 'p10',
           },
         ],
-        cost_of_waiting: [
-          {
-            position: 'RB',
-            best_now_player_id: 'p9',
-            best_now_name: 'Fresh Player',
-            best_now_points: 280.4,
-            expected_best_next_points: 249.1,
-            cost_of_waiting: 31.3,
-          },
+        position_timing: [
           {
             position: 'QB',
-            best_now_player_id: 'p10',
-            best_now_name: 'Patient Quarterback',
+            best_now_player_id: 'p9',
+            best_now_name: 'Fresh Player',
             best_now_points: 350.2,
-            expected_best_next_points: 350.0,
-            cost_of_waiting: 0.2,
+            best_now_adp: 7.1,
+            advantage_now_vs_next_turn: 31.3,
+            target_pick_no: 9,
+            recommendation: 'TARGET_BY_PICK',
+            turns: [
+              {
+                pick_no: 9,
+                player_id: 'p10',
+                name: 'Patient Quarterback',
+                projected_points: 318.9,
+                adp: 10.2,
+                drop_from_now: 31.3,
+              },
+              {
+                pick_no: 16,
+                player_id: 'p11',
+                name: 'Later Quarterback',
+                projected_points: 280,
+                adp: 20,
+                drop_from_now: 70.2,
+              },
+            ],
+          },
+          {
+            position: 'TE',
+            best_now_player_id: 'p10',
+            best_now_name: 'Elite Tight End',
+            best_now_points: 240,
+            best_now_adp: 12,
+            advantage_now_vs_next_turn: 60,
+            target_pick_no: 6,
+            recommendation: 'TAKE_NOW',
+            turns: [
+              {
+                pick_no: 9,
+                player_id: 'p12',
+                name: 'Later Tight End',
+                projected_points: 180,
+                adp: 18,
+                drop_from_now: 60,
+              },
+            ],
           },
         ],
       },
@@ -248,12 +283,14 @@ describe('DraftIntel', () => {
       render(<DraftIntel currentDraftId="real" />)
     })
     expect(screen.getByText('Fresh Player')).toBeTruthy()
+    expect(screen.getByText(/ADP 42.*82% chance back at pick 9/)).toBeTruthy()
     expect(screen.getByText(/Ready for pick 6/)).toBeTruthy()
     expect(screen.getByText('You are on the clock')).toBeTruthy()
-    expect(screen.getByText('Cost of waiting until pick 9')).toBeTruthy()
-    expect(screen.getByText('−31 pts')).toBeTruthy()
-    expect(screen.getByText('≈ free')).toBeTruthy()
-    expect(screen.getByText(/Patient Quarterback 350 now/)).toBeTruthy()
+    expect(screen.getByText('QB & TE timing by ADP · next three turns')).toBeTruthy()
+    expect(screen.getByText('Target by pick 9')).toBeTruthy()
+    expect(screen.getByText('Take now')).toBeTruthy()
+    expect(screen.getByText(/Patient Quarterback · 319 pts/)).toBeTruthy()
+    expect(screen.getByText('−31 vs now')).toBeTruthy()
   })
 
   it('shows deltas versus the top option and filters candidates by position', async () => {
@@ -267,6 +304,7 @@ describe('DraftIntel', () => {
         joint_outcome_count: 100,
         pick_no: 6,
         paired_delta_vs_runner_up: { championship_probability_delta: 0.05 },
+        screened_rollout_count: 12,
         candidates: [
           {
             player_id: 'p1',
@@ -285,6 +323,16 @@ describe('DraftIntel', () => {
             expected_wins: 8,
           },
         ],
+        screened_candidates: [
+          {
+            player_id: 'p3',
+            name: 'Screened Quarterback',
+            position: 'QB',
+            championship_probability: 0.14,
+            playoff_probability: 0.48,
+            expected_wins: 7.8,
+          },
+        ],
       },
       state: { ...monitorState([pick(1, 'Alpha One')], 6), user_on_clock: true },
     })
@@ -294,7 +342,13 @@ describe('DraftIntel', () => {
     expect(screen.getByText('+5.0% vs next')).toBeTruthy()
     expect(screen.getByText('-5.0%')).toBeTruthy()
     expect(screen.getByText('15.0% title')).toBeTruthy()
+    expect(screen.getByText('3 options shown.')).toBeTruthy()
+    expect(screen.getByText('Screened Quarterback')).toBeTruthy()
+    expect(screen.getByText('14.0% title · 12 continuations')).toBeTruthy()
 
+    fireEvent.click(screen.getByRole('button', { name: 'QB' }))
+    expect(screen.queryByText('Lead Back')).toBeNull()
+    expect(screen.getByText('Screened Quarterback')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'WR' }))
     expect(screen.queryByText('Lead Back')).toBeNull()
     expect(screen.getByText('Second Wideout')).toBeTruthy()
@@ -302,7 +356,7 @@ describe('DraftIntel', () => {
     expect(screen.getByText('Lead Back')).toBeTruthy()
   })
 
-  it('marks interchangeable candidates as even and explains back-to-back picks', async () => {
+  it('reports statistically interchangeable candidates as one top tier', async () => {
     mockMonitor({
       status: 'running',
       recommendation_status: 'ready',
@@ -311,8 +365,20 @@ describe('DraftIntel', () => {
         model_status: 'baseline',
         rollout_count: 50,
         joint_outcome_count: 50,
+        seed: 2026,
+        decision_engine_version: 2,
+        draft_model_version: 'sleeper-adp:t0.11:vor2',
+        world_bank_version: 'abcdef1234567890',
+        league_evaluator_version: 'league-v1',
+        state_signature: 'state-signature',
+        run_signature: '1234567890abcdef',
+        decision_status: 'toss_up',
+        co_leader_candidate_ids: ['p1', 'p2'],
         pick_no: 24,
-        paired_delta_vs_runner_up: { championship_probability_delta: 0 },
+        paired_delta_vs_runner_up: {
+          championship_probability_delta: 0,
+          interval: [-0.05, 0.05],
+        },
         candidates: [
           {
             player_id: 'p1',
@@ -341,9 +407,14 @@ describe('DraftIntel', () => {
     await act(async () => {
       render(<DraftIntel currentDraftId="real" />)
     })
-    expect(screen.getByText('even with next')).toBeTruthy()
-    expect(screen.getByText('even')).toBeTruthy()
+    expect(screen.getByText('No clear winner.')).toBeTruthy()
+    expect(screen.getByText(/Lead Back, Even Wideout form the top tier/)).toBeTruthy()
+    expect(screen.getAllByText('T1')).toHaveLength(2)
+    expect(screen.getByText('top tier · no clear edge')).toBeTruthy()
+    expect(screen.getByText('top tier')).toBeTruthy()
     expect(screen.queryByText('+0.0% vs next')).toBeNull()
+    expect(screen.getByText(/run 1234567890ab/)).toBeTruthy()
+    expect(screen.getByText(/model sleeper-adp:t0.11:vor2/)).toBeTruthy()
     expect(screen.getByText(/You also have pick 25/)).toBeTruthy()
     expect(screen.getByText(/runner-up with your next pick/)).toBeTruthy()
   })
@@ -372,7 +443,11 @@ describe('DraftIntel', () => {
           candidates: [],
         },
       },
-      /Widening the board for pick 7 — 13 of 40 candidates evaluated/,
+      /Screening the board for pick 7 — 13 of 40 candidates evaluated/,
+    ],
+    [
+      { status: 'running', recommendation_status: 'refining', recommendation_pick_no: 7 },
+      /Refining the top candidates for pick 7/,
     ],
     [
       {

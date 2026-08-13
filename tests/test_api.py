@@ -99,14 +99,14 @@ class ApiTest(unittest.TestCase):
             LeagueRequest(league_id=" league ", draft_id=" draft ").model_dump(),
             {"league_id": "league", "draft_id": "draft"},
         )
-        self.assertEqual(
-            DraftPrepareRequest(
-                draft_id=" real ",
-                mock_draft_id=" mock ",
-                username=" matt ",
-            ).model_dump()["mock_draft_id"],
-            "mock",
+        prepare = DraftPrepareRequest(
+            draft_id=" real ",
+            mock_draft_id=" mock ",
+            username=" matt ",
         )
+        self.assertEqual(prepare.model_dump()["mock_draft_id"], "mock")
+        self.assertEqual(prepare.world_count, 300)
+        self.assertEqual(DraftMonitorRequest().rollout_count, 300)
         with self.assertRaises(ValidationError):
             DraftMonitorRequest(rollout_count=1)
 
@@ -383,7 +383,7 @@ class ApiTest(unittest.TestCase):
                 ),
                 patch(
                     "ffsim.draft_intel.live.live_recommendation_payload",
-                    side_effect=lambda _prepared, evaluations, _count: evaluations[-1],
+                    side_effect=lambda _prepared, _state, evaluations, _count: evaluations[-1],
                 ),
                 patch(
                     "ffsim.draft_intel.live.live_state_summary",
@@ -453,7 +453,7 @@ class ApiTest(unittest.TestCase):
             ),
             patch(
                 "ffsim.draft_intel.live.live_recommendation_payload",
-                side_effect=lambda _prepared, evaluations, _count: evaluations[-1],
+                side_effect=lambda _prepared, _state, evaluations, _count: evaluations[-1],
             ),
             patch(
                 "ffsim.draft_intel.live.live_state_summary",
@@ -485,18 +485,23 @@ class ApiTest(unittest.TestCase):
         monitor.calculation_event.set()
         observed = []
 
-        def evaluate(_prepared, _state, rollout_count, _candidates, *_args):
+        def evaluate(_prepared, _state, rollout_count, candidates, *_args):
             observed.append(
                 (rollout_count, monitor.recommendation, monitor.recommendation_status)
             )
-            return {"rollout_count": rollout_count}
+            return {
+                "rollout_count": rollout_count,
+                "candidates": [
+                    {"player_id": candidate_id} for candidate_id in candidates
+                ],
+            }
 
         worker = Thread(
             target=monitor.calculate,
             args=(
                 lambda *_args: ["a", "b", "c", "d", "e"],
                 evaluate,
-                lambda _prepared, evaluations, _count: evaluations[-1],
+                lambda _prepared, _state, evaluations, _count: evaluations[-1],
             ),
         )
         worker.start()
@@ -511,9 +516,19 @@ class ApiTest(unittest.TestCase):
 
         self.assertEqual(observed, [
             (12, None, "calculating"),
-            (50, {"rollout_count": 12}, "calculating"),
+            (
+                50,
+                {
+                    "rollout_count": 12,
+                    "candidates": [
+                        {"player_id": candidate_id}
+                        for candidate_id in ["a", "b", "c", "d", "e"]
+                    ],
+                },
+                "refining",
+            ),
         ])
-        self.assertEqual(monitor.recommendation, {"rollout_count": 50})
+        self.assertEqual(monitor.recommendation["rollout_count"], 50)
         self.assertEqual(monitor.recommendation_status, "ready")
         self.assertEqual(monitor.calculation_count, 1)
 
@@ -563,9 +578,9 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(monitor.league_equity, {"rosters": [], "count": 50})
         self.assertEqual(monitor.league_equity_calculation_count, 1)
 
-    def test_the_candidate_window_expands_in_batches_until_ready(self):
+    def test_the_broad_screen_keeps_all_options_after_refining_five_finalists(self):
         prepared = SimpleNamespace(live_draft_id="mock", user_roster_id=1)
-        monitor = LiveDraftMonitor(prepared, 0, 2, 2, 6)
+        monitor = LiveDraftMonitor(prepared, 0, 50, 2, 6)
         state = SimpleNamespace(
             status="drafting",
             completed_picks=(),
@@ -576,18 +591,29 @@ class ApiTest(unittest.TestCase):
         monitor.pending_state = state
         monitor.state_fingerprint = ("drafting", 0, 1, (1,))
         monitor.calculation_event.set()
-        observed = []
+        evaluated = []
+        published = []
 
-        def evaluate(_prepared, _state, _rollout_count, batch, *_args):
+        def evaluate(_prepared, _state, rollout_count, batch, *_args):
+            evaluated.append((rollout_count, list(batch), list(_args[-1])))
             return {"batch": list(batch)}
 
-        def payload(_prepared, evaluations, pool_count):
-            observed.append((
-                [evaluation["batch"] for evaluation in evaluations],
+        def payload(_prepared, _state, evaluations, pool_count):
+            batches = [evaluation["batch"] for evaluation in evaluations]
+            candidates = list(reversed([
+                candidate_id for batch in batches for candidate_id in batch
+            ]))
+            published.append((
+                batches,
                 pool_count,
                 monitor.recommendation_status,
             ))
-            return {"batches": len(evaluations)}
+            return {
+                "batches": len(evaluations),
+                "candidates": [
+                    {"player_id": candidate_id} for candidate_id in candidates
+                ],
+            }
 
         worker = Thread(
             target=monitor.calculate,
@@ -603,13 +629,92 @@ class ApiTest(unittest.TestCase):
         monitor.stop()
         worker.join(5)
 
-        self.assertEqual(observed, [
+        self.assertEqual(evaluated, [
+            (12, ["a", "b"], ["a", "b", "c", "d", "e", "f"]),
+            (12, ["c", "d", "e", "f"], ["a", "b", "c", "d", "e", "f"]),
+            (50, ["f", "e", "d", "c", "b"], ["f", "e", "d", "c", "b"]),
+        ])
+        self.assertEqual(published, [
             ([["a", "b"]], 6, "calculating"),
             ([["a", "b"], ["c", "d", "e", "f"]], 6, "expanding"),
+            ([["f", "e", "d", "c", "b"]], 6, "refining"),
         ])
-        self.assertEqual(monitor.recommendation, {"batches": 2})
+        self.assertEqual(monitor.recommendation["batches"], 1)
+        self.assertEqual(
+            monitor.recommendation["screened_candidates"],
+            [{"player_id": "a"}],
+        )
+        self.assertEqual(monitor.recommendation["screened_rollout_count"], 12)
+        self.assertEqual(monitor.recommendation["candidates_evaluated"], 6)
         self.assertEqual(monitor.recommendation_status, "ready")
         self.assertEqual(monitor.calculation_count, 1)
+
+    def test_refinement_evaluates_the_injected_finalist_selection(self):
+        prepared = SimpleNamespace(live_draft_id="mock", user_roster_id=1)
+        monitor = LiveDraftMonitor(prepared, 0, 50, 5)
+        state = SimpleNamespace(
+            status="drafting",
+            completed_picks=(),
+            current_pick_no=1,
+            current_roster_id=1,
+            pick_owners=(1,),
+        )
+        monitor.pending_state = state
+        monitor.state_fingerprint = ("drafting", 0, 1, (1,))
+        monitor.calculation_event.set()
+        evaluated = []
+        selected = []
+
+        def evaluate(_prepared, _state, rollout_count, batch, *_args):
+            evaluated.append((rollout_count, tuple(batch)))
+            return {
+                "candidates": [
+                    {"player_id": candidate_id} for candidate_id in batch
+                ],
+            }
+
+        def selector(prepared_arg, state_arg, rows, count):
+            selected.append((
+                prepared_arg,
+                state_arg,
+                [row["player_id"] for row in rows],
+                count,
+            ))
+            return ("e", "a")
+
+        worker = Thread(
+            target=monitor.calculate,
+            args=(
+                lambda *_args: ["a", "b", "c", "d", "e"],
+                evaluate,
+                lambda _prepared, _state, evaluations, _count: evaluations[-1],
+                None,
+                None,
+                selector,
+            ),
+        )
+        worker.start()
+        deadline = time.time() + 5
+        while (
+            monitor.snapshot()["recommendation_status"] != "ready"
+            and time.time() < deadline
+        ):
+            time.sleep(0.001)
+        monitor.stop()
+        worker.join(5)
+
+        self.assertEqual(evaluated, [
+            (12, ("a", "b", "c", "d", "e")),
+            (50, ("e", "a")),
+        ])
+        self.assertEqual(selected, [
+            (prepared, state, ["a", "b", "c", "d", "e"], 5),
+        ])
+        self.assertEqual(
+            monitor.recommendation["screened_candidates"],
+            [{"player_id": "b"}, {"player_id": "c"}, {"player_id": "d"}],
+        )
+        self.assertEqual(monitor.recommendation_status, "ready")
 
     def test_refinement_is_abandoned_when_the_draft_advances(self):
         prepared = SimpleNamespace(live_draft_id="mock", user_roster_id=1)
@@ -637,7 +742,7 @@ class ApiTest(unittest.TestCase):
             args=(
                 lambda *_args: ["a", "b", "c", "d", "e"],
                 evaluate,
-                lambda _prepared, evaluations, _count: evaluations[-1],
+                lambda _prepared, _state, evaluations, _count: evaluations[-1],
             ),
         )
         worker.start()
@@ -678,7 +783,7 @@ class ApiTest(unittest.TestCase):
             args=(
                 lambda *_args: ["c"],
                 evaluate,
-                lambda _prepared, evaluations, _count: evaluations[-1],
+                lambda _prepared, _state, evaluations, _count: evaluations[-1],
             ),
         )
         worker.start()

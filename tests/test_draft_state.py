@@ -1,3 +1,4 @@
+from dataclasses import replace
 import json
 import unittest
 from pathlib import Path
@@ -61,6 +62,21 @@ class DraftStateTest(unittest.TestCase):
         self.assertEqual(turn.user_current_pick_no, 3)
         self.assertEqual(turn.user_next_pick_no, 4)
         self.assertEqual(turn.future_user_pick_nos, (4, 5))
+
+    def test_future_turns_group_back_to_back_snake_picks(self):
+        draft = {
+            "draft_id": "turns",
+            "type": "snake",
+            "status": "drafting",
+            "settings": {"teams": 12, "rounds": 8, "reversal_round": 0},
+            "draft_order": {str(roster): roster for roster in range(1, 13)},
+            "slot_to_roster_id": {str(roster): roster for roster in range(1, 13)},
+        }
+        state = replay_sleeper_draft(draft, (), (), ())
+        at_pick_24 = replace(state, completed_picks=(None,) * 23)
+
+        self.assertEqual(at_pick_24.current_roster_id, 1)
+        self.assertEqual(at_pick_24.future_turn_pick_nos(1), (48, 72, 96))
 
     def test_auction_replay_tracks_winners_and_budgets_without_inventing_future_owners(self):
         state = self.replay("auction")

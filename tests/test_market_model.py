@@ -1,4 +1,5 @@
 import json
+import math
 import sqlite3
 import tempfile
 import unittest
@@ -9,6 +10,8 @@ from pathlib import Path
 from ffsim.draft_intel.market_model import (
     backtest_sleeper_adp,
     load_league_market_snapshot,
+    mixture_choice_probabilities,
+    position_caps,
     resolve_league_market_context,
     resolve_market_context,
     sleeper_adp_choice,
@@ -45,6 +48,52 @@ class MarketModelTest(unittest.TestCase):
         self.assertEqual(
             resolve_market_context(roster_positions=(), scoring_type="ppr")["status"],
             "unsupported",
+        )
+
+    def test_reach_mixture_thickens_the_tail_of_the_sharp_board_follower(self):
+        utilities = {f"p{number}": -math.log(number) for number in range(1, 21)}
+        sharp = dict(mixture_choice_probabilities(utilities, 0.11, 0.0))
+        mixed = dict(mixture_choice_probabilities(utilities, 0.11, 0.15))
+
+        self.assertAlmostEqual(sum(mixed.values()), 1.0)
+        # A pure fitted board-follower assigns near-zero probability to deep
+        # reaches; the mixture restores a real snipe hazard down the board.
+        self.assertGreater(mixed["p20"], 10 * sharp["p20"])
+        self.assertLess(mixed["p1"], sharp["p1"])
+        with self.assertRaisesRegex(ValueError, "reach_rate"):
+            mixture_choice_probabilities(utilities, 0.11, 1.0)
+
+    def test_positional_caps_block_impossible_rosters_with_a_fallback(self):
+        caps = position_caps({
+            "QB": 1, "RB": 2, "WR": 2, "TE": 1, "FLEX": 1, "K": 1, "DEF": 1,
+        })
+        self.assertEqual(caps, {"K": 1, "DEF": 1, "QB": 2, "TE": 3})
+        self.assertEqual(position_caps({"QB": 1, "SUPER_FLEX": 1})["QB"], 3)
+
+        snapshot = {
+            "source": "fantasypros:sleeper",
+            "observations": [
+                {"canonical_player_id": player_id, "adp": adp}
+                for player_id, adp in (("k1", 1.0), ("k2", 2.0), ("wr1", 3.0))
+            ],
+        }
+        choice = sleeper_adp_choice(
+            snapshot,
+            temperature=0.11,
+            reach_rate=0.15,
+            positions={"k1": "K", "k2": "K", "wr1": "WR"},
+            slot_counts={"WR": 1, "K": 1},
+        )
+        rosters = ((1, ("k1",)), (2, ()))
+
+        capped = choice(1, 5, rosters, frozenset({"k2", "wr1"}))
+        self.assertEqual(set(capped), {"wr1"})
+        # A roster left with only capped players falls back to the board.
+        self.assertEqual(set(choice(1, 5, rosters, frozenset({"k2"}))), {"k2"})
+        uncapped = choice(2, 5, rosters, frozenset({"k2", "wr1"}))
+        self.assertEqual(set(uncapped), {"k2", "wr1"})
+        self.assertAlmostEqual(
+            sum(math.exp(value) for value in uncapped.values()), 1.0
         )
 
     def test_choice_callback_and_backtest_use_only_pre_draft_snapshots(self):

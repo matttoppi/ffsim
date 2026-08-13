@@ -86,17 +86,20 @@ continuation of the current draft state; candidate recommendations are
 calculated only when the user is on the clock. Any finished result whose
 draft-state fingerprint no longer matches is discarded. The worker publishes
 a quick preliminary league-equity pass (12 rollouts), does the same for the
-core candidate window when applicable, refines both with the full rollout
-budget, then keeps widening the candidate window outward from the current
-pick in four-candidate ADP-distance batches (default breadth 40) while the
-state holds. Rollout IDs are deterministic prefixes and candidate results
-are independent of their batch, so every published board is exactly equal
-to one large evaluation of the same candidates; work is abandoned between
-steps if the draft advances. A sync failure
+core candidate window when applicable, then screens the remainder of the
+40-player market window with the same coupled 12-rollout sample. The five
+screening leaders receive the 300-rollout final budget; league-wide equity
+remains capped at 50 rollouts. The default 300-world bank is traversed with a
+seeded permutation so world use is balanced before any world repeats.
+Candidate results are independent of their screening batch, so merged screen
+results equal one large evaluation of the same candidates; work is abandoned
+between steps if the draft advances. A sync failure
 of any kind is retried on the next poll with a forced metadata refresh so a
 mid-draft traded pick or transient bad payload heals itself. Every published
 recommendation carries the pick number it was computed for, and the UI must
-refuse to display it against any other current pick.
+refuse to display it against any other current pick. Final output includes a
+state/run signature and reports a top tier rather than a unique winner when
+the paired championship-delta interval includes zero.
 
 ### 11.3 Live room adaptation
 
@@ -193,6 +196,21 @@ WaitDelta(p) = Q_best_wait_path(p) - Q_take_now(p)
 ```
 
 where `Q` is expected championship probability under the modeled future draft and season outcomes.
+
+The displayed return chance for `p` is counterfactual: measure `p`'s survival
+in the highest-equity root branch that selects a different player now. Do not
+report survival from the branch that forces `p` at the current pick, where it
+is mechanically zero. Because every root branch completes the draft with the
+ADP-driven opponent model and the same future-user policy, championship equity
+already includes the chance to select `p` later when it survives.
+
+The live V1 also exposes a simpler QB/TE timing diagnostic. It groups adjacent
+snake selections into one turn, then compares the best projected player
+available now with the best projected player whose Sleeper ADP reaches each of
+the user's next three turns. The suggested target is the pick immediately
+before the largest incremental projection drop. This ADP curve explains
+positional timing; it does not replace the coupled championship-equity board
+when deciding whether QB/TE beats another position now.
 
 ### 12.6 Strategic reach
 

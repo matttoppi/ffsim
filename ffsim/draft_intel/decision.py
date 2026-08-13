@@ -14,7 +14,7 @@ from ffsim.draft_intel.rollout import (
 )
 
 
-DECISION_ENGINE_VERSION = 1
+DECISION_ENGINE_VERSION = 2
 
 
 @dataclass(frozen=True)
@@ -33,7 +33,6 @@ class CandidateEvaluation:
     continuation_log_probabilities: tuple[float, ...]
     continuation_championship_probabilities: tuple[float, ...]
     survival: SurvivalReport | None
-    position_waiting: tuple[PositionWaiting, ...] | None
 
     @property
     def sample_count(self):
@@ -42,15 +41,6 @@ class CandidateEvaluation:
     @property
     def rollout_count(self):
         return len(self.continuation_championship_probabilities)
-
-
-@dataclass(frozen=True)
-class PositionWaiting:
-    position: str
-    best_now_player_id: str
-    best_now_points: float
-    expected_best_next_points: float
-    cost_of_waiting: float
 
 
 @dataclass(frozen=True)
@@ -93,6 +83,7 @@ class PairedDelta:
 class DecisionEvaluation:
     draft_id: str
     state_pick_no: int
+    state_signature: str
     user_roster_id: int
     next_user_pick_no: int | None
     rollout_ids: tuple[int, ...]
@@ -149,10 +140,14 @@ class DecisionEvaluation:
 class RecommendationSummary:
     draft_id: str
     state_pick_no: int
+    state_signature: str
+    run_signature: str
     user_roster_id: int
     next_user_pick_no: int | None
     recommended_candidate_id: str
     runner_up_candidate_id: str | None
+    decision_status: str
+    co_leader_candidate_ids: tuple[str, ...]
     championship_probability: float
     championship_interval: tuple[float, float]
     playoff_probability: float
@@ -161,7 +156,6 @@ class RecommendationSummary:
     continuation_equity_percentiles: tuple[float, float, float]
     paired_delta_vs_runner_up: PairedDelta | None
     availability: SurvivalReport | None
-    cost_of_waiting: tuple[PositionWaiting, ...] | None
     rollout_count: int
     season_worlds_per_rollout: int
     joint_outcome_count: int
@@ -232,7 +226,6 @@ def evaluate_candidates(
     }
     user_index = league_evaluator.roster_index[user_roster_id]
     next_user_pick_no = state.turn_for(user_roster_id).user_next_pick_no
-    position_boards = _position_boards(state, league_evaluator.bank)
     evaluations = []
     for candidate_id in candidate_ids:
         completions = complete_drafts(
@@ -285,9 +278,8 @@ def evaluate_candidates(
             candidate_id=candidate_id,
             championship_probability=championship_probability,
             championship_standard_error=championship_error,
-            championship_interval=_wilson_interval(
-                championship_probability,
-                len(continuation_probabilities),
+            championship_interval=_probability_interval(
+                championship_probability, championship_error
             ),
             playoff_probability=sum(playoffs) / len(playoffs),
             expected_wins=sum(wins) / len(wins),
@@ -300,17 +292,15 @@ def evaluate_candidates(
             continuation_championship_probabilities=tuple(continuation_probabilities),
             survival=(
                 summarize_survival(completions, survival_player_ids, tiers)
-                if survival_player_ids or tiers
+                if (survival_player_ids or tiers) and next_user_pick_no is not None
                 else None
-            ),
-            position_waiting=_position_waiting(
-                position_boards, completions, next_user_pick_no
             ),
         ))
 
     return DecisionEvaluation(
         draft_id=state.draft_id,
         state_pick_no=state.current_pick_no,
+        state_signature=_state_signature(state),
         user_roster_id=user_roster_id,
         next_user_pick_no=next_user_pick_no,
         rollout_ids=rollout_ids,
@@ -414,7 +404,7 @@ def evaluate_league_equity(
             roster_id=roster_id,
             championship_probability=probability,
             championship_standard_error=error,
-            championship_interval=_wilson_interval(probability, len(rollout_ids)),
+            championship_interval=_probability_interval(probability, error),
             playoff_probability=sum(playoffs[roster_id]) / len(playoffs[roster_id]),
             expected_wins=sum(wins[roster_id]) / len(wins[roster_id]),
             expected_points=sum(points[roster_id]) / len(points[roster_id]),
@@ -447,6 +437,7 @@ def merge_evaluations(evaluations):
         return (
             evaluation.draft_id,
             evaluation.state_pick_no,
+            evaluation.state_signature,
             evaluation.user_roster_id,
             evaluation.next_user_pick_no,
             evaluation.rollout_ids,
@@ -470,35 +461,98 @@ def merge_evaluations(evaluations):
     return replace(base, candidates=candidates)
 
 
+def rank_candidates(evaluation):
+    return tuple(
+        sorted(
+            evaluation.candidates,
+            key=lambda candidate: (
+                -candidate.championship_probability,
+                -candidate.playoff_probability,
+                -candidate.expected_wins,
+                -candidate.expected_points,
+                candidate.candidate_id,
+            ),
+        )
+    )
+
+
 def recommendation_summary(evaluation):
     """Rank candidates without inventing market-dependent reach/wait labels."""
-    ranked = sorted(
-        evaluation.candidates,
-        key=lambda candidate: (
-            -candidate.championship_probability,
-            -candidate.playoff_probability,
-            -candidate.expected_wins,
-            -candidate.expected_points,
-            candidate.candidate_id,
-        ),
+    ranked = rank_candidates(evaluation)
+    leader = ranked[0]
+    co_leaders = tuple(
+        candidate for candidate in ranked
+        if candidate is leader
+        or evaluation.paired_delta(
+            leader.candidate_id, candidate.candidate_id
+        ).interval[0] <= 0
     )
-    best = ranked[0]
-    runner_up = ranked[1] if len(ranked) > 1 else None
+    decision_status = "clear_leader" if len(co_leaders) == 1 else "toss_up"
+    best = leader
+    reasons = ["TITLE_EQUITY_LEADER"]
+    if len(co_leaders) > 1:
+        # The raw argmax over statistically tied candidates is noise. Among
+        # co-leaders, recommend the one least likely to return at the next
+        # pick: the others can still be drafted later, the scarcest cannot.
+        scarcity = {
+            candidate.candidate_id: _survival_elsewhere(ranked, candidate.candidate_id)
+            for candidate in co_leaders
+        }
+        if all(value is not None for value in scarcity.values()):
+            best = min(
+                co_leaders,
+                key=lambda candidate: (
+                    scarcity[candidate.candidate_id],
+                    ranked.index(candidate),
+                ),
+            )
+            reasons.append("SCARCITY_TIEBREAK")
+    runner_up = next(
+        (candidate for candidate in ranked if candidate is not best), None
+    )
     delta = (
         evaluation.paired_delta(best.candidate_id, runner_up.candidate_id)
         if runner_up
         else None
     )
-    reasons = ["TITLE_EQUITY_LEADER"]
-    if delta and delta.interval[0] > 0:
+    if decision_status == "toss_up":
+        reasons.append("LOW_CONFIDENCE_TOSS_UP")
+    elif delta:
         reasons.append("PAIRED_CHAMPIONSHIP_EDGE")
+    availability = None
+    if runner_up and runner_up.survival:
+        players = tuple(
+            player for player in runner_up.survival.players
+            if player.player_id == best.candidate_id
+        )
+        if players:
+            availability = replace(runner_up.survival, players=players)
+    run_signature = sha256(
+        repr((
+            evaluation.state_signature,
+            evaluation.rollout_ids,
+            evaluation.world_indices,
+            evaluation.seed,
+            evaluation.decision_engine_version,
+            evaluation.draft_model_version,
+            evaluation.world_bank_version,
+            evaluation.league_evaluator_version,
+            tuple(candidate.candidate_id for candidate in ranked),
+        )).encode()
+    ).hexdigest()
     return RecommendationSummary(
         draft_id=evaluation.draft_id,
         state_pick_no=evaluation.state_pick_no,
+        state_signature=evaluation.state_signature,
+        run_signature=run_signature,
         user_roster_id=evaluation.user_roster_id,
         next_user_pick_no=evaluation.next_user_pick_no,
         recommended_candidate_id=best.candidate_id,
         runner_up_candidate_id=runner_up.candidate_id if runner_up else None,
+        decision_status=decision_status,
+        co_leader_candidate_ids=tuple(
+            candidate.candidate_id for candidate in co_leaders
+        ),
         championship_probability=best.championship_probability,
         championship_interval=best.championship_interval,
         playoff_probability=best.playoff_probability,
@@ -509,8 +563,7 @@ def recommendation_summary(evaluation):
             for percentile in (0.1, 0.5, 0.9)
         ),
         paired_delta_vs_runner_up=delta,
-        availability=best.survival,
-        cost_of_waiting=best.position_waiting,
+        availability=availability,
         rollout_count=best.rollout_count,
         season_worlds_per_rollout=evaluation.season_worlds_per_rollout,
         joint_outcome_count=best.sample_count,
@@ -523,70 +576,51 @@ def recommendation_summary(evaluation):
     )
 
 
-def _position_boards(state, bank):
-    """Available players per position, best season projection first."""
-    weeks = len(bank.weeks)
-    boards = {}
-    for player_index, player_id in enumerate(bank.player_ids):
-        if player_id in state.available_player_ids:
-            boards.setdefault(bank.player_positions[player_index], []).append(
-                (float(bank.expected_scores[player_index]) * weeks, player_id)
-            )
-    return {
-        position: sorted(entries, key=lambda entry: (-entry[0], entry[1]))
-        for position, entries in boards.items()
-    }
+def _survival_elsewhere(ranked, player_id):
+    """Next-pick survival for a player, measured from a branch that passed."""
+    for candidate in ranked:
+        if candidate.candidate_id == player_id or candidate.survival is None:
+            continue
+        for player in candidate.survival.players:
+            if player.player_id == player_id:
+                return player.survives_to_next_pick
+    return None
 
 
-def _position_waiting(position_boards, completions, next_user_pick_no):
-    """Expected best remaining projection per position at the next user pick."""
-    if next_user_pick_no is None:
-        return None
-    taken_sets = [
-        {
-            pick.player_id
-            for pick in completion.picks
-            if pick.pick_no < next_user_pick_no
-        }
-        for completion in completions
-    ]
-    waiting = []
-    for position, entries in position_boards.items():
-        best_now_points, best_now_player_id = entries[0]
-        expected_next = sum(
-            next(
-                (points for points, player_id in entries if player_id not in taken),
-                0.0,
-            )
-            for taken in taken_sets
-        ) / len(taken_sets)
-        waiting.append(PositionWaiting(
-            position=position,
-            best_now_player_id=best_now_player_id,
-            best_now_points=best_now_points,
-            expected_best_next_points=expected_next,
-            cost_of_waiting=best_now_points - expected_next,
-        ))
-    return tuple(
-        sorted(waiting, key=lambda entry: (-entry.cost_of_waiting, entry.position))
-    )
+def _state_signature(state):
+    return sha256(
+        repr((
+            state.draft_id,
+            state.status,
+            state.current_pick_no,
+            state.current_roster_id,
+            state.rosters,
+            state.completed_picks,
+            state.pick_owners,
+            tuple(sorted(state.available_player_ids)),
+        )).encode()
+    ).hexdigest()
 
 
 def coupled_world_indices(seed, rollout_id, world_count, count):
-    """Select distinct deterministic worlds shared across candidate branches."""
+    """Select balanced deterministic worlds shared across candidate branches."""
     world_count = _positive_count(world_count, "world_count")
     count = _positive_count(count, "season_worlds_per_rollout")
     if count > world_count:
         raise ValueError("season_worlds_per_rollout exceeds the SeasonWorldBank size")
     seed = normalize_seed(seed)
     rollout_id = normalize_rollout_id(rollout_id)
-    start = _hash_int(seed, rollout_id, "start") % world_count
+    start = _hash_int(seed, 0, "world-start") % world_count
     if world_count == 1:
         return (0,)
-    stride = _hash_int(seed, rollout_id, "stride") % world_count
+    stride = _hash_int(seed, 0, "world-stride") % world_count
     while math.gcd(stride, world_count) != 1:
         stride = (stride + 1) % world_count
-    return tuple((start + sample * stride) % world_count for sample in range(count))
+    offset = rollout_id * count
+    return tuple(
+        (start + (offset + sample) * stride) % world_count
+        for sample in range(count)
+    )
 
 
 def _mean_and_error(values):
@@ -598,14 +632,14 @@ def _mean_and_error(values):
     return mean, math.sqrt(variance / len(values))
 
 
-def _wilson_interval(probability, count):
-    z = 1.96
-    denominator = 1 + z**2 / count
-    center = (probability + z**2 / (2 * count)) / denominator
-    margin = z * math.sqrt(
-        probability * (1 - probability) / count + z**2 / (4 * count**2)
-    ) / denominator
-    return max(0.0, center - margin), min(1.0, center + margin)
+def _probability_interval(probability, standard_error):
+    """Normal interval from the across-rollout standard error.
+
+    The same clustered estimator backs the paired deltas, so the marginal
+    interval and the co-leader gate cannot disagree about precision.
+    """
+    margin = 1.96 * standard_error
+    return max(0.0, probability - margin), min(1.0, probability + margin)
 
 
 def _percentile(values, percentile):

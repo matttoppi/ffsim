@@ -888,24 +888,45 @@ code {
   padding: 7px 12px;
 }
 
-.wait-cost-row {
+.timing-grid {
   display: grid;
-  grid-template-columns: 42px 74px 1fr;
-  align-items: center;
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 8px;
+}
+
+.timing-card {
   background: var(--booth-raised);
   border-radius: 8px;
-  padding: 7px 12px;
+  padding: 10px 12px;
 }
 
-.wait-cost-points {
-  font-family: var(--display);
-  font-size: 0.82rem;
-  font-weight: 600;
+.timing-card header,
+.timing-card li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
-.wait-cost-row small {
+.timing-card p,
+.timing-card ul {
+  margin: 8px 0 0;
+}
+
+.timing-card ul {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.timing-card li span {
+  flex: 1;
+}
+
+.timing-card small {
   color: var(--dim);
+  white-space: nowrap;
 }
 
 .feed-pick {

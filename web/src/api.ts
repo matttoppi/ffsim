@@ -177,6 +177,18 @@ export interface DraftPreparation {
   world_bank?: { version: string | null; worlds: number; players: number }
 }
 
+export interface DraftRecommendationCandidate {
+  player_id: string
+  name: string
+  position: string | null
+  championship_probability: number
+  playoff_probability: number
+  expected_wins: number
+  adp: number | null
+  survives_to_next_pick: number | null
+  best_wait_candidate_id: string | null
+}
+
 export interface DraftMonitor {
   status: 'idle' | 'starting' | 'running' | 'completed' | 'stopped' | 'failed'
   draft_id?: string
@@ -184,7 +196,7 @@ export interface DraftMonitor {
   sync_count?: number
   calculation_count?: number
   last_sync_at?: number | null
-  recommendation_status?: 'idle' | 'pending' | 'calculating' | 'expanding' | 'ready' | 'failed'
+  recommendation_status?: 'idle' | 'pending' | 'calculating' | 'expanding' | 'refining' | 'ready' | 'failed'
   recommendation_pick_no?: number | null
   recommendation_error?: string | null
   recommendation_discarded_pick_no?: number | null
@@ -217,28 +229,43 @@ export interface DraftMonitor {
     model_status: string
     rollout_count: number
     joint_outcome_count: number
+    seed: number
+    decision_engine_version: number
+    draft_model_version: string
+    world_bank_version: string
+    league_evaluator_version: string
+    state_signature: string
+    run_signature: string
+    decision_status: 'clear_leader' | 'toss_up'
+    co_leader_candidate_ids: string[]
     pick_no?: number | null
     candidates_evaluated?: number
     candidate_pool?: number
+    screened_rollout_count?: number
     paired_delta_vs_runner_up?: {
       championship_probability_delta: number
+      interval: [number, number]
     } | null
-    cost_of_waiting?: Array<{
+    position_timing?: Array<{
       position: string
       best_now_player_id: string
       best_now_name?: string
       best_now_points: number
-      expected_best_next_points: number
-      cost_of_waiting: number
+      best_now_adp: number
+      advantage_now_vs_next_turn: number
+      target_pick_no: number
+      recommendation: 'TAKE_NOW' | 'TARGET_BY_PICK' | 'WAIT_THROUGH_PICK'
+      turns: Array<{
+        pick_no: number
+        player_id: string | null
+        name: string | null
+        projected_points: number
+        adp: number | null
+        drop_from_now: number
+      }>
     }> | null
-    candidates: Array<{
-      player_id: string
-      name: string
-      position: string | null
-      championship_probability: number
-      playoff_probability: number
-      expected_wins: number
-    }>
+    candidates: DraftRecommendationCandidate[]
+    screened_candidates?: DraftRecommendationCandidate[]
   } | null
   league_equity?: {
     model_status: string

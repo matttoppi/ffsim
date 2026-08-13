@@ -56,6 +56,12 @@ Suggested warm-run strategy:
 
 Numbers are initial targets, not hard requirements. Benchmark on the M5 Max.
 
+The live V1 uses a 12-rollout coupled screen across the 40-player market
+window, followed by 300 draft continuations and three season worlds per
+continuation for the top five. This preserves roughly the prior live compute
+budget while moving it from obviously dominated candidates to plausible
+winners.
+
 ### 17.4 Early stopping
 
 Stop spending compute on a candidate when its upper confidence bound is safely below a stronger candidate's lower confidence bound, subject to a minimum sample size.
