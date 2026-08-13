@@ -1,8 +1,8 @@
 # Research note — positional opportunity cost (the "Josh Allen bias")
 
 **Date:** 2026-08-13
-**Status:** Research only, no decision taken. Candidate ADR when a mechanism
-is chosen.
+**Status:** Resolved — Option A landed as ADR-016 (`vor1`); Option C remains
+open as a display feature. Validation results at the bottom.
 
 ## Symptom
 
@@ -85,3 +85,25 @@ for A.
   change does not affect opponent NLL, so temperature fit is untouched.
 - Sanity: in continuations under A, count rosters with 0 or 2+ starting QBs
   drafted before the last three rounds — should drop to ~0.
+
+## Resolution — 2026-08-13 (ADR-016)
+
+Option A was implemented as `_projection_user_policy`: the user's future
+picks maximize projection value over positional replacement with open-slot
+awareness (replacement derived from a deterministic league-wide starter fill
+including flex seats — no constant tables, no new data sources). Opponents
+and the temperature fit are untouched; the policy is tagged `vor1` in
+`draft_model_version` per the risk item above.
+
+Validation on the frozen mock states:
+
+- Allen A/B (pick 1): Allen grades last of the top-four BPA plus himself —
+  15.3% vs Chase 25.3%, Gibbs 22.0%, Robinson 20.7%, Nacua 16.7%. The
+  skip-Allen branches now draft a starting QB at the value point.
+- Nabers (pick 24): the ADP-argmax double-charge disappeared, 11.3% → 18.0%.
+- QB sanity: 18/20 continuations draft exactly one starting QB before the
+  last three rounds (2/20 outliers, versus ~0 target — monitor).
+- K/DEF guard: early windows stay skill-only under the pure-BPA pool.
+
+Option B remains unpursued (A did not measurably under-correct); Option C
+(VONA surfacing per position) is open as a display-layer follow-up.
