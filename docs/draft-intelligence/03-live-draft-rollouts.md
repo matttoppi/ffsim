@@ -32,6 +32,16 @@ This is the foundation of the "who is close to me" logic.
 
 ### 11.2 Live state reconciliation
 
+Keep source polling separate from the deterministic state transition. Saved
+draft, pick, traded-pick, and player-pool payloads must be sufficient to replay
+and test the same state without network access. A later snapshot may append
+picks but must fail closed if it rewrites or removes an already observed pick.
+
+Snake and linear drafts have predetermined future pick ownership, including
+traded-pick overrides. Auction drafts expose completed winning rosters and bid
+amounts, but not a predetermined future winning roster; retain that owner as
+unknown rather than inventing snake-like geometry.
+
 On every poll:
 
 1. Fetch current draft picks.

@@ -246,6 +246,9 @@ collapsed into a fixed PPR/snake schema.
 - CLI and API/UI selection require an exact draft after league selection.
 - Snake, auction, linear, and future unknown draft types remain attachable as
   raw source structures.
+- Deterministic state replay supports Sleeper's snake, linear, and auction
+  redraft structures. Auction winners and budgets are reconstructed, but future
+  winning rosters remain unknown because they are not predetermined.
 - V1 recommendation eligibility is redraft without keeper evidence; dynasty or
   keeper evidence is reported explicitly rather than silently transformed.
 - Model components may reject unsupported settings later, but attachment and

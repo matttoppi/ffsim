@@ -5,10 +5,10 @@ This file is the current operational state of the project. Keep it short, factua
 ## Current status
 
 **Phase:** Phase 4 — Live draft state foundation
-**State:** Exact format-preserving Sleeper attachment complete; live reconciliation next
+**State:** Offline draft replay and reconciliation foundation complete
 **Branch:** `feat/draft-intelligence`  
 **Implementation code changed:** Yes
-**Primary next action:** Build read-only live pick reconciliation and exact pick ownership from the attached redraft draft; market-dependent opponent profiling remains owner-deferred.
+**Primary next action:** Define and test league-setting compatibility at the draft-to-season boundary, then begin the reusable `SeasonWorldBank` seam. Live polling/attachment and market-dependent opponent profiling remain owner-deferred.
 
 ## Project entrypoints
 
@@ -72,6 +72,10 @@ Read in this order:
 - [x] Separate attachment from V1 redraft/no-keeper eligibility; dynasty/keeper evidence remains visible and unmodified.
 - [x] Make manager-profile target context use the exact attached draft rather than inferring format from reception scoring and roster slots.
 - [x] Validate a custom-scoring, custom-roster, best-ball auction fixture and a live Sleeper league with multiple linear/snake drafts.
+- [x] Add immutable, network-free Sleeper draft-state replay from saved payloads.
+- [x] Reconstruct exact snake/linear pick ownership, including third-round reversal and traded-pick overrides, plus roster state, availability, current/next turns, opponent counts, and turn picks.
+- [x] Reconstruct auction winners, rosters, and remaining budgets while leaving future winning ownership explicitly unknown.
+- [x] Fail closed on keeper rows, gaps, duplicates, ownership conflicts, missing players, budget violations, and rewrites/removals of observed picks.
 
 ## Next tasks
 
@@ -114,10 +118,11 @@ Record results here after the first local audit.
 
 | Check | Status | Notes |
 |---|---|---|
-| Existing Python tests | Pass | 77 tests in 19.51s after exact league/draft attachment |
+| Existing Python tests | Pass | 82 tests in 19.65s after offline draft replay/reconciliation |
 | Frontend tests/build | Pass | 28 Vitest tests; TypeScript/Vite production build passed after explicit draft selection |
 | Current simulation benchmark | Pass | M5 Max single-worker baselines recorded below |
 | Sleeper live API smoke test | Pass | Verified 2026 league, draft, picks, traded picks, roster, and per-user history payloads |
+| Offline draft geometry | Pass | Saved payloads validate 243 snake drafts (including third-round reversal), 144 linear drafts, and 11 auctions; one legacy IDP draft whose picks exceed configured rounds fails closed as source-inconsistent |
 | Historical draft ingestion | Pass | Current configured league: 52,829 picks from 399 unique drafts persisted; 80 draft environments and 14,206 non-keeper picks are model-eligible after league-context filters |
 | ADP source validation | Partial by design | Official consensus/manual paths identified; provider-key payload checks deferred to Phase 2 |
 
@@ -175,12 +180,12 @@ See `DECISIONS.md`. The foundational decisions currently include:
 
 ## Blockers
 
-External market adapters are intentionally deferred by the owner. A FantasyPros API key is required to validate actual tier-specific response fields and quotas before enabling that adapter. Remaining Phase 3 affinity, pass, and board-adherence work requires time-local market snapshots. Exact Sleeper attachment and live-state work are not blocked.
+External market adapters and attachment to the owner's live redraft are intentionally deferred. A FantasyPros API key is required to validate actual tier-specific response fields and quotas before enabling that adapter. Remaining Phase 3 affinity, pass, and board-adherence work requires time-local market snapshots. Offline draft-state, league-compatibility, and season-world work are not blocked.
 
 ## Handoff note
 
-Phase 1 is complete. Phase 2 has append-only manual market snapshots. Phase 3 has market-independent manager profiles. Phase 4 now has exact format-preserving Sleeper league/draft attachment across CLI, API, and web selection. Next implement read-only live pick reconciliation for an explicitly attached redraft draft; do not calculate plausible-window passes or board adherence without time-local market evidence.
+Phase 1 is complete. Phase 2 has append-only manual market snapshots. Phase 3 has market-independent manager profiles. Phase 4 now has exact attachment plus network-free replay/reconciliation for snake, linear, and auction redrafts. With owner live attachment deferred, next define the draft-to-season league-setting compatibility boundary and start `SeasonWorldBank`; do not calculate plausible-window passes or board adherence without time-local market evidence.
 
 ## Last updated
 
-2026-08-12 — Exact format-preserving Sleeper league/draft attachment completed; Python, frontend, build, and live multi-draft checks pass.
+2026-08-13 — Offline draft replay/reconciliation completed; full Python suite passes 82 tests.
