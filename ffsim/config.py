@@ -6,6 +6,7 @@ from pathlib import Path
 @dataclass(frozen=True)
 class AppConfig:
     league_id: str
+    draft_id: str | None = None
     simulations: int = 300
     seed: int = 2026
     regular_season_weeks: int = 14
@@ -15,6 +16,8 @@ class AppConfig:
     def __post_init__(self):
         if not self.league_id.strip():
             raise ValueError("league_id is required")
+        if self.draft_id is not None and not self.draft_id.strip():
+            raise ValueError("draft_id cannot be empty")
         if self.simulations < 1 or self.regular_season_weeks < 1:
             raise ValueError("simulations and regular_season_weeks must be positive")
         if not self.results_file.strip():
@@ -28,6 +31,11 @@ class AppConfig:
             league_id = data["league_id"]
             return cls(
                 league_id="" if league_id is None else str(league_id).strip(),
+                draft_id=(
+                    str(data["draft_id"]).strip()
+                    if data.get("draft_id") is not None
+                    else None
+                ),
                 simulations=int(data.get("simulations", 300)),
                 seed=int(data.get("seed", 2026)),
                 regular_season_weeks=int(data.get("regular_season_weeks", 14)),

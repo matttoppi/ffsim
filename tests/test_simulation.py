@@ -7,7 +7,12 @@ from unittest.mock import call, patch
 
 from ffsim.__main__ import setup_league
 from ffsim.config import AppConfig
-from ffsim.loaders.league import league_id_for_username
+from ffsim.loaders.league import (
+    draft_summary,
+    league_and_drafts,
+    league_id_for_username,
+    refresh_league,
+)
 from ffsim.models.league import League
 from ffsim.models.team import FantasyTeam
 from ffsim.simulation.matchup import SimulationMatchup
@@ -56,13 +61,29 @@ class FakeTeam:
 
 
 class SimulationTest(unittest.TestCase):
+    @patch("ffsim.loaders.league.league_and_drafts")
     @patch("ffsim.loaders.league.leagues_for_username")
-    def test_setup_prompts_until_a_valid_league_is_selected(self, leagues):
+    def test_setup_prompts_until_a_valid_league_and_draft_are_selected(
+        self,
+        leagues,
+        drafts,
+    ):
         leagues.return_value = [
             {"league_id": "1", "name": "A League", "status": "pre_draft"},
             {"league_id": "2", "name": "B League", "status": "in_season"},
         ]
-        answers = iter(["matt", "nope", "2"])
+        drafts.return_value = (
+            {"league_id": "2", "name": "B League", "settings": {"type": 0}},
+            [{
+                "draft_id": "draft-2",
+                "league_id": "2",
+                "type": "auction",
+                "status": "pre_draft",
+                "settings": {"teams": 8, "rounds": 20},
+                "metadata": {"scoring_type": "custom"},
+            }],
+        )
+        answers = iter(["matt", "nope", "2", "bad", "1"])
         output = []
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "config.json"
@@ -70,10 +91,73 @@ class SimulationTest(unittest.TestCase):
 
             setup_league(path, input_fn=lambda _: next(answers), print_fn=output.append)
 
-            self.assertEqual(json.loads(path.read_text())["league_id"], "2")
+            config = json.loads(path.read_text())
+            self.assertEqual(config["league_id"], "2")
+            self.assertEqual(config["draft_id"], "draft-2")
 
         self.assertIn("Enter a number from 1 to 2.", output)
+        self.assertIn("Enter a number from 1 to 1.", output)
         leagues.assert_called_once_with("matt", 2026)
+        drafts.assert_called_once_with("2")
+
+    def test_draft_attachment_preserves_arbitrary_redraft_structure(self):
+        league = {
+            "league_id": "league",
+            "name": "Custom League",
+            "status": "pre_draft",
+            "season": "2026",
+            "total_rosters": 8,
+            "settings": {"type": 0, "best_ball": 1, "custom_setting": 17},
+            "scoring_settings": {"rec": 0.25, "bonus_rec_te": 1.75},
+            "roster_positions": ["QB", "RB", "WR", "REC_FLEX", "BN"],
+        }
+        draft = {
+            "draft_id": "draft",
+            "league_id": "league",
+            "type": "auction",
+            "status": "pre_draft",
+            "season": "2026",
+            "settings": {"teams": 8, "rounds": 20, "nomination_timer": 30},
+            "metadata": {"scoring_type": "custom_redraft", "custom": "kept"},
+        }
+        payloads = {
+            "league/league": league,
+            "league/league/drafts": [draft],
+            "draft/draft": draft,
+            "draft/draft/picks": [],
+            "draft/draft/traded_picks": [],
+            "league/league/rosters": [],
+            "league/league/users": [],
+            "league/league/winners_bracket": [],
+        }
+
+        with tempfile.TemporaryDirectory() as directory:
+            refresh_league(
+                "league",
+                "draft",
+                fetch_json=payloads.__getitem__,
+                cache_dir=directory,
+            )
+            snapshot = json.loads((Path(directory) / "league_league.json").read_text())
+
+        self.assertEqual(snapshot["league"]["scoring_settings"], league["scoring_settings"])
+        self.assertEqual(snapshot["league"]["roster_positions"], league["roster_positions"])
+        self.assertEqual(snapshot["draft"]["settings"], draft["settings"])
+        self.assertEqual(snapshot["draft_summary"]["draft_type"], "auction")
+        self.assertTrue(snapshot["draft_summary"]["redraft_eligible"])
+        self.assertEqual(
+            draft_summary(league, draft, [{"is_keeper": True}])[
+                "redraft_ineligibility_reasons"
+            ],
+            ["keeper_picks"],
+        )
+
+        wrong_draft = {**draft, "league_id": "other"}
+        with self.assertRaisesRegex(ValueError, "belongs to league other"):
+            league_and_drafts(
+                "league",
+                {"league/league": league, "league/league/drafts": [wrong_draft]}.__getitem__,
+            )
 
     @patch("ffsim.loaders.league._fetch_json")
     def test_username_resolves_one_league_and_rejects_ambiguous_leagues(self, fetch):
@@ -104,6 +188,7 @@ class SimulationTest(unittest.TestCase):
                 json.dumps(
                     {
                         "league_id": 123,
+                        "draft_id": 456,
                         "simulations": 25,
                         "seed": 7,
                         "regular_season_weeks": 17,
@@ -114,12 +199,15 @@ class SimulationTest(unittest.TestCase):
             config = AppConfig.from_file(path)
 
         self.assertEqual(config.league_id, "123")
+        self.assertEqual(config.draft_id, "456")
         self.assertEqual(config.simulations, 25)
         self.assertEqual(config.seed, 7)
         self.assertEqual(config.regular_season_weeks, 17)
 
         with self.assertRaises(ValueError):
             AppConfig(league_id="", simulations=1)
+        with self.assertRaises(ValueError):
+            AppConfig(league_id="league", draft_id="")
 
     def test_team_initializes_and_records_a_win(self):
         team = FantasyTeam("Unknown", None, {"display_name": "Owner"})

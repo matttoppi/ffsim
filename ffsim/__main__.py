@@ -54,7 +54,7 @@ def parse_args():
 
 
 def setup_league(config_path, username=None, season=2026, input_fn=input, print_fn=print):
-    from ffsim.loaders.league import leagues_for_username
+    from ffsim.loaders.league import draft_summary, league_and_drafts, leagues_for_username
 
     username = username or input_fn("Sleeper username: ").strip()
     leagues = leagues_for_username(username, season)
@@ -75,11 +75,37 @@ def setup_league(config_path, username=None, season=2026, input_fn=input, print_
             break
         print_fn(f"Enter a number from 1 to {len(leagues)}.")
 
+    league, drafts = league_and_drafts(selected["league_id"])
+    if not drafts:
+        raise ValueError(f"No Sleeper drafts found for league {selected['league_id']}")
+    summaries = [draft_summary(league, draft) for draft in drafts]
+    print_fn(f"\nDrafts for {selected.get('name', 'Unnamed')}:")
+    for number, draft in enumerate(summaries, start=1):
+        eligibility = (
+            ""
+            if draft["redraft_eligible"]
+            else " · not redraft: " + ", ".join(draft["redraft_ineligibility_reasons"])
+        )
+        print_fn(
+            f"  {number}. {draft['draft_type']} · {draft['status']} · "
+            f"{draft['teams'] or '?'} teams · {draft['rounds'] or '?'} rounds "
+            f"({draft['draft_id']}){eligibility}"
+        )
+    while True:
+        choice = input_fn("Choose a draft number: ").strip()
+        if choice.isdigit() and 1 <= int(choice) <= len(summaries):
+            selected_draft = summaries[int(choice) - 1]
+            break
+        print_fn(f"Enter a number from 1 to {len(summaries)}.")
+
     path = Path(config_path)
     data = json.loads(path.read_text())
     data["league_id"] = str(selected["league_id"])
+    data["draft_id"] = selected_draft["draft_id"]
     path.write_text(json.dumps(data, indent=2) + "\n")
-    print_fn(f"Saved {selected.get('name', 'Unnamed')} to {path}.")
+    print_fn(
+        f"Saved {selected.get('name', 'Unnamed')} / {selected_draft['draft_id']} to {path}."
+    )
 
 
 def main():
@@ -168,6 +194,11 @@ def main():
     config = replace(
         config,
         league_id=league_id,
+        draft_id=(
+            config.draft_id
+            if league_id == config.league_id
+            else None
+        ),
         simulations=config.simulations if args.simulations is None else args.simulations,
         seed=config.seed if args.seed is None else args.seed,
         results_file=args.output or config.results_file,
@@ -214,7 +245,7 @@ def main():
 
         player_loader = PlayerLoader()
         player_loader.refresh()
-        refresh_league(config.league_id)
+        refresh_league(config.league_id, config.draft_id)
         refresh_matchups(config.league_id, config.regular_season_weeks + 3)
         return
 

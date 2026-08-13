@@ -27,6 +27,7 @@ TERMINAL_STATUSES = {"completed", "failed"}
 
 class LeagueRequest(BaseModel):
     league_id: str = Field(min_length=1)
+    draft_id: str = Field(min_length=1)
 
 
 class SimulationRequest(BaseModel):
@@ -151,19 +152,29 @@ def _run_job(job, base_config):
         job.fail(error)
 
 
-def _run_refresh(state, league_id, weeks):
+def _run_refresh(state, league_id, draft_id, weeks):
     try:
         from ffsim.loaders.league import refresh_league
         from ffsim.loaders.players import PlayerLoader
         from ffsim.simulation.season import refresh_matchups
 
+        refresh_league(league_id, draft_id)
         PlayerLoader().refresh()
-        refresh_league(league_id)
         refresh_matchups(league_id, weeks)
-        state.refresh = {"status": "ready", "league_id": league_id, "error": None}
+        state.refresh = {
+            "status": "ready",
+            "league_id": league_id,
+            "draft_id": draft_id,
+            "error": None,
+        }
     except Exception as error:
         LOGGER.exception("League refresh failed for %s", league_id)
-        state.refresh = {"status": "failed", "league_id": league_id, "error": str(error)}
+        state.refresh = {
+            "status": "failed",
+            "league_id": league_id,
+            "draft_id": draft_id,
+            "error": str(error),
+        }
 
 
 def create_app(config_path="config.json"):
@@ -185,7 +196,12 @@ def create_app(config_path="config.json"):
             raise HTTPException(status_code=404, detail="Simulation job not found")
         return job
 
-    app.state.refresh = {"status": "idle", "league_id": None, "error": None}
+    app.state.refresh = {
+        "status": "idle",
+        "league_id": None,
+        "draft_id": None,
+        "error": None,
+    }
     app.state.refresh_lock = Lock()
 
     @app.get("/api/health")
@@ -195,18 +211,27 @@ def create_app(config_path="config.json"):
     @app.get("/api/league")
     def current_league():
         try:
-            league_id = AppConfig.from_file(app.state.config_path).league_id
+            config = AppConfig.from_file(app.state.config_path)
+            league_id = config.league_id
+            draft_id = config.draft_id
         except ValueError:
             league_id = None
+            draft_id = None
         name = None
+        draft = None
         if league_id:
             cache = CACHE_DIR / f"league_{league_id}.json"
             if cache.exists():
-                name = json.loads(cache.read_text()).get("league", {}).get("name")
+                snapshot = json.loads(cache.read_text())
+                name = snapshot.get("league", {}).get("name")
+                if draft_id and (snapshot.get("draft_summary") or {}).get("draft_id") == draft_id:
+                    draft = snapshot["draft_summary"]
         return {
             "league_id": league_id,
+            "draft_id": draft_id,
             "name": name,
-            "ready": name is not None,
+            "draft": draft,
+            "ready": name is not None and (draft_id is None or draft is not None),
             "refresh": dict(app.state.refresh),
         }
 
@@ -218,19 +243,36 @@ def create_app(config_path="config.json"):
             leagues = leagues_for_username(username, season)
         except ValueError as error:
             raise HTTPException(status_code=404, detail=str(error))
-        return [
-            {
-                "league_id": str(league["league_id"]),
-                "name": league.get("name") or "Unnamed",
-                "status": league.get("status", "unknown"),
-                "total_rosters": league.get("total_rosters"),
-                "season": league.get("season"),
-            }
-            for league in leagues
-        ]
+        from ffsim.loaders.league import league_summary
+
+        return [league_summary(league) for league in leagues]
+
+    @app.get("/api/leagues/{league_id}/drafts")
+    def find_drafts(league_id: str):
+        from ffsim.loaders.league import draft_summary, league_and_drafts, league_summary
+
+        try:
+            league, drafts = league_and_drafts(league_id)
+        except ValueError as error:
+            raise HTTPException(status_code=404, detail=str(error))
+        return {
+            "league": league_summary(league),
+            "drafts": [draft_summary(league, draft) for draft in drafts],
+        }
 
     @app.post("/api/league", status_code=202)
     def select_league(request: LeagueRequest):
+        from ffsim.loaders.league import league_and_drafts
+
+        try:
+            _, drafts = league_and_drafts(request.league_id)
+        except ValueError as error:
+            raise HTTPException(status_code=404, detail=str(error))
+        if not any(str(draft["draft_id"]) == request.draft_id for draft in drafts):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Draft {request.draft_id} does not belong to league {request.league_id}",
+            )
         with app.state.refresh_lock:
             if app.state.refresh["status"] == "running":
                 raise HTTPException(status_code=409, detail="A league refresh is already running")
@@ -246,17 +288,25 @@ def create_app(config_path="config.json"):
             app.state.refresh = {
                 "status": "running",
                 "league_id": request.league_id,
+                "draft_id": request.draft_id,
                 "error": None,
             }
         path = Path(app.state.config_path)
         data = json.loads(path.read_text())
         data["league_id"] = str(request.league_id)
+        data["draft_id"] = str(request.draft_id)
         path.write_text(json.dumps(data, indent=2) + "\n")
         weeks = AppConfig.from_file(app.state.config_path).regular_season_weeks + 3
         Thread(
-            target=_run_refresh, args=(app.state, request.league_id, weeks), daemon=True
+            target=_run_refresh,
+            args=(app.state, request.league_id, request.draft_id, weeks),
+            daemon=True,
         ).start()
-        return {"status": "running", "league_id": request.league_id}
+        return {
+            "status": "running",
+            "league_id": request.league_id,
+            "draft_id": request.draft_id,
+        }
 
     @app.post("/api/simulations", status_code=202)
     def start_simulation(request: SimulationRequest):

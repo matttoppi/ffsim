@@ -4,11 +4,11 @@ This file is the current operational state of the project. Keep it short, factua
 
 ## Current status
 
-**Phase:** Phase 3 — Historical manager profiles
-**State:** Market-independent slice complete; market-dependent profiling owner-deferred
+**Phase:** Phase 4 — Live draft state foundation
+**State:** Exact format-preserving Sleeper attachment complete; live reconciliation next
 **Branch:** `feat/draft-intelligence`  
 **Implementation code changed:** Yes
-**Primary next action:** Resume Phase 2 historical market collection when the owner supplies data/source access, then compute plausible-window affinity, passes, and board adherence in Phase 3.
+**Primary next action:** Build read-only live pick reconciliation and exact pick ownership from the attached redraft draft; market-dependent opponent profiling remains owner-deferred.
 
 ## Project entrypoints
 
@@ -63,6 +63,16 @@ Read in this order:
 - [x] Validate the baseline against 1,507 picks by 9 target managers across 79 eligible historical drafts.
 - [x] Validate `manager-audit` against the current cached target context: 2026, 12-team superflex (`2qb`). This supersedes the Phase 0 target description after the configured league changed.
 
+## Phase 4 foundation completed
+
+- [x] Treat the selected Sleeper source as an exact `(league_id, draft_id)` pair.
+- [x] Discover drafts from the authoritative league draft-list endpoint rather than assuming `league.draft_id` is unique.
+- [x] Preserve raw league settings, scoring settings, roster positions, draft type/settings/metadata, picks, and traded picks.
+- [x] Support explicit draft selection in CLI setup, backend API, and the web picker without filtering snake, auction, or linear formats.
+- [x] Separate attachment from V1 redraft/no-keeper eligibility; dynasty/keeper evidence remains visible and unmodified.
+- [x] Make manager-profile target context use the exact attached draft rather than inferring format from reception scoring and roster slots.
+- [x] Validate a custom-scoring, custom-roster, best-ball auction fixture and a live Sleeper league with multiple linear/snake drafts.
+
 ## Next tasks
 
 ### Phase 0 — repository/data audit
@@ -104,8 +114,8 @@ Record results here after the first local audit.
 
 | Check | Status | Notes |
 |---|---|---|
-| Existing Python tests | Pass | 76 tests in 19.50s after the market-independent Phase 3 slice |
-| Frontend tests/build | Pass | 28 Vitest tests; TypeScript/Vite production build passed |
+| Existing Python tests | Pass | 77 tests in 19.51s after exact league/draft attachment |
+| Frontend tests/build | Pass | 28 Vitest tests; TypeScript/Vite production build passed after explicit draft selection |
 | Current simulation benchmark | Pass | M5 Max single-worker baselines recorded below |
 | Sleeper live API smoke test | Pass | Verified 2026 league, draft, picks, traded picks, roster, and per-user history payloads |
 | Historical draft ingestion | Pass | Current configured league: 52,829 picks from 399 unique drafts persisted; 80 draft environments and 14,206 non-keeper picks are model-eligible after league-context filters |
@@ -127,6 +137,7 @@ Record results here after the first local audit.
 - **Persistence:** Explicit `draft-audit --persist` keeps the default audit read-only while writing a content-addressed raw response snapshot and transactional SQLite rows for managers, leagues, drafts, manager participation, canonical players/external IDs, and picks. The live store contains 399 drafts and 52,829 current picks; 25 unresolved picks retain their Sleeper source IDs with null canonical IDs. Repeated imports replace authoritative picks and upsert cumulative manager evidence.
 - **Canonical identity:** The active cache produces 9,412 stable `sleeper:<external_id>` canonical records and one-to-one Sleeper mappings using the existing name/team normalization. Previously seen mappings remain available if a player becomes inactive; conflicting active source IDs fail closed.
 - **Historical league context:** The 399 drafts reference 362 unique leagues. Sleeper still serves 318; 44 deleted/missing leagues cover 48 drafts, which fail closed. Thirty-eight leagues produce 39 best-ball draft exclusions, and 14 legacy leagues with no `best_ball` field also fail closed. Every loaded league reports `max_keepers > 0`, so that observed field is preserved but is not treated as proof that keepers were used; explicit keeper picks remain excluded individually.
+- **Exact attachment verification:** [Sleeper's official API documentation](https://docs.sleeper.com/) (checked 2026-08-12) states that a league can have multiple drafts and exposes the authoritative `GET /league/{league_id}/drafts` list. The currently configured live league returned two distinct 2026 drafts (`linear` and `snake`), proving the league-level convenience `draft_id` cannot select safely by itself. The live structure also confirms draft picks and traded picks are separate resources. No current draft was auto-attached because the inspected league is dynasty and the owner's active scope is redraft without keepers.
 - **Sources checked:** Sleeper's official API remains tokenless/read-only for non-commercial use with guidance below 1000 calls/minute, and documents no ADP/default-board endpoint. FantasyPros documents keyed consensus ADP/ECR, projections, and external IDs; production personal use requires its premium tier and commercial/redistribution use requires a commercial agreement. Its public schema does not establish platform-specific ADP splits or a numeric quota, and no local key is configured. Yahoo requires OAuth and authorized-user access. Fleaflicker documents draft-board/rules/roster APIs, not market ADP. No official permitted ESPN ADP API was found, so ESPN remains optional/manual.
 - **Conclusion:** Phase 1 now provides auditable, deduplicated, context-classified Sleeper history and canonical identity persistence without changing the season engine.
 
@@ -164,12 +175,12 @@ See `DECISIONS.md`. The foundational decisions currently include:
 
 ## Blockers
 
-External market adapters are intentionally deferred by the owner. A FantasyPros API key is required to validate actual tier-specific response fields and quotas before enabling that adapter. Remaining Phase 3 affinity, pass, and board-adherence work requires time-local market snapshots.
+External market adapters are intentionally deferred by the owner. A FantasyPros API key is required to validate actual tier-specific response fields and quotas before enabling that adapter. Remaining Phase 3 affinity, pass, and board-adherence work requires time-local market snapshots. Exact Sleeper attachment and live-state work are not blocked.
 
 ## Handoff note
 
-Phase 1 is complete. Phase 2 has append-only manual market snapshots, strict canonical mapping, and historical reconstruction. Phase 3 has exact pick/roster/observed-availability reconstruction plus keeper-aware, context-weighted roster construction and position timing. External adapters remain owner-deferred; do not calculate plausible-window passes or board adherence without time-local market evidence.
+Phase 1 is complete. Phase 2 has append-only manual market snapshots. Phase 3 has market-independent manager profiles. Phase 4 now has exact format-preserving Sleeper league/draft attachment across CLI, API, and web selection. Next implement read-only live pick reconciliation for an explicitly attached redraft draft; do not calculate plausible-window passes or board adherence without time-local market evidence.
 
 ## Last updated
 
-2026-08-12 — Market-independent Phase 3 manager profile slice completed; full Python suite passes 76 tests.
+2026-08-12 — Exact format-preserving Sleeper league/draft attachment completed; Python, frontend, build, and live multi-draft checks pass.

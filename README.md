@@ -33,6 +33,7 @@ Edit `config.json` with the Sleeper league ID and desired simulation settings:
 ```json
 {
   "league_id": "1048288271089983488",
+  "draft_id": "1048288271089983489",
   "simulations": 150,
   "seed": 2026,
   "regular_season_weeks": 14,
@@ -52,8 +53,16 @@ Select a 2026 league interactively the first time:
 python -m ffsim setup
 ```
 
-The setup prompt asks for a Sleeper username, lists that user's leagues, and
-saves the selected league ID to `config.json`.
+The setup prompt asks for a Sleeper username, lists that user's leagues, then
+lists every draft returned for the selected league. It saves the exact
+`league_id` and `draft_id` pair to `config.json`; it never assumes the league's
+convenience `draft_id` is the only draft.
+
+Sleeper league and draft settings are cached without narrowing them to a fixed
+format: arbitrary scoring keys, roster positions, team counts, best-ball flags,
+and snake, auction, or linear draft settings are preserved. The initial draft
+engine is scoped to redraft without keepers. Dynasty/keeper evidence is exposed
+as an eligibility status rather than changing or hiding the source payload.
 
 Before the first simulation, and whenever source data changes, run:
 
@@ -180,8 +189,9 @@ npm run dev                    # terminal 2: frontend on http://localhost:5173
 ```
 
 The dashboard includes league selection: enter a Sleeper username, pick one
-of that user's 2026 leagues, and the backend saves it to `config.json` and
-refreshes its data snapshots (`GET /api/leagues?username=...`,
+of that user's 2026 leagues, then choose the exact draft. The backend saves both
+IDs to `config.json` and refreshes its data snapshots
+(`GET /api/leagues?username=...`, `GET /api/leagues/{league_id}/drafts`,
 `POST /api/league`, `GET /api/league`).
 
 The backend URL defaults to `http://127.0.0.1:8000`; override it with

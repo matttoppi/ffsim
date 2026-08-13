@@ -168,12 +168,13 @@ class PickObservationTest(unittest.TestCase):
     def test_loads_target_context_from_cached_league(self):
         with tempfile.TemporaryDirectory() as directory:
             config_path = Path(directory) / "config.json"
-            config_path.write_text('{"league_id": "league"}')
+            config_path.write_text('{"league_id": "league", "draft_id": "draft"}')
             (Path(directory) / "league_league.json").write_text(
-                '{"league": {'
-                '"roster_positions": ["QB", "SUPER_FLEX"], '
-                '"scoring_settings": {"rec": 1}'
-                '}, "rosters": [{}, {}, {}]}'
+                '{"draft": {'
+                '"draft_id": "draft", "league_id": "league", '
+                '"metadata": {"scoring_type": "custom_redraft"}, '
+                '"settings": {"teams": 3}'
+                '}}'
             )
 
             self.assertEqual(load_target_context(
@@ -182,6 +183,6 @@ class PickObservationTest(unittest.TestCase):
                 cache_dir=directory,
             ), {
                 "season": 2026,
-                "scoring_type": "2qb",
+                "scoring_type": "custom_redraft",
                 "team_count": 3,
             })

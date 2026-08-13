@@ -1,5 +1,18 @@
 ## 11. Live Draft State Engine
 
+### 11.0 Exact league/draft attachment
+
+The selected Sleeper source is the exact `(league_id, draft_id)` pair. Do not
+assume `league.draft_id` is authoritative because Sleeper can return multiple
+drafts from `GET /league/{league_id}/drafts`.
+
+Attachment must preserve the source league `settings`, `scoring_settings`, and
+`roster_positions`, plus the selected draft `type`, `settings`, `metadata`,
+`draft_order`, picks, and traded picks. League/draft attachment is
+format-agnostic; downstream model eligibility is a separate status. V1 model
+eligibility is redraft without keeper evidence, but snake, auction, and linear
+draft payloads must all remain selectable and inspectable.
+
 ### 11.1 Exact draft geometry
 
 The engine must construct an ordered `pick_owner[pick_no]` mapping for the entire draft. Do not infer future owners only from initial slot positions when traded picks can exist.

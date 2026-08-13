@@ -189,6 +189,7 @@ export default function App() {
       {showPicker && (
         <LeaguePicker
           currentId={league?.league_id ?? null}
+          currentDraftId={league?.draft_id ?? null}
           onReady={() => {
             setPickerOpen(false)
             void loadLeague()

@@ -103,17 +103,42 @@ export interface LeagueSummary {
   status: string
   total_rosters: number | null
   season: string | null
+  season_type: string | null
+  roster_positions: string[]
+  settings: Record<string, unknown>
+  scoring_settings: Record<string, number>
+}
+
+export interface DraftSummary {
+  draft_id: string
+  league_id: string
+  name: string
+  status: string
+  draft_type: string
+  season: string | null
+  season_type: string | null
+  teams: number | null
+  rounds: number | null
+  pick_timer: number | null
+  scoring_type: string | null
+  settings: Record<string, unknown>
+  metadata: Record<string, unknown>
+  redraft_eligible: boolean
+  redraft_ineligibility_reasons: string[]
 }
 
 export interface RefreshState {
   status: 'idle' | 'running' | 'ready' | 'failed'
   league_id: string | null
+  draft_id: string | null
   error: string | null
 }
 
 export interface LeagueInfo {
   league_id: string | null
+  draft_id: string | null
   name: string | null
+  draft: DraftSummary | null
   ready: boolean
   refresh: RefreshState
 }
@@ -127,11 +152,16 @@ export const findLeagues = (username: string, season = 2026) =>
     `/api/leagues?username=${encodeURIComponent(username)}&season=${season}`,
   )
 
-export const selectLeague = (league_id: string) =>
-  request<{ status: string; league_id: string }>('/api/league', {
+export const findDrafts = (league_id: string) =>
+  request<{ league: LeagueSummary; drafts: DraftSummary[] }>(
+    `/api/leagues/${encodeURIComponent(league_id)}/drafts`,
+  )
+
+export const selectLeague = (league_id: string, draft_id: string) =>
+  request<{ status: string; league_id: string; draft_id: string }>('/api/league', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ league_id }),
+    body: JSON.stringify({ league_id, draft_id }),
   })
 
 export const startSimulation = (params: SimulationParams) =>

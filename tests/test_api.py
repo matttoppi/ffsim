@@ -64,31 +64,41 @@ class ApiTest(unittest.TestCase):
         self.assertIn("/api/simulations/{job_id}/results", paths)
         self.assertIn("/api/league", paths)
         self.assertIn("/api/leagues", paths)
+        self.assertIn("/api/leagues/{league_id}/drafts", paths)
         with self.assertRaises(ValidationError):
             SimulationRequest(simulations=0)
         with self.assertRaises(ValidationError):
-            LeagueRequest(league_id="")
+            LeagueRequest(league_id="", draft_id="draft")
+        with self.assertRaises(ValidationError):
+            LeagueRequest(league_id="league", draft_id="")
 
     def test_refresh_runner_updates_state_on_success_and_failure(self):
-        state = SimpleNamespace(refresh={"status": "running", "league_id": "1", "error": None})
+        state = SimpleNamespace(refresh={
+            "status": "running",
+            "league_id": "1",
+            "draft_id": "draft-1",
+            "error": None,
+        })
         with (
             patch("ffsim.loaders.players.PlayerLoader") as loader,
             patch("ffsim.loaders.league.refresh_league") as refresh_league,
             patch("ffsim.simulation.season.refresh_matchups") as refresh_matchups,
         ):
-            _run_refresh(state, "1", 17)
+            _run_refresh(state, "1", "draft-1", 17)
 
         loader.return_value.refresh.assert_called_once_with()
-        refresh_league.assert_called_once_with("1")
+        refresh_league.assert_called_once_with("1", "draft-1")
         refresh_matchups.assert_called_once_with("1", 17)
         self.assertEqual(state.refresh["status"], "ready")
 
-        with patch("ffsim.loaders.players.PlayerLoader", side_effect=OSError("sleeper down")):
-            _run_refresh(state, "2", 17)
+        with patch(
+            "ffsim.loaders.league.refresh_league",
+            side_effect=OSError("sleeper down"),
+        ):
+            _run_refresh(state, "2", "draft-2", 17)
 
         self.assertEqual(state.refresh["status"], "failed")
         self.assertIn("sleeper down", state.refresh["error"])
-
 
 if __name__ == "__main__":
     unittest.main()

@@ -121,28 +121,23 @@ def load_pick_observations(storage_dir=None):
 def load_target_context(config_path, season, league_id=None, cache_dir=None):
     config = AppConfig.from_file(config_path)
     league_id = str(league_id or config.league_id)
+    if league_id != config.league_id or config.draft_id is None:
+        raise ValueError("Attach an exact Sleeper league and draft before manager-audit")
     path = Path(cache_dir or CACHE_DIR) / f"league_{league_id}.json"
     if not path.exists():
         raise FileNotFoundError("League cache is missing. Run `python -m ffsim refresh` first.")
 
     snapshot = json.loads(path.read_text())
-    league = snapshot["league"]
-    roster_positions = league.get("roster_positions") or ()
-    reception_points = league.get("scoring_settings", {}).get("rec", 0)
-    if "SUPER_FLEX" in roster_positions or roster_positions.count("QB") > 1:
-        scoring_type = "2qb"
-    elif reception_points == 1:
-        scoring_type = "ppr"
-    elif reception_points == 0.5:
-        scoring_type = "half_ppr"
-    elif reception_points == 0:
-        scoring_type = "std"
-    else:
-        raise ValueError(f"Unsupported reception scoring for manager profiles: {reception_points}")
-
-    team_count = len(snapshot.get("rosters") or ())
-    if season <= 0 or team_count <= 0:
-        raise ValueError("Target season and cached team count must be positive")
+    draft = snapshot.get("draft") or {}
+    if (
+        str(draft.get("draft_id")) != config.draft_id
+        or str(draft.get("league_id")) != league_id
+    ):
+        raise ValueError("Attached draft cache does not match config; run refresh")
+    scoring_type = str((draft.get("metadata") or {}).get("scoring_type") or "unknown")
+    team_count = (draft.get("settings") or {}).get("teams")
+    if season <= 0 or not isinstance(team_count, int) or team_count <= 0:
+        raise ValueError("Target season and attached draft team count must be positive")
     return {
         "season": season,
         "scoring_type": scoring_type,

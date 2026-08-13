@@ -219,3 +219,34 @@ Official API coverage, auth, licensing, and historical data availability vary ac
 - Missing sources are explicitly represented and remaining weights renormalized.
 - Every snapshot records source, format, timestamp, and freshness.
 - Source-specific legal/licensing validation is part of Phase 0 research.
+
+---
+
+## ADR-011 — Attach exact Sleeper league and draft identities
+
+**Status:** Accepted
+**Date:** 2026-08-12
+
+### Decision
+
+A Sleeper attachment is identified by an explicit `(league_id, draft_id)` pair
+selected from the league's authoritative draft list. Raw league and draft
+settings are preserved; attachment is separate from recommendation-model
+eligibility.
+
+### Rationale
+
+Sleeper leagues can expose multiple drafts, and the convenience `draft_id` on a
+league is not sufficient to choose among them. League size, scoring keys,
+roster slots, best-ball settings, and draft type also vary and must not be
+collapsed into a fixed PPR/snake schema.
+
+### Consequences
+
+- CLI and API/UI selection require an exact draft after league selection.
+- Snake, auction, linear, and future unknown draft types remain attachable as
+  raw source structures.
+- V1 recommendation eligibility is redraft without keeper evidence; dynasty or
+  keeper evidence is reported explicitly rather than silently transformed.
+- Model components may reject unsupported settings later, but attachment and
+  source inspection must still succeed.

@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import {
+  findDrafts,
   findLeagues,
   getLeagueInfo,
   selectLeague,
+  type DraftSummary,
   type LeagueSummary,
 } from './api'
 import { monogram, teamHue } from './events'
@@ -10,21 +12,26 @@ import { monogram, teamHue } from './events'
 const POLL_MS = 1500
 
 /**
- * Username → league list → select → wait for the server-side data refresh.
+ * Username → league list → exact draft → wait for the server-side data refresh.
  * Calls onReady once the chosen league's snapshots are synced.
  */
 export function LeaguePicker({
   currentId,
+  currentDraftId,
   onReady,
   onCancel,
 }: {
   currentId: string | null
+  currentDraftId: string | null
   onReady: () => void
   onCancel: (() => void) | null
 }) {
   const [username, setUsername] = useState('')
   const [searching, setSearching] = useState(false)
   const [leagues, setLeagues] = useState<LeagueSummary[] | null>(null)
+  const [selectedLeague, setSelectedLeague] = useState<LeagueSummary | null>(null)
+  const [drafts, setDrafts] = useState<DraftSummary[] | null>(null)
+  const [loadingDrafts, setLoadingDrafts] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [syncingId, setSyncingId] = useState<string | null>(null)
   const alive = useRef(true)
@@ -45,6 +52,8 @@ export function LeaguePicker({
     setSearching(true)
     setError(null)
     setLeagues(null)
+    setSelectedLeague(null)
+    setDrafts(null)
     try {
       const found = await findLeagues(username.trim())
       if (!alive.current) return
@@ -58,11 +67,29 @@ export function LeaguePicker({
     }
   }
 
-  const choose = async (league: LeagueSummary) => {
+  const openLeague = async (league: LeagueSummary) => {
     setError(null)
-    setSyncingId(league.league_id)
+    setLoadingDrafts(true)
     try {
-      await selectLeague(league.league_id)
+      const found = await findDrafts(league.league_id)
+      if (!alive.current) return
+      setSelectedLeague(found.league)
+      setDrafts(found.drafts)
+      if (found.drafts.length === 0) setError('No Sleeper drafts exist for this league yet.')
+    } catch (cause) {
+      if (!alive.current) return
+      setError(cause instanceof Error ? cause.message : 'Draft lookup failed')
+    } finally {
+      if (alive.current) setLoadingDrafts(false)
+    }
+  }
+
+  const choose = async (draft: DraftSummary) => {
+    if (!selectedLeague) return
+    setError(null)
+    setSyncingId(draft.draft_id)
+    try {
+      await selectLeague(selectedLeague.league_id, draft.draft_id)
       while (alive.current) {
         await new Promise((resolve) => setTimeout(resolve, POLL_MS))
         const info = await getLeagueInfo()
@@ -87,12 +114,24 @@ export function LeaguePicker({
   return (
     <section className="panel picker" aria-label="League select">
       <header className="picker-header">
-        <h2 className="panel-title">League select</h2>
-        {onCancel && (
+        <h2 className="panel-title">{selectedLeague ? 'Draft select' : 'League select'}</h2>
+        {selectedLeague && !syncingId ? (
+          <button
+            type="button"
+            className="button-ghost"
+            onClick={() => {
+              setSelectedLeague(null)
+              setDrafts(null)
+              setError(null)
+            }}
+          >
+            Back to leagues
+          </button>
+        ) : onCancel ? (
           <button type="button" className="button-ghost" onClick={onCancel}>
             Keep current league
           </button>
-        )}
+        ) : null}
       </header>
 
       {syncingId ? (
@@ -108,28 +147,30 @@ export function LeaguePicker({
         </div>
       ) : (
         <>
-          <form className="picker-form" onSubmit={search}>
-            <label htmlFor="sleeper-username">Sleeper username</label>
-            <div className="picker-row">
-              <input
-                id="sleeper-username"
-                type="text"
-                autoComplete="username"
-                placeholder="e.g. matttoppi"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-              />
-              <button type="submit" className="button-run picker-go" disabled={searching}>
-                {searching ? 'Searching…' : 'Find leagues'}
-              </button>
-            </div>
-          </form>
+          {!selectedLeague && (
+            <form className="picker-form" onSubmit={search}>
+              <label htmlFor="sleeper-username">Sleeper username</label>
+              <div className="picker-row">
+                <input
+                  id="sleeper-username"
+                  type="text"
+                  autoComplete="username"
+                  placeholder="e.g. matttoppi"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                />
+                <button type="submit" className="button-run picker-go" disabled={searching}>
+                  {searching ? 'Searching…' : 'Find leagues'}
+                </button>
+              </div>
+            </form>
+          )}
           {error && (
             <p className="form-error" role="alert">
               {error}
             </p>
           )}
-          {leagues && leagues.length > 0 && (
+          {!selectedLeague && leagues && leagues.length > 0 && (
             <ul className="league-list">
               {leagues.map((league) => (
                 <li key={league.league_id}>
@@ -137,7 +178,8 @@ export function LeaguePicker({
                     type="button"
                     className="league-card"
                     aria-pressed={league.league_id === currentId}
-                    onClick={() => void choose(league)}
+                    disabled={loadingDrafts}
+                    onClick={() => void openLeague(league)}
                   >
                     <span
                       className="mono"
@@ -158,6 +200,47 @@ export function LeaguePicker({
                 </li>
               ))}
             </ul>
+          )}
+          {selectedLeague && drafts && drafts.length > 0 && (
+            <>
+              <p className="sync-detail">Choose the exact draft for {selectedLeague.name}.</p>
+              <ul className="league-list">
+                {drafts.map((draft) => (
+                  <li key={draft.draft_id}>
+                    <button
+                      type="button"
+                      className="league-card"
+                      aria-pressed={
+                        draft.league_id === currentId && draft.draft_id === currentDraftId
+                      }
+                      onClick={() => void choose(draft)}
+                    >
+                      <span
+                        className="mono"
+                        style={{ ['--hue' as string]: teamHue(draft.draft_type) }}
+                        aria-hidden="true"
+                      >
+                        {monogram(draft.draft_type)}
+                      </span>
+                      <span className="league-card-body">
+                        <span className="league-card-name">
+                          {draft.draft_type.replace(/_/g, ' ')} · {draft.status.replace(/_/g, ' ')}
+                        </span>
+                        <span className="league-card-meta">
+                          {draft.teams ? `${draft.teams} teams` : 'team count unknown'}
+                          {draft.rounds ? ` · ${draft.rounds} rounds` : ''}
+                          {draft.scoring_type ? ` · ${draft.scoring_type.replace(/_/g, ' ')}` : ''}
+                          {!draft.redraft_eligible
+                            ? ` · ${draft.redraft_ineligibility_reasons.join(', ').replace(/_/g, ' ')}`
+                            : ''}
+                          {draft.draft_id === currentDraftId ? ' · current' : ''}
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
         </>
       )}
