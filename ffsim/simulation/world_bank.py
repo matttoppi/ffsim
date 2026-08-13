@@ -1,16 +1,34 @@
 """Reusable correlated player-week season worlds."""
 
 from dataclasses import dataclass
-from hashlib import sha256
+from hashlib import file_digest, sha256
 import json
 
 import numpy as np
 
+from ffsim.paths import CACHE_DIR, DATA_DIR
 from ffsim.simulation.season import PlayerWorldGenerator
 
 
 WORLD_GENERATOR_VERSION = 1
 SUPPORTED_POSITIONS = {"QB", "RB", "WR", "TE", "K", "DEF"}
+WORLD_INPUT_FILES = (
+    CACHE_DIR / "players.json",
+    DATA_DIR / "projections" / "defense_matchups.csv",
+    DATA_DIR / "historical" / "nflverse" / "reference" / "games.csv",
+    DATA_DIR / "historical" / "nflverse" / "reference" / "db_playerids.csv",
+    *(
+        DATA_DIR / "historical" / "nflverse" / directory / f"{prefix}_{season}.csv"
+        for directory, prefix in (
+            ("snap_counts", "snap_counts"),
+            ("weekly_stats", "stats_player_week"),
+            ("weekly_team_stats", "stats_team_week"),
+            ("play_by_play", "scoring_player_week"),
+            ("play_by_play", "scoring_team_week"),
+        )
+        for season in (2024, 2025)
+    ),
+)
 
 
 @dataclass(frozen=True)
@@ -19,7 +37,7 @@ class SeasonWorldBank:
     seed: int
     player_ids: tuple[str, ...]
     weeks: tuple[int, ...]
-    source_versions: tuple[tuple[str, str], ...]
+    input_hash: str
     scores: np.ndarray
     available: np.ndarray
 
@@ -36,15 +54,10 @@ def build_season_world_bank(
     weeks=17,
     seed=2026,
     scenario=None,
-    source_versions,
 ):
     """Generate immutable score and availability tensors for a draftable pool."""
     if world_count < 1 or weeks < 1:
         raise ValueError("world_count and weeks must be positive")
-    versions = tuple(sorted((str(key), str(value)) for key, value in source_versions.items()))
-    if not versions or any(not key or not value for key, value in versions):
-        raise ValueError("source_versions must contain non-empty version identifiers")
-
     players = tuple(sorted(players, key=lambda player: str(player.sleeper_id)))
     player_ids = tuple(str(player.sleeper_id) for player in players)
     if not players or len(set(player_ids)) != len(player_ids) or "None" in player_ids:
@@ -61,6 +74,7 @@ def build_season_world_bank(
 
     week_ids = tuple(range(1, weeks + 1))
     scenario = scenario or {}
+    input_hash = world_bank_input_hash()
     scores = np.zeros((world_count, len(players), weeks), dtype=np.float32)
     available = np.zeros_like(scores, dtype=bool)
     streams = np.random.SeedSequence(seed).spawn(world_count)
@@ -96,7 +110,7 @@ def build_season_world_bank(
     version = _version(
         league.scoring_settings.values,
         scenario,
-        versions,
+        input_hash,
         player_ids,
         week_ids,
         seed,
@@ -107,18 +121,42 @@ def build_season_world_bank(
         seed,
         player_ids,
         week_ids,
-        versions,
+        input_hash,
         scores,
         available,
     )
 
 
-def _version(scoring, scenario, source_versions, player_ids, weeks, seed, world_count):
+def draftable_players(players):
+    """Return every projected player the current season model can score."""
+    return tuple(sorted(
+        (
+            player for player in players
+            if player.position in SUPPORTED_POSITIONS
+            and player.pff_projections
+            and player.projected_games > 0
+        ),
+        key=lambda player: str(player.sleeper_id),
+    ))
+
+
+def world_bank_input_hash():
+    digest = sha256()
+    for path in WORLD_INPUT_FILES:
+        if not path.is_file():
+            raise FileNotFoundError(f"Season world input is missing: {path}")
+        digest.update(str(path.relative_to(DATA_DIR)).encode())
+        with path.open("rb") as file:
+            digest.update(file_digest(file, "sha256").digest())
+    return digest.hexdigest()
+
+
+def _version(scoring, scenario, input_hash, player_ids, weeks, seed, world_count):
     payload = {
         "generator": WORLD_GENERATOR_VERSION,
         "scoring": scoring,
         "scenario": scenario,
-        "sources": source_versions,
+        "inputs": input_hash,
         "players": player_ids,
         "weeks": weeks,
         "seed": seed,

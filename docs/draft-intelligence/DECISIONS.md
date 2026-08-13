@@ -86,6 +86,8 @@ Player outcomes do not depend on which fantasy manager drafted them. Reusing the
 ### Consequences
 
 - World-bank versioning must include all football-outcome inputs that affect generated worlds.
+- Input identity is derived from the exact cached player, schedule, matchup, and
+  empirical-history files rather than trusted caller labels.
 - Live fantasy draft picks should not invalidate an otherwise valid world bank.
 - Roster evaluation should increasingly operate on immutable player/world data and compact roster assignments rather than deeply copied mutable league graphs.
 

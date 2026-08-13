@@ -4,11 +4,11 @@ This file is the current operational state of the project. Keep it short, factua
 
 ## Current status
 
-**Phase:** Phase 6 foundation — `SeasonWorldBank` extraction
-**State:** League compatibility boundary complete; reusable correlated world generation started
+**Phase:** Phase 7 — lightweight league evaluator
+**State:** `SeasonWorldBank` extraction complete with fixed-seed legacy-path parity
 **Branch:** `feat/draft-intelligence`  
 **Implementation code changed:** Yes
-**Primary next action:** Add fixed-seed distribution/parity checks between `SeasonWorldBank` and the existing season path, then derive source versions and the full draftable player pool from cached inputs. Live polling/attachment and market-dependent opponent profiling remain owner-deferred.
+**Primary next action:** Implement roster-index lineup, schedule, standings, playoff, and championship evaluation against a fixed `SeasonWorldBank`, with cached/uncached equivalence and legacy parity. Live polling/attachment and market-dependent opponent profiling remain owner-deferred.
 
 ## Project entrypoints
 
@@ -90,7 +90,10 @@ Read in this order:
 - [x] Separate correlated player/NFL world preparation from fantasy matchup, standings, and playoff evaluation without changing the existing `SimulationSeason` path.
 - [x] Add a versioned, deterministic, read-only `SeasonWorldBank` score/availability tensor for a caller-supplied draftable player pool.
 - [x] Preserve shared game, team, competition, projection, availability, scoring, scenario, and seed behavior in the extracted generator.
-- [x] Require explicit source-version identifiers so incompatible banks cannot silently share a version.
+- [x] Derive the bank input hash from the exact cached player, schedule, defensive-matchup, identity, snap, weekly-stat, and play-by-play files.
+- [x] Select the full supported projected pool independently of current fantasy ownership (528 players in the current cache).
+- [x] Preserve deterministic seed-family extension: a larger bank retains the exact prefix of a smaller compatible bank.
+- [x] Match the existing fixed-seed fantasy matchup player scores exactly on a common world fixture.
 
 ## Next tasks
 
@@ -133,7 +136,7 @@ Record results here after the first local audit.
 
 | Check | Status | Notes |
 |---|---|---|
-| Existing Python tests | Pass | 91 tests with `ResourceWarning` promoted to an error |
+| Existing Python tests | Pass | 93 tests with `ResourceWarning` promoted to an error |
 | Frontend tests/build | Pass | 28 Vitest tests; TypeScript/Vite production build passed and both now run in CI |
 | Current simulation benchmark | Pass | M5 Max single-worker baselines recorded below |
 | Sleeper live API smoke test | Pass | Verified 2026 league, draft, picks, traded picks, roster, and per-user history payloads |
@@ -199,8 +202,8 @@ External market adapters and attachment to the owner's live redraft are intentio
 
 ## Handoff note
 
-Phase 1 is complete. Phase 2 has append-only manual market snapshots. Phase 3 has market-independent manager profiles. Phase 4 has exact attachment, explicit compatibility, and network-free replay/reconciliation for snake, linear, and auction redrafts. The Phase 6 foundation now generates reusable correlated player-week tensors independently of fantasy ownership. Next prove fixed-seed distribution parity and connect cache-derived source versions/full draftable players; do not calculate plausible-window passes or board adherence without time-local market evidence.
+Phase 1 is complete. Phase 2 has append-only manual market snapshots. Phase 3 has market-independent manager profiles. Phase 4 has exact attachment, explicit compatibility, and network-free replay/reconciliation for snake, linear, and auction redrafts. Phase 6 now produces deterministic, content-versioned, full-pool player-week tensors independently of fantasy ownership. Next build the lightweight roster evaluator; do not calculate plausible-window passes or board adherence without time-local market evidence.
 
 ## Last updated
 
-2026-08-13 — Added explicit league-setting capability reports and the first reusable, versioned `SeasonWorldBank` seam; full Python validation passes 91 tests.
+2026-08-13 — Completed `SeasonWorldBank` input hashing, full projected-pool selection, deterministic extension, and fixed-seed legacy matchup parity; full Python validation passes 93 tests.
