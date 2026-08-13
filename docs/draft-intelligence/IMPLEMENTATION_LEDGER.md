@@ -4,11 +4,11 @@ This file is the current operational state of the project. Keep it short, factua
 
 ## Current status
 
-**Phase:** Phase 7 — lightweight league evaluator
-**State:** `SeasonWorldBank` extraction complete with fixed-seed legacy-path parity
+**Phase:** Phase 8 — offline coupled draft rollouts and nested evaluation
+**State:** Lightweight roster-index league evaluation works against immutable season worlds; the nested draft/season path is next
 **Branch:** `feat/draft-intelligence`  
 **Implementation code changed:** Yes
-**Primary next action:** Implement roster-index lineup, schedule, standings, playoff, and championship evaluation against a fixed `SeasonWorldBank`, with cached/uncached equivalence and legacy parity. Live polling/attachment and market-dependent opponent profiling remain owner-deferred.
+**Primary next action:** Add an injected-prior opponent-choice model and coupled, multi-continuation rest-of-draft rollouts, then pair completed rosters with selected `SeasonWorldBank` worlds. Live polling/attachment and market-dependent opponent profiling remain owner-deferred.
 
 ## Project entrypoints
 
@@ -95,6 +95,15 @@ Read in this order:
 - [x] Preserve deterministic seed-family extension: a larger bank retains the exact prefix of a smaller compatible bank.
 - [x] Match the existing fixed-seed fantasy matchup player scores exactly on a common world fixture.
 
+## Phase 7 functional slice completed
+
+- [x] Evaluate compact `roster_id -> player_index` assignments without copying mutable player/team graphs.
+- [x] Reproduce lineup eligibility, replacement streamers, head-to-head/median wins, divisions, 4/6/8-team record-seeded playoffs, and championship outcomes.
+- [x] Accept exact fantasy schedules or generate deterministic schedule realizations when the pre-draft schedule is unavailable.
+- [x] Preserve common season and streamer randomness across roster assignments.
+- [x] Return immutable per-world outcome vectors and exact cached/uncached equivalents.
+- [x] Match the existing full-season path on a frozen common-world fixture.
+
 ## Next tasks
 
 ### Phase 0 — repository/data audit
@@ -136,7 +145,7 @@ Record results here after the first local audit.
 
 | Check | Status | Notes |
 |---|---|---|
-| Existing Python tests | Pass | 93 tests with `ResourceWarning` promoted to an error |
+| Existing Python tests | Pass | 96 tests with `ResourceWarning` promoted to an error |
 | Frontend tests/build | Pass | 28 Vitest tests; TypeScript/Vite production build passed and both now run in CI |
 | Current simulation benchmark | Pass | M5 Max single-worker baselines recorded below |
 | Sleeper live API smoke test | Pass | Verified 2026 league, draft, picks, traded picks, roster, and per-user history payloads |
@@ -152,6 +161,7 @@ Record results here after the first local audit.
 - **10-team baseline:** 0.472s load, 3.810s simulation, 26.25 simulations/s, 278 MB process peak RSS.
 - **12-team baseline:** 0.470s load, 3.378s simulation, 29.60 simulations/s, 278 MB process peak RSS. Different league settings/rosters explain why team count alone does not order runtime.
 - **Profile:** A 30-simulation 12-team `cProfile` run took 3.755s including load/import overhead. `SimulationSeason.simulate` used 2.439s; player sampling/scoring 1.812s cumulative; lineup filling 0.277s; playoffs 0.156s; standings were negligible. This supports world reuse before lineup micro-optimization.
+- **World-bank/evaluator smoke:** The current 12-team local snapshot produced a 528-player, 50-world bank in 5.672s. One full 50-world roster evaluation took 0.123s and an exact cache hit took 0.000030s. This validates the boundary, not the final live throughput target; Phase 8 should evaluate selected world/continuation pairs rather than every world for every unique completed draft.
 - **Sleeper target:** The discovered upcoming league is a 10-team PPR snake draft, 16 rounds, 90-second timer. Before draft-order assignment, `draft_order` is `null` while `slot_to_roster_id` is populated. The league allows one keeper but currently reports none; these states must remain distinct.
 - **Sleeper ownership:** Completed traded picks retain the original `draft_slot` but the pick row's `roster_id`/`picked_by` identify the actual recipient. Real pick rows contain `draft_id`, `pick_no`, `round`, `draft_slot`, `roster_id`, `picked_by`, `player_id`, `is_keeper`, and player metadata.
 - **History coverage:** A bounded crawl of the 10 target managers over 2024-2026 produced 104 draft discoveries but only 63 unique `draft_id` values: 41 duplicate discoveries removed and 12 drafts shared by multiple target managers. Nineteen completed snake drafts are provisional redraft candidates pending keeper/best-ball/context filters; manager coverage is sparse (1-7 candidates each), reinforcing partial pooling.
@@ -202,8 +212,8 @@ External market adapters and attachment to the owner's live redraft are intentio
 
 ## Handoff note
 
-Phase 1 is complete. Phase 2 has append-only manual market snapshots. Phase 3 has market-independent manager profiles. Phase 4 has exact attachment, explicit compatibility, and network-free replay/reconciliation for snake, linear, and auction redrafts. Phase 6 now produces deterministic, content-versioned, full-pool player-week tensors independently of fantasy ownership. Next build the lightweight roster evaluator; do not calculate plausible-window passes or board adherence without time-local market evidence.
+Phase 1 is complete. Phase 2 has append-only manual market snapshots. Phase 3 has market-independent manager profiles. Phase 4 has exact attachment, explicit compatibility, and network-free replay/reconciliation for snake, linear, and auction redrafts. Phase 6 produces deterministic, content-versioned, full-pool player-week tensors independently of fantasy ownership. Phase 7 evaluates compact roster assignments with coupled schedules/streamers and immutable per-world results. Next connect injected market priors to coupled multi-continuation draft rollouts and selected-world league evaluation; do not calculate plausible-window passes or board adherence without time-local market evidence.
 
 ## Last updated
 
-2026-08-13 — Completed `SeasonWorldBank` input hashing, full projected-pool selection, deterministic extension, and fixed-seed legacy matchup parity; full Python validation passes 93 tests.
+2026-08-13 — Added the lightweight roster-index league evaluator, schedule realizations, replacement streamers, standings/playoffs, exact memoization, and frozen-fixture legacy parity; full Python validation passes 96 tests.

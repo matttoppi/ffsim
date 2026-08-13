@@ -36,6 +36,8 @@ class SeasonWorldBank:
     version: str
     seed: int
     player_ids: tuple[str, ...]
+    player_positions: tuple[str, ...]
+    expected_scores: np.ndarray
     weeks: tuple[int, ...]
     input_hash: str
     scores: np.ndarray
@@ -60,6 +62,7 @@ def build_season_world_bank(
         raise ValueError("world_count and weeks must be positive")
     players = tuple(sorted(players, key=lambda player: str(player.sleeper_id)))
     player_ids = tuple(str(player.sleeper_id) for player in players)
+    player_positions = tuple(player.position for player in players)
     if not players or len(set(player_ids)) != len(player_ids) or "None" in player_ids:
         raise ValueError("players must have unique Sleeper IDs")
     invalid = [
@@ -85,6 +88,9 @@ def build_season_world_bank(
         np.random.default_rng(streams[0]),
         scenario,
     )
+    expected_scores = np.asarray([
+        player.expected_weekly_score(league.scoring_settings) for player in players
+    ], dtype=float)
     try:
         for world_index, stream in enumerate(streams):
             generator.rng = np.random.default_rng(stream)
@@ -107,6 +113,7 @@ def build_season_world_bank(
 
     scores.flags.writeable = False
     available.flags.writeable = False
+    expected_scores.flags.writeable = False
     version = _version(
         league.scoring_settings.values,
         scenario,
@@ -117,13 +124,15 @@ def build_season_world_bank(
         world_count,
     )
     return SeasonWorldBank(
-        version,
-        seed,
-        player_ids,
-        week_ids,
-        input_hash,
-        scores,
-        available,
+        version=version,
+        seed=seed,
+        player_ids=player_ids,
+        player_positions=player_positions,
+        expected_scores=expected_scores,
+        weeks=week_ids,
+        input_hash=input_hash,
+        scores=scores,
+        available=available,
     )
 
 

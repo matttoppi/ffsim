@@ -51,7 +51,7 @@ class FantasyTeam:
             if player.is_available(week)
         ]
         score = lambda player: player.expected_weekly_score(self.league.scoring_settings)
-        available.sort(key=score, reverse=True)
+        available.sort(key=lambda player: (-score(player), str(player.sleeper_id)))
 
         for position, count in slots.items():
             if position in FLEX_ELIGIBILITY:
@@ -66,8 +66,7 @@ class FantasyTeam:
                 continue
             players = sorted(
                 (player for player in available if player.position in eligible),
-                key=score,
-                reverse=True,
+                key=lambda player: (-score(player), str(player.sleeper_id)),
             )[: slots[position]]
             self.starters[position] = players
             for player in players:
