@@ -14,11 +14,13 @@ from ffsim.simulation.empirical import EmpiricalLibrary
 class PlayerLoader:
     def __init__(self):
         self.players_file = CACHE_DIR / "players.json"
+        self.sleeper_players_file = CACHE_DIR / "sleeper_players.json"
         self.enriched_players = []
         self.players_by_id = {}
 
     def refresh(self):
-        sleeper_players = self.fetch_sleeper_players()
+        sleeper_players = self.refresh_sleeper_players()
+
         sleeper_projections = self.fetch_sleeper_projections()
         injuries = InjuryDataLoader.get_and_clean_data()
         injuries = {
@@ -48,6 +50,12 @@ class PlayerLoader:
         report_file.write_text(json.dumps(DataMerger.last_projection_report, indent=2) + "\n")
         print(f"Refreshed {len(self.enriched_players)} players.")
         print(f"Projection match report: {report_file}")
+
+    def refresh_sleeper_players(self):
+        sleeper_players = self.fetch_sleeper_players()
+        CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        self.sleeper_players_file.write_text(json.dumps(sleeper_players) + "\n")
+        return sleeper_players
 
     @staticmethod
     def fetch_sleeper_players():

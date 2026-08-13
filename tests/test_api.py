@@ -99,6 +99,10 @@ class ApiTest(unittest.TestCase):
             "error": None,
         })
         with (
+            patch(
+                "ffsim.draft_intel.market.refresh_fantasypros_adp",
+                return_value={"fresh": True},
+            ) as refresh_market,
             patch("ffsim.loaders.players.PlayerLoader") as loader,
             patch("ffsim.loaders.league.refresh_league") as refresh_league,
             patch("ffsim.simulation.season.refresh_matchups") as refresh_matchups,
@@ -109,6 +113,11 @@ class ApiTest(unittest.TestCase):
         refresh_league.assert_called_once_with("1", "draft-1")
         refresh_matchups.assert_called_once_with("1", 17)
         self.assertEqual(state.refresh["status"], "ready")
+        self.assertEqual(state.refresh["market"], {"fresh": True})
+        refresh_market.assert_called_once_with(
+            season=2026,
+            sleeper_players_path=loader.return_value.sleeper_players_file,
+        )
 
         with patch(
             "ffsim.loaders.league.refresh_league",

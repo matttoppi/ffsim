@@ -104,6 +104,7 @@ CREATE TABLE IF NOT EXISTS market_snapshots (
     source_type TEXT NOT NULL,
     season INTEGER NOT NULL,
     scoring TEXT NOT NULL,
+    league_format TEXT NOT NULL DEFAULT '1qb',
     team_count INTEGER,
     observed_at TEXT NOT NULL,
     retrieved_at TEXT NOT NULL,

@@ -5,10 +5,10 @@ This file is the current operational state of the project. Keep it short, factua
 ## Current status
 
 **Phase:** Phase 8 — offline coupled draft rollouts and nested evaluation
-**State:** Offline-unblocked baseline complete through versioned recommendation summaries; external model/live inputs are the next product dependency
+**State:** Offline nested baseline and official multi-platform FantasyPros ADP ingestion are complete; exact redraft attachment and market-model calibration are next
 **Branch:** `feat/draft-intelligence`  
 **Implementation code changed:** Yes
-**Primary next action:** When the owner is ready, validate the FantasyPros payload/key and attach the exact redraft league/draft, then calibrate the injected choice utilities before enabling recommendation labels. Do not claim `WAIT`, `REACH`, or personalization before that validation.
+**Primary next action:** Attach the owner's exact redraft league/draft, select its compatible stored market context, and calibrate the injected choice utilities against time-local target-platform ADP before enabling recommendation labels. Do not claim `WAIT`, `REACH`, or personalization before that calibration.
 
 ## Project entrypoints
 
@@ -49,6 +49,10 @@ Read in this order:
 - [x] Strict manual CSV import with canonical Sleeper-ID mapping and exact raw-byte preservation.
 - [x] Historical latest-at-or-before snapshot lookup with optional maximum staleness.
 - [x] Idempotent re-import and historical reconstruction tests.
+- [x] Validate the official FantasyPros Premium `type=ADP` payload with the owner-provided key.
+- [x] Store consensus and returned ESPN/CBS/Yahoo/RTSports/Fantrax/Sleeper/FFPC boards from one request per format context.
+- [x] Refresh only missing or at-least-12-hour-old 1QB STD/HALF/PPR and half-PPR superflex contexts; no background loop.
+- [x] Map FantasyPros players through `sportsdata_id` to Sleeper `sportradar_id`, map DST by team, and report ambiguous/unmatched identities without guessing.
 
 ## Phase 3 in progress
 
@@ -147,9 +151,9 @@ Do not begin until Phase 0 is complete and reconciled.
 
 Follow the dependency order and acceptance criteria in the specification. Do not skip directly to live UI, GPU work, or final championship optimization before the underlying data and probabilistic models are validated.
 
-### Phase 2 — deferred external work
+### Phase 2 — external market work
 
-- [ ] Validate and add the FantasyPros adapter with a real owner-provided API key.
+- [x] Validate and add the FantasyPros adapter with a real owner-provided API key.
 - [ ] Add target-platform adapters only where official or authorized data is available.
 - [ ] Add a shared adapter protocol when a second source implementation exists.
 - [ ] Surface freshness/status in the War Room when that UI phase begins.
@@ -160,13 +164,13 @@ Record results here after the first local audit.
 
 | Check | Status | Notes |
 |---|---|---|
-| Existing Python tests | Pass | 102 tests with `ResourceWarning` promoted to an error |
+| Existing Python tests | Pass | 103 tests with `ResourceWarning` promoted to an error |
 | Frontend tests/build | Pass | 28 Vitest tests; TypeScript/Vite production build passed and both now run in CI |
 | Current simulation benchmark | Pass | M5 Max single-worker baselines recorded below |
 | Sleeper live API smoke test | Pass | Verified 2026 league, draft, picks, traded picks, roster, and per-user history payloads |
 | Offline draft geometry | Pass | CI covers representative observed 10/12/14-team snake, third-round reversal, linear, auction, trade, and co-manager actor cases. Supplemental local saved-payload validation covers 243 snake, 144 linear, and 11 auction drafts; one legacy IDP source inconsistency fails closed. |
 | Historical draft ingestion | Pass | Current configured league: 52,829 picks from 399 unique drafts persisted; 80 draft environments and 14,206 non-keeper picks are model-eligible after league-context filters |
-| ADP source validation | Partial by design | Official consensus/manual paths identified; provider-key payload checks deferred to Phase 2 |
+| ADP source validation | Pass | Premium payload validated live; four format contexts and all returned platform boards persisted, with an immediate repeat producing zero requests |
 
 ## Phase 0 audit — 2026-08-12
 
@@ -187,7 +191,7 @@ Record results here after the first local audit.
 - **Canonical identity:** The active cache produces 9,412 stable `sleeper:<external_id>` canonical records and one-to-one Sleeper mappings using the existing name/team normalization. Previously seen mappings remain available if a player becomes inactive; conflicting active source IDs fail closed.
 - **Historical league context:** The 399 drafts reference 362 unique leagues. Sleeper still serves 318; 44 deleted/missing leagues cover 48 drafts, which fail closed. Thirty-eight leagues produce 39 best-ball draft exclusions, and 14 legacy leagues with no `best_ball` field also fail closed. Every loaded league reports `max_keepers > 0`, so that observed field is preserved but is not treated as proof that keepers were used; explicit keeper picks remain excluded individually.
 - **Exact attachment verification:** [Sleeper's official API documentation](https://docs.sleeper.com/) (checked 2026-08-12) states that a league can have multiple drafts and exposes the authoritative `GET /league/{league_id}/drafts` list. The currently configured live league returned two distinct 2026 drafts (`linear` and `snake`), proving the league-level convenience `draft_id` cannot select safely by itself. The live structure also confirms draft picks and traded picks are separate resources. No current draft was auto-attached because the inspected league is dynasty and the owner's active scope is redraft without keepers.
-- **Sources checked:** Sleeper's official API remains tokenless/read-only for non-commercial use with guidance below 1000 calls/minute, and documents no ADP/default-board endpoint. FantasyPros documents keyed consensus ADP/ECR, projections, and external IDs; production personal use requires its premium tier and commercial/redistribution use requires a commercial agreement. Its public schema does not establish platform-specific ADP splits or a numeric quota, and no local key is configured. Yahoo requires OAuth and authorized-user access. Fleaflicker documents draft-board/rules/roster APIs, not market ADP. No official permitted ESPN ADP API was found, so ESPN remains optional/manual.
+- **Sources checked:** Sleeper's official API remains tokenless/read-only for non-commercial use, documents no ADP/default-board endpoint, and supplies the player identity map. The owner's FantasyPros Premium personal/non-commercial key was validated live on 2026-08-13: 500 requests/day, one request/second, complete official `type=ADP` responses, and platform ranks in `players[].experts`. Verified response coverage is 1QB STD/HALF/PPR and half-PPR superflex; STD/PPR `OP` probes returned empty Premium payloads and are explicitly unsupported. Returned boards include ESPN, CBS, Yahoo, RTSports, Fantrax, Sleeper, and FFPC depending on context. Commercial use or redistribution still requires separate licensing.
 - **Conclusion:** Phase 1 now provides auditable, deduplicated, context-classified Sleeper history and canonical identity persistence without changing the season engine.
 
 ## Non-negotiable invariants to watch
@@ -205,7 +209,6 @@ Record results here after the first local audit.
 
 These are research tasks, not blockers to repository audit.
 
-- What source provides the most reliable and permissible 2026 platform-specific ADP snapshots for Sleeper, Yahoo, ESPN, Fleaflicker, and other useful markets?
 - Which sources expose historical timestamped ADP versus only current values?
 - Is the actual default player ordering visible in each platform available through an official/authorized interface, and how closely does it correspond to published ADP?
 - What empirical dispersion model best converts each ADP source into a pick distribution by format and draft range?
@@ -224,14 +227,14 @@ See `DECISIONS.md`. The foundational decisions currently include:
 
 ## Blockers
 
-External market adapters and attachment to the owner's live redraft are intentionally deferred. A FantasyPros API key is required to validate actual tier-specific response fields and quotas before enabling that adapter. Remaining Phase 3 affinity, pass, board-adherence, calibrated survival, and market-relative `WAIT`/`REACH` work requires time-local market snapshots. The offline engine accepts injected utilities but does not present them as calibrated.
+The official FantasyPros market adapter is operational and its four contexts are fresh as of 2026-08-13. Attachment to the owner's exact live redraft and calibration against the stored target-platform board remain deferred. Phase 3 affinity, pass, board-adherence, calibrated survival, and market-relative `WAIT`/`REACH` work must not be labeled as validated until they beat the market baselines out of sample.
 
 Further bank persistence/memory mapping, candidate racing, transposition caching, multiprocessing, and accelerator work are intentionally profiling-gated rather than part of this baseline. Add them only after production bank sizing, live timing, and cache-hit measurements show the simpler path is insufficient.
 
 ## Handoff note
 
-Phase 1 is complete. Phase 2 has append-only manual market snapshots. Phase 3 has market-independent descriptive profiles. Phase 4 has exact attachment, explicit compatibility, network-free replay, coupled complete redraft rollouts, and survival summaries. Phase 6 produces deterministic, content-versioned, full-pool player-week tensors independently of fantasy ownership. Phase 7 evaluates compact roster assignments with coupled schedules/streamers and immutable per-world results. Phase 8 now joins many draft continuations to paired season worlds and emits versioned numeric recommendation summaries. The next product step requires owner-provided external/live inputs; do not calculate plausible-window passes, board adherence, calibrated personalization, or market-relative action labels without time-local market evidence.
+Phase 1 is complete. Phase 2 now has append-only manual and official FantasyPros multi-platform market snapshots behind a 12-hour request-driven freshness gate. Phase 3 has market-independent descriptive profiles. Phase 4 has exact attachment, explicit compatibility, network-free replay, coupled complete redraft rollouts, and survival summaries. Phase 6 produces deterministic, content-versioned, full-pool player-week tensors independently of fantasy ownership. Phase 7 evaluates compact roster assignments with coupled schedules/streamers and immutable per-world results. Phase 8 joins many draft continuations to paired season worlds and emits versioned numeric recommendation summaries. The next product step is exact redraft attachment and market-baseline calibration; do not calculate plausible-window passes, board adherence, calibrated personalization, or market-relative action labels without validated time-local use of these snapshots.
 
 ## Last updated
 
-2026-08-13 — Completed the offline nested baseline through multi-world continuation robustness, cluster-aware paired confidence, survival-aware recommendation summaries, exact cache parity, and a realistic 150.6 joint-outcome/s smoke check; full Python validation passes 102 tests.
+2026-08-13 — Added and live-validated request-driven FantasyPros ADP ingestion: four format contexts, 16 stored consensus/platform snapshots, direct stable-ID mapping, exact raw retention, and a 12-hour successful-retrieval freshness gate with no background loop; all 103 Python tests pass.

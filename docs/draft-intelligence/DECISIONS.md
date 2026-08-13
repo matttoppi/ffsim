@@ -258,3 +258,27 @@ collapsed into a fixed PPR/snake schema.
 - Compatibility is reported separately for attachment, deterministic replay,
   future draft rollout, and season evaluation. A downstream rejection includes
   stable reason codes but never prevents attachment and source inspection.
+
+---
+
+## ADR-012 — Refresh FantasyPros ADP on demand with a 12-hour freshness gate
+
+**Status:** Accepted
+**Date:** 2026-08-13
+
+### Decision
+
+Explicit market refreshes and league-attachment refreshes check the last successful FantasyPros retrieval per supported format context. Only missing or at-least-12-hour-old contexts are fetched. There is no background refresh loop.
+
+Each official bulk ADP response is persisted once and normalized into its consensus and returned platform-specific boards.
+
+### Rationale
+
+The Premium personal plan allows 500 requests/day at one request/second. Four context requests per stale refresh cover the verified 1QB STD/HALF/PPR and half-PPR superflex boards, so a twice-daily cadence costs at most eight successful API requests rather than one request per platform.
+
+### Consequences
+
+- Fresh explicit refreshes perform no Sleeper or FantasyPros network calls.
+- Retrieval time, provider observation time, raw content hash, context, and source remain append-only and auditable.
+- Source identity uses FantasyPros `sportsdata_id` to Sleeper `sportradar_id`, with DST mapped by team; ambiguous IDs fail closed per player and are reported.
+- Only boards actually returned by the official API are stored; missing platforms are not synthesized.

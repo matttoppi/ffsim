@@ -13,7 +13,7 @@ def parse_args():
         "command",
         choices=(
             "setup", "simulate", "refresh", "serve", "draft-audit", "market-import",
-            "manager-audit",
+            "market-refresh", "manager-audit",
         ),
         nargs="?",
         default="simulate",
@@ -41,6 +41,7 @@ def parse_args():
     parser.add_argument("--market-file")
     parser.add_argument("--market-source")
     parser.add_argument("--market-scoring")
+    parser.add_argument("--market-format", default="1qb")
     parser.add_argument("--market-observed-at")
     parser.add_argument("--market-team-count", type=int)
     output = parser.add_mutually_exclusive_group()
@@ -140,10 +141,21 @@ def main():
                 source=args.market_source,
                 season=args.season,
                 scoring=args.market_scoring,
+                league_format=args.market_format,
                 observed_at=args.market_observed_at,
                 team_count=args.market_team_count,
             )
-        except (FileNotFoundError, ValueError) as error:
+        except (OSError, ValueError) as error:
+            raise SystemExit(str(error)) from error
+        print(json.dumps(result, indent=2))
+        return
+
+    if args.command == "market-refresh":
+        from ffsim.draft_intel.market import refresh_fantasypros_adp
+
+        try:
+            result = refresh_fantasypros_adp(season=args.season)
+        except (OSError, ValueError) as error:
             raise SystemExit(str(error)) from error
         print(json.dumps(result, indent=2))
         return
@@ -238,6 +250,7 @@ def main():
         return
 
     if args.command == "refresh":
+        from ffsim.draft_intel.market import refresh_fantasypros_adp
         from ffsim.loaders.league import refresh_league
         from ffsim.loaders.players import PlayerLoader
         from ffsim.simulation.season import refresh_matchups
@@ -246,6 +259,10 @@ def main():
         player_loader.refresh()
         refresh_league(config.league_id, config.draft_id)
         refresh_matchups(config.league_id, config.regular_season_weeks + 3)
+        print(json.dumps(refresh_fantasypros_adp(
+            season=args.season,
+            sleeper_players_path=player_loader.sleeper_players_file,
+        ), indent=2))
         return
 
     from ffsim.runtime import create_simulation

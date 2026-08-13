@@ -160,19 +160,26 @@ def _run_job(job, base_config):
         job.fail(error)
 
 
-def _run_refresh(state, league_id, draft_id, weeks):
+def _run_refresh(state, league_id, draft_id, weeks, season=2026):
     try:
+        from ffsim.draft_intel.market import refresh_fantasypros_adp
         from ffsim.loaders.league import refresh_league
         from ffsim.loaders.players import PlayerLoader
         from ffsim.simulation.season import refresh_matchups
 
         refresh_league(league_id, draft_id)
-        PlayerLoader().refresh()
+        player_loader = PlayerLoader()
+        player_loader.refresh()
         refresh_matchups(league_id, weeks)
+        market = refresh_fantasypros_adp(
+            season=season,
+            sleeper_players_path=player_loader.sleeper_players_file,
+        )
         state.refresh = {
             "status": "ready",
             "league_id": league_id,
             "draft_id": draft_id,
+            "market": market,
             "error": None,
         }
     except Exception as error:
@@ -181,6 +188,7 @@ def _run_refresh(state, league_id, draft_id, weeks):
             "status": "failed",
             "league_id": league_id,
             "draft_id": draft_id,
+            "market": None,
             "error": str(error),
         }
 
@@ -208,6 +216,7 @@ def create_app(config_path="config.json"):
         "status": "idle",
         "league_id": None,
         "draft_id": None,
+        "market": None,
         "error": None,
     }
     app.state.refresh_lock = Lock()
@@ -302,6 +311,7 @@ def create_app(config_path="config.json"):
                 "status": "running",
                 "league_id": request.league_id,
                 "draft_id": request.draft_id,
+                "market": None,
                 "error": None,
             }
         weeks = config.regular_season_weeks + 3

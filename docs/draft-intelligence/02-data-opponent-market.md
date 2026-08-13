@@ -88,6 +88,8 @@ Implementation requirements:
 - If the API only exposes consensus ADP, treat it as consensus and acquire source-specific platform ADP separately.
 - Persist retrieval timestamps and raw payload hashes.
 
+Verified 2026-08-13 with the owner's Premium personal/non-commercial key: an official `type=ADP` response includes a consensus board plus source ranks in `players[].experts`. Across the supported response contexts, FantasyPros returned ESPN, CBS, Yahoo, RTSports, Fantrax, Sleeper, and FFPC boards. Exact response coverage is 1QB STD/HALF/PPR and half-PPR superflex; STD and PPR `OP` probes returned empty Premium payloads and must not be presented as exact boards. One response is stored as separate source snapshots; no per-platform request is required. The adapter validates a complete Premium response and retains the exact raw payload before accepting observations. Current licensed use remains personal and non-commercial; do not redistribute the data or API access.
+
 ### 6.6 Yahoo and Fleaflicker
 
 Yahoo's official Fantasy Sports API is OAuth-backed and can expose fantasy game/league/team/player data to an authorized user. It can be considered later for leagues the user is authorized to access. Do not assume it can discover unrelated private league-mate history.
@@ -109,10 +111,10 @@ Suggested defaults, all configurable:
 - Refresh immediately before the target draft.
 
 **ADP/rankings**
-- Daily early in the offseason.
-- Every 4-6 hours during the final week before major drafts.
-- Explicit refresh before the target draft.
-- Do not require network refresh on every pick.
+- On an explicit data refresh or league-attachment refresh, fetch only supported contexts whose last successful retrieval is at least 12 hours old.
+- A missing context is immediately due.
+- Do not run a background refresh loop or require network refresh on every pick.
+- Run an explicit refresh before the target draft when the latest snapshot is stale.
 
 **Live target draft**
 - Poll completed picks every 1-2 seconds by default.
