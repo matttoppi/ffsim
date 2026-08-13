@@ -1,5 +1,7 @@
 import json
-from dataclasses import dataclass
+import os
+import tempfile
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 
@@ -44,3 +46,27 @@ class AppConfig:
             )
         except (json.JSONDecodeError, KeyError, TypeError, ValueError) as error:
             raise ValueError(f"Invalid config file {path}: {error}") from error
+
+
+def save_league_attachment(path, league_id, draft_id):
+    path = Path(path)
+    config = replace(
+        AppConfig.from_file(path),
+        league_id="" if league_id is None else str(league_id).strip(),
+        draft_id="" if draft_id is None else str(draft_id).strip(),
+    )
+    data = json.loads(path.read_text())
+    data["league_id"] = config.league_id
+    data["draft_id"] = config.draft_id
+    descriptor, temporary_path = tempfile.mkstemp(
+        dir=path.parent,
+        prefix=f".{path.name}.",
+    )
+    try:
+        with os.fdopen(descriptor, "w") as file:
+            json.dump(data, file, indent=2)
+            file.write("\n")
+        os.replace(temporary_path, path)
+    finally:
+        Path(temporary_path).unlink(missing_ok=True)
+    return config

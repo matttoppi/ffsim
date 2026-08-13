@@ -42,6 +42,11 @@ traded-pick overrides. Auction drafts expose completed winning rosters and bid
 amounts, but not a predetermined future winning roster; retain that owner as
 unknown rather than inventing snake-like geometry.
 
+Use each completed pick's `roster_id` as the authoritative owning team.
+Preserve `picked_by` as actor metadata only: co-managed teams can produce a
+picker whose own draft-order identity does not match the roster receiving the
+player.
+
 On every poll:
 
 1. Fetch current draft picks.

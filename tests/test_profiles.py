@@ -1,10 +1,12 @@
 import sqlite3
 import tempfile
 import unittest
+from contextlib import closing
 from dataclasses import replace
 from pathlib import Path
 
 from ffsim.draft_intel.profiles import (
+    MANAGER_PROFILE_MODEL_STATUS,
     load_pick_observations,
     load_target_context,
     summarize_manager_profiles,
@@ -13,10 +15,15 @@ from ffsim.draft_intel.storage import SCHEMA
 
 
 class PickObservationTest(unittest.TestCase):
+    def test_manager_profiles_are_explicitly_not_decision_eligible(self):
+        self.assertEqual(MANAGER_PROFILE_MODEL_STATUS["use"], "descriptive_only")
+        self.assertFalse(MANAGER_PROFILE_MODEL_STATUS["decision_eligible"])
+        self.assertEqual(MANAGER_PROFILE_MODEL_STATUS["calibration"], "not_run")
+
     def test_reconstructs_target_rosters_and_observed_available_players(self):
         with tempfile.TemporaryDirectory() as directory:
             database_path = Path(directory) / "history.sqlite3"
-            with sqlite3.connect(database_path) as database:
+            with closing(sqlite3.connect(database_path)) as database, database:
                 database.executescript(SCHEMA)
                 database.executemany(
                     "INSERT INTO managers VALUES (?, ?, ?, ?)",

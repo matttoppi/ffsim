@@ -1,6 +1,7 @@
 import sqlite3
 import tempfile
 import unittest
+from contextlib import closing
 from datetime import timedelta
 from pathlib import Path
 
@@ -12,7 +13,7 @@ class MarketSnapshotTest(unittest.TestCase):
     def test_csv_import_is_append_only_and_reconstructs_historical_snapshot(self):
         with tempfile.TemporaryDirectory() as directory:
             database_path = Path(directory) / "history.sqlite3"
-            with sqlite3.connect(database_path) as database:
+            with closing(sqlite3.connect(database_path)) as database, database:
                 database.executescript(SCHEMA)
                 database.execute(
                     "INSERT INTO canonical_players VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -82,13 +83,13 @@ class MarketSnapshotTest(unittest.TestCase):
                 max_age=timedelta(hours=12),
                 storage_dir=directory,
             ))
-            with sqlite3.connect(database_path) as database:
+            with closing(sqlite3.connect(database_path)) as database, database:
                 self.assertEqual(database.execute("SELECT COUNT(*) FROM market_snapshots").fetchone()[0], 2)
 
     def test_csv_import_rejects_unknown_players(self):
         with tempfile.TemporaryDirectory() as directory:
             database_path = Path(directory) / "history.sqlite3"
-            with sqlite3.connect(database_path) as database:
+            with closing(sqlite3.connect(database_path)) as database, database:
                 database.executescript(SCHEMA)
             csv_path = Path(directory) / "market.csv"
             csv_path.write_text("sleeper_id,adp\nmissing,1\n")

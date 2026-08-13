@@ -83,6 +83,59 @@ class DraftStateTest(unittest.TestCase):
             self.replay("snake", picks=[fixture["picks"][0], fixture["picks"][2]])
         with self.assertRaisesRegex(ValueError, "outside the redraft"):
             self.replay("snake", picks=[{**fixture["picks"][0], "is_keeper": True}])
+        co_managed = self.replay(
+            "snake",
+            picks=[{**fixture["picks"][0], "picked_by": "manager-b"}],
+        )
+        self.assertEqual(co_managed.completed_picks[0].roster_id, 101)
+        self.assertEqual(co_managed.completed_picks[0].picked_by, "manager-b")
+
+    def test_observed_redraft_geometry_cases_are_reproducible_without_live_data(self):
+        cases = (
+            ("snake", 10, 16, 0),
+            ("snake", 12, 25, 3),
+            ("snake", 14, 18, 0),
+            ("linear", 12, 4, 3),
+            ("auction", 12, 18, 0),
+        )
+        for draft_type, teams, rounds, reversal_round in cases:
+            with self.subTest(
+                draft_type=draft_type,
+                teams=teams,
+                rounds=rounds,
+                reversal_round=reversal_round,
+            ):
+                draft = {
+                    "draft_id": f"{draft_type}-{teams}-{rounds}-{reversal_round}",
+                    "type": draft_type,
+                    "status": "pre_draft",
+                    "settings": {
+                        "teams": teams,
+                        "rounds": rounds,
+                        "reversal_round": reversal_round,
+                        "budget": 200,
+                    },
+                    "draft_order": {
+                        f"manager-{slot}": slot for slot in range(1, teams + 1)
+                    },
+                    "slot_to_roster_id": {
+                        str(slot): 100 + slot for slot in range(1, teams + 1)
+                    },
+                }
+                state = replay_sleeper_draft(draft, [], [], [])
+                ascending = tuple(range(1, teams + 1))
+                descending = tuple(reversed(ascending))
+                if draft_type == "auction":
+                    self.assertEqual(state.pick_slots, (None,) * (teams * rounds))
+                elif draft_type == "linear":
+                    self.assertEqual(state.pick_slots, ascending * rounds)
+                else:
+                    third = descending if reversal_round == 3 else ascending
+                    fourth = ascending if reversal_round == 3 else descending
+                    self.assertEqual(
+                        state.pick_slots[:teams * 4],
+                        ascending + descending + third + fourth,
+                    )
 
     def test_reconciliation_only_appends_to_the_observed_pick_prefix(self):
         fixture = self.fixtures["snake"]

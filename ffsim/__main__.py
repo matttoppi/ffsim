@@ -4,7 +4,7 @@ import os
 from dataclasses import replace
 from pathlib import Path
 
-from ffsim.config import AppConfig
+from ffsim.config import AppConfig, save_league_attachment
 
 
 def parse_args():
@@ -99,10 +99,7 @@ def setup_league(config_path, username=None, season=2026, input_fn=input, print_
         print_fn(f"Enter a number from 1 to {len(summaries)}.")
 
     path = Path(config_path)
-    data = json.loads(path.read_text())
-    data["league_id"] = str(selected["league_id"])
-    data["draft_id"] = selected_draft["draft_id"]
-    path.write_text(json.dumps(data, indent=2) + "\n")
+    save_league_attachment(path, selected["league_id"], selected_draft["draft_id"])
     print_fn(
         f"Saved {selected.get('name', 'Unnamed')} / {selected_draft['draft_id']} to {path}."
     )
@@ -153,6 +150,7 @@ def main():
 
     if args.command == "manager-audit":
         from ffsim.draft_intel.profiles import (
+            MANAGER_PROFILE_MODEL_STATUS,
             load_pick_observations,
             load_target_context,
             summarize_manager_profiles,
@@ -177,6 +175,7 @@ def main():
             "observation_count": len(observations),
             "manager_count": len(profiles),
             "target_context": target_context,
+            "model_status": MANAGER_PROFILE_MODEL_STATUS,
             "profiles": profiles,
         }, indent=2))
         return

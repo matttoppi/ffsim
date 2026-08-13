@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import call, patch
 
 from ffsim.__main__ import setup_league
-from ffsim.config import AppConfig
+from ffsim.config import AppConfig, save_league_attachment
 from ffsim.loaders.league import (
     draft_summary,
     league_and_drafts,
@@ -208,6 +208,29 @@ class SimulationTest(unittest.TestCase):
             AppConfig(league_id="", simulations=1)
         with self.assertRaises(ValueError):
             AppConfig(league_id="league", draft_id="")
+
+    def test_league_attachment_replaces_config_atomically(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "config.json"
+            path.write_text('{"league_id": "old", "simulations": 25}\n')
+
+            config = save_league_attachment(path, "new", "draft")
+
+            self.assertEqual((config.league_id, config.draft_id), ("new", "draft"))
+            self.assertEqual(json.loads(path.read_text()), {
+                "league_id": "new",
+                "draft_id": "draft",
+                "simulations": 25,
+            })
+            original = path.read_text()
+            with patch("ffsim.config.os.replace", side_effect=OSError("disk full")):
+                with self.assertRaisesRegex(OSError, "disk full"):
+                    save_league_attachment(path, "other", "other-draft")
+            self.assertEqual(path.read_text(), original)
+            self.assertEqual(list(Path(directory).glob(".config.json.*")), [])
+            with self.assertRaises(ValueError):
+                save_league_attachment(path, " ", "draft")
+            self.assertEqual(path.read_text(), original)
 
     def test_team_initializes_and_records_a_win(self):
         team = FantasyTeam("Unknown", None, {"display_name": "Owner"})

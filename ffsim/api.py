@@ -14,9 +14,9 @@ from uuid import uuid4
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
-from ffsim.config import AppConfig
+from ffsim.config import AppConfig, save_league_attachment
 from ffsim.paths import CACHE_DIR
 from ffsim.runtime import create_simulation
 
@@ -28,6 +28,14 @@ TERMINAL_STATUSES = {"completed", "failed"}
 class LeagueRequest(BaseModel):
     league_id: str = Field(min_length=1)
     draft_id: str = Field(min_length=1)
+
+    @field_validator("league_id", "draft_id")
+    @classmethod
+    def strip_required_id(cls, value):
+        value = value.strip()
+        if not value:
+            raise ValueError("Sleeper IDs cannot be blank")
+        return value
 
 
 class SimulationRequest(BaseModel):
@@ -285,18 +293,18 @@ def create_app(config_path="config.json"):
                         status_code=409,
                         detail="A simulation is running; wait for it to finish",
                     )
+            config = save_league_attachment(
+                app.state.config_path,
+                request.league_id,
+                request.draft_id,
+            )
             app.state.refresh = {
                 "status": "running",
                 "league_id": request.league_id,
                 "draft_id": request.draft_id,
                 "error": None,
             }
-        path = Path(app.state.config_path)
-        data = json.loads(path.read_text())
-        data["league_id"] = str(request.league_id)
-        data["draft_id"] = str(request.draft_id)
-        path.write_text(json.dumps(data, indent=2) + "\n")
-        weeks = AppConfig.from_file(app.state.config_path).regular_season_weeks + 3
+        weeks = config.regular_season_weeks + 3
         Thread(
             target=_run_refresh,
             args=(app.state, request.league_id, request.draft_id, weeks),

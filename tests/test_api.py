@@ -1,7 +1,11 @@
+import json
+import tempfile
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from fastapi import HTTPException
 from pydantic import ValidationError
 
 from ffsim.api import (
@@ -20,6 +24,15 @@ RESULT = {
     "playoff_teams": ["Alpha", "Beta"],
     "division_winners": ["Alpha", "Beta"],
 }
+
+
+def endpoint(app, path, method):
+    return next(
+        route.endpoint
+        for route in app.routes
+        if getattr(route, "path", None) == path
+        and method in getattr(route, "methods", ())
+    )
 
 
 class ApiTest(unittest.TestCase):
@@ -71,6 +84,12 @@ class ApiTest(unittest.TestCase):
             LeagueRequest(league_id="", draft_id="draft")
         with self.assertRaises(ValidationError):
             LeagueRequest(league_id="league", draft_id="")
+        with self.assertRaises(ValidationError):
+            LeagueRequest(league_id=" ", draft_id="draft")
+        self.assertEqual(
+            LeagueRequest(league_id=" league ", draft_id=" draft ").model_dump(),
+            {"league_id": "league", "draft_id": "draft"},
+        )
 
     def test_refresh_runner_updates_state_on_success_and_failure(self):
         state = SimpleNamespace(refresh={
@@ -95,10 +114,111 @@ class ApiTest(unittest.TestCase):
             "ffsim.loaders.league.refresh_league",
             side_effect=OSError("sleeper down"),
         ):
-            _run_refresh(state, "2", "draft-2", 17)
+            with self.assertLogs("ffsim.api", level="ERROR"):
+                _run_refresh(state, "2", "draft-2", 17)
 
         self.assertEqual(state.refresh["status"], "failed")
         self.assertIn("sleeper down", state.refresh["error"])
+
+    def test_league_draft_endpoints_preserve_selection_and_fail_closed(self):
+        league = {
+            "league_id": "league",
+            "name": "Custom",
+            "status": "pre_draft",
+            "settings": {"type": 0, "custom": 1},
+            "scoring_settings": {"rec": 0.25},
+            "roster_positions": ["QB", "REC_FLEX", "BN"],
+        }
+        draft = {
+            "draft_id": "draft",
+            "league_id": "league",
+            "type": "auction",
+            "status": "pre_draft",
+            "settings": {"teams": 8, "rounds": 20},
+            "metadata": {"scoring_type": "custom_redraft"},
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            config_path = Path(directory) / "config.json"
+            config_path.write_text(
+                '{"league_id": "old", "regular_season_weeks": 14}\n'
+            )
+            app = create_app(config_path)
+            find_drafts = endpoint(app, "/api/leagues/{league_id}/drafts", "GET")
+            select_league = endpoint(app, "/api/league", "POST")
+            current_league = endpoint(app, "/api/league", "GET")
+
+            with patch(
+                "ffsim.loaders.league.league_and_drafts",
+                return_value=(league, [draft]),
+            ):
+                found = find_drafts("league")
+                self.assertEqual(found["league"]["scoring_settings"], {"rec": 0.25})
+                self.assertEqual(found["drafts"][0]["draft_type"], "auction")
+                with patch("ffsim.api.Thread") as thread:
+                    selected = select_league(LeagueRequest(
+                        league_id="league",
+                        draft_id="draft",
+                    ))
+
+            self.assertEqual(selected, {
+                "status": "running",
+                "league_id": "league",
+                "draft_id": "draft",
+            })
+            self.assertEqual(
+                (json.loads(config_path.read_text())["league_id"],
+                 json.loads(config_path.read_text())["draft_id"]),
+                ("league", "draft"),
+            )
+            self.assertEqual(thread.call_args.kwargs["args"], (
+                app.state,
+                "league",
+                "draft",
+                17,
+            ))
+            thread.return_value.start.assert_called_once_with()
+
+            cache = Path(directory) / "league_league.json"
+            cache.write_text(json.dumps({
+                "league": league,
+                "draft_summary": found["drafts"][0],
+            }))
+            with patch("ffsim.api.CACHE_DIR", Path(directory)):
+                current = current_league()
+            self.assertTrue(current["ready"])
+            self.assertEqual(current["draft_id"], "draft")
+
+            app.state.refresh["status"] = "idle"
+            before = config_path.read_text()
+            with patch(
+                "ffsim.loaders.league.league_and_drafts",
+                return_value=(league, [draft]),
+            ):
+                with self.assertRaises(HTTPException) as error:
+                    select_league(LeagueRequest(
+                        league_id="league",
+                        draft_id="other",
+                    ))
+            self.assertEqual(error.exception.status_code, 400)
+            self.assertEqual(config_path.read_text(), before)
+
+            with (
+                patch(
+                    "ffsim.loaders.league.league_and_drafts",
+                    return_value=(league, [draft]),
+                ),
+                patch(
+                    "ffsim.api.save_league_attachment",
+                    side_effect=OSError("disk full"),
+                ),
+            ):
+                with self.assertRaisesRegex(OSError, "disk full"):
+                    select_league(LeagueRequest(
+                        league_id="league",
+                        draft_id="draft",
+                    ))
+            self.assertEqual(app.state.refresh["status"], "idle")
+            self.assertEqual(config_path.read_text(), before)
 
 if __name__ == "__main__":
     unittest.main()

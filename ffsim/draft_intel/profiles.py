@@ -8,6 +8,14 @@ from ffsim.config import AppConfig
 from ffsim.paths import CACHE_DIR
 
 
+MANAGER_PROFILE_MODEL_STATUS = {
+    "use": "descriptive_only",
+    "decision_eligible": False,
+    "calibration": "not_run",
+    "reason": "Requires out-of-sample validation against a time-local market baseline",
+}
+
+
 @dataclass(frozen=True)
 class PickObservation:
     draft_id: str
@@ -152,6 +160,7 @@ def summarize_manager_profiles(
     target_scoring_type,
     target_team_count,
 ):
+    """Return descriptive evidence, not calibrated opponent-choice probabilities."""
     if target_season <= 0 or target_team_count <= 0 or not target_scoring_type:
         raise ValueError("Complete positive target context is required")
     by_manager = defaultdict(list)

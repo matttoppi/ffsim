@@ -9,7 +9,7 @@ class DraftPick:
     round: int
     draft_slot: int
     roster_id: int
-    manager_id: str | None
+    picked_by: str | None
     player_id: str
     position: str | None
     price: int | None
@@ -353,7 +353,7 @@ def _normalize_picks(
             round=round_number,
             draft_slot=draft_slot,
             roster_id=roster_id,
-            manager_id=(str(raw_pick["picked_by"]) if raw_pick.get("picked_by") else None),
+            picked_by=(str(raw_pick["picked_by"]) if raw_pick.get("picked_by") else None),
             player_id=player_id,
             position=(str(metadata["position"]) if metadata.get("position") else None),
             price=price,

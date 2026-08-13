@@ -5,7 +5,7 @@ This file is the current operational state of the project. Keep it short, factua
 ## Current status
 
 **Phase:** Phase 4 — Live draft state foundation
-**State:** Offline draft replay and reconciliation foundation complete
+**State:** Offline draft replay foundation hardened after checkpoint review
 **Branch:** `feat/draft-intelligence`  
 **Implementation code changed:** Yes
 **Primary next action:** Define and test league-setting compatibility at the draft-to-season boundary, then begin the reusable `SeasonWorldBank` seam. Live polling/attachment and market-dependent opponent profiling remain owner-deferred.
@@ -76,6 +76,11 @@ Read in this order:
 - [x] Reconstruct exact snake/linear pick ownership, including third-round reversal and traded-pick overrides, plus roster state, availability, current/next turns, opponent counts, and turn picks.
 - [x] Reconstruct auction winners, rosters, and remaining budgets while leaving future winning ownership explicitly unknown.
 - [x] Fail closed on keeper rows, gaps, duplicates, ownership conflicts, missing players, budget violations, and rewrites/removals of observed picks.
+- [x] Keep `roster_id` authoritative for pick ownership and preserve `picked_by` only as actor metadata because co-managed teams can legitimately mismatch draft-order identity.
+- [x] Save league/draft attachments atomically and test discovery, selection, readiness, invalid drafts, and failed writes at the backend endpoint boundary.
+- [x] Add reproducible CI geometry cases for observed 10/12/14-team snake, third-round reversal, linear, and auction formats.
+- [x] Mark manager-profile heuristics descriptive-only and decision-ineligible until out-of-sample market-baseline calibration exists.
+- [x] Run frontend tests/build and ResourceWarning-clean Python tests in CI.
 
 ## Next tasks
 
@@ -118,11 +123,11 @@ Record results here after the first local audit.
 
 | Check | Status | Notes |
 |---|---|---|
-| Existing Python tests | Pass | 82 tests in 19.65s after offline draft replay/reconciliation |
-| Frontend tests/build | Pass | 28 Vitest tests; TypeScript/Vite production build passed after explicit draft selection |
+| Existing Python tests | Pass | 86 tests in 19.65s with `ResourceWarning` promoted to an error |
+| Frontend tests/build | Pass | 28 Vitest tests; TypeScript/Vite production build passed and both now run in CI |
 | Current simulation benchmark | Pass | M5 Max single-worker baselines recorded below |
 | Sleeper live API smoke test | Pass | Verified 2026 league, draft, picks, traded picks, roster, and per-user history payloads |
-| Offline draft geometry | Pass | Saved payloads validate 243 snake drafts (including third-round reversal), 144 linear drafts, and 11 auctions; one legacy IDP draft whose picks exceed configured rounds fails closed as source-inconsistent |
+| Offline draft geometry | Pass | CI covers representative observed 10/12/14-team snake, third-round reversal, linear, auction, trade, and co-manager actor cases. Supplemental local saved-payload validation covers 243 snake, 144 linear, and 11 auction drafts; one legacy IDP source inconsistency fails closed. |
 | Historical draft ingestion | Pass | Current configured league: 52,829 picks from 399 unique drafts persisted; 80 draft environments and 14,206 non-keeper picks are model-eligible after league-context filters |
 | ADP source validation | Partial by design | Official consensus/manual paths identified; provider-key payload checks deferred to Phase 2 |
 
@@ -188,4 +193,4 @@ Phase 1 is complete. Phase 2 has append-only manual market snapshots. Phase 3 ha
 
 ## Last updated
 
-2026-08-13 — Offline draft replay/reconciliation completed; full Python suite passes 82 tests.
+2026-08-13 — Checkpoint review debt resolved: atomic attachment, endpoint coverage, manager attribution, reproducible geometry cases, profile quarantine, warning-clean tests, and frontend CI; full Python suite passes 86 tests.

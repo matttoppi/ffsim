@@ -102,7 +102,6 @@ python -m ffsim simulate --simulations 300 --seed 42
 python -m ffsim simulate --output output/week-1.json
 python -m ffsim simulate --plots
 python -m ffsim simulate --teams-only
-python -m ffsim simulate --teams-only
 python -m ffsim simulate --workers 1
 ```
 
@@ -139,7 +138,9 @@ first-position timing, and four-round start shapes. `zero_rb`, `hero_rb`, and
 Context weights use `1.0 / 0.35 / 0.15` season decay, a visible `0.5` scoring
 mismatch factor, and the smaller/larger league-size ratio. Raw counts and every
 per-draft component remain in the output. Reach/pass behavior remains disabled
-without a compatible historical market snapshot.
+without a compatible historical market snapshot. The output explicitly reports
+`decision_eligible: false` until these profiles beat a time-local market
+baseline out of sample; the current weights are not calibrated probabilities.
 
 Normal runs keep aggregate player summaries without retaining every sampled
 score. `--plots` retains the raw samples needed for histograms. `--teams-only`
