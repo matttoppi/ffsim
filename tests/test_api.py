@@ -485,7 +485,7 @@ class ApiTest(unittest.TestCase):
         monitor.calculation_event.set()
         observed = []
 
-        def evaluate(_prepared, _state, rollout_count, _candidates):
+        def evaluate(_prepared, _state, rollout_count, _candidates, *_args):
             observed.append(
                 (rollout_count, monitor.recommendation, monitor.recommendation_status)
             )
@@ -532,7 +532,7 @@ class ApiTest(unittest.TestCase):
         monitor.calculation_event.set()
         observed = []
 
-        def evaluate(_prepared, _state, _rollout_count, batch):
+        def evaluate(_prepared, _state, _rollout_count, batch, *_args):
             return {"batch": list(batch)}
 
         def payload(_prepared, evaluations, pool_count):
@@ -580,7 +580,7 @@ class ApiTest(unittest.TestCase):
         monitor.calculation_event.set()
         passes = []
 
-        def evaluate(_prepared, _state, rollout_count, _candidates):
+        def evaluate(_prepared, _state, rollout_count, _candidates, *_args):
             passes.append(rollout_count)
             with monitor.lock:
                 monitor.state_fingerprint = ("drafting", 1, 2, (1,))

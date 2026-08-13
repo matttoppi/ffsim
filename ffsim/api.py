@@ -79,6 +79,7 @@ class DraftMonitorRequest(BaseModel):
     rollout_count: int = Field(default=50, ge=2, le=500)
     candidate_count: int = Field(default=9, ge=2, le=12)
     candidate_breadth: int = Field(default=40, ge=2, le=100)
+    temperature: float | None = Field(default=None, gt=0, le=5)
 
 
 @dataclass
@@ -185,6 +186,7 @@ class LiveDraftMonitor:
     rollout_count: int
     candidate_count: int
     candidate_breadth: int = 40
+    temperature: float | None = None
     status: str = "starting"
     state: dict | None = None
     recommendation: dict | None = None
@@ -199,6 +201,7 @@ class LiveDraftMonitor:
     lock: Lock = field(default_factory=Lock, repr=False)
     stopped: Event = field(default_factory=Event, repr=False)
     calculation_event: Event = field(default_factory=Event, repr=False)
+    executor: object | None = field(default=None, repr=False)
     pending_state: object | None = field(default=None, repr=False)
     state_fingerprint: tuple | None = field(default=None, repr=False)
 
@@ -279,6 +282,8 @@ class LiveDraftMonitor:
                         state,
                         rollout_count,
                         batch,
+                        self.temperature,
+                        self.executor,
                     )
                     if cumulative:
                         evaluations.append(evaluation)
@@ -312,6 +317,7 @@ class LiveDraftMonitor:
 
     def run(self):
         from ffsim.draft_intel.live import (
+            create_live_executor,
             evaluate_live_candidates,
             live_candidate_pool,
             live_recommendation_payload,
@@ -319,6 +325,12 @@ class LiveDraftMonitor:
             sync_prepared_draft,
         )
 
+        try:
+            if getattr(self.prepared, "evaluator", None) is not None:
+                self.executor = create_live_executor(self.prepared)
+        except Exception:
+            LOGGER.exception("Falling back to sequential candidate evaluation")
+            self.executor = None
         Thread(
             target=self.calculate,
             args=(
@@ -388,6 +400,8 @@ class LiveDraftMonitor:
         finally:
             self.stopped.set()
             self.calculation_event.set()
+            if self.executor is not None:
+                self.executor.shutdown(wait=False, cancel_futures=True)
 
     def stop(self):
         self.stopped.set()
@@ -673,6 +687,7 @@ def create_app(config_path="config.json"):
             request.rollout_count,
             request.candidate_count,
             request.candidate_breadth,
+            request.temperature,
         )
         app.state.live_monitor = monitor
         Thread(target=monitor.run, daemon=True).start()

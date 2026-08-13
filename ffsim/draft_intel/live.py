@@ -1,5 +1,6 @@
 """One-click draft preparation and live recommendation calculations."""
 
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict, dataclass
 import json
 import math
@@ -344,13 +345,21 @@ def live_candidate_pool(prepared, state, breadth):
     return list(dict.fromkeys(diverse + by_distance))[:breadth]
 
 
-def evaluate_live_candidates(prepared, state, rollout_count, candidate_ids):
-    if state.current_roster_id != prepared.user_roster_id:
-        raise ValueError("Live recommendations require the user on the clock")
-    if prepared.market_snapshot is None or prepared.evaluator is None:
-        raise ValueError("Prepared draft is missing market or season inputs")
+# Softmax temperature fitted by maximum likelihood on 286 observed non-user
+# picks from this league's Sleeper mocks (2026-08-13); see the ledger. It is
+# provisional evidence, refit as real human drafts accumulate.
+LIVE_TEMPERATURE = 0.11
+# Season worlds per continuation: outcome resolution is cheap relative to
+# continuation sampling, so take three coupled worlds per draft path.
+LIVE_SEASON_WORLDS_PER_ROLLOUT = 3
+LIVE_EVALUATION_WORKERS = 4
+
+_WORKER = {}
+
+
+def _bank_market_snapshot(prepared):
     bank_players = set(prepared.evaluator.bank.player_ids)
-    snapshot = {
+    return {
         **prepared.market_snapshot,
         "observations": [
             observation
@@ -358,18 +367,109 @@ def evaluate_live_candidates(prepared, state, rollout_count, candidate_ids):
             if str(observation.get("canonical_player_id")) in bank_players
         ],
     }
+
+
+def _live_model_version(snapshot, temperature):
+    return f"{sleeper_adp_model_version(snapshot)}:t{temperature}"
+
+
+def _evaluate_candidate_batch(
+    snapshot,
+    evaluator,
+    user_roster_id,
+    state,
+    candidate_ids,
+    survival_ids,
+    rollout_count,
+    temperature,
+):
     choose = sleeper_adp_choice(snapshot)
     return evaluate_candidates(
         state,
         candidate_ids,
-        prepared.user_roster_id,
+        user_roster_id,
         range(rollout_count),
         choose,
         choose,
-        prepared.evaluator,
-        draft_model_version=sleeper_adp_model_version(snapshot),
-        survival_player_ids=candidate_ids,
+        evaluator,
+        draft_model_version=_live_model_version(snapshot, temperature),
+        survival_player_ids=survival_ids,
+        temperature=temperature,
+        season_worlds_per_rollout=LIVE_SEASON_WORLDS_PER_ROLLOUT,
     )
+
+
+def _init_candidate_worker(snapshot, evaluator, user_roster_id):
+    _WORKER["snapshot"] = snapshot
+    _WORKER["evaluator"] = evaluator
+    _WORKER["user_roster_id"] = user_roster_id
+
+
+def _evaluate_candidate_task(state, candidate_id, survival_ids, rollout_count, temperature):
+    return _evaluate_candidate_batch(
+        _WORKER["snapshot"],
+        _WORKER["evaluator"],
+        _WORKER["user_roster_id"],
+        state,
+        (candidate_id,),
+        survival_ids,
+        rollout_count,
+        temperature,
+    )
+
+
+def create_live_executor(prepared, workers=LIVE_EVALUATION_WORKERS):
+    """Worker processes holding the market snapshot and season evaluator."""
+    return ProcessPoolExecutor(
+        max_workers=workers,
+        initializer=_init_candidate_worker,
+        initargs=(
+            _bank_market_snapshot(prepared),
+            prepared.evaluator,
+            prepared.user_roster_id,
+        ),
+    )
+
+
+def evaluate_live_candidates(
+    prepared,
+    state,
+    rollout_count,
+    candidate_ids,
+    temperature=None,
+    executor=None,
+):
+    if state.current_roster_id != prepared.user_roster_id:
+        raise ValueError("Live recommendations require the user on the clock")
+    if prepared.market_snapshot is None or prepared.evaluator is None:
+        raise ValueError("Prepared draft is missing market or season inputs")
+    temperature = LIVE_TEMPERATURE if temperature is None else float(temperature)
+    candidate_ids = tuple(candidate_ids)
+    if executor is None:
+        return _evaluate_candidate_batch(
+            _bank_market_snapshot(prepared),
+            prepared.evaluator,
+            prepared.user_roster_id,
+            state,
+            candidate_ids,
+            candidate_ids,
+            rollout_count,
+            temperature,
+        )
+    # Candidate evaluations are independent under coupled randomness, so a
+    # per-candidate fan-out merged afterwards is exactly one batch evaluation.
+    futures = [
+        executor.submit(
+            _evaluate_candidate_task,
+            state,
+            candidate_id,
+            candidate_ids,
+            rollout_count,
+            temperature,
+        )
+        for candidate_id in candidate_ids
+    ]
+    return merge_evaluations([future.result() for future in futures])
 
 
 def live_recommendation_payload(prepared, evaluations, candidate_pool_count):

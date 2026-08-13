@@ -369,3 +369,46 @@ while Sleeper was at pick 24).
 - Normal polling uses one picks request per interval; draft metadata and
   traded picks refresh every fifteenth poll, and completion is detected from
   a full pick sheet even when the cached metadata status is stale.
+
+---
+
+## ADR-015 — Fitted opponent temperature and parallel candidate evaluation
+
+**Status:** Accepted
+**Date:** 2026-08-13
+
+### Decision
+
+The live opponent-choice softmax temperature is a fitted model parameter, not
+a fixed constant. The current default (0.11) is the maximum-likelihood grid
+fit on 286 observed non-user picks from this league's Sleeper mocks and must
+be refit as real human draft evidence accumulates; it is exposed as a monitor
+request parameter and included in the recommendation model version.
+
+Live candidate evaluation fans out across a small process pool (default four
+workers), one candidate per task, and merges the per-candidate evaluations.
+Because candidates are independent under coupled deterministic randomness,
+the merged result is exactly equal to one sequential batch evaluation, which
+remains the fallback when no executor is available. Each draft continuation
+is paired with three coupled season worlds.
+
+### Rationale
+
+At temperature 1.0 opponents picked the consensus best player only ~16% of
+the time, which inflated the greedy user's absolute title equity (observed
+58% at pick 1) and made positional scarcity nearly free, letting a kicker
+grade even with elite skill players at pick 24. Fitted sharpness (mean NLL
+2.09 at T=0.11 versus 4.15 at T=1.0) restores real opportunity cost.
+Continuation sampling is single-core Python and profiling showed remaining
+exact single-core wins were small, so per-candidate process parallelism is
+the profiling-justified step (AGENTS.md performance ordering).
+
+### Consequences
+
+- The temperature provenance is CPU-heavy league-mock rooms; treat absolute
+  equity as provisional until refit on human drafts, and never present it as
+  calibrated confidence.
+- Recommendation cache keys and model versions include the temperature.
+- Worker processes hold the market snapshot and season evaluator once via
+  the pool initializer; per-worker evaluator caches are process-local.
+- Parallel and sequential paths must remain exactly equivalent (tested).

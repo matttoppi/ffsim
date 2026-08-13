@@ -5,18 +5,56 @@ from types import SimpleNamespace
 from unittest.mock import call, patch
 
 from ffsim.draft_intel.live import (
+    PreparedDraft,
     _draft_id,
     _manager_slot,
     _refresh_history,
+    create_live_executor,
+    evaluate_live_candidates,
     live_candidate_pool,
     live_state_summary,
     mock_mismatch_reasons,
 )
 from ffsim.draft_intel.market_model import SLEEPER_ADP_SOURCE
 from ffsim.draft_intel.state import DraftPick
+from tests.test_decision import draft_state, evaluator
 
 
 class LiveDraftTest(unittest.TestCase):
+    def test_parallel_candidate_evaluation_matches_the_sequential_batch(self):
+        state = draft_state()
+        prepared = PreparedDraft(
+            summary={},
+            live_draft_id="draft",
+            league_id=None,
+            standalone=True,
+            user_roster_id=1,
+            market_snapshot={
+                "source": SLEEPER_ADP_SOURCE,
+                "snapshot_id": "snap",
+                "observations": [
+                    {"canonical_player_id": f"p{index}", "adp": float(index)}
+                    for index in range(1, 13)
+                ],
+            },
+            evaluator=evaluator(),
+            player_details={},
+        )
+        candidates = ("p1", "p2", "p3")
+        sequential = evaluate_live_candidates(prepared, state, 4, candidates)
+        with create_live_executor(prepared, workers=2) as executor:
+            parallel = evaluate_live_candidates(
+                prepared, state, 4, candidates, executor=executor
+            )
+        self.assertEqual(sequential.rollout_ids, parallel.rollout_ids)
+        self.assertEqual(sequential.world_indices, parallel.world_indices)
+        self.assertEqual(sequential.draft_model_version, parallel.draft_model_version)
+        self.assertIn(":t0.11", sequential.draft_model_version)
+        self.assertEqual(
+            {candidate.candidate_id: candidate for candidate in sequential.candidates},
+            {candidate.candidate_id: candidate for candidate in parallel.candidates},
+        )
+
     def test_candidate_pool_expands_outward_from_the_current_pick(self):
         adps = {
             "p02": ("RB", 2.0),   # fallen stud
