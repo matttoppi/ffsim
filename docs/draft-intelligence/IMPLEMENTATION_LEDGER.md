@@ -84,6 +84,9 @@ Read in this order:
 - [x] Report attachment, draft replay, future rollout, and season-evaluation compatibility independently with precise downstream reason codes.
 - [x] Recognize 1QB, superflex, receiver flex, RB/WR flex, custom supported scoring, snake, and linear redrafts without collapsing raw settings.
 - [x] Keep auction, best-ball, IDP/taxi, unsupported scoring/playoff rules, keeper evidence, and inconsistent team counts attachable while failing unsupported downstream capabilities explicitly.
+- [x] Sample complete snake/linear redraft continuations from injected conditional choice utilities without implying an external market source.
+- [x] Enforce two or more unique continuations per root candidate and couple opponent choices with stable Gumbel shocks keyed by seed, rollout, pick, roster, and player.
+- [x] Update every simulated turn sequentially and derive exact-player survival, pick hazards, manager threat shares, and tier remaining/exhaustion distributions from the sampled paths.
 
 ## Phase 6 foundation started
 
@@ -145,7 +148,7 @@ Record results here after the first local audit.
 
 | Check | Status | Notes |
 |---|---|---|
-| Existing Python tests | Pass | 96 tests with `ResourceWarning` promoted to an error |
+| Existing Python tests | Pass | 99 tests with `ResourceWarning` promoted to an error |
 | Frontend tests/build | Pass | 28 Vitest tests; TypeScript/Vite production build passed and both now run in CI |
 | Current simulation benchmark | Pass | M5 Max single-worker baselines recorded below |
 | Sleeper live API smoke test | Pass | Verified 2026 league, draft, picks, traded picks, roster, and per-user history payloads |
@@ -216,4 +219,4 @@ Phase 1 is complete. Phase 2 has append-only manual market snapshots. Phase 3 ha
 
 ## Last updated
 
-2026-08-13 — Added the lightweight roster-index league evaluator, schedule realizations, replacement streamers, standings/playoffs, exact memoization, and frozen-fixture legacy parity; full Python validation passes 96 tests.
+2026-08-13 — Added injected-prior, coupled multi-continuation redraft rollouts plus exact-player/tier survival summaries; full Python validation passes 99 tests.
