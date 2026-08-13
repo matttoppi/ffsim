@@ -236,11 +236,16 @@ def create_app(config_path="config.json"):
             draft_id = None
         name = None
         draft = None
+        market_context = None
         if league_id:
             cache = CACHE_DIR / f"league_{league_id}.json"
             if cache.exists():
                 snapshot = json.loads(cache.read_text())
-                name = snapshot.get("league", {}).get("name")
+                league = snapshot.get("league", {})
+                name = league.get("name")
+                from ffsim.draft_intel.market_model import resolve_league_market_context
+
+                market_context = resolve_league_market_context(league)
                 if draft_id and (snapshot.get("draft_summary") or {}).get("draft_id") == draft_id:
                     draft = snapshot["draft_summary"]
         return {
@@ -248,6 +253,7 @@ def create_app(config_path="config.json"):
             "draft_id": draft_id,
             "name": name,
             "draft": draft,
+            "market_context": market_context,
             "ready": name is not None and (draft_id is None or draft is not None),
             "refresh": dict(app.state.refresh),
         }

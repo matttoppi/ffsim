@@ -169,11 +169,12 @@ def load_market_snapshot_at(
             """
             SELECT * FROM market_snapshots
             WHERE source = ? AND season = ? AND UPPER(scoring) = ?
-              AND league_format = ? AND team_count IS ? AND observed_at <= ?
+              AND league_format = ? AND team_count IS ?
+              AND observed_at <= ? AND retrieved_at <= ?
             ORDER BY observed_at DESC, retrieved_at DESC
             LIMIT 1
             """,
-            (source, season, scoring, league_format, team_count, at),
+            (source, season, scoring, league_format, team_count, at, at),
         ).fetchone()
         if snapshot is None:
             return None

@@ -127,6 +127,8 @@ Market observations are append-only. Historical draft analysis requires the mark
 
 For a historical pick at time `T`, choose the most recent compatible market snapshot at or before `T`, subject to a maximum staleness window. If no suitable snapshot exists, mark exact reach calculations as low confidence and rely more on coarse behavior features.
 
+Both the provider observation time and the local retrieval time must be at or before `T`; a payload downloaded after the draft is future information even when its provider timestamp is earlier.
+
 ---
 
 ## 7. Canonical Player Identity

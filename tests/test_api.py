@@ -196,6 +196,8 @@ class ApiTest(unittest.TestCase):
                 current = current_league()
             self.assertTrue(current["ready"])
             self.assertEqual(current["draft_id"], "draft")
+            self.assertEqual(current["market_context"]["status"], "proxy")
+            self.assertEqual(current["market_context"]["scoring"], "STD")
 
             app.state.refresh["status"] = "idle"
             before = config_path.read_text()

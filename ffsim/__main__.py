@@ -13,7 +13,7 @@ def parse_args():
         "command",
         choices=(
             "setup", "simulate", "refresh", "serve", "draft-audit", "market-import",
-            "market-refresh", "manager-audit",
+            "market-refresh", "market-backtest", "manager-audit",
         ),
         nargs="?",
         default="simulate",
@@ -155,6 +155,16 @@ def main():
 
         try:
             result = refresh_fantasypros_adp(season=args.season)
+        except (OSError, ValueError) as error:
+            raise SystemExit(str(error)) from error
+        print(json.dumps(result, indent=2))
+        return
+
+    if args.command == "market-backtest":
+        from ffsim.draft_intel.market_model import backtest_sleeper_adp
+
+        try:
+            result = backtest_sleeper_adp()
         except (OSError, ValueError) as error:
             raise SystemExit(str(error)) from error
         print(json.dumps(result, indent=2))

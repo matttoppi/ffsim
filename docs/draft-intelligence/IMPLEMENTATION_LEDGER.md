@@ -5,10 +5,10 @@ This file is the current operational state of the project. Keep it short, factua
 ## Current status
 
 **Phase:** Phase 8 — offline coupled draft rollouts and nested evaluation
-**State:** Offline nested baseline and official multi-platform FantasyPros ADP ingestion are complete; exact redraft attachment and market-model calibration are next
+**State:** Offline nested baseline, official ADP ingestion, and an uncalibrated Sleeper-ADP choice baseline are complete; a post-snapshot redraft/mock is needed for live validation and calibration data
 **Branch:** `feat/draft-intelligence`  
 **Implementation code changed:** Yes
-**Primary next action:** Attach the owner's exact redraft league/draft, select its compatible stored market context, and calibrate the injected choice utilities against time-local target-platform ADP before enabling recommendation labels. Do not claim `WAIT`, `REACH`, or personalization before that calibration.
+**Primary next action:** Attach a Sleeper redraft/mock that starts after the first stored ADP snapshot, validate exact live replay with the resolved market context, then persist its picks for leakage-free baseline measurement. Do not claim `WAIT`, `REACH`, or personalization from one mock or before out-of-sample calibration.
 
 ## Project entrypoints
 
@@ -53,6 +53,10 @@ Read in this order:
 - [x] Store consensus and returned ESPN/CBS/Yahoo/RTSports/Fantrax/Sleeper/FFPC boards from one request per format context.
 - [x] Refresh only missing or at-least-12-hour-old 1QB STD/HALF/PPR and half-PPR superflex contexts; no background loop.
 - [x] Map FantasyPros players through `sportsdata_id` to Sleeper `sportradar_id`, map DST by team, and report ambiguous/unmatched identities without guessing.
+- [x] Resolve raw Sleeper reception/QB settings to exact, explicit proxy, or unsupported market contexts without mislabeling FantasyPros coverage.
+- [x] Select only snapshots both observed and retrieved before the evaluation time.
+- [x] Provide a versioned inverse-ADP Sleeper choice callback directly compatible with coupled draft rollouts.
+- [x] Add a read-only `market-backtest` command with log loss, reciprocal rank, top-K accuracy, coverage, context, snapshot, and skip reporting.
 
 ## Phase 3 in progress
 
@@ -164,13 +168,14 @@ Record results here after the first local audit.
 
 | Check | Status | Notes |
 |---|---|---|
-| Existing Python tests | Pass | 103 tests with `ResourceWarning` promoted to an error |
+| Existing Python tests | Pass | 105 tests with `ResourceWarning` promoted to an error |
 | Frontend tests/build | Pass | 28 Vitest tests; TypeScript/Vite production build passed and both now run in CI |
 | Current simulation benchmark | Pass | M5 Max single-worker baselines recorded below |
 | Sleeper live API smoke test | Pass | Verified 2026 league, draft, picks, traded picks, roster, and per-user history payloads |
 | Offline draft geometry | Pass | CI covers representative observed 10/12/14-team snake, third-round reversal, linear, auction, trade, and co-manager actor cases. Supplemental local saved-payload validation covers 243 snake, 144 linear, and 11 auction drafts; one legacy IDP source inconsistency fails closed. |
 | Historical draft ingestion | Pass | Current configured league: 52,829 picks from 399 unique drafts persisted; 80 draft environments and 14,206 non-keeper picks are model-eligible after league-context filters |
 | ADP source validation | Pass | Premium payload validated live; four format contexts and all returned platform boards persisted, with an immediate repeat producing zero requests |
+| Sleeper ADP baseline | Awaiting post-snapshot drafts | Choice callback and leakage-safe backtest pass; all 80 stored eligible drafts predate the first market retrieval and are correctly skipped |
 
 ## Phase 0 audit — 2026-08-12
 
@@ -227,14 +232,14 @@ See `DECISIONS.md`. The foundational decisions currently include:
 
 ## Blockers
 
-The official FantasyPros market adapter is operational and its four contexts are fresh as of 2026-08-13. Attachment to the owner's exact live redraft and calibration against the stored target-platform board remain deferred. Phase 3 affinity, pass, board-adherence, calibrated survival, and market-relative `WAIT`/`REACH` work must not be labeled as validated until they beat the market baselines out of sample.
+The official FantasyPros market adapter and uncalibrated Sleeper-ADP choice baseline are operational. All 80 stored eligible historical drafts occurred before the first market snapshot, so the leakage-safe backtest correctly scores zero picks. A post-snapshot redraft/mock is now required for live validation and initial measurement; one mock is not enough to claim calibration. Phase 3 affinity, pass, board-adherence, calibrated survival, and market-relative `WAIT`/`REACH` work must not be labeled as validated until they beat the market baseline out of sample.
 
 Further bank persistence/memory mapping, candidate racing, transposition caching, multiprocessing, and accelerator work are intentionally profiling-gated rather than part of this baseline. Add them only after production bank sizing, live timing, and cache-hit measurements show the simpler path is insufficient.
 
 ## Handoff note
 
-Phase 1 is complete. Phase 2 now has append-only manual and official FantasyPros multi-platform market snapshots behind a 12-hour request-driven freshness gate. Phase 3 has market-independent descriptive profiles. Phase 4 has exact attachment, explicit compatibility, network-free replay, coupled complete redraft rollouts, and survival summaries. Phase 6 produces deterministic, content-versioned, full-pool player-week tensors independently of fantasy ownership. Phase 7 evaluates compact roster assignments with coupled schedules/streamers and immutable per-world results. Phase 8 joins many draft continuations to paired season worlds and emits versioned numeric recommendation summaries. The next product step is exact redraft attachment and market-baseline calibration; do not calculate plausible-window passes, board adherence, calibrated personalization, or market-relative action labels without validated time-local use of these snapshots.
+Phase 1 is complete. Phase 2 now has append-only manual and official FantasyPros multi-platform market snapshots behind a 12-hour request-driven freshness gate, exact/proxy context resolution, and a versioned inverse-ADP Sleeper choice baseline. Its backtest rejects snapshots retrieved after a draft begins. Phase 3 has market-independent descriptive profiles. Phase 4 has exact attachment, explicit compatibility, network-free replay, coupled complete redraft rollouts, and survival summaries. Phase 6 produces deterministic, content-versioned, full-pool player-week tensors independently of fantasy ownership. Phase 7 evaluates compact roster assignments with coupled schedules/streamers and immutable per-world results. Phase 8 joins many draft continuations to paired season worlds and emits versioned numeric recommendation summaries. The next product step is a post-snapshot mock/live replay followed by market-baseline calibration; do not calculate plausible-window passes, board adherence, calibrated personalization, or market-relative action labels without validated time-local evidence.
 
 ## Last updated
 
-2026-08-13 — Added and live-validated request-driven FantasyPros ADP ingestion: four format contexts, 16 stored consensus/platform snapshots, direct stable-ID mapping, exact raw retention, and a 12-hour successful-retrieval freshness gate with no background loop; all 103 Python tests pass.
+2026-08-13 — Added exact/proxy market-context resolution, leakage-safe snapshot selection, a versioned inverse-ADP Sleeper rollout callback, and a read-only baseline backtest. Current result: 80 drafts correctly skipped because all predate market retrieval; all 105 Python tests pass.
