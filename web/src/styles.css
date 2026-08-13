@@ -748,6 +748,10 @@ code {
   color: var(--dim);
 }
 
+.board.is-preliminary {
+  opacity: 0.72;
+}
+
 .sync-meta {
   margin: 4px 0 0;
   color: var(--dim);

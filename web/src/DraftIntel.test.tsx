@@ -225,6 +225,52 @@ describe('DraftIntel', () => {
     expect(screen.getByText('Lead Back')).toBeTruthy()
   })
 
+  it('marks interchangeable candidates as even and explains back-to-back picks', async () => {
+    mockMonitor({
+      status: 'running',
+      recommendation_status: 'ready',
+      recommendation_pick_no: 24,
+      recommendation: {
+        model_status: 'baseline',
+        rollout_count: 50,
+        joint_outcome_count: 50,
+        pick_no: 24,
+        paired_delta_vs_runner_up: { championship_probability_delta: 0 },
+        candidates: [
+          {
+            player_id: 'p1',
+            name: 'Lead Back',
+            position: 'RB',
+            championship_probability: 0.3,
+            playoff_probability: 0.92,
+            expected_wins: 9.7,
+          },
+          {
+            player_id: 'p2',
+            name: 'Even Wideout',
+            position: 'WR',
+            championship_probability: 0.3,
+            playoff_probability: 0.9,
+            expected_wins: 9.8,
+          },
+        ],
+      },
+      state: {
+        ...monitorState([pick(1, 'Alpha One')], 24),
+        user_on_clock: true,
+        user_next_pick_no: 25,
+      },
+    })
+    await act(async () => {
+      render(<DraftIntel currentDraftId="real" />)
+    })
+    expect(screen.getByText('even with next')).toBeTruthy()
+    expect(screen.getByText('even')).toBeTruthy()
+    expect(screen.queryByText('+0.0% vs next')).toBeNull()
+    expect(screen.getByText(/You also have pick 25/)).toBeTruthy()
+    expect(screen.getByText(/runner-up with your next pick/)).toBeTruthy()
+  })
+
   it.each([
     [
       { status: 'running', recommendation_status: 'calculating', recommendation_pick_no: 7 },

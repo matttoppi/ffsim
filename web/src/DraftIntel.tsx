@@ -121,6 +121,10 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
   const leader = candidates[0]
   const leaderEdge =
     monitor.recommendation?.paired_delta_vs_runner_up?.championship_probability_delta
+  const backToBack =
+    onClock &&
+    currentPickNo != null &&
+    monitor.state?.user_next_pick_no === currentPickNo + 1
   const feed = [...(monitor.state?.recent_picks ?? [])].reverse()
   const lastSync = monitor.last_sync_at
     ? new Date(monitor.last_sync_at * 1000).toLocaleTimeString()
@@ -318,6 +322,13 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
             )}
           {candidates.length > 0 && (
             <>
+              {backToBack && (
+                <p className="controls-hint">
+                  You also have pick {monitor.state?.user_next_pick_no}. Back-to-back
+                  options often grade even because the model assumes you take the
+                  runner-up with your next pick.
+                </p>
+              )}
               {positions.length > 1 && (
                 <div className="pos-filter" role="group" aria-label="Filter candidates by position">
                   <button
@@ -344,7 +355,7 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
                   No {positionFilter} among the evaluated candidates for this pick.
                 </p>
               )}
-              <ol className="board">
+              <ol className={`board${recStatus === 'ready' ? '' : ' is-preliminary'}`}>
                 {visibleCandidates.map((candidate) => {
                   const rank = candidates.indexOf(candidate)
                   const deltaVsLeader =
@@ -373,12 +384,20 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
                           <span className="board-numbers">
                             <strong>{(candidate.championship_probability * 100).toFixed(1)}%</strong>
                             {leaderEdge != null && (
-                              <small>+{(leaderEdge * 100).toFixed(1)}% vs next</small>
+                              <small>
+                                {Math.abs(leaderEdge * 100) < 0.05
+                                  ? 'even with next'
+                                  : `+${(leaderEdge * 100).toFixed(1)}% vs next`}
+                              </small>
                             )}
                           </span>
                         ) : (
                           <span className="board-numbers">
-                            <strong className="board-delta">{deltaVsLeader.toFixed(1)}%</strong>
+                            <strong className="board-delta">
+                              {Math.abs(deltaVsLeader) < 0.05
+                                ? 'even'
+                                : `${deltaVsLeader.toFixed(1)}%`}
+                            </strong>
                             <small>{(candidate.championship_probability * 100).toFixed(1)}% title</small>
                           </span>
                         )}
