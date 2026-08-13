@@ -2,11 +2,16 @@
 
 from dataclasses import asdict, dataclass
 import json
+import math
 from pathlib import Path
 from urllib.parse import quote, urlparse
 
 from ffsim.config import AppConfig, save_league_attachment
-from ffsim.draft_intel.decision import evaluate_candidates, recommendation_summary
+from ffsim.draft_intel.decision import (
+    evaluate_candidates,
+    merge_evaluations,
+    recommendation_summary,
+)
 from ffsim.draft_intel.history import load_history, summarize_history
 from ffsim.draft_intel.identity import canonical_players_from_cache
 from ffsim.draft_intel.market import refresh_fantasypros_adp
@@ -309,21 +314,42 @@ def live_state_summary(prepared, state):
     }
 
 
-def calculate_live_recommendation(prepared, state, rollout_count=50, candidate_count=5):
-    if state.current_roster_id != prepared.user_roster_id:
-        return None
+def live_candidate_pool(prepared, state, breadth):
+    """Order candidates as an ADP window expanding around the current pick.
+
+    The head covers the best market player per position (so no single
+    position can monopolize the board), then candidates step outward from
+    the current pick number in both ADP directions.
+    """
     if prepared.market_snapshot is None or prepared.evaluator is None:
         raise ValueError("Prepared draft is missing market or season inputs")
     board = sleeper_adp_utilities(prepared.market_snapshot)
     bank_players = set(prepared.evaluator.bank.player_ids)
-    candidates = _select_candidates(
-        state.available_player_ids & board.keys() & bank_players,
-        board,
-        prepared.player_details,
-        candidate_count,
-    )
-    if not candidates:
+    pool = state.available_player_ids & board.keys() & bank_players
+    if not pool:
         raise ValueError("No available market players can be evaluated")
+    anchor = state.current_pick_no or 1
+    adp = {player_id: math.exp(-board[player_id]) for player_id in pool}
+    by_distance = sorted(
+        pool,
+        key=lambda player_id: (abs(adp[player_id] - anchor), adp[player_id], player_id),
+    )
+    positions = set()
+    diverse = []
+    for player_id in sorted(pool, key=lambda player_id: (-board[player_id], player_id)):
+        position = prepared.player_details.get(player_id, {}).get("position")
+        if position not in positions:
+            positions.add(position)
+            diverse.append(player_id)
+    return list(dict.fromkeys(diverse + by_distance))[:breadth]
+
+
+def evaluate_live_candidates(prepared, state, rollout_count, candidate_ids):
+    if state.current_roster_id != prepared.user_roster_id:
+        raise ValueError("Live recommendations require the user on the clock")
+    if prepared.market_snapshot is None or prepared.evaluator is None:
+        raise ValueError("Prepared draft is missing market or season inputs")
+    bank_players = set(prepared.evaluator.bank.player_ids)
     snapshot = {
         **prepared.market_snapshot,
         "observations": [
@@ -333,17 +359,21 @@ def calculate_live_recommendation(prepared, state, rollout_count=50, candidate_c
         ],
     }
     choose = sleeper_adp_choice(snapshot)
-    evaluation = evaluate_candidates(
+    return evaluate_candidates(
         state,
-        candidates,
+        candidate_ids,
         prepared.user_roster_id,
         range(rollout_count),
         choose,
         choose,
         prepared.evaluator,
         draft_model_version=sleeper_adp_model_version(snapshot),
-        survival_player_ids=candidates,
+        survival_player_ids=candidate_ids,
     )
+
+
+def live_recommendation_payload(prepared, evaluations, candidate_pool_count):
+    evaluation = merge_evaluations(evaluations)
     recommendation = asdict(recommendation_summary(evaluation))
     ranked = sorted(
         evaluation.candidates,
@@ -370,21 +400,10 @@ def calculate_live_recommendation(prepared, state, rollout_count=50, candidate_c
         for candidate in ranked
     ]
     recommendation["model_status"] = "uncalibrated_sleeper_adp_baseline"
-    recommendation["pick_no"] = state.current_pick_no
+    recommendation["pick_no"] = evaluation.state_pick_no
+    recommendation["candidates_evaluated"] = len(evaluation.candidates)
+    recommendation["candidate_pool"] = candidate_pool_count
     return recommendation
-
-
-def _select_candidates(pool, board, player_details, candidate_count):
-    """Take the best market player per position first, then fill by ADP."""
-    by_adp = sorted(pool, key=lambda player_id: (-board[player_id], player_id))
-    positions = set()
-    diverse = []
-    for player_id in by_adp:
-        position = player_details.get(player_id, {}).get("position")
-        if position not in positions:
-            positions.add(position)
-            diverse.append(player_id)
-    return list(dict.fromkeys(diverse + by_adp))[:candidate_count]
 
 
 def mock_mismatch_reasons(real_draft, mock_draft):

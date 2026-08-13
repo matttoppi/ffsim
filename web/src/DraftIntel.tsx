@@ -293,6 +293,12 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
               <p className="draft-progress" role="status">
                 Calculating recommendations for pick {monitor.recommendation_pick_no}…
               </p>
+            ) : recStatus === 'expanding' ? (
+              <p className="draft-progress" role="status">
+                Widening the board for pick {monitor.recommendation_pick_no} —{' '}
+                {monitor.recommendation?.candidates_evaluated} of{' '}
+                {monitor.recommendation?.candidate_pool} candidates evaluated…
+              </p>
             ) : recStatus === 'failed' ? (
               <p className="form-error" role="alert">
                 Calculation failed for pick {monitor.recommendation_pick_no}:{' '}
@@ -382,9 +388,13 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
                 })}
               </ol>
               <p className="board-footnote">
-                {recStatus === 'ready' ? 'Ready' : 'Preliminary'} for pick{' '}
-                {monitor.recommendation?.pick_no} · title odds if drafted now, ± vs the top
-                option · uncalibrated Sleeper-ADP baseline ·{' '}
+                {recStatus === 'ready'
+                  ? 'Ready'
+                  : recStatus === 'expanding'
+                    ? 'Expanding'
+                    : 'Preliminary'}{' '}
+                for pick {monitor.recommendation?.pick_no} · title odds if drafted now, ± vs
+                the top option · uncalibrated Sleeper-ADP baseline ·{' '}
                 {monitor.recommendation?.rollout_count} draft continuations
               </p>
             </>

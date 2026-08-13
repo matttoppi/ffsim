@@ -83,9 +83,13 @@ the monitor publishes the reconciled state immediately after every poll,
 queues at most one pending calculation for the newest state (and only when
 the user is on the clock), and discards any finished result whose draft-state
 fingerprint no longer matches. The worker publishes a quick preliminary pass
-(12 rollouts) before the full rollout budget; rollout IDs are deterministic
-prefixes, so the refined pass supersedes the preliminary one exactly, and
-refinement is abandoned between passes if the draft advances. A sync failure
+(12 rollouts) on a core candidate window, refines it with the full rollout
+budget, then keeps widening the candidate window outward from the current
+pick in four-candidate ADP-distance batches (default breadth 40) while the
+state holds. Rollout IDs are deterministic prefixes and candidate results
+are independent of their batch, so every published board is exactly equal
+to one large evaluation of the same candidates; work is abandoned between
+steps if the draft advances. A sync failure
 of any kind is retried on the next poll with a forced metadata refresh so a
 mid-draft traded pick or transient bad payload heals itself. Every published
 recommendation carries the pick number it was computed for, and the UI must

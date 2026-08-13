@@ -361,6 +361,11 @@ while Sleeper was at pick 24).
 - The worker publishes an exact preliminary pass (12 rollouts) before the
   full budget; rollout IDs are deterministic prefixes, so refinement uses the
   same coupled randomness and supersedes the preliminary result exactly.
+- After the core window is ready, the candidate window keeps expanding
+  outward from the current pick in small ADP-distance batches while the user
+  remains on the clock. Candidate evaluations are independent of their batch
+  under coupled randomness, so merged boards are exactly equal to one large
+  evaluation; parallel worker processes remain profiling-gated.
 - Normal polling uses one picks request per interval; draft metadata and
   traded picks refresh every fifteenth poll, and completion is detected from
   a full pick sheet even when the cached metadata status is stale.

@@ -237,6 +237,23 @@ describe('DraftIntel', () => {
     [
       {
         status: 'running',
+        recommendation_status: 'expanding',
+        recommendation_pick_no: 7,
+        recommendation: {
+          model_status: 'baseline',
+          rollout_count: 50,
+          joint_outcome_count: 100,
+          pick_no: 7,
+          candidates_evaluated: 13,
+          candidate_pool: 40,
+          candidates: [],
+        },
+      },
+      /Widening the board for pick 7 — 13 of 40 candidates evaluated/,
+    ],
+    [
+      {
+        status: 'running',
         recommendation_status: 'failed',
         recommendation_pick_no: 7,
         recommendation_error: 'boom',

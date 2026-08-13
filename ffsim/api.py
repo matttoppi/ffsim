@@ -24,6 +24,7 @@ from ffsim.runtime import create_simulation
 LOGGER = logging.getLogger(__name__)
 TERMINAL_STATUSES = {"completed", "failed"}
 PRELIMINARY_ROLLOUT_COUNT = 12
+EXPANSION_BATCH_SIZE = 4
 
 
 def _state_fingerprint(state):
@@ -76,7 +77,8 @@ class DraftPrepareRequest(BaseModel):
 class DraftMonitorRequest(BaseModel):
     poll_seconds: float = Field(default=1.0, ge=0.5, le=30)
     rollout_count: int = Field(default=50, ge=2, le=500)
-    candidate_count: int = Field(default=8, ge=2, le=12)
+    candidate_count: int = Field(default=9, ge=2, le=12)
+    candidate_breadth: int = Field(default=40, ge=2, le=100)
 
 
 @dataclass
@@ -182,6 +184,7 @@ class LiveDraftMonitor:
     poll_seconds: float
     rollout_count: int
     candidate_count: int
+    candidate_breadth: int = 40
     status: str = "starting"
     state: dict | None = None
     recommendation: dict | None = None
@@ -217,7 +220,7 @@ class LiveDraftMonitor:
                 "error": self.error,
             }
 
-    def calculate(self, calculate_live_recommendation):
+    def calculate(self, candidate_pool, evaluate_candidates, recommendation_payload):
         while not self.stopped.is_set():
             self.calculation_event.wait()
             self.calculation_event.clear()
@@ -232,24 +235,57 @@ class LiveDraftMonitor:
                 pick_no = state.current_pick_no
                 self.recommendation_status = "calculating"
                 self.recommendation_discarded_pick_no = None
-            # Publish a quick preliminary pass, then refine with the full
-            # rollout budget. Rollout IDs are deterministic prefixes, so the
-            # refined pass supersedes the preliminary one exactly.
-            for rollout_count in dict.fromkeys(
-                (min(PRELIMINARY_ROLLOUT_COUNT, self.rollout_count), self.rollout_count)
-            ):
+            try:
+                candidates = candidate_pool(
+                    self.prepared,
+                    state,
+                    max(self.candidate_breadth, self.candidate_count),
+                )
+            except Exception as error:
+                LOGGER.exception(
+                    "Live draft candidate selection failed for %s",
+                    self.prepared.live_draft_id,
+                )
+                with self.lock:
+                    if self.state_fingerprint == fingerprint:
+                        self.recommendation_status = "failed"
+                        self.recommendation_error = str(error)
+                continue
+            # Publish a quick preliminary pass on the core window, refine it
+            # with the full rollout budget, then keep widening the candidate
+            # window in small batches while the state holds. Rollout IDs are
+            # deterministic prefixes and candidate results are independent of
+            # their batch, so every published board is exact.
+            first = candidates[: self.candidate_count]
+            steps = []
+            if self.rollout_count > PRELIMINARY_ROLLOUT_COUNT:
+                steps.append((first, PRELIMINARY_ROLLOUT_COUNT, False))
+            steps.append((first, self.rollout_count, True))
+            steps.extend(
+                (candidates[start:start + EXPANSION_BATCH_SIZE], self.rollout_count, True)
+                for start in range(len(first), len(candidates), EXPANSION_BATCH_SIZE)
+            )
+            evaluations = []
+            for step, (batch, rollout_count, cumulative) in enumerate(steps):
                 with self.lock:
                     if self.state_fingerprint != fingerprint or self.stopped.is_set():
                         # ponytail: no hard thread cancel; obsolete work is
-                        # abandoned between passes and stale results discarded.
+                        # abandoned between steps and stale results discarded.
                         self.recommendation_discarded_pick_no = pick_no
                         break
                 try:
-                    recommendation = calculate_live_recommendation(
+                    evaluation = evaluate_candidates(
                         self.prepared,
                         state,
                         rollout_count,
-                        self.candidate_count,
+                        batch,
+                    )
+                    if cumulative:
+                        evaluations.append(evaluation)
+                    recommendation = recommendation_payload(
+                        self.prepared,
+                        evaluations if cumulative else [evaluation],
+                        len(candidates),
                     )
                 except Exception as error:
                     LOGGER.exception(
@@ -263,29 +299,33 @@ class LiveDraftMonitor:
                         else:
                             self.recommendation_discarded_pick_no = pick_no
                     break
-                final = rollout_count == self.rollout_count
+                final = step == len(steps) - 1
                 with self.lock:
                     if self.state_fingerprint != fingerprint or self.stopped.is_set():
                         self.recommendation_discarded_pick_no = pick_no
                         break
                     self.recommendation = recommendation
                     self.recommendation_status = (
-                        ("ready" if final else "calculating")
-                        if recommendation
-                        else "idle"
+                        "ready" if final else ("expanding" if cumulative else "calculating")
                     )
-                    self.calculation_count += int(final and recommendation is not None)
+                    self.calculation_count += int(final)
 
     def run(self):
         from ffsim.draft_intel.live import (
-            calculate_live_recommendation,
+            evaluate_live_candidates,
+            live_candidate_pool,
+            live_recommendation_payload,
             live_state_summary,
             sync_prepared_draft,
         )
 
         Thread(
             target=self.calculate,
-            args=(calculate_live_recommendation,),
+            args=(
+                live_candidate_pool,
+                evaluate_live_candidates,
+                live_recommendation_payload,
+            ),
             daemon=True,
         ).start()
         try:
@@ -632,6 +672,7 @@ def create_app(config_path="config.json"):
             request.poll_seconds,
             request.rollout_count,
             request.candidate_count,
+            request.candidate_breadth,
         )
         app.state.live_monitor = monitor
         Thread(target=monitor.run, daemon=True).start()

@@ -1,6 +1,6 @@
 """Joint draft-continuation and season-world candidate evaluation."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from hashlib import sha256
 import math
 from operator import index
@@ -282,6 +282,43 @@ def evaluate_candidates(
         league_evaluator_version=league_evaluator.version,
         candidates=tuple(evaluations),
     )
+
+
+def merge_evaluations(evaluations):
+    """Combine candidate batches evaluated on identical coupled inputs.
+
+    Candidate results are independent of which batch evaluated them, so a
+    merged evaluation is exactly equal to one large evaluation of the union.
+    """
+    evaluations = tuple(evaluations)
+    if not evaluations:
+        raise ValueError("evaluations must not be empty")
+
+    def identity(evaluation):
+        return (
+            evaluation.draft_id,
+            evaluation.state_pick_no,
+            evaluation.user_roster_id,
+            evaluation.next_user_pick_no,
+            evaluation.rollout_ids,
+            evaluation.world_indices,
+            evaluation.season_worlds_per_rollout,
+            evaluation.seed,
+            evaluation.decision_engine_version,
+            evaluation.draft_model_version,
+            evaluation.world_bank_version,
+            evaluation.league_evaluator_version,
+        )
+
+    base = evaluations[0]
+    if any(identity(other) != identity(base) for other in evaluations[1:]):
+        raise ValueError("Cannot merge evaluations from different states or model inputs")
+    candidates = tuple(
+        candidate for evaluation in evaluations for candidate in evaluation.candidates
+    )
+    if len({candidate.candidate_id for candidate in candidates}) != len(candidates):
+        raise ValueError("Merged evaluations contain duplicate candidates")
+    return replace(base, candidates=candidates)
 
 
 def recommendation_summary(evaluation):

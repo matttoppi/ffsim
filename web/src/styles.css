@@ -585,6 +585,8 @@ code {
   padding: 0;
   display: grid;
   gap: 8px;
+  max-height: 480px;
+  overflow-y: auto;
 }
 
 .board-row {

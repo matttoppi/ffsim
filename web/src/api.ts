@@ -184,7 +184,7 @@ export interface DraftMonitor {
   sync_count?: number
   calculation_count?: number
   last_sync_at?: number | null
-  recommendation_status?: 'idle' | 'pending' | 'calculating' | 'ready' | 'failed'
+  recommendation_status?: 'idle' | 'pending' | 'calculating' | 'expanding' | 'ready' | 'failed'
   recommendation_pick_no?: number | null
   recommendation_error?: string | null
   recommendation_discarded_pick_no?: number | null
@@ -214,6 +214,8 @@ export interface DraftMonitor {
     rollout_count: number
     joint_outcome_count: number
     pick_no?: number | null
+    candidates_evaluated?: number
+    candidate_pool?: number
     paired_delta_vs_runner_up?: {
       championship_probability_delta: number
     } | null

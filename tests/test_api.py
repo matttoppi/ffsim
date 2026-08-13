@@ -328,7 +328,6 @@ class ApiTest(unittest.TestCase):
                 "ffsim.draft_intel.live.sync_prepared_draft",
                 side_effect=[OSError("Sleeper unavailable"), SimpleNamespace(state=state)],
             ),
-            patch("ffsim.draft_intel.live.calculate_live_recommendation", return_value=None),
             patch("ffsim.draft_intel.live.live_state_summary", return_value={"complete": True}),
         ):
             monitor.run()
@@ -365,7 +364,7 @@ class ApiTest(unittest.TestCase):
             self.assertTrue(calculating.wait(5))
             return SimpleNamespace(state=complete)
 
-        def calculate(*_args):
+        def evaluate(*_args):
             calculating.set()
             release.wait(5)
             return {"pick": 1}
@@ -375,8 +374,16 @@ class ApiTest(unittest.TestCase):
             with (
                 patch("ffsim.draft_intel.live.sync_prepared_draft", side_effect=sync),
                 patch(
-                    "ffsim.draft_intel.live.calculate_live_recommendation",
-                    side_effect=calculate,
+                    "ffsim.draft_intel.live.live_candidate_pool",
+                    return_value=["c1", "c2"],
+                ),
+                patch(
+                    "ffsim.draft_intel.live.evaluate_live_candidates",
+                    side_effect=evaluate,
+                ),
+                patch(
+                    "ffsim.draft_intel.live.live_recommendation_payload",
+                    side_effect=lambda _prepared, evaluations, _count: evaluations[-1],
                 ),
                 patch(
                     "ffsim.draft_intel.live.live_state_summary",
@@ -410,7 +417,7 @@ class ApiTest(unittest.TestCase):
         release_first = Event()
         calculated = []
 
-        def calculate(_prepared, state, *_args):
+        def evaluate(_prepared, state, *_args):
             calculated.append(state)
             if len(calculated) == 1:
                 first_calculating.set()
@@ -439,9 +446,14 @@ class ApiTest(unittest.TestCase):
 
         with (
             patch("ffsim.draft_intel.live.sync_prepared_draft", side_effect=sync),
+            patch("ffsim.draft_intel.live.live_candidate_pool", return_value=["c"]),
             patch(
-                "ffsim.draft_intel.live.calculate_live_recommendation",
-                side_effect=calculate,
+                "ffsim.draft_intel.live.evaluate_live_candidates",
+                side_effect=evaluate,
+            ),
+            patch(
+                "ffsim.draft_intel.live.live_recommendation_payload",
+                side_effect=lambda _prepared, evaluations, _count: evaluations[-1],
             ),
             patch(
                 "ffsim.draft_intel.live.live_state_summary",
@@ -473,13 +485,20 @@ class ApiTest(unittest.TestCase):
         monitor.calculation_event.set()
         observed = []
 
-        def calculate(_prepared, _state, rollout_count, _candidates):
+        def evaluate(_prepared, _state, rollout_count, _candidates):
             observed.append(
                 (rollout_count, monitor.recommendation, monitor.recommendation_status)
             )
             return {"rollout_count": rollout_count}
 
-        worker = Thread(target=monitor.calculate, args=(calculate,))
+        worker = Thread(
+            target=monitor.calculate,
+            args=(
+                lambda *_args: ["a", "b", "c", "d", "e"],
+                evaluate,
+                lambda _prepared, evaluations, _count: evaluations[-1],
+            ),
+        )
         worker.start()
         deadline = time.time() + 5
         while (
@@ -498,6 +517,54 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(monitor.recommendation_status, "ready")
         self.assertEqual(monitor.calculation_count, 1)
 
+    def test_the_candidate_window_expands_in_batches_until_ready(self):
+        prepared = SimpleNamespace(live_draft_id="mock", user_roster_id=1)
+        monitor = LiveDraftMonitor(prepared, 0, 2, 2, 6)
+        state = SimpleNamespace(
+            status="drafting",
+            completed_picks=(),
+            current_pick_no=1,
+            current_roster_id=1,
+            pick_owners=(1,),
+        )
+        monitor.pending_state = state
+        monitor.state_fingerprint = ("drafting", 0, 1, (1,))
+        monitor.calculation_event.set()
+        observed = []
+
+        def evaluate(_prepared, _state, _rollout_count, batch):
+            return {"batch": list(batch)}
+
+        def payload(_prepared, evaluations, pool_count):
+            observed.append((
+                [evaluation["batch"] for evaluation in evaluations],
+                pool_count,
+                monitor.recommendation_status,
+            ))
+            return {"batches": len(evaluations)}
+
+        worker = Thread(
+            target=monitor.calculate,
+            args=(lambda *_args: ["a", "b", "c", "d", "e", "f"], evaluate, payload),
+        )
+        worker.start()
+        deadline = time.time() + 5
+        while (
+            monitor.snapshot()["recommendation_status"] != "ready"
+            and time.time() < deadline
+        ):
+            time.sleep(0.001)
+        monitor.stop()
+        worker.join(5)
+
+        self.assertEqual(observed, [
+            ([["a", "b"]], 6, "calculating"),
+            ([["a", "b"], ["c", "d", "e", "f"]], 6, "expanding"),
+        ])
+        self.assertEqual(monitor.recommendation, {"batches": 2})
+        self.assertEqual(monitor.recommendation_status, "ready")
+        self.assertEqual(monitor.calculation_count, 1)
+
     def test_refinement_is_abandoned_when_the_draft_advances(self):
         prepared = SimpleNamespace(live_draft_id="mock", user_roster_id=1)
         monitor = LiveDraftMonitor(prepared, 0, 50, 5)
@@ -513,13 +580,20 @@ class ApiTest(unittest.TestCase):
         monitor.calculation_event.set()
         passes = []
 
-        def calculate(_prepared, _state, rollout_count, _candidates):
+        def evaluate(_prepared, _state, rollout_count, _candidates):
             passes.append(rollout_count)
             with monitor.lock:
                 monitor.state_fingerprint = ("drafting", 1, 2, (1,))
             return {"rollout_count": rollout_count}
 
-        worker = Thread(target=monitor.calculate, args=(calculate,))
+        worker = Thread(
+            target=monitor.calculate,
+            args=(
+                lambda *_args: ["a", "b", "c", "d", "e"],
+                evaluate,
+                lambda _prepared, evaluations, _count: evaluations[-1],
+            ),
+        )
         worker.start()
         deadline = time.time() + 5
         while (
@@ -549,11 +623,18 @@ class ApiTest(unittest.TestCase):
         monitor.calculation_event.set()
         calls = []
 
-        def calculate(*args):
+        def evaluate(*args):
             calls.append(args)
             return {"pick": 1}
 
-        worker = Thread(target=monitor.calculate, args=(calculate,))
+        worker = Thread(
+            target=monitor.calculate,
+            args=(
+                lambda *_args: ["c"],
+                evaluate,
+                lambda _prepared, evaluations, _count: evaluations[-1],
+            ),
+        )
         worker.start()
         deadline = time.time() + 5
         while (
@@ -584,7 +665,6 @@ class ApiTest(unittest.TestCase):
                 "ffsim.draft_intel.live.sync_prepared_draft",
                 return_value=SimpleNamespace(state=state),
             ),
-            patch("ffsim.draft_intel.live.calculate_live_recommendation"),
             patch("ffsim.draft_intel.live.live_state_summary", return_value={}),
         ):
             monitor.run()

@@ -8,38 +8,63 @@ from ffsim.draft_intel.live import (
     _draft_id,
     _manager_slot,
     _refresh_history,
-    _select_candidates,
+    live_candidate_pool,
     live_state_summary,
     mock_mismatch_reasons,
 )
+from ffsim.draft_intel.market_model import SLEEPER_ADP_SOURCE
 from ffsim.draft_intel.state import DraftPick
 
 
 class LiveDraftTest(unittest.TestCase):
-    def test_candidate_selection_covers_positions_before_filling_by_adp(self):
-        board = {f"p{index}": -float(index) for index in range(1, 8)}
-        details = {
-            "p1": {"position": "QB"},
-            "p2": {"position": "QB"},
-            "p3": {"position": "TE"},
-            "p4": {"position": "TE"},
-            "p5": {"position": "RB"},
-            "p6": {"position": "WR"},
-            "p7": {"position": "WR"},
+    def test_candidate_pool_expands_outward_from_the_current_pick(self):
+        adps = {
+            "p02": ("RB", 2.0),   # fallen stud
+            "p09": ("WR", 9.0),
+            "p10": ("WR", 10.0),  # at the anchor
+            "p11": ("QB", 11.0),
+            "p14": ("QB", 14.0),
+            "p30": ("TE", 30.0),
         }
-        pool = set(board)
-        # Best per position first, then the remaining best-ADP players.
-        self.assertEqual(
-            _select_candidates(pool, board, details, 6),
-            ["p1", "p3", "p5", "p6", "p2", "p4"],
+        prepared = SimpleNamespace(
+            market_snapshot={
+                "source": SLEEPER_ADP_SOURCE,
+                "snapshot_id": "snap",
+                "observations": [
+                    {"canonical_player_id": player_id, "adp": adp}
+                    for player_id, (_, adp) in adps.items()
+                ],
+            },
+            evaluator=SimpleNamespace(
+                bank=SimpleNamespace(player_ids=tuple(adps)),
+            ),
+            player_details={
+                player_id: {"position": position}
+                for player_id, (position, _) in adps.items()
+            },
         )
-        # A small budget still prefers positional coverage in ADP order.
-        self.assertEqual(_select_candidates(pool, board, details, 3), ["p1", "p3", "p5"])
-        # Unknown players fall back to their ADP slot without a position.
-        self.assertEqual(
-            _select_candidates({"p1", "p2"}, board, {}, 2),
-            ["p1", "p2"],
+        state = SimpleNamespace(
+            available_player_ids=frozenset(adps),
+            current_pick_no=10,
         )
+        # Positional coverage by best market player first (RB2, WR9, QB11,
+        # TE30), then the remaining players by distance from pick 10.
+        self.assertEqual(
+            live_candidate_pool(prepared, state, 10),
+            ["p02", "p09", "p11", "p30", "p10", "p14"],
+        )
+        self.assertEqual(live_candidate_pool(prepared, state, 5)[:5],
+                         ["p02", "p09", "p11", "p30", "p10"])
+        with self.assertRaisesRegex(ValueError, "No available market players"):
+            live_candidate_pool(
+                SimpleNamespace(
+                    market_snapshot=prepared.market_snapshot,
+                    evaluator=prepared.evaluator,
+                    player_details={},
+                ),
+                SimpleNamespace(available_player_ids=frozenset(), current_pick_no=1),
+                5,
+            )
 
     def test_live_state_summary_includes_the_full_pick_feed(self):
         prepared = SimpleNamespace(

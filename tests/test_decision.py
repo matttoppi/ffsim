@@ -7,6 +7,7 @@ import numpy as np
 from ffsim.draft_intel.decision import (
     coupled_world_indices,
     evaluate_candidates,
+    merge_evaluations,
     recommendation_summary,
 )
 from ffsim.draft_intel.state import replay_sleeper_draft
@@ -69,6 +70,35 @@ def market_utility(roster_id, pick_no, rosters, available):
 
 
 class DecisionEvaluationTest(unittest.TestCase):
+    def test_merged_candidate_batches_equal_one_combined_evaluation(self):
+        league_evaluator = evaluator()
+        kwargs = dict(
+            user_roster_id=1,
+            rollout_ids=range(8),
+            opponent_choice=market_utility,
+            user_policy=market_utility,
+            league_evaluator=league_evaluator,
+            draft_model_version="manual-test-v1",
+            seed=19,
+        )
+        combined = evaluate_candidates(draft_state(), ("p1", "p2", "p3"), **kwargs)
+        merged = merge_evaluations([
+            evaluate_candidates(draft_state(), ("p1", "p2"), **kwargs),
+            evaluate_candidates(draft_state(), ("p3",), **kwargs),
+        ])
+        self.assertEqual(merged, combined)
+        self.assertEqual(
+            recommendation_summary(merged),
+            recommendation_summary(combined),
+        )
+        with self.assertRaisesRegex(ValueError, "different states or model inputs"):
+            merge_evaluations([
+                combined,
+                evaluate_candidates(draft_state(), ("p4",), **{**kwargs, "seed": 20}),
+            ])
+        with self.assertRaisesRegex(ValueError, "duplicate candidates"):
+            merge_evaluations([combined, combined])
+
     def test_candidates_use_many_paired_draft_paths_and_selected_season_worlds(self):
         league_evaluator = evaluator()
         result = evaluate_candidates(
