@@ -45,6 +45,7 @@ class DraftRolloutTest(unittest.TestCase):
             stable_gumbel(7, 3, 11, 102, "p1"),
             stable_gumbel(7, 3, 11, 102, "p2"),
         )
+        self.assertTrue(math.isfinite(stable_gumbel(7, 3, 11, 102, "p1")))
         with self.assertRaisesRegex(ValueError, "finite and positive"):
             choice_probabilities({"p1": 1}, temperature=0)
 

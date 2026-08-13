@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from hashlib import sha256
 import json
 import math
+from operator import index
 
 import numpy as np
 
@@ -15,6 +16,7 @@ EVALUATOR_VERSION = 1
 
 @dataclass(frozen=True)
 class LeagueEvaluation:
+    world_indices: tuple[int, ...]
     roster_ids: tuple
     weekly_scores: np.ndarray
     wins: np.ndarray
@@ -127,16 +129,32 @@ class LeagueEvaluator:
         self.cache_hits = 0
         self.cache_misses = 0
 
-    def evaluate(self, roster_assignment, *, use_cache=True):
+    def evaluate(self, roster_assignment, *, world_indices=None, use_cache=True):
         assignment = self._canonical_assignment(roster_assignment)
-        if use_cache and assignment in self._cache:
+        world_indices = self._world_indices(world_indices)
+        key = (assignment, world_indices)
+        if use_cache and key in self._cache:
             self.cache_hits += 1
-            return self._cache[assignment]
+            return self._cache[key]
         self.cache_misses += 1
-        result = self._evaluate(assignment)
+        result = self._evaluate(assignment, world_indices)
         if use_cache:
-            self._cache[assignment] = result
+            self._cache[key] = result
         return result
+
+    def _world_indices(self, world_indices):
+        if world_indices is None:
+            return tuple(range(self.bank.world_count))
+        try:
+            values = tuple(index(value) for value in world_indices)
+        except TypeError:
+            raise ValueError("world_indices must contain integers") from None
+        if (
+            not values
+            or any(isinstance(value, bool) or value < 0 or value >= self.bank.world_count for value in values)
+        ):
+            raise ValueError("world_indices must select valid SeasonWorldBank worlds")
+        return values
 
     def _canonical_assignment(self, roster_assignment):
         if set(roster_assignment) != set(self.roster_ids):
@@ -153,22 +171,22 @@ class LeagueEvaluator:
             raise ValueError("Roster assignment contains duplicate or invalid player indices")
         return assignment
 
-    def _evaluate(self, assignment):
+    def _evaluate(self, assignment, world_indices):
         replacement = self._replacement_scores(assignment)
-        worlds = self.bank.world_count
+        worlds = len(world_indices)
         teams = len(self.roster_ids)
         weekly_scores = np.zeros((worlds, teams, self.total_weeks), dtype=float)
-        for world in range(worlds):
+        for output_world, bank_world in enumerate(world_indices):
             for team, roster in enumerate(assignment):
                 for week in range(self.total_weeks):
-                    starters, missing = self._lineup(roster, world, week)
-                    weekly_scores[world, team, week] = sum(
-                        self.bank.scores[world, player, week] for player in starters
+                    starters, missing = self._lineup(roster, bank_world, week)
+                    weekly_scores[output_world, team, week] = sum(
+                        self.bank.scores[bank_world, player, week] for player in starters
                     ) + sum(
                         max(
                             (replacement.get(position, 0.0) for position in eligible),
                             default=0.0,
-                        ) * self.streamer_factors[world, team, week, factor]
+                        ) * self.streamer_factors[bank_world, team, week, factor]
                         for eligible, factor in missing
                     )
 
@@ -178,43 +196,51 @@ class LeagueEvaluator:
         playoffs = np.zeros((worlds, teams), dtype=bool)
         division_wins = np.zeros((worlds, teams), dtype=bool)
         champions = np.zeros(worlds, dtype=np.int16)
-        for world, schedule in enumerate(self.schedules):
+        for output_world, bank_world in enumerate(world_indices):
+            schedule = self.schedules[bank_world]
             for week, pairs in enumerate(schedule):
-                points[world] += weekly_scores[world, :, week]
+                points[output_world] += weekly_scores[output_world, :, week]
                 for home, away in pairs:
-                    home_score = weekly_scores[world, home, week]
-                    away_score = weekly_scores[world, away, week]
+                    home_score = weekly_scores[output_world, home, week]
+                    away_score = weekly_scores[output_world, away, week]
                     if home_score > away_score:
-                        wins[world, home] += 1
+                        wins[output_world, home] += 1
                     elif away_score > home_score:
-                        wins[world, away] += 1
+                        wins[output_world, away] += 1
                 if self.league_average_match:
-                    scores = weekly_scores[world, :, week]
-                    wins[world] += scores > float(np.median(scores))
+                    scores = weekly_scores[output_world, :, week]
+                    wins[output_world] += scores > float(np.median(scores))
 
             standings = sorted(
                 range(teams),
-                key=lambda team: (-wins[world, team], -points[world, team], str(self.roster_ids[team])),
+                key=lambda team: (
+                    -wins[output_world, team],
+                    -points[output_world, team],
+                    str(self.roster_ids[team]),
+                ),
             )
             for seed, team in enumerate(standings, 1):
-                seeds[world, team] = seed
+                seeds[output_world, team] = seed
             division_winners = [
                 next(team for team in standings if team in division)
                 for division in self.divisions
             ]
             division_winners.sort(key=standings.index)
-            division_wins[world, division_winners] = True
+            division_wins[output_world, division_winners] = True
             playoff_order = division_winners + [
                 team for team in standings if team not in division_winners
             ][: self.playoff_teams - len(division_winners)]
-            playoffs[world, playoff_order] = True
-            champions[world] = self._champion(world, playoff_order, weekly_scores)
+            playoffs[output_world, playoff_order] = True
+            champions[output_world] = self._champion(
+                output_world, playoff_order, weekly_scores
+            )
 
         for array in (
             weekly_scores, wins, points, seeds, playoffs, division_wins, champions
         ):
             array.flags.writeable = False
         return LeagueEvaluation(
+            world_indices,
             self.roster_ids,
             weekly_scores,
             wins,

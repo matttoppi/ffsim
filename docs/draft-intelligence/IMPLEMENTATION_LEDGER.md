@@ -5,10 +5,10 @@ This file is the current operational state of the project. Keep it short, factua
 ## Current status
 
 **Phase:** Phase 8 — offline coupled draft rollouts and nested evaluation
-**State:** Lightweight roster-index league evaluation works against immutable season worlds; the nested draft/season path is next
+**State:** Baseline nested candidate evaluation now integrates many coupled draft continuations with paired season worlds
 **Branch:** `feat/draft-intelligence`  
 **Implementation code changed:** Yes
-**Primary next action:** Add an injected-prior opponent-choice model and coupled, multi-continuation rest-of-draft rollouts, then pair completed rosters with selected `SeasonWorldBank` worlds. Live polling/attachment and market-dependent opponent profiling remain owner-deferred.
+**Primary next action:** Add the compact recommendation/robustness summary around nested outcomes and survival results, then run a repo-wide correctness/Ponytail audit and realistic offline throughput check. Live polling/attachment and market-dependent opponent profiling remain owner-deferred.
 
 ## Project entrypoints
 
@@ -107,6 +107,14 @@ Read in this order:
 - [x] Return immutable per-world outcome vectors and exact cached/uncached equivalents.
 - [x] Match the existing full-season path on a frozen common-world fixture.
 
+## Phase 8 foundation in progress
+
+- [x] Pair every rollout ID with one deterministic season-world ID shared by all root candidates.
+- [x] Evaluate only selected worlds for each completed draft rather than forming a naive draft-by-season cross product.
+- [x] Return per-candidate championship/playoff outcomes, expected wins/points, Wilson title intervals, and paired championship deltas.
+- [x] Keep selected-world and all-world roster evaluation mathematically equivalent with exact cache keys.
+- [x] Preserve multiple-draft-continuation enforcement at both rollout and nested-evaluation boundaries.
+
 ## Next tasks
 
 ### Phase 0 — repository/data audit
@@ -148,7 +156,7 @@ Record results here after the first local audit.
 
 | Check | Status | Notes |
 |---|---|---|
-| Existing Python tests | Pass | 99 tests with `ResourceWarning` promoted to an error |
+| Existing Python tests | Pass | 102 tests with `ResourceWarning` promoted to an error |
 | Frontend tests/build | Pass | 28 Vitest tests; TypeScript/Vite production build passed and both now run in CI |
 | Current simulation benchmark | Pass | M5 Max single-worker baselines recorded below |
 | Sleeper live API smoke test | Pass | Verified 2026 league, draft, picks, traded picks, roster, and per-user history payloads |
@@ -219,4 +227,4 @@ Phase 1 is complete. Phase 2 has append-only manual market snapshots. Phase 3 ha
 
 ## Last updated
 
-2026-08-13 — Added injected-prior, coupled multi-continuation redraft rollouts plus exact-player/tier survival summaries; full Python validation passes 99 tests.
+2026-08-13 — Connected coupled draft completions to selected shared season worlds with paired championship outcomes, exact cache keys, and confidence summaries; full Python validation passes 102 tests.

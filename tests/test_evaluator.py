@@ -145,6 +145,31 @@ class LeagueEvaluatorTest(unittest.TestCase):
         self.assertEqual(first.version, second.version)
         self.assertEqual(int(result.playoffs[0].sum()), 4)
 
+    def test_selected_worlds_preserve_bank_identity_and_exact_cache_keys(self):
+        world_bank = bank([
+            [[1, 1, 4], [2, 2, 3], [3, 3, 2], [4, 4, 1]],
+            [[10, 10, 40], [20, 20, 30], [30, 30, 20], [40, 40, 10]],
+        ])
+        assignment = {roster_id: [roster_id - 1] for roster_id in range(1, 5)}
+        evaluator = LeagueEvaluator(
+            league(),
+            world_bank,
+            assignment,
+            regular_season_weeks=1,
+            seed=3,
+        )
+
+        selected = evaluator.evaluate(assignment, world_indices=(1,))
+        cached = evaluator.evaluate(assignment, world_indices=(1,))
+        full = evaluator.evaluate(assignment)
+
+        self.assertEqual(selected.world_indices, (1,))
+        self.assertEqual(full.world_indices, (0, 1))
+        self.assertIs(selected, cached)
+        np.testing.assert_array_equal(selected.weekly_scores[0], full.weekly_scores[1])
+        with self.assertRaisesRegex(ValueError, "valid SeasonWorldBank"):
+            evaluator.evaluate(assignment, world_indices=())
+
     def test_all_playoff_sizes_divisions_and_median_games(self):
         for playoff_teams in (4, 6, 8):
             with self.subTest(playoff_teams=playoff_teams):

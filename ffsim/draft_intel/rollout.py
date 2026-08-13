@@ -80,7 +80,7 @@ def complete_drafts(
     root_candidate_id = str(root_candidate_id)
     if root_candidate_id not in state.available_player_ids:
         raise ValueError(f"Root candidate {root_candidate_id} is not available")
-    rollout_ids = tuple(_rollout_id(value) for value in rollout_ids)
+    rollout_ids = tuple(normalize_rollout_id(value) for value in rollout_ids)
     if len(rollout_ids) < 2 or len(set(rollout_ids)) != len(rollout_ids):
         raise ValueError("Root candidates require at least two unique rollout IDs")
     if not callable(opponent_choice) or not callable(user_policy):
@@ -189,8 +189,8 @@ def summarize_survival(completions, player_ids=(), tiers=None):
 def stable_gumbel(seed, rollout_id, pick_no, roster_id, player_id):
     """Return one deterministic Gumbel(0, 1) shock from stable identifiers."""
     payload = "\0".join(map(str, (seed, rollout_id, pick_no, roster_id, player_id)))
-    integer = int.from_bytes(sha256(payload.encode()).digest()[:8], "big")
-    uniform = (integer + 0.5) / 2**64
+    integer = int.from_bytes(sha256(payload.encode()).digest()[:8], "big") >> 11
+    uniform = (integer + 1) / (2**53 + 2)
     return -math.log(-math.log(uniform))
 
 
@@ -323,7 +323,7 @@ def _canonical_ids(player_ids, field):
     return tuple(sorted(values))
 
 
-def _rollout_id(value):
+def normalize_rollout_id(value):
     try:
         value = index(value)
     except (TypeError, ValueError):
