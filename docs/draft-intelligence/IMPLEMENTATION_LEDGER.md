@@ -8,7 +8,7 @@ This file is the current operational state of the project. Keep it short, factua
 **State:** Offline nested baseline, official ADP ingestion, FantasyPros-first offensive projections, and an uncalibrated Sleeper-ADP choice baseline are complete; the owner's real 2026 league draft is attached pre-draft and its league-created mock is live
 **Branch:** `feat/draft-intelligence`  
 **Implementation code changed:** Yes
-**Primary next action:** Restart the local server, re-prepare real draft `1389391547115511809` with league-created mock `1393634461312106496`, resume monitoring from the live mock's current pick, and complete it so its picks can become leakage-free baseline evidence. Do not use generic desktop mock `1393628519644286976`, whose settings do not match the real 12-team PPR league. Do not claim `WAIT`, `REACH`, or personalization from one mock or before out-of-sample calibration.
+**Primary next action:** Restart the local server, re-prepare real draft `1389391547115511809` with the current league-created mock, resume monitoring from the live mock's current pick, and complete it so its picks can become leakage-free baseline evidence. Do not use generic desktop mock `1393628519644286976`, whose settings do not match the real 12-team PPR league. Do not claim `WAIT`, `REACH`, or personalization from one mock or before out-of-sample calibration. The owner's next requested feature is a league-wide live equity sidebar (per-roster championship probability updated as the draft progresses); it requires a continuation mode without a forced user root pick, so opponent-turn rollouts have a concrete documented reason before that work starts.
 
 ## Project entrypoints
 
@@ -94,6 +94,7 @@ Read in this order:
 - [x] Poll one picks request per interval (default 1s) with draft metadata/traded picks every fifteenth poll (~68 requests/minute, under Sleeper's documented 1,000/minute guidance) and detect completion from a full pick sheet despite stale cached metadata.
 - [x] Publish a full live pick feed (pick, round, player, position, NFL team, slot, roster) with explicit UI states for synchronizing, watching, on the clock, pending, calculating for pick N, ready for pick N, failed, discarded, stopped, and complete, plus last-sync time and pick count.
 - [x] Publish an exact preliminary 12-rollout recommendation (~1.6 s) before the full pass (~6.7 s after cutting the choice callback from the ~11k-player pool to the 297-player ADP board), abandon refinement between passes when the draft advances, and retry any sync failure with a forced metadata refresh so mid-draft trades and transient payloads self-heal.
+- [x] Select the best available market player per position before filling by overall ADP (default eight candidates: preliminary 2.47 s, full 9.78 s), display each candidate's title odds with a signed delta versus the top option, and filter the board by position on the client.
 - [x] Attach real draft `1389391547115511809`: 12-team PPR snake, owner slot 1/roster 8, no keepers, and every attachment/replay/rollout/season capability supported.
 - [x] Score Sleeper's `fgm_50_59` setting from the modeled 50-plus bucket after subtracting modeled 60-plus makes.
 - [x] Add reproducible CI geometry cases for observed 10/12/14-team snake, third-round reversal, linear, and auction formats.

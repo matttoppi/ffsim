@@ -18,6 +18,7 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
   const [preparation, setPreparation] = useState<DraftPreparation>({ status: 'idle' })
   const [monitor, setMonitor] = useState<DraftMonitor>({ status: 'idle' })
   const [error, setError] = useState<string | null>(null)
+  const [positionFilter, setPositionFilter] = useState<string | null>(null)
 
   useEffect(() => {
     if (!draftId && currentDraftId) setDraftId(currentDraftId)
@@ -113,6 +114,13 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
     monitor.recommendation.pick_no === currentPickNo
   const candidates = recommendationCurrent ? (monitor.recommendation?.candidates ?? []) : []
   const maxEquity = Math.max(...candidates.map((c) => c.championship_probability), 1e-9)
+  const positions = [...new Set(candidates.map((c) => c.position).filter(Boolean))] as string[]
+  const visibleCandidates = positionFilter
+    ? candidates.filter((c) => c.position === positionFilter)
+    : candidates
+  const leader = candidates[0]
+  const leaderEdge =
+    monitor.recommendation?.paired_delta_vs_runner_up?.championship_probability_delta
   const feed = [...(monitor.state?.recent_picks ?? [])].reverse()
   const lastSync = monitor.last_sync_at
     ? new Date(monitor.last_sync_at * 1000).toLocaleTimeString()
@@ -304,37 +312,80 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
             )}
           {candidates.length > 0 && (
             <>
+              {positions.length > 1 && (
+                <div className="pos-filter" role="group" aria-label="Filter candidates by position">
+                  <button
+                    type="button"
+                    className={`pos-chip${positionFilter === null ? ' is-active' : ''}`}
+                    onClick={() => setPositionFilter(null)}
+                  >
+                    All
+                  </button>
+                  {positions.map((position) => (
+                    <button
+                      key={position}
+                      type="button"
+                      className={`pos-chip${positionFilter === position ? ' is-active' : ''}`}
+                      onClick={() => setPositionFilter(position)}
+                    >
+                      {position}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {visibleCandidates.length === 0 && (
+                <p className="controls-hint">
+                  No {positionFilter} among the evaluated candidates for this pick.
+                </p>
+              )}
               <ol className="board">
-                {candidates.map((candidate, index) => (
-                  <li key={candidate.player_id} className="board-row">
-                    <span className="board-rank">{index + 1}</span>
-                    <span className={`pos-badge pos-${candidate.position ?? 'NA'}`}>
-                      {candidate.position ?? '—'}
-                    </span>
-                    <span className="board-player">
-                      <strong>{candidate.name}</strong>
-                      <small>
-                        {(candidate.playoff_probability * 100).toFixed(0)}% playoffs ·{' '}
-                        {candidate.expected_wins.toFixed(1)} wins
-                      </small>
-                    </span>
-                    <span className="board-equity">
-                      <span className="board-track" aria-hidden="true">
-                        <span
-                          className="board-fill"
-                          style={{ width: `${(candidate.championship_probability / maxEquity) * 100}%` }}
-                        />
+                {visibleCandidates.map((candidate) => {
+                  const rank = candidates.indexOf(candidate)
+                  const deltaVsLeader =
+                    (candidate.championship_probability - leader.championship_probability) * 100
+                  return (
+                    <li key={candidate.player_id} className="board-row">
+                      <span className="board-rank">{rank + 1}</span>
+                      <span className={`pos-badge pos-${candidate.position ?? 'NA'}`}>
+                        {candidate.position ?? '—'}
                       </span>
-                      <strong>{(candidate.championship_probability * 100).toFixed(1)}%</strong>
-                    </span>
-                  </li>
-                ))}
+                      <span className="board-player">
+                        <strong>{candidate.name}</strong>
+                        <small>
+                          {(candidate.playoff_probability * 100).toFixed(0)}% playoffs ·{' '}
+                          {candidate.expected_wins.toFixed(1)} wins
+                        </small>
+                      </span>
+                      <span className="board-equity">
+                        <span className="board-track" aria-hidden="true">
+                          <span
+                            className="board-fill"
+                            style={{ width: `${(candidate.championship_probability / maxEquity) * 100}%` }}
+                          />
+                        </span>
+                        {rank === 0 ? (
+                          <span className="board-numbers">
+                            <strong>{(candidate.championship_probability * 100).toFixed(1)}%</strong>
+                            {leaderEdge != null && (
+                              <small>+{(leaderEdge * 100).toFixed(1)}% vs next</small>
+                            )}
+                          </span>
+                        ) : (
+                          <span className="board-numbers">
+                            <strong className="board-delta">{deltaVsLeader.toFixed(1)}%</strong>
+                            <small>{(candidate.championship_probability * 100).toFixed(1)}% title</small>
+                          </span>
+                        )}
+                      </span>
+                    </li>
+                  )
+                })}
               </ol>
               <p className="board-footnote">
                 {recStatus === 'ready' ? 'Ready' : 'Preliminary'} for pick{' '}
-                {monitor.recommendation?.pick_no} · championship equity · uncalibrated
-                Sleeper-ADP baseline · {monitor.recommendation?.rollout_count} draft
-                continuations
+                {monitor.recommendation?.pick_no} · title odds if drafted now, ± vs the top
+                option · uncalibrated Sleeper-ADP baseline ·{' '}
+                {monitor.recommendation?.rollout_count} draft continuations
               </p>
             </>
           )}

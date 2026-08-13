@@ -658,7 +658,7 @@ code {
 
 .board-equity {
   display: grid;
-  grid-template-columns: 1fr 58px;
+  grid-template-columns: 1fr minmax(58px, auto);
   align-items: center;
   gap: 10px;
 }
@@ -695,6 +695,55 @@ code {
   color: var(--dim);
   font-size: 0.82rem;
   margin: 12px 0 0;
+}
+
+.pos-filter {
+  display: flex;
+  gap: 6px;
+  margin: 14px 0 0;
+  flex-wrap: wrap;
+}
+
+.pos-chip {
+  font-family: var(--display);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--dim);
+  cursor: pointer;
+}
+
+.pos-chip.is-active {
+  border-color: rgba(232, 179, 59, 0.55);
+  color: var(--gold);
+  background: var(--gold-soft);
+}
+
+.board-numbers {
+  display: grid;
+  gap: 1px;
+  text-align: right;
+}
+
+.board-numbers strong {
+  font-family: var(--display);
+  font-size: 1.3rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.board-numbers small {
+  color: var(--dim);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.board-delta {
+  color: var(--dim);
 }
 
 .sync-meta {

@@ -214,6 +214,9 @@ export interface DraftMonitor {
     rollout_count: number
     joint_outcome_count: number
     pick_no?: number | null
+    paired_delta_vs_runner_up?: {
+      championship_probability_delta: number
+    } | null
     candidates: Array<{
       player_id: string
       name: string

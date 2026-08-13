@@ -8,6 +8,7 @@ from ffsim.draft_intel.live import (
     _draft_id,
     _manager_slot,
     _refresh_history,
+    _select_candidates,
     live_state_summary,
     mock_mismatch_reasons,
 )
@@ -15,6 +16,31 @@ from ffsim.draft_intel.state import DraftPick
 
 
 class LiveDraftTest(unittest.TestCase):
+    def test_candidate_selection_covers_positions_before_filling_by_adp(self):
+        board = {f"p{index}": -float(index) for index in range(1, 8)}
+        details = {
+            "p1": {"position": "QB"},
+            "p2": {"position": "QB"},
+            "p3": {"position": "TE"},
+            "p4": {"position": "TE"},
+            "p5": {"position": "RB"},
+            "p6": {"position": "WR"},
+            "p7": {"position": "WR"},
+        }
+        pool = set(board)
+        # Best per position first, then the remaining best-ADP players.
+        self.assertEqual(
+            _select_candidates(pool, board, details, 6),
+            ["p1", "p3", "p5", "p6", "p2", "p4"],
+        )
+        # A small budget still prefers positional coverage in ADP order.
+        self.assertEqual(_select_candidates(pool, board, details, 3), ["p1", "p3", "p5"])
+        # Unknown players fall back to their ADP slot without a position.
+        self.assertEqual(
+            _select_candidates({"p1", "p2"}, board, {}, 2),
+            ["p1", "p2"],
+        )
+
     def test_live_state_summary_includes_the_full_pick_feed(self):
         prepared = SimpleNamespace(
             user_roster_id=None,

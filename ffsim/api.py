@@ -76,7 +76,7 @@ class DraftPrepareRequest(BaseModel):
 class DraftMonitorRequest(BaseModel):
     poll_seconds: float = Field(default=1.0, ge=0.5, le=30)
     rollout_count: int = Field(default=50, ge=2, le=500)
-    candidate_count: int = Field(default=5, ge=2, le=12)
+    candidate_count: int = Field(default=8, ge=2, le=12)
 
 
 @dataclass

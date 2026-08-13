@@ -316,10 +316,12 @@ def calculate_live_recommendation(prepared, state, rollout_count=50, candidate_c
         raise ValueError("Prepared draft is missing market or season inputs")
     board = sleeper_adp_utilities(prepared.market_snapshot)
     bank_players = set(prepared.evaluator.bank.player_ids)
-    candidates = sorted(
+    candidates = _select_candidates(
         state.available_player_ids & board.keys() & bank_players,
-        key=lambda player_id: (-board[player_id], player_id),
-    )[:candidate_count]
+        board,
+        prepared.player_details,
+        candidate_count,
+    )
     if not candidates:
         raise ValueError("No available market players can be evaluated")
     snapshot = {
@@ -370,6 +372,19 @@ def calculate_live_recommendation(prepared, state, rollout_count=50, candidate_c
     recommendation["model_status"] = "uncalibrated_sleeper_adp_baseline"
     recommendation["pick_no"] = state.current_pick_no
     return recommendation
+
+
+def _select_candidates(pool, board, player_details, candidate_count):
+    """Take the best market player per position first, then fill by ADP."""
+    by_adp = sorted(pool, key=lambda player_id: (-board[player_id], player_id))
+    positions = set()
+    diverse = []
+    for player_id in by_adp:
+        position = player_details.get(player_id, {}).get("position")
+        if position not in positions:
+            positions.add(position)
+            diverse.append(player_id)
+    return list(dict.fromkeys(diverse + by_adp))[:candidate_count]
 
 
 def mock_mismatch_reasons(real_draft, mock_draft):

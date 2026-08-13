@@ -179,6 +179,52 @@ describe('DraftIntel', () => {
     expect(screen.getByText('You are on the clock')).toBeTruthy()
   })
 
+  it('shows deltas versus the top option and filters candidates by position', async () => {
+    mockMonitor({
+      status: 'running',
+      recommendation_status: 'ready',
+      recommendation_pick_no: 6,
+      recommendation: {
+        model_status: 'baseline',
+        rollout_count: 50,
+        joint_outcome_count: 100,
+        pick_no: 6,
+        paired_delta_vs_runner_up: { championship_probability_delta: 0.05 },
+        candidates: [
+          {
+            player_id: 'p1',
+            name: 'Lead Back',
+            position: 'RB',
+            championship_probability: 0.2,
+            playoff_probability: 0.6,
+            expected_wins: 9,
+          },
+          {
+            player_id: 'p2',
+            name: 'Second Wideout',
+            position: 'WR',
+            championship_probability: 0.15,
+            playoff_probability: 0.5,
+            expected_wins: 8,
+          },
+        ],
+      },
+      state: { ...monitorState([pick(1, 'Alpha One')], 6), user_on_clock: true },
+    })
+    await act(async () => {
+      render(<DraftIntel currentDraftId="real" />)
+    })
+    expect(screen.getByText('+5.0% vs next')).toBeTruthy()
+    expect(screen.getByText('-5.0%')).toBeTruthy()
+    expect(screen.getByText('15.0% title')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'WR' }))
+    expect(screen.queryByText('Lead Back')).toBeNull()
+    expect(screen.getByText('Second Wideout')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'All' }))
+    expect(screen.getByText('Lead Back')).toBeTruthy()
+  })
+
   it.each([
     [
       { status: 'running', recommendation_status: 'calculating', recommendation_pick_no: 7 },
