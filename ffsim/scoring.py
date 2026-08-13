@@ -128,7 +128,7 @@ def unsupported_scoring_keys(settings):
     supported = (
         set(DIRECT_KEYS)
         | set(POSITION_RECEPTION_BONUSES.values())
-        | {"kr_yd", "pr_yd", "def_kr_yd", "def_pr_yd"}
+        | {"fgm_50_59", "kr_yd", "pr_yd", "def_kr_yd", "def_pr_yd"}
     )
 
     if _equal_coefficients(settings, ("pass_2pt", "rush_2pt", "rec_2pt")):
@@ -148,6 +148,11 @@ def score_raw_stats(stats, position, scoring_settings):
 
     score += stats.get("receptions", 0) * settings.reception_bonuses.get(position, 0.0)
     score += stats.get("two_point_conversions", 0) * settings.two_point_coefficient
+    score += max(
+        0,
+        stats.get("field_goals_made_50_plus", 0)
+        - stats.get("field_goals_made_60_plus", 0),
+    ) * settings.fgm_50_59
     score += _return_score(stats, settings, "", "return_yards")
     score += _return_score(stats, settings, "defense_", "defense_return_yards", "def_")
     return float(score)

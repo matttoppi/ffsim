@@ -13,7 +13,8 @@ def parse_args():
         "command",
         choices=(
             "setup", "simulate", "refresh", "serve", "draft-audit", "market-import",
-            "market-refresh", "market-backtest", "manager-audit",
+            "market-refresh", "market-backtest", "mock-attach", "mock-refresh",
+            "manager-audit",
         ),
         nargs="?",
         default="simulate",
@@ -22,6 +23,7 @@ def parse_args():
     league = parser.add_mutually_exclusive_group()
     league.add_argument("--league-id")
     league.add_argument("--username", help="Sleeper username used to find a single NFL league")
+    parser.add_argument("--draft-id")
     parser.add_argument("--season", type=int, default=2026, help="NFL season used with --username")
     parser.add_argument("--simulations", type=int)
     parser.add_argument("--seed", type=int)
@@ -165,6 +167,22 @@ def main():
 
         try:
             result = backtest_sleeper_adp()
+        except (OSError, ValueError) as error:
+            raise SystemExit(str(error)) from error
+        print(json.dumps(result, indent=2))
+        return
+
+    if args.command in {"mock-attach", "mock-refresh"}:
+        from ffsim.draft_intel.mock import attach_mock_draft, refresh_attached_mock
+
+        if args.command == "mock-attach" and not args.draft_id:
+            raise SystemExit("mock-attach requires --draft-id")
+        try:
+            result = (
+                attach_mock_draft(args.draft_id)
+                if args.command == "mock-attach"
+                else refresh_attached_mock()
+            )
         except (OSError, ValueError) as error:
             raise SystemExit(str(error)) from error
         print(json.dumps(result, indent=2))

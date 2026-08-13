@@ -5,10 +5,10 @@ This file is the current operational state of the project. Keep it short, factua
 ## Current status
 
 **Phase:** Phase 8 — offline coupled draft rollouts and nested evaluation
-**State:** Offline nested baseline, official ADP ingestion, and an uncalibrated Sleeper-ADP choice baseline are complete; a post-snapshot redraft/mock is needed for live validation and calibration data
+**State:** Offline nested baseline, official ADP ingestion, and an uncalibrated Sleeper-ADP choice baseline are complete; the owner's post-snapshot mock and real 2026 league draft are attached pre-draft
 **Branch:** `feat/draft-intelligence`  
 **Implementation code changed:** Yes
-**Primary next action:** Attach a Sleeper redraft/mock that starts after the first stored ADP snapshot, validate exact live replay with the resolved market context, then persist its picks for leakage-free baseline measurement. Do not claim `WAIT`, `REACH`, or personalization from one mock or before out-of-sample calibration.
+**Primary next action:** Start and refresh mock `1393628519644286976`, validate append-only live replay from the owner's assigned slot 1 against its exact 1QB STD market context, then persist completed picks for leakage-free baseline measurement. Keep real draft `1389391547115511809` attached for its exact 12-team PPR settings and teammate evidence. Do not claim `WAIT`, `REACH`, or personalization from one mock or before out-of-sample calibration.
 
 ## Project entrypoints
 
@@ -68,8 +68,8 @@ Read in this order:
 - [x] Add raw and weighted four-round zero/hero/heavy-RB and WR-heavy start evidence.
 - [x] Add raw and weighted QB/TE first-round timing, including drafts without the position.
 - [x] Apply transparent per-draft season, scoring-type, and league-size relevance components while retaining raw counts and component values.
-- [x] Validate the baseline against 1,507 picks by 9 target managers across 79 eligible historical drafts.
-- [x] Validate `manager-audit` against the current cached target context: 2026, 12-team superflex (`2qb`). This supersedes the Phase 0 target description after the configured league changed.
+- [x] Validate the descriptive baseline against 2,197 picks by 20 stored managers; every member of the attached real league has eligible history.
+- [x] Validate `manager-audit` against the current target context: 2026, 12-team PPR.
 
 ## Phase 4 foundation completed
 
@@ -86,6 +86,9 @@ Read in this order:
 - [x] Fail closed on keeper rows, gaps, duplicates, ownership conflicts, missing players, budget violations, and rewrites/removals of observed picks.
 - [x] Keep `roster_id` authoritative for pick ownership and preserve `picked_by` only as actor metadata because co-managed teams can legitimately mismatch draft-order identity.
 - [x] Save league/draft attachments atomically and test discovery, selection, readiness, invalid drafts, and failed writes at the backend endpoint boundary.
+- [x] Attach standalone mocks by exact draft ID in an isolated cache and reject rewrites or removals of previously observed picks.
+- [x] Attach real draft `1389391547115511809`: 12-team PPR snake, owner slot 1/roster 8, no keepers, and every attachment/replay/rollout/season capability supported.
+- [x] Score Sleeper's `fgm_50_59` setting from the modeled 50-plus bucket after subtracting modeled 60-plus makes.
 - [x] Add reproducible CI geometry cases for observed 10/12/14-team snake, third-round reversal, linear, and auction formats.
 - [x] Mark manager-profile heuristics descriptive-only and decision-ineligible until out-of-sample market-baseline calibration exists.
 - [x] Run frontend tests/build and ResourceWarning-clean Python tests in CI.
@@ -168,14 +171,14 @@ Record results here after the first local audit.
 
 | Check | Status | Notes |
 |---|---|---|
-| Existing Python tests | Pass | 105 tests with `ResourceWarning` promoted to an error |
+| Existing Python tests | Pass | 107 tests with `ResourceWarning` promoted to an error |
 | Frontend tests/build | Pass | 28 Vitest tests; TypeScript/Vite production build passed and both now run in CI |
 | Current simulation benchmark | Pass | M5 Max single-worker baselines recorded below |
 | Sleeper live API smoke test | Pass | Verified 2026 league, draft, picks, traded picks, roster, and per-user history payloads |
 | Offline draft geometry | Pass | CI covers representative observed 10/12/14-team snake, third-round reversal, linear, auction, trade, and co-manager actor cases. Supplemental local saved-payload validation covers 243 snake, 144 linear, and 11 auction drafts; one legacy IDP source inconsistency fails closed. |
-| Historical draft ingestion | Pass | Current configured league: 52,829 picks from 399 unique drafts persisted; 80 draft environments and 14,206 non-keeper picks are model-eligible after league-context filters |
+| Historical draft ingestion | Pass | 53,587 picks from 407 unique drafts persisted; 81 draft environments and 14,366 non-keeper picks are model-eligible. The current 12 managers produced 142 discoveries deduplicated to 34 drafts; all 12 have eligible history. |
 | ADP source validation | Pass | Premium payload validated live; four format contexts and all returned platform boards persisted, with an immediate repeat producing zero requests |
-| Sleeper ADP baseline | Awaiting post-snapshot drafts | Choice callback and leakage-safe backtest pass; all 80 stored eligible drafts predate the first market retrieval and are correctly skipped |
+| Sleeper ADP baseline | Awaiting mock start | Choice callback and leakage-safe backtest pass; the attached mock is post-snapshot but remains pre-draft. Existing completed eligible drafts predate the first market retrieval and are correctly skipped. |
 
 ## Phase 0 audit — 2026-08-12
 
@@ -187,7 +190,7 @@ Record results here after the first local audit.
 - **Profile:** A 30-simulation 12-team `cProfile` run took 3.755s including load/import overhead. `SimulationSeason.simulate` used 2.439s; player sampling/scoring 1.812s cumulative; lineup filling 0.277s; playoffs 0.156s; standings were negligible. This supports world reuse before lineup micro-optimization.
 - **World-bank/evaluator smoke:** The current 12-team local snapshot produced a 528-player, 50-world bank in 5.672s. One full 50-world roster evaluation took 0.123s and an exact cache hit took 0.000030s. This validates the boundary, not the final live throughput target; Phase 8 should evaluate selected world/continuation pairs rather than every world for every unique completed draft.
 - **Nested offline smoke:** A synthetic 16-round redraft using the cached 12-team superflex rules, 528 players, 20 season worlds, 3 root candidates, 50 draft continuations per candidate, and 2 season worlds per continuation built the bank in 2.287s and evaluated 300 joint outcomes in 1.992s (150.6 outcomes/s). The board was projection-ordered and benchmark-only; this is a throughput result, not opponent-model validation. Profiling justified one exact SHA-prefix reuse in Gumbel sampling and did not justify a custom RNG, multiprocessing, Numba, or GPU work.
-- **Sleeper target:** The discovered upcoming league is a 10-team PPR snake draft, 16 rounds, 90-second timer. Before draft-order assignment, `draft_order` is `null` while `slot_to_roster_id` is populated. The league allows one keeper but currently reports none; these states must remain distinct.
+- **Sleeper target:** The attached real draft is a 12-team PPR snake, 15 rounds, scheduled for 2026-08-30 at 7:00 PM EDT. The owner has draft slot 1 and roster ID 8. The league permits one keeper but all roster keeper arrays and draft picks are empty; permission and observed keeper use remain distinct.
 - **Sleeper ownership:** Completed traded picks retain the original `draft_slot` but the pick row's `roster_id`/`picked_by` identify the actual recipient. Real pick rows contain `draft_id`, `pick_no`, `round`, `draft_slot`, `roster_id`, `picked_by`, `player_id`, `is_keeper`, and player metadata.
 - **History coverage:** A bounded crawl of the 10 target managers over 2024-2026 produced 104 draft discoveries but only 63 unique `draft_id` values: 41 duplicate discoveries removed and 12 drafts shared by multiple target managers. Nineteen completed snake drafts are provisional redraft candidates pending keeper/best-ball/context filters; manager coverage is sparse (1-7 candidates each), reinforcing partial pooling.
 - **Current configured-league classification:** The latest full crawl produced 470 discoveries, 399 unique drafts, and 52,829 unique picks. Status/type/scoring/league-context filters retain 80 managed redraft snake environments and 14,206 non-keeper picks. All 14,206 eligible picks and all 534 unique eligible players have known canonical IDs.
@@ -232,13 +235,13 @@ See `DECISIONS.md`. The foundational decisions currently include:
 
 ## Blockers
 
-The official FantasyPros market adapter and uncalibrated Sleeper-ADP choice baseline are operational. All 80 stored eligible historical drafts occurred before the first market snapshot, so the leakage-safe backtest correctly scores zero picks. A post-snapshot redraft/mock is now required for live validation and initial measurement; one mock is not enough to claim calibration. Phase 3 affinity, pass, board-adherence, calibrated survival, and market-relative `WAIT`/`REACH` work must not be labeled as validated until they beat the market baseline out of sample.
+The official FantasyPros market adapter and uncalibrated Sleeper-ADP choice baseline are operational. Existing completed eligible drafts occurred before the first market snapshot, so the leakage-safe backtest correctly scores zero picks. The attached post-snapshot mock remains pre-draft; it must be completed before initial live measurement, and one mock is not enough to claim calibration. Phase 3 affinity, pass, board-adherence, calibrated survival, and market-relative `WAIT`/`REACH` work must not be labeled as validated until they beat the market baseline out of sample.
 
 Further bank persistence/memory mapping, candidate racing, transposition caching, multiprocessing, and accelerator work are intentionally profiling-gated rather than part of this baseline. Add them only after production bank sizing, live timing, and cache-hit measurements show the simpler path is insufficient.
 
 ## Handoff note
 
-Phase 1 is complete. Phase 2 now has append-only manual and official FantasyPros multi-platform market snapshots behind a 12-hour request-driven freshness gate, exact/proxy context resolution, and a versioned inverse-ADP Sleeper choice baseline. Its backtest rejects snapshots retrieved after a draft begins. Phase 3 has market-independent descriptive profiles. Phase 4 has exact attachment, explicit compatibility, network-free replay, coupled complete redraft rollouts, and survival summaries. Phase 6 produces deterministic, content-versioned, full-pool player-week tensors independently of fantasy ownership. Phase 7 evaluates compact roster assignments with coupled schedules/streamers and immutable per-world results. Phase 8 joins many draft continuations to paired season worlds and emits versioned numeric recommendation summaries. The next product step is a post-snapshot mock/live replay followed by market-baseline calibration; do not calculate plausible-window passes, board adherence, calibrated personalization, or market-relative action labels without validated time-local evidence.
+Phase 1 is complete. Phase 2 now has append-only manual and official FantasyPros multi-platform market snapshots behind a 12-hour request-driven freshness gate, exact/proxy context resolution, and a versioned inverse-ADP Sleeper choice baseline. Its backtest rejects snapshots retrieved after a draft begins. Phase 3 has market-independent descriptive profiles for every member of the real attached league. Phase 4 has exact league and standalone-mock attachment, explicit compatibility, network-free replay, coupled complete redraft rollouts, and survival summaries. Phase 6 produces deterministic, content-versioned, full-pool player-week tensors independently of fantasy ownership. Phase 7 evaluates compact roster assignments with coupled schedules/streamers and immutable per-world results. Phase 8 joins many draft continuations to paired season worlds and emits versioned numeric recommendation summaries. The next product step is the attached mock's live replay followed by market-baseline calibration; do not calculate plausible-window passes, board adherence, calibrated personalization, or market-relative action labels without validated time-local evidence.
 
 ## Last updated
 

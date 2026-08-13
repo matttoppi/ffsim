@@ -29,6 +29,20 @@ def resolve_league_market_context(league):
     )
 
 
+def resolve_draft_market_context(draft):
+    settings = draft.get("settings") or {}
+    positions = tuple(
+        key.removeprefix("slots_")
+        for key, raw_count in settings.items()
+        if key.startswith("slots_")
+        for _ in range(_slot_count(raw_count))
+    )
+    return resolve_market_context(
+        scoring_type=(draft.get("metadata") or {}).get("scoring_type"),
+        roster_positions=positions,
+    )
+
+
 def load_league_market_snapshot(
     league,
     *,
@@ -315,3 +329,15 @@ def _unsupported(reason):
         "requested_reception_points": None,
         "reasons": [reason],
     }
+
+
+def _slot_count(value):
+    if isinstance(value, bool):
+        raise ValueError("Draft roster slot counts must be non-negative integers")
+    try:
+        value = int(value)
+    except (TypeError, ValueError):
+        raise ValueError("Draft roster slot counts must be non-negative integers") from None
+    if value < 0:
+        raise ValueError("Draft roster slot counts must be non-negative integers")
+    return value

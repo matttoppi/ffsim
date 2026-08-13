@@ -248,6 +248,8 @@ collapsed into a fixed PPR/snake schema.
 ### Consequences
 
 - CLI and API/UI selection require an exact draft after league selection.
+- Standalone mocks with `league_id: null` attach by exact draft ID in an isolated
+  cache. They support draft replay but do not impersonate missing league data.
 - Snake, auction, linear, and future unknown draft types remain attachable as
   raw source structures.
 - Deterministic state replay supports Sleeper's snake, linear, and auction

@@ -197,6 +197,14 @@ class ScoringTest(unittest.TestCase):
         }
         self.assertEqual(score_raw_stats(stats, "QB", settings), 12 + 2 + 0.5 - 1 + 1)
 
+    def test_50_to_59_yard_field_goals_exclude_60_plus_makes(self):
+        stats = {"field_goals_made_50_plus": 3, "field_goals_made_60_plus": 1}
+
+        self.assertEqual(
+            score_raw_stats(stats, "K", {"fgm_50_59": 5, "fgm_60p": 6}),
+            16,
+        )
+
     def test_yards_allowed_bins_partition_all_outcomes(self):
         from ffsim.simulation.empirical import YARDS_ALLOWED_BINS
 

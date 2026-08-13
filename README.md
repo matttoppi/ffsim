@@ -64,6 +64,17 @@ and snake, auction, or linear draft settings are preserved. The initial draft
 engine is scoped to redraft without keepers. Dynasty/keeper evidence is exposed
 as an eligibility status rather than changing or hiding the source payload.
 
+Attach and refresh a standalone Sleeper mock without replacing the configured
+league:
+
+```bash
+python -m ffsim mock-attach --draft-id YOUR_MOCK_DRAFT_ID
+python -m ffsim mock-refresh
+```
+
+Refreshes accept only append-only pick progress. Standalone mocks validate draft
+replay and market context but lack the league data needed for season evaluation.
+
 Before the first simulation, and whenever source data changes, run:
 
 ```bash
