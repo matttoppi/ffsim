@@ -250,6 +250,10 @@ collapsed into a fixed PPR/snake schema.
 - CLI and API/UI selection require an exact draft after league selection.
 - Standalone mocks with `league_id: null` attach by exact draft ID in an isolated
   cache. They support draft replay but do not impersonate missing league data.
+- League-created standalone snake/linear mocks may omit pick `roster_id`; their
+  raw payload remains unchanged while replay ownership is derived from the fixed
+  `draft_slot` and traded-pick overrides. League-backed and auction picks remain
+  strict because their ownership cannot be inferred by this rule.
 - Snake, auction, linear, and future unknown draft types remain attachable as
   raw source structures.
 - Deterministic state replay supports Sleeper's snake, linear, and auction
@@ -318,3 +322,45 @@ season-world generation to remain unchanged.
 - Provider disagreement and advanced PFF metrics do not change variance until a
   specific adjustment is defined and backtested.
 - The derived player cache remains part of the `SeasonWorldBank` input hash.
+
+---
+
+## ADR-014 — Live synchronization never waits for recommendation calculation
+
+**Status:** Accepted
+**Date:** 2026-08-13
+
+### Decision
+
+The live monitor separates Sleeper synchronization from recommendation
+calculation. The sync loop polls picks every interval and publishes the
+reconciled draft state immediately. A single worker thread consumes a
+one-slot pending state: when a new pick arrives, the previous recommendation
+is cleared, any in-flight calculation is allowed to finish but its result is
+discarded unless its exact draft-state fingerprint still matches, and only
+the newest on-clock state can be calculated next. There is no FIFO queue of
+calculations, and calculations start only when the user's roster is on the
+clock.
+
+### Rationale
+
+A recommendation pass takes on the order of ten seconds while a fast mock
+produces picks every few seconds. Calculating inline froze the published
+state several picks behind Sleeper, which was observed live (UI at pick 18
+while Sleeper was at pick 24).
+
+### Consequences
+
+- The monitor exposes explicit recommendation states (idle, pending,
+  calculating, ready, failed) plus the pick a result was computed for and the
+  last discarded pick, so the UI never shows vague or stale activity.
+- Every recommendation carries its source pick number; the frontend refuses
+  to render it against a different current pick.
+- Hard thread cancellation is not attempted; obsolete work is abandoned
+  between passes and finished stale results are discarded.
+- The worker publishes an exact preliminary pass (12 rollouts) before the
+  full budget; rollout IDs are deterministic prefixes, so refinement uses the
+  same coupled randomness and supersedes the preliminary result exactly.
+- Normal polling uses one picks request per interval; draft metadata and
+  traded picks refresh every fifteenth poll, and completion is detected from
+  a full pick sheet even when the cached metadata status is stale.

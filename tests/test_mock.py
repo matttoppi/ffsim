@@ -3,7 +3,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ffsim.draft_intel.mock import attach_mock_draft, refresh_attached_mock
+from ffsim.draft_intel.mock import (
+    attach_mock_draft,
+    refresh_attached_mock,
+    sync_sleeper_draft,
+)
 
 
 class StandaloneMockTest(unittest.TestCase):
@@ -54,7 +58,7 @@ class StandaloneMockTest(unittest.TestCase):
                 "pick_no": 1,
                 "round": 1,
                 "draft_slot": 1,
-                "roster_id": 1,
+                "roster_id": None,
                 "picked_by": "cpu",
                 "player_id": "p1",
                 "metadata": {"position": "WR"},
@@ -66,6 +70,19 @@ class StandaloneMockTest(unittest.TestCase):
             )
             self.assertEqual(refreshed["completed_picks"], 1)
             self.assertEqual(refreshed["user_roster_id"], 2)
+            self.assertIsNone(responses["draft/mock/picks"][0]["roster_id"])
+
+            calls = []
+            sync = lambda path: (calls.append(path), fetch(path))[1]
+            sync_sleeper_draft(
+                "mock",
+                standalone=True,
+                fetch_json=sync,
+                cache_dir=directory,
+                player_ids=("p1", "p2", "p3", "p4"),
+                refresh_metadata=False,
+            )
+            self.assertEqual(calls, ["draft/mock/picks"])
 
             cache_path = Path(refreshed["cache_path"])
             before = cache_path.read_bytes()

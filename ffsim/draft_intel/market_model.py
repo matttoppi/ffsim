@@ -150,7 +150,13 @@ def sleeper_adp_choice(snapshot):
 
     def choose(roster_id, pick_no, rosters, available):
         del roster_id, pick_no, rosters
-        utilities = {player_id: board[player_id] for player_id in available if player_id in board}
+        # Iterate the small ADP board, not the full availability pool: the
+        # pool holds every cached Sleeper player and dominates rollout time.
+        utilities = {
+            player_id: utility
+            for player_id, utility in board.items()
+            if player_id in available
+        }
         if not utilities:
             raise ValueError("Sleeper ADP board has no remaining available players")
         return utilities

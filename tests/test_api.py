@@ -1,5 +1,7 @@
 import json
 import tempfile
+import time
+from threading import Event, Thread
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -312,11 +314,13 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(state.draft_preparation["error"], "wrong mock")
 
     def test_live_monitor_recovers_from_a_transient_sync_failure(self):
-        prepared = SimpleNamespace(live_draft_id="mock")
+        prepared = SimpleNamespace(live_draft_id="mock", user_roster_id=1)
         state = SimpleNamespace(
             status="complete",
             completed_picks=(),
+            current_pick_no=None,
             current_roster_id=None,
+            pick_owners=(),
         )
         monitor = LiveDraftMonitor(prepared, 0, 2, 2)
         with (
@@ -332,6 +336,260 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(monitor.status, "completed")
         self.assertEqual(monitor.sync_count, 1)
         self.assertIsNone(monitor.error)
+
+    def test_live_monitor_syncs_while_a_stale_recommendation_is_calculating(self):
+        prepared = SimpleNamespace(live_draft_id="mock", user_roster_id=1)
+        calculating = Event()
+        release = Event()
+        on_clock = SimpleNamespace(
+            status="drafting",
+            completed_picks=(),
+            current_pick_no=1,
+            current_roster_id=1,
+            pick_owners=(1,),
+        )
+        complete = SimpleNamespace(
+            status="complete",
+            completed_picks=(object(),),
+            current_pick_no=None,
+            current_roster_id=None,
+            pick_owners=(1,),
+        )
+        calls = 0
+
+        def sync(_prepared, **_kwargs):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                return SimpleNamespace(state=on_clock)
+            self.assertTrue(calculating.wait(5))
+            return SimpleNamespace(state=complete)
+
+        def calculate(*_args):
+            calculating.set()
+            release.wait(5)
+            return {"pick": 1}
+
+        monitor = LiveDraftMonitor(prepared, 0, 2, 2)
+        try:
+            with (
+                patch("ffsim.draft_intel.live.sync_prepared_draft", side_effect=sync),
+                patch(
+                    "ffsim.draft_intel.live.calculate_live_recommendation",
+                    side_effect=calculate,
+                ),
+                patch(
+                    "ffsim.draft_intel.live.live_state_summary",
+                    side_effect=lambda _prepared, state: {"status": state.status},
+                ),
+            ):
+                monitor.run()
+        finally:
+            release.set()
+
+        self.assertEqual(monitor.status, "completed")
+        self.assertEqual(monitor.sync_count, 2)
+        self.assertEqual(monitor.state, {"status": "complete"})
+        self.assertIsNone(monitor.recommendation)
+        self.assertEqual(monitor.calculation_count, 0)
+
+    def test_rapid_picks_coalesce_to_the_newest_calculation_state(self):
+        prepared = SimpleNamespace(live_draft_id="mock", user_roster_id=1)
+        monitor = LiveDraftMonitor(prepared, 0, 2, 2)
+        states = [
+            SimpleNamespace(
+                status="drafting",
+                completed_picks=(object(),) * picks,
+                current_pick_no=picks + 1,
+                current_roster_id=1,
+                pick_owners=(1, 1, 1),
+            )
+            for picks in range(3)
+        ]
+        first_calculating = Event()
+        release_first = Event()
+        calculated = []
+
+        def calculate(_prepared, state, *_args):
+            calculated.append(state)
+            if len(calculated) == 1:
+                first_calculating.set()
+                self.assertTrue(release_first.wait(5))
+            return {"pick": state.current_pick_no}
+
+        def sync(_prepared, **_kwargs):
+            call = sync.calls = getattr(sync, "calls", 0) + 1
+            if call == 1:
+                return SimpleNamespace(state=states[0])
+            if call == 2:
+                self.assertTrue(first_calculating.wait(5))
+                return SimpleNamespace(state=states[1])
+            if call == 3:
+                return SimpleNamespace(state=states[2])
+            if call == 4:
+                release_first.set()
+                deadline = time.time() + 5
+                while (
+                    monitor.snapshot()["recommendation_status"] != "ready"
+                    and time.time() < deadline
+                ):
+                    time.sleep(0.001)
+                monitor.stopped.set()
+            return SimpleNamespace(state=states[2])
+
+        with (
+            patch("ffsim.draft_intel.live.sync_prepared_draft", side_effect=sync),
+            patch(
+                "ffsim.draft_intel.live.calculate_live_recommendation",
+                side_effect=calculate,
+            ),
+            patch(
+                "ffsim.draft_intel.live.live_state_summary",
+                side_effect=lambda _prepared, state: {"pick": state.current_pick_no},
+            ),
+        ):
+            monitor.run()
+
+        self.assertEqual(monitor.status, "stopped")
+        self.assertEqual(calculated, [states[0], states[2]])
+        self.assertEqual(monitor.recommendation, {"pick": 3})
+        self.assertEqual(monitor.recommendation_status, "ready")
+        self.assertEqual(monitor.recommendation_pick_no, 3)
+        self.assertIsNone(monitor.recommendation_discarded_pick_no)
+        self.assertEqual(monitor.calculation_count, 1)
+
+    def test_calculation_publishes_a_preliminary_pass_then_refines(self):
+        prepared = SimpleNamespace(live_draft_id="mock", user_roster_id=1)
+        monitor = LiveDraftMonitor(prepared, 0, 50, 5)
+        state = SimpleNamespace(
+            status="drafting",
+            completed_picks=(),
+            current_pick_no=1,
+            current_roster_id=1,
+            pick_owners=(1,),
+        )
+        monitor.pending_state = state
+        monitor.state_fingerprint = ("drafting", 0, 1, (1,))
+        monitor.calculation_event.set()
+        observed = []
+
+        def calculate(_prepared, _state, rollout_count, _candidates):
+            observed.append(
+                (rollout_count, monitor.recommendation, monitor.recommendation_status)
+            )
+            return {"rollout_count": rollout_count}
+
+        worker = Thread(target=monitor.calculate, args=(calculate,))
+        worker.start()
+        deadline = time.time() + 5
+        while (
+            monitor.snapshot()["recommendation_status"] != "ready"
+            and time.time() < deadline
+        ):
+            time.sleep(0.001)
+        monitor.stop()
+        worker.join(5)
+
+        self.assertEqual(observed, [
+            (12, None, "calculating"),
+            (50, {"rollout_count": 12}, "calculating"),
+        ])
+        self.assertEqual(monitor.recommendation, {"rollout_count": 50})
+        self.assertEqual(monitor.recommendation_status, "ready")
+        self.assertEqual(monitor.calculation_count, 1)
+
+    def test_refinement_is_abandoned_when_the_draft_advances(self):
+        prepared = SimpleNamespace(live_draft_id="mock", user_roster_id=1)
+        monitor = LiveDraftMonitor(prepared, 0, 50, 5)
+        state = SimpleNamespace(
+            status="drafting",
+            completed_picks=(),
+            current_pick_no=1,
+            current_roster_id=1,
+            pick_owners=(1,),
+        )
+        monitor.pending_state = state
+        monitor.state_fingerprint = ("drafting", 0, 1, (1,))
+        monitor.calculation_event.set()
+        passes = []
+
+        def calculate(_prepared, _state, rollout_count, _candidates):
+            passes.append(rollout_count)
+            with monitor.lock:
+                monitor.state_fingerprint = ("drafting", 1, 2, (1,))
+            return {"rollout_count": rollout_count}
+
+        worker = Thread(target=monitor.calculate, args=(calculate,))
+        worker.start()
+        deadline = time.time() + 5
+        while (
+            monitor.snapshot()["recommendation_discarded_pick_no"] is None
+            and time.time() < deadline
+        ):
+            time.sleep(0.001)
+        monitor.stop()
+        worker.join(5)
+
+        self.assertEqual(passes, [12])
+        self.assertIsNone(monitor.recommendation)
+        self.assertEqual(monitor.recommendation_discarded_pick_no, 1)
+        self.assertEqual(monitor.calculation_count, 0)
+
+    def test_a_result_for_an_advanced_draft_is_marked_discarded(self):
+        prepared = SimpleNamespace(live_draft_id="mock", user_roster_id=1)
+        monitor = LiveDraftMonitor(prepared, 0, 2, 2)
+        monitor.pending_state = SimpleNamespace(
+            status="drafting",
+            completed_picks=(),
+            current_pick_no=1,
+            current_roster_id=1,
+            pick_owners=(1,),
+        )
+        monitor.state_fingerprint = ("drafting", 1, 2, (1,))
+        monitor.calculation_event.set()
+        calls = []
+
+        def calculate(*args):
+            calls.append(args)
+            return {"pick": 1}
+
+        worker = Thread(target=monitor.calculate, args=(calculate,))
+        worker.start()
+        deadline = time.time() + 5
+        while (
+            monitor.snapshot()["recommendation_discarded_pick_no"] is None
+            and time.time() < deadline
+        ):
+            time.sleep(0.001)
+        monitor.stop()
+        worker.join(5)
+
+        self.assertEqual(calls, [])
+        self.assertIsNone(monitor.recommendation)
+        self.assertEqual(monitor.recommendation_discarded_pick_no, 1)
+        self.assertEqual(monitor.calculation_count, 0)
+
+    def test_a_full_pick_sheet_completes_despite_stale_draft_metadata(self):
+        prepared = SimpleNamespace(live_draft_id="mock", user_roster_id=1)
+        state = SimpleNamespace(
+            status="drafting",
+            completed_picks=(object(),) * 4,
+            current_pick_no=None,
+            current_roster_id=None,
+            pick_owners=(1,) * 4,
+        )
+        monitor = LiveDraftMonitor(prepared, 0, 2, 2)
+        with (
+            patch(
+                "ffsim.draft_intel.live.sync_prepared_draft",
+                return_value=SimpleNamespace(state=state),
+            ),
+            patch("ffsim.draft_intel.live.calculate_live_recommendation"),
+            patch("ffsim.draft_intel.live.live_state_summary", return_value={}),
+        ):
+            monitor.run()
+        self.assertEqual(monitor.status, "completed")
+
 
 if __name__ == "__main__":
     unittest.main()

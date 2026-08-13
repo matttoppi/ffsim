@@ -184,10 +184,24 @@ export interface DraftMonitor {
   sync_count?: number
   calculation_count?: number
   last_sync_at?: number | null
+  recommendation_status?: 'idle' | 'pending' | 'calculating' | 'ready' | 'failed'
+  recommendation_pick_no?: number | null
+  recommendation_error?: string | null
+  recommendation_discarded_pick_no?: number | null
   error?: string | null
   state?: {
     draft_status: string
     completed_picks: number
+    recent_picks?: Array<{
+      pick_no: number
+      round: number
+      draft_slot: number
+      roster_id: number | null
+      player_id: string
+      name: string
+      position: string | null
+      team: string | null
+    }>
     current_pick_no: number | null
     current_roster_id: number | null
     user_roster_id: number | null
@@ -199,6 +213,7 @@ export interface DraftMonitor {
     model_status: string
     rollout_count: number
     joint_outcome_count: number
+    pick_no?: number | null
     candidates: Array<{
       player_id: string
       name: string

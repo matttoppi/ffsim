@@ -49,10 +49,12 @@ traded-pick overrides. Auction drafts expose completed winning rosters and bid
 amounts, but not a predetermined future winning roster; retain that owner as
 unknown rather than inventing snake-like geometry.
 
-Use each completed pick's `roster_id` as the authoritative owning team.
-Preserve `picked_by` as actor metadata only: co-managed teams can produce a
-picker whose own draft-order identity does not match the roster receiving the
-player.
+Use each completed league-draft pick's `roster_id` as the authoritative owning
+team. Sleeper league-created standalone snake/linear mocks can return null
+`roster_id` values; preserve that raw payload and derive replay ownership from
+the fixed `draft_slot` plus traded-pick overrides. Preserve `picked_by` as actor
+metadata only: co-managed teams can produce a picker whose own draft-order
+identity does not match the roster receiving the player.
 
 On every poll:
 
@@ -68,6 +70,26 @@ On every poll:
 10. Trigger or refine speculative candidate evaluation.
 
 If multiple picks arrive between polls, replay them in exact order.
+
+Normal live polling issues one picks request per interval (default one
+second) and re-fetches draft metadata and traded picks only every fifteenth
+poll and at monitor start, reusing the cached payloads otherwise. That is
+roughly 68 requests per minute at the default cadence, far below Sleeper's
+documented guidance to stay under 1,000 API calls per minute (checked
+2026-08-13). Completion is detected from a full pick sheet as well as the
+draft status so a stale cached metadata payload cannot leave the monitor
+stuck. State publication must never wait for recommendation calculation:
+the monitor publishes the reconciled state immediately after every poll,
+queues at most one pending calculation for the newest state (and only when
+the user is on the clock), and discards any finished result whose draft-state
+fingerprint no longer matches. The worker publishes a quick preliminary pass
+(12 rollouts) before the full rollout budget; rollout IDs are deterministic
+prefixes, so the refined pass supersedes the preliminary one exactly, and
+refinement is abandoned between passes if the draft advances. A sync failure
+of any kind is retried on the next poll with a forced metadata refresh so a
+mid-draft traded pick or transient bad payload heals itself. Every published
+recommendation carries the pick number it was computed for, and the UI must
+refuse to display it against any other current pick.
 
 ### 11.3 Live room adaptation
 

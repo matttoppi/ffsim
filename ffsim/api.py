@@ -23,6 +23,16 @@ from ffsim.runtime import create_simulation
 
 LOGGER = logging.getLogger(__name__)
 TERMINAL_STATUSES = {"completed", "failed"}
+PRELIMINARY_ROLLOUT_COUNT = 12
+
+
+def _state_fingerprint(state):
+    return (
+        state.status,
+        len(state.completed_picks),
+        state.current_roster_id,
+        tuple(state.pick_owners),
+    )
 
 
 class LeagueRequest(BaseModel):
@@ -64,7 +74,7 @@ class DraftPrepareRequest(BaseModel):
 
 
 class DraftMonitorRequest(BaseModel):
-    poll_seconds: float = Field(default=2.0, ge=0.5, le=30)
+    poll_seconds: float = Field(default=1.0, ge=0.5, le=30)
     rollout_count: int = Field(default=50, ge=2, le=500)
     candidate_count: int = Field(default=5, ge=2, le=12)
 
@@ -175,12 +185,19 @@ class LiveDraftMonitor:
     status: str = "starting"
     state: dict | None = None
     recommendation: dict | None = None
+    recommendation_status: str = "idle"
+    recommendation_pick_no: int | None = None
+    recommendation_error: str | None = None
+    recommendation_discarded_pick_no: int | None = None
     error: str | None = None
     sync_count: int = 0
     calculation_count: int = 0
     last_sync_at: float | None = None
     lock: Lock = field(default_factory=Lock, repr=False)
     stopped: Event = field(default_factory=Event, repr=False)
+    calculation_event: Event = field(default_factory=Event, repr=False)
+    pending_state: object | None = field(default=None, repr=False)
+    state_fingerprint: tuple | None = field(default=None, repr=False)
 
     def snapshot(self):
         with self.lock:
@@ -193,8 +210,71 @@ class LiveDraftMonitor:
                 "last_sync_at": self.last_sync_at,
                 "state": self.state,
                 "recommendation": self.recommendation,
+                "recommendation_status": self.recommendation_status,
+                "recommendation_pick_no": self.recommendation_pick_no,
+                "recommendation_error": self.recommendation_error,
+                "recommendation_discarded_pick_no": self.recommendation_discarded_pick_no,
                 "error": self.error,
             }
+
+    def calculate(self, calculate_live_recommendation):
+        while not self.stopped.is_set():
+            self.calculation_event.wait()
+            self.calculation_event.clear()
+            if self.stopped.is_set():
+                return
+            with self.lock:
+                state = self.pending_state
+                self.pending_state = None
+                if state is None:
+                    continue
+                fingerprint = _state_fingerprint(state)
+                pick_no = state.current_pick_no
+                self.recommendation_status = "calculating"
+                self.recommendation_discarded_pick_no = None
+            # Publish a quick preliminary pass, then refine with the full
+            # rollout budget. Rollout IDs are deterministic prefixes, so the
+            # refined pass supersedes the preliminary one exactly.
+            for rollout_count in dict.fromkeys(
+                (min(PRELIMINARY_ROLLOUT_COUNT, self.rollout_count), self.rollout_count)
+            ):
+                with self.lock:
+                    if self.state_fingerprint != fingerprint or self.stopped.is_set():
+                        # ponytail: no hard thread cancel; obsolete work is
+                        # abandoned between passes and stale results discarded.
+                        self.recommendation_discarded_pick_no = pick_no
+                        break
+                try:
+                    recommendation = calculate_live_recommendation(
+                        self.prepared,
+                        state,
+                        rollout_count,
+                        self.candidate_count,
+                    )
+                except Exception as error:
+                    LOGGER.exception(
+                        "Live draft recommendation failed for %s",
+                        self.prepared.live_draft_id,
+                    )
+                    with self.lock:
+                        if self.state_fingerprint == fingerprint:
+                            self.recommendation_status = "failed"
+                            self.recommendation_error = str(error)
+                        else:
+                            self.recommendation_discarded_pick_no = pick_no
+                    break
+                final = rollout_count == self.rollout_count
+                with self.lock:
+                    if self.state_fingerprint != fingerprint or self.stopped.is_set():
+                        self.recommendation_discarded_pick_no = pick_no
+                        break
+                    self.recommendation = recommendation
+                    self.recommendation_status = (
+                        ("ready" if final else "calculating")
+                        if recommendation
+                        else "idle"
+                    )
+                    self.calculation_count += int(final and recommendation is not None)
 
     def run(self):
         from ffsim.draft_intel.live import (
@@ -203,43 +283,57 @@ class LiveDraftMonitor:
             sync_prepared_draft,
         )
 
-        fingerprint = None
+        Thread(
+            target=self.calculate,
+            args=(calculate_live_recommendation,),
+            daemon=True,
+        ).start()
         try:
             with self.lock:
                 self.status = "running"
+            refresh_metadata = True
             while not self.stopped.is_set():
                 try:
-                    sync = sync_prepared_draft(self.prepared)
-                except OSError as error:
+                    # One picks request per poll; draft metadata and traded
+                    # picks refresh every 15th poll (~15s at the 1s default),
+                    # far below Sleeper's documented 1000 calls/minute, plus
+                    # on the first poll and after any failure so a mid-draft
+                    # trade or transient bad payload heals on the next poll.
+                    sync = sync_prepared_draft(
+                        self.prepared,
+                        refresh_metadata=refresh_metadata
+                        or self.sync_count % 15 == 0,
+                    )
+                except (OSError, ValueError, KeyError) as error:
+                    refresh_metadata = True
                     with self.lock:
                         self.error = str(error)
                     self.stopped.wait(self.poll_seconds)
                     continue
+                refresh_metadata = False
                 state = sync.state
-                current = (
-                    state.status,
-                    len(state.completed_picks),
-                    state.current_roster_id,
-                )
-                recommendation = self.recommendation
-                calculated = False
-                if current != fingerprint:
-                    recommendation = calculate_live_recommendation(
-                        self.prepared,
-                        state,
-                        self.rollout_count,
-                        self.candidate_count,
-                    )
-                    calculated = recommendation is not None
-                    fingerprint = current
+                current = _state_fingerprint(state)
                 with self.lock:
                     self.state = live_state_summary(self.prepared, state)
-                    self.recommendation = recommendation
                     self.sync_count += 1
-                    self.calculation_count += int(calculated)
                     self.last_sync_at = time.time()
                     self.error = None
-                    if state.status == "complete":
+                    if current != self.state_fingerprint:
+                        self.state_fingerprint = current
+                        self.recommendation = None
+                        self.recommendation_status = "idle"
+                        self.recommendation_pick_no = None
+                        self.recommendation_error = None
+                        self.recommendation_discarded_pick_no = None
+                        self.pending_state = None
+                        if state.current_roster_id == self.prepared.user_roster_id:
+                            self.pending_state = state
+                            self.recommendation_status = "pending"
+                            self.recommendation_pick_no = state.current_pick_no
+                            self.calculation_event.set()
+                    # A full pick sheet ends the draft even while the cached
+                    # metadata payload still reports a stale "drafting" status.
+                    if state.status == "complete" or state.current_pick_no is None:
                         self.status = "completed"
                         return
                 self.stopped.wait(self.poll_seconds)
@@ -251,9 +345,13 @@ class LiveDraftMonitor:
             with self.lock:
                 self.status = "failed"
                 self.error = str(error)
+        finally:
+            self.stopped.set()
+            self.calculation_event.set()
 
     def stop(self):
         self.stopped.set()
+        self.calculation_event.set()
 
 
 def _run_job(job, base_config):

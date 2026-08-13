@@ -8,11 +8,65 @@ from ffsim.draft_intel.live import (
     _draft_id,
     _manager_slot,
     _refresh_history,
+    live_state_summary,
     mock_mismatch_reasons,
 )
+from ffsim.draft_intel.state import DraftPick
 
 
 class LiveDraftTest(unittest.TestCase):
+    def test_live_state_summary_includes_the_full_pick_feed(self):
+        prepared = SimpleNamespace(
+            user_roster_id=None,
+            player_details={
+                "p1": {"name": "Alpha One", "position": "WR", "team": "BUF"},
+            },
+        )
+        picks = tuple(
+            DraftPick(
+                pick_no=pick_no,
+                round=1,
+                draft_slot=pick_no,
+                roster_id=pick_no,
+                picked_by=None,
+                player_id=f"p{pick_no}",
+                position="RB" if pick_no == 2 else None,
+                price=None,
+            )
+            for pick_no in (1, 2)
+        )
+        state = SimpleNamespace(
+            draft_id="draft",
+            status="drafting",
+            completed_picks=picks,
+            current_pick_no=3,
+            current_roster_id=3,
+        )
+        summary = live_state_summary(prepared, state)
+        self.assertEqual(summary["completed_picks"], 2)
+        self.assertEqual(summary["recent_picks"], [
+            {
+                "pick_no": 1,
+                "round": 1,
+                "draft_slot": 1,
+                "roster_id": 1,
+                "player_id": "p1",
+                "name": "Alpha One",
+                "position": "WR",
+                "team": "BUF",
+            },
+            {
+                "pick_no": 2,
+                "round": 1,
+                "draft_slot": 2,
+                "roster_id": 2,
+                "player_id": "p2",
+                "name": "p2",
+                "position": "RB",
+                "team": None,
+            },
+        ])
+
     def test_draft_url_and_id_inputs(self):
         self.assertEqual(_draft_id(" 1393634461312106496 ", "Mock"), "1393634461312106496")
         self.assertEqual(

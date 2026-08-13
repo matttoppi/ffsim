@@ -267,21 +267,37 @@ def prepare_draft(
     )
 
 
-def sync_prepared_draft(prepared):
+def sync_prepared_draft(prepared, *, refresh_metadata=True):
     return sync_sleeper_draft(
         prepared.live_draft_id,
         league_id=prepared.league_id,
         standalone=prepared.standalone,
+        refresh_metadata=refresh_metadata,
     )
 
 
 def live_state_summary(prepared, state):
     user_roster_id = prepared.user_roster_id
     turn = state.turn_for(user_roster_id) if user_roster_id is not None else None
+    details = prepared.player_details
     return {
         "draft_id": state.draft_id,
         "draft_status": state.status,
         "completed_picks": len(state.completed_picks),
+        "recent_picks": [
+            {
+                "pick_no": pick.pick_no,
+                "round": pick.round,
+                "draft_slot": pick.draft_slot,
+                "roster_id": pick.roster_id,
+                "player_id": pick.player_id,
+                "name": details.get(pick.player_id, {}).get("name", pick.player_id),
+                "position": pick.position
+                or details.get(pick.player_id, {}).get("position"),
+                "team": details.get(pick.player_id, {}).get("team"),
+            }
+            for pick in state.completed_picks
+        ],
         "current_pick_no": state.current_pick_no,
         "current_roster_id": state.current_roster_id,
         "user_roster_id": user_roster_id,
@@ -352,6 +368,7 @@ def calculate_live_recommendation(prepared, state, rollout_count=50, candidate_c
         for candidate in ranked
     ]
     recommendation["model_status"] = "uncalibrated_sleeper_adp_baseline"
+    recommendation["pick_no"] = state.current_pick_no
     return recommendation
 
 
@@ -435,6 +452,7 @@ def _player_details(path):
         str(player_id): {
             "name": player.get("full_name") or player.get("first_name") or str(player_id),
             "position": player.get("position"),
+            "team": player.get("team"),
         }
         for player_id, player in players.items()
     }
