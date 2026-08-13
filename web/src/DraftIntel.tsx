@@ -109,12 +109,20 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
           placeholder="Required"
         />
         <label htmlFor="mock-draft-id">Sleeper mock draft URL</label>
-        <input
-          id="mock-draft-id"
-          value={mockDraftId}
-          onChange={(event) => setMockDraftId(event.target.value)}
-          placeholder="https://sleeper.app/draft/nfl/…"
-        />
+        <div className="draft-input-with-action">
+          <input
+            id="mock-draft-id"
+            value={mockDraftId}
+            onChange={(event) => setMockDraftId(event.target.value)}
+            onFocus={(event) => event.currentTarget.select()}
+            placeholder="https://sleeper.app/draft/nfl/…"
+          />
+          {mockDraftId && (
+            <button type="button" className="button-ghost" onClick={() => setMockDraftId('')}>
+              Clear
+            </button>
+          )}
+        </div>
         <p className="field-help">
           Optional: in the Sleeper mobile app, open the real pre-draft league and
           choose its Mock Draft action, then copy that mock URL. A generic Draftboard

@@ -75,6 +75,7 @@ function Ticker({
 
 export default function App() {
   const { live, results, startError, connection, start, busy } = useSimulation()
+  const [activeTab, setActiveTab] = useState<'draft' | 'season'>('draft')
   const [serverUp, setServerUp] = useState<boolean | null>(null)
   const [league, setLeague] = useState<LeagueInfo | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -142,13 +143,15 @@ export default function App() {
           <h1 className="wordmark">{league?.name ?? 'Pick a league'}</h1>
         </div>
         <div className="masthead-actions">
-          <p className={`status-chip status-${live.phase}`} role="status">
-            <span
-              className={`status-dot${connection === 'reconnecting' ? ' is-reconnecting' : ''}`}
-              aria-hidden="true"
-            />
-            {connection === 'reconnecting' ? 'Reconnecting…' : phaseLabel}
-          </p>
+          {activeTab === 'season' && (
+            <p className={`status-chip status-${live.phase}`} role="status">
+              <span
+                className={`status-dot${connection === 'reconnecting' ? ' is-reconnecting' : ''}`}
+                aria-hidden="true"
+              />
+              {connection === 'reconnecting' ? 'Reconnecting…' : phaseLabel}
+            </p>
+          )}
           {league?.ready && !showPicker && (
             <button
               type="button"
@@ -162,6 +165,31 @@ export default function App() {
         </div>
       </header>
 
+      <nav className="app-tabs" aria-label="FFSim tools" role="tablist">
+        <button
+          id="draft-intelligence-tab"
+          type="button"
+          className="app-tab"
+          role="tab"
+          aria-controls="draft-intelligence-panel"
+          aria-selected={activeTab === 'draft'}
+          onClick={() => setActiveTab('draft')}
+        >
+          Draft intelligence
+        </button>
+        <button
+          id="season-simulator-tab"
+          type="button"
+          className="app-tab"
+          role="tab"
+          aria-controls="season-simulator-panel"
+          aria-selected={activeTab === 'season'}
+          onClick={() => setActiveTab('season')}
+        >
+          Season simulator
+        </button>
+      </nav>
+
       {serverUp === false && (
         <div className="banner banner-error" role="alert">
           <p>
@@ -173,20 +201,6 @@ export default function App() {
           </button>
         </div>
       )}
-      {errorMessage && (
-        <div className="banner banner-error" role="alert">
-          <p>{errorMessage}</p>
-        </div>
-      )}
-      {live.phase === 'completed' && snapshot && (
-        <div className="banner banner-final" role="status">
-          <p>
-            Final: {snapshot.completed.toLocaleString()} seasons simulated in{' '}
-            {formatElapsed(snapshot.elapsed_seconds)}.
-          </p>
-        </div>
-      )}
-
       {showPicker && (
         <LeaguePicker
           currentId={league?.league_id ?? null}
@@ -199,90 +213,117 @@ export default function App() {
         />
       )}
 
-      <DraftIntel currentDraftId={league?.draft_id ?? null} />
+      <div
+        id="draft-intelligence-panel"
+        role="tabpanel"
+        aria-labelledby="draft-intelligence-tab"
+        hidden={activeTab !== 'draft'}
+      >
+        <DraftIntel currentDraftId={league?.draft_id ?? null} />
+      </div>
 
-      <div className="layout">
-        <form className="panel controls" onSubmit={onSubmit} aria-label="Simulation settings">
-          <h2 className="panel-title">Run setup</h2>
-          <label htmlFor="simulations">Simulations</label>
-          <input
-            id="simulations"
-            type="number"
-            inputMode="numeric"
-            min={1}
-            max={10000}
-            required
-            value={form.simulations}
-            onChange={(e) => setForm({ ...form, simulations: e.target.value })}
-          />
-          <label htmlFor="seed">Seed</label>
-          <input
-            id="seed"
-            type="number"
-            inputMode="numeric"
-            required
-            value={form.seed}
-            onChange={(e) => setForm({ ...form, seed: e.target.value })}
-          />
-          <label htmlFor="workers">Workers</label>
-          <input
-            id="workers"
-            type="number"
-            inputMode="numeric"
-            min={1}
-            max={32}
-            required
-            value={form.workers}
-            onChange={(e) => setForm({ ...form, workers: e.target.value })}
-          />
-          <label className="check">
-            <input
-              type="checkbox"
-              checked={form.teamsOnly}
-              onChange={(e) => setForm({ ...form, teamsOnly: e.target.checked })}
-            />
-            Teams only (skip player tracking)
-          </label>
-          {formError && (
-            <p className="form-error" role="alert">
-              {formError}
+      <div
+        id="season-simulator-panel"
+        role="tabpanel"
+        aria-labelledby="season-simulator-tab"
+        hidden={activeTab !== 'season'}
+      >
+        {errorMessage && (
+          <div className="banner banner-error" role="alert">
+            <p>{errorMessage}</p>
+          </div>
+        )}
+        {live.phase === 'completed' && snapshot && (
+          <div className="banner banner-final" role="status">
+            <p>
+              Final: {snapshot.completed.toLocaleString()} seasons simulated in{' '}
+              {formatElapsed(snapshot.elapsed_seconds)}.
             </p>
-          )}
-          <button
-            type="submit"
-            className="button-run"
-            disabled={busy || !league?.ready || showPicker}
-          >
-            {busy ? 'Running…' : live.phase === 'idle' ? 'Run simulation' : 'Run again'}
-          </button>
-          {!league?.ready && serverUp && (
-            <p className="controls-hint">Pick a league above to unlock the sim.</p>
-          )}
-          {live.lastResult && live.phase === 'running' && (
-            <aside className="spotlight" aria-label="Latest champion">
-              <span className="spotlight-label">Last crowned</span>
-              <span className="spotlight-team" key={snapshot?.completed}>
-                {live.lastResult.champion}
-              </span>
-            </aside>
-          )}
-        </form>
-
-        <div className="stage">
-          {snapshot && (
-            <Ticker
-              completed={snapshot.completed}
-              total={snapshot.total}
-              perSecond={snapshot.simulations_per_second}
-              elapsed={snapshot.elapsed_seconds}
+          </div>
+        )}
+        <div className="layout">
+          <form className="panel controls" onSubmit={onSubmit} aria-label="Simulation settings">
+            <h2 className="panel-title">Run setup</h2>
+            <label htmlFor="simulations">Simulations</label>
+            <input
+              id="simulations"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={10000}
+              required
+              value={form.simulations}
+              onChange={(e) => setForm({ ...form, simulations: e.target.value })}
             />
-          )}
-          <RaceBoard
-            snapshot={snapshot}
-            lastResult={live.lastResult}
-            completed={live.phase === 'completed'}
-          />
-          {results && <Standings results={results} />}
+            <label htmlFor="seed">Seed</label>
+            <input
+              id="seed"
+              type="number"
+              inputMode="numeric"
+              required
+              value={form.seed}
+              onChange={(e) => setForm({ ...form, seed: e.target.value })}
+            />
+            <label htmlFor="workers">Workers</label>
+            <input
+              id="workers"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={32}
+              required
+              value={form.workers}
+              onChange={(e) => setForm({ ...form, workers: e.target.value })}
+            />
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={form.teamsOnly}
+                onChange={(e) => setForm({ ...form, teamsOnly: e.target.checked })}
+              />
+              Teams only (skip player tracking)
+            </label>
+            {formError && (
+              <p className="form-error" role="alert">
+                {formError}
+              </p>
+            )}
+            <button
+              type="submit"
+              className="button-run"
+              disabled={busy || !league?.ready || showPicker}
+            >
+              {busy ? 'Running…' : live.phase === 'idle' ? 'Run simulation' : 'Run again'}
+            </button>
+            {!league?.ready && serverUp && (
+              <p className="controls-hint">Pick a league above to unlock the sim.</p>
+            )}
+            {live.lastResult && live.phase === 'running' && (
+              <aside className="spotlight" aria-label="Latest champion">
+                <span className="spotlight-label">Last crowned</span>
+                <span className="spotlight-team" key={snapshot?.completed}>
+                  {live.lastResult.champion}
+                </span>
+              </aside>
+            )}
+          </form>
+
+          <div className="stage">
+            {snapshot && (
+              <Ticker
+                completed={snapshot.completed}
+                total={snapshot.total}
+                perSecond={snapshot.simulations_per_second}
+                elapsed={snapshot.elapsed_seconds}
+              />
+            )}
+            <RaceBoard
+              snapshot={snapshot}
+              lastResult={live.lastResult}
+              completed={live.phase === 'completed'}
+            />
+            {results && <Standings results={results} />}
+          </div>
         </div>
       </div>
     </div>

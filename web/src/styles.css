@@ -158,6 +158,30 @@ code {
   }
 }
 
+.app-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 16px;
+}
+
+.app-tab {
+  background: none;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  color: var(--dim);
+  cursor: pointer;
+  font: 600 1rem var(--display);
+  letter-spacing: 0.08em;
+  padding: 10px 14px;
+  text-transform: uppercase;
+}
+
+.app-tab[aria-selected='true'] {
+  border-bottom-color: var(--gold);
+  color: var(--gold);
+}
+
 /* Banners */
 
 .banner {
@@ -301,6 +325,15 @@ code {
   color: var(--chalk);
   font: inherit;
   padding: 8px 10px;
+}
+
+.draft-input-with-action {
+  display: flex;
+  gap: 8px;
+}
+
+.draft-input-with-action input {
+  flex: 1;
 }
 
 .draft-intel-form .button-run {

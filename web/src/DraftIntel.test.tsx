@@ -27,6 +27,11 @@ describe('DraftIntel', () => {
     fireEvent.change(screen.getByLabelText('Sleeper mock draft URL'), {
       target: { value: 'https://sleeper.app/draft/nfl/1393634461312106496' },
     })
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }))
+    expect(screen.getByLabelText<HTMLInputElement>('Sleeper mock draft URL').value).toBe('')
+    fireEvent.change(screen.getByLabelText('Sleeper mock draft URL'), {
+      target: { value: 'https://sleeper.app/draft/nfl/1393634461312106496' },
+    })
     fireEvent.change(screen.getByLabelText('Sleeper username'), {
       target: { value: 'mtoppi' },
     })

@@ -87,7 +87,7 @@ Read in this order:
 - [x] Keep `roster_id` authoritative for pick ownership and preserve `picked_by` only as actor metadata because co-managed teams can legitimately mismatch draft-order identity.
 - [x] Save league/draft attachments atomically and test discovery, selection, readiness, invalid drafts, and failed writes at the backend endpoint boundary.
 - [x] Attach standalone mocks by exact draft ID in an isolated cache and reject rewrites or removals of previously observed picks.
-- [x] Add one-click web preparation that resolves the real league from its draft ID, verifies the Sleeper user and optional league-created mock, refreshes players/history/stale ADP, and warms coupled season worlds.
+- [x] Add a dedicated Draft intelligence tab with one-click preparation that resolves the real league from its draft ID, verifies the Sleeper user and optional league-created mock, refreshes players/history/stale ADP, and warms coupled season worlds.
 - [x] Add one-active-session live monitoring that polls append-only draft state, retries transient source failures, and recalculates the uncalibrated baseline only when the user is on the clock.
 - [x] Attach real draft `1389391547115511809`: 12-team PPR snake, owner slot 1/roster 8, no keepers, and every attachment/replay/rollout/season capability supported.
 - [x] Score Sleeper's `fgm_50_59` setting from the modeled 50-plus bucket after subtracting modeled 60-plus makes.
