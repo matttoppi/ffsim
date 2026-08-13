@@ -4,11 +4,11 @@ This file is the current operational state of the project. Keep it short, factua
 
 ## Current status
 
-**Phase:** Phase 4 — Live draft state foundation
-**State:** Offline draft replay foundation hardened after checkpoint review
+**Phase:** Phase 6 foundation — `SeasonWorldBank` extraction
+**State:** League compatibility boundary complete; reusable correlated world generation started
 **Branch:** `feat/draft-intelligence`  
 **Implementation code changed:** Yes
-**Primary next action:** Define and test league-setting compatibility at the draft-to-season boundary, then begin the reusable `SeasonWorldBank` seam. Live polling/attachment and market-dependent opponent profiling remain owner-deferred.
+**Primary next action:** Add fixed-seed distribution/parity checks between `SeasonWorldBank` and the existing season path, then derive source versions and the full draftable player pool from cached inputs. Live polling/attachment and market-dependent opponent profiling remain owner-deferred.
 
 ## Project entrypoints
 
@@ -81,6 +81,16 @@ Read in this order:
 - [x] Add reproducible CI geometry cases for observed 10/12/14-team snake, third-round reversal, linear, and auction formats.
 - [x] Mark manager-profile heuristics descriptive-only and decision-ineligible until out-of-sample market-baseline calibration exists.
 - [x] Run frontend tests/build and ResourceWarning-clean Python tests in CI.
+- [x] Report attachment, draft replay, future rollout, and season-evaluation compatibility independently with precise downstream reason codes.
+- [x] Recognize 1QB, superflex, receiver flex, RB/WR flex, custom supported scoring, snake, and linear redrafts without collapsing raw settings.
+- [x] Keep auction, best-ball, IDP/taxi, unsupported scoring/playoff rules, keeper evidence, and inconsistent team counts attachable while failing unsupported downstream capabilities explicitly.
+
+## Phase 6 foundation started
+
+- [x] Separate correlated player/NFL world preparation from fantasy matchup, standings, and playoff evaluation without changing the existing `SimulationSeason` path.
+- [x] Add a versioned, deterministic, read-only `SeasonWorldBank` score/availability tensor for a caller-supplied draftable player pool.
+- [x] Preserve shared game, team, competition, projection, availability, scoring, scenario, and seed behavior in the extracted generator.
+- [x] Require explicit source-version identifiers so incompatible banks cannot silently share a version.
 
 ## Next tasks
 
@@ -123,7 +133,7 @@ Record results here after the first local audit.
 
 | Check | Status | Notes |
 |---|---|---|
-| Existing Python tests | Pass | 86 tests in 19.65s with `ResourceWarning` promoted to an error |
+| Existing Python tests | Pass | 91 tests with `ResourceWarning` promoted to an error |
 | Frontend tests/build | Pass | 28 Vitest tests; TypeScript/Vite production build passed and both now run in CI |
 | Current simulation benchmark | Pass | M5 Max single-worker baselines recorded below |
 | Sleeper live API smoke test | Pass | Verified 2026 league, draft, picks, traded picks, roster, and per-user history payloads |
@@ -189,8 +199,8 @@ External market adapters and attachment to the owner's live redraft are intentio
 
 ## Handoff note
 
-Phase 1 is complete. Phase 2 has append-only manual market snapshots. Phase 3 has market-independent manager profiles. Phase 4 now has exact attachment plus network-free replay/reconciliation for snake, linear, and auction redrafts. With owner live attachment deferred, next define the draft-to-season league-setting compatibility boundary and start `SeasonWorldBank`; do not calculate plausible-window passes or board adherence without time-local market evidence.
+Phase 1 is complete. Phase 2 has append-only manual market snapshots. Phase 3 has market-independent manager profiles. Phase 4 has exact attachment, explicit compatibility, and network-free replay/reconciliation for snake, linear, and auction redrafts. The Phase 6 foundation now generates reusable correlated player-week tensors independently of fantasy ownership. Next prove fixed-seed distribution parity and connect cache-derived source versions/full draftable players; do not calculate plausible-window passes or board adherence without time-local market evidence.
 
 ## Last updated
 
-2026-08-13 — Checkpoint review debt resolved: atomic attachment, endpoint coverage, manager attribution, reproducible geometry cases, profile quarantine, warning-clean tests, and frontend CI; full Python suite passes 86 tests.
+2026-08-13 — Added explicit league-setting capability reports and the first reusable, versioned `SeasonWorldBank` seam; full Python validation passes 91 tests.

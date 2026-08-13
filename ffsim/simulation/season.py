@@ -43,27 +43,115 @@ def refresh_matchups(league_id, weeks):
     path.write_text(json.dumps(matchups, indent=2) + "\n")
 
 
-class SimulationSeason:
-    def __init__(self, league, tracker, weeks=14, rng=None, scenario=None):
+class PlayerWorldGenerator:
+    """Generate correlated player-week inputs independently of fantasy rosters."""
+
+    def __init__(self, league, players, weeks, rng=None, scenario=None):
         self.league = league
-        self.tracker = tracker
-        self.weeks = weeks
+        self.players = tuple(players)
         self.rng = rng or np.random.default_rng()
         self.scenario = scenario or {}
         self.nfl_games, self.nfl_opponents = self._load_nfl_schedule()
         self.defense_matchups, self.average_defense = self._load_defense_matchups()
+        league.scoring_settings.compile_positions(self.players)
+        self.factor_groups = _competition_groups(self.players, league.scoring_settings)
+        self.week_contexts = {
+            week: tuple(self._player_week_context(player, week) for player in self.players)
+            for week in range(1, weeks + 1)
+        }
+
+    @staticmethod
+    @lru_cache(maxsize=1)
+    def _load_nfl_schedule():
+        path = DATA_DIR / "historical" / "nflverse" / "reference" / "games.csv"
+        games = pd.read_csv(path, usecols=["season", "game_type", "week", "away_team", "home_team"])
+        games = games[(games.season == 2026) & (games.game_type == "REG")]
+        game_ids = {
+            (int(row.week), team): f"{int(row.week)}:{row.away_team}:{row.home_team}"
+            for row in games.itertuples()
+            for team in (row.away_team, row.home_team)
+        }
+        opponents = {
+            (int(row.week), team): opponent
+            for row in games.itertuples()
+            for team, opponent in ((row.away_team, row.home_team), (row.home_team, row.away_team))
+        }
+        return game_ids, opponents
+
+    @staticmethod
+    @lru_cache(maxsize=1)
+    def _load_defense_matchups():
+        data = pd.read_csv(DATA_DIR / "projections" / "defense_matchups.csv")
+        if len(data) != 32 or data.team.nunique() != 32:
+            raise ValueError("Defense matchup data must contain exactly 32 unique teams")
+        grades = {
+            row.team: {
+                position: sum(getattr(row, field) * weight for field, weight in weights.items())
+                for position, weights in MATCHUP_WEIGHTS.items()
+            }
+            for row in data.itertuples()
+        }
+        averages = {
+            position: float(np.mean([team[position] for team in grades.values()]))
+            for position in MATCHUP_WEIGHTS
+        }
+        return grades, averages
+
+    def prepare_week_factors(self, week):
+        game_cv = self.scenario.get("game_environment_cv", 0.0)
+        team_cv = self.scenario.get("team_environment_cv", 0.0)
+        competition_cv = self.scenario.get("competition_cv", 0.0)
+        contexts = getattr(self, "week_contexts", {}).get(week)
+        if contexts is None:
+            players = tuple(player for team in self.league.rosters for player in team.players)
+            contexts = tuple(self._player_week_context(player, week) for player in players)
+        else:
+            players = self.players
+        for player, base_factor, _ in contexts:
+            player.week_factor = base_factor
+        if not any((game_cv, team_cv, competition_cv)):
+            return
+        game_factors, team_factors = {}, {}
+        for player, _, game in contexts:
+            if game_cv and game not in game_factors:
+                game_factors[game] = mean_preserving_lognormal(1, game_cv, self.rng)
+            if team_cv and player.team not in team_factors:
+                team_factors[player.team] = mean_preserving_lognormal(1, team_cv, self.rng)
+            player.week_factor *= game_factors.get(game, 1.0) * team_factors.get(player.team, 1.0)
+        if not competition_cv:
+            return
+        groups = getattr(self, "factor_groups", None)
+        if groups is None:
+            groups = _competition_groups(players, self.league.scoring_settings)
+        for group, weights, weight_total in groups:
+            sigma_log = math.sqrt(math.log(1 + competition_cv**2))
+            shocks = self.rng.lognormal(-0.5 * sigma_log**2, sigma_log, len(group))
+            normalizer = np.dot(shocks, weights) / weight_total if weight_total else 1.0
+            for player, shock in zip(group, shocks):
+                player.week_factor *= shock / normalizer
+
+    def _player_week_context(self, player, week):
+        opponent = self.nfl_opponents.get((week, player.team))
+        grade = self.defense_matchups.get(opponent, {}).get(player.position)
+        base_factor = (
+            min(1.08, max(0.92, 1 - 0.02 * (grade - self.average_defense[player.position])))
+            if grade is not None else 1.0
+        )
+        game = self.nfl_games.get((week, player.team), f"{week}:{player.team}")
+        return player, base_factor, game
+
+
+class SimulationSeason(PlayerWorldGenerator):
+    def __init__(self, league, tracker, weeks=14, rng=None, scenario=None):
+        players = tuple(player for team in league.rosters for player in team.players)
+        super().__init__(league, players, weeks + 3, rng, scenario)
+        self.tracker = tracker
+        self.weeks = weeks
         path = CACHE_DIR / f"matchups_{league.league_id}.json"
         if not path.exists():
             raise FileNotFoundError("Matchup cache is missing. Run `python -m ffsim refresh` first.")
         self.matchups = json.loads(path.read_text())
-        self.players = tuple(player for team in league.rosters for player in team.players)
-        league.scoring_settings.compile_positions(self.players)
         self.teams_by_roster_id = {team.roster_id: team for team in league.rosters}
-        self.factor_groups = _competition_groups(self.players, league.scoring_settings)
-        self.week_contexts = {
-            week: tuple(self._player_week_context(player, week) for player in self.players)
-            for week in range(1, weeks + 4)
-        }
         self.matchup_roster_pairs = {
             week: tuple(
                 (pair[0]["roster_id"], pair[1]["roster_id"])
@@ -184,86 +272,6 @@ class SimulationSeason:
         for matchup in matchups:
             matchup.simulate(self.league.scoring_settings, self.tracker)
         self._apply_median_game(matchups)
-
-    @staticmethod
-    @lru_cache(maxsize=1)
-    def _load_nfl_schedule():
-        path = DATA_DIR / "historical" / "nflverse" / "reference" / "games.csv"
-        games = pd.read_csv(path, usecols=["season", "game_type", "week", "away_team", "home_team"])
-        games = games[(games.season == 2026) & (games.game_type == "REG")]
-        game_ids = {
-            (int(row.week), team): f"{int(row.week)}:{row.away_team}:{row.home_team}"
-            for row in games.itertuples()
-            for team in (row.away_team, row.home_team)
-        }
-        opponents = {
-            (int(row.week), team): opponent
-            for row in games.itertuples()
-            for team, opponent in ((row.away_team, row.home_team), (row.home_team, row.away_team))
-        }
-        return game_ids, opponents
-
-    @staticmethod
-    @lru_cache(maxsize=1)
-    def _load_defense_matchups():
-        data = pd.read_csv(DATA_DIR / "projections" / "defense_matchups.csv")
-        if len(data) != 32 or data.team.nunique() != 32:
-            raise ValueError("Defense matchup data must contain exactly 32 unique teams")
-        grades = {
-            row.team: {
-                position: sum(getattr(row, field) * weight for field, weight in weights.items())
-                for position, weights in MATCHUP_WEIGHTS.items()
-            }
-            for row in data.itertuples()
-        }
-        averages = {
-            position: float(np.mean([team[position] for team in grades.values()]))
-            for position in MATCHUP_WEIGHTS
-        }
-        return grades, averages
-
-    def prepare_week_factors(self, week):
-        game_cv = self.scenario.get("game_environment_cv", 0.0)
-        team_cv = self.scenario.get("team_environment_cv", 0.0)
-        competition_cv = self.scenario.get("competition_cv", 0.0)
-        contexts = getattr(self, "week_contexts", {}).get(week)
-        if contexts is None:
-            players = tuple(player for team in self.league.rosters for player in team.players)
-            contexts = tuple(self._player_week_context(player, week) for player in players)
-        else:
-            players = self.players
-        for player, base_factor, _ in contexts:
-            player.week_factor = base_factor
-        if not any((game_cv, team_cv, competition_cv)):
-            return
-        game_factors, team_factors = {}, {}
-        for player, _, game in contexts:
-            if game_cv and game not in game_factors:
-                game_factors[game] = mean_preserving_lognormal(1, game_cv, self.rng)
-            if team_cv and player.team not in team_factors:
-                team_factors[player.team] = mean_preserving_lognormal(1, team_cv, self.rng)
-            player.week_factor *= game_factors.get(game, 1.0) * team_factors.get(player.team, 1.0)
-        if not competition_cv:
-            return
-        groups = getattr(self, "factor_groups", None)
-        if groups is None:
-            groups = _competition_groups(players, self.league.scoring_settings)
-        for group, weights, weight_total in groups:
-            sigma_log = math.sqrt(math.log(1 + competition_cv**2))
-            shocks = self.rng.lognormal(-0.5 * sigma_log**2, sigma_log, len(group))
-            normalizer = np.dot(shocks, weights) / weight_total if weight_total else 1.0
-            for player, shock in zip(group, shocks):
-                player.week_factor *= shock / normalizer
-
-    def _player_week_context(self, player, week):
-        opponent = self.nfl_opponents.get((week, player.team))
-        grade = self.defense_matchups.get(opponent, {}).get(player.position)
-        base_factor = (
-            min(1.08, max(0.92, 1 - 0.02 * (grade - self.average_defense[player.position])))
-            if grade is not None else 1.0
-        )
-        game = self.nfl_games.get((week, player.team), f"{week}:{player.team}")
-        return player, base_factor, game
 
     def _apply_median_game(self, matchups):
         if not self.league.league_average_match or not matchups:
