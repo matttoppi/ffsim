@@ -85,6 +85,7 @@ def complete_drafts(
         raise ValueError("Root candidates require at least two unique rollout IDs")
     if not callable(opponent_choice) or not callable(user_policy):
         raise TypeError("opponent_choice and user_policy must be callable")
+    seed = normalize_seed(seed)
     temperature = _temperature(temperature)
 
     return tuple(
@@ -95,7 +96,7 @@ def complete_drafts(
             rollout_id,
             opponent_choice,
             user_policy,
-            int(seed),
+            seed,
             temperature,
         )
         for rollout_id in rollout_ids
@@ -141,10 +142,12 @@ def summarize_survival(completions, player_ids=(), tiers=None):
             hazards[pick.player_id][pick.pick_no] += 1
             if pick.pick_no < horizon:
                 eliminated[pick.player_id] += 1
-                threats[pick.player_id][pick.roster_id] += 1
+                if not pick.user_pick:
+                    threats[pick.player_id][pick.roster_id] += 1
         selected_before.append(before)
     players = []
     for player_id in player_ids:
+        threat_total = sum(threats[player_id].values())
         players.append(PlayerSurvival(
             player_id=player_id,
             survives_to_next_pick=1 - eliminated[player_id] / count,
@@ -153,7 +156,7 @@ def summarize_survival(completions, player_ids=(), tiers=None):
                 for pick_no, occurrences in sorted(hazards[player_id].items())
             ),
             threat_share=tuple(
-                (roster_id, occurrences / eliminated[player_id])
+                (roster_id, occurrences / threat_total)
                 for roster_id, occurrences in sorted(threats[player_id].items())
             ),
         ))
@@ -188,6 +191,7 @@ def summarize_survival(completions, player_ids=(), tiers=None):
 
 def stable_gumbel(seed, rollout_id, pick_no, roster_id, player_id):
     """Return one deterministic Gumbel(0, 1) shock from stable identifiers."""
+    seed = normalize_seed(seed)
     payload = "\0".join(map(str, (seed, rollout_id, pick_no, roster_id, player_id)))
     integer = int.from_bytes(sha256(payload.encode()).digest()[:8], "big") >> 11
     uniform = (integer + 1) / (2**53 + 2)
@@ -244,11 +248,12 @@ def _complete_draft(
             probability = 1.0
         else:
             log_probabilities = dict(_log_probabilities(utilities, temperature))
-            player_id = max(
-                sorted(log_probabilities),
-                key=lambda candidate: log_probabilities[candidate] + stable_gumbel(
-                    seed, rollout_id, pick_no, roster_id, candidate
-                ),
+            player_id = _gumbel_choice(
+                log_probabilities,
+                seed,
+                rollout_id,
+                pick_no,
+                roster_id,
             )
             log_probability += log_probabilities[player_id]
             probability = math.exp(log_probabilities[player_id])
@@ -275,6 +280,21 @@ def _complete_draft(
         remaining_player_ids=frozenset(available),
         opponent_log_probability=log_probability,
     )
+
+
+def _gumbel_choice(log_probabilities, seed, rollout_id, pick_no, roster_id):
+    prefix = sha256(
+        ("\0".join(map(str, (seed, rollout_id, pick_no, roster_id))) + "\0").encode()
+    )
+
+    def score(player_id):
+        digest = prefix.copy()
+        digest.update(player_id.encode())
+        integer = int.from_bytes(digest.digest()[:8], "big") >> 11
+        uniform = (integer + 1) / (2**53 + 2)
+        return log_probabilities[player_id] - math.log(-math.log(uniform))
+
+    return max(sorted(log_probabilities), key=score)
 
 
 def _available_utilities(utilities, available, all_players):
@@ -324,12 +344,20 @@ def _canonical_ids(player_ids, field):
 
 
 def normalize_rollout_id(value):
+    return _nonnegative_integer(value, "rollout IDs")
+
+
+def normalize_seed(value):
+    return _nonnegative_integer(value, "seed")
+
+
+def _nonnegative_integer(value, field):
     try:
         value = index(value)
     except (TypeError, ValueError):
-        raise ValueError("rollout IDs must be non-negative integers") from None
+        raise ValueError(f"{field} must be a non-negative integer") from None
     if isinstance(value, bool) or value < 0:
-        raise ValueError("rollout IDs must be non-negative integers")
+        raise ValueError(f"{field} must be a non-negative integer")
     return value
 
 

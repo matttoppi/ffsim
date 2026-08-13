@@ -1,8 +1,14 @@
+from dataclasses import asdict
+import json
 import unittest
 
 import numpy as np
 
-from ffsim.draft_intel.decision import evaluate_candidates
+from ffsim.draft_intel.decision import (
+    coupled_world_indices,
+    evaluate_candidates,
+    recommendation_summary,
+)
 from ffsim.draft_intel.state import replay_sleeper_draft
 from ffsim.models.league import League
 from ffsim.simulation.evaluator import LeagueEvaluator
@@ -73,24 +79,44 @@ class DecisionEvaluationTest(unittest.TestCase):
             opponent_choice=market_utility,
             user_policy=market_utility,
             league_evaluator=league_evaluator,
+            draft_model_version="manual-test-v1",
             seed=19,
+            season_worlds_per_rollout=3,
+            survival_player_ids=("p2", "p3"),
+            tiers={"next": ("p2", "p3")},
         )
 
         best = result.candidate("p1")
         alternative = result.candidate("p2")
         self.assertEqual(result.rollout_ids, tuple(range(20)))
         self.assertEqual(len(result.world_indices), 20)
-        self.assertTrue(set(result.world_indices) <= set(range(5)))
-        self.assertEqual(best.sample_count, 20)
+        self.assertTrue(all(len(set(worlds)) == 3 for worlds in result.world_indices))
+        self.assertTrue(
+            {world for worlds in result.world_indices for world in worlds}
+            <= set(range(5))
+        )
+        self.assertEqual(best.sample_count, 60)
+        self.assertEqual(best.rollout_count, 20)
         self.assertEqual(best.championship_probability, 1)
         self.assertEqual(alternative.championship_probability, 0)
         self.assertEqual(best.playoff_probability, 1)
         self.assertTrue(all(value <= 0 for value in best.continuation_log_probabilities))
+        self.assertEqual(best.survival.rollout_count, 20)
 
         delta = result.paired_delta("p1", "p2")
         self.assertEqual(delta.championship_probability_delta, 1)
         self.assertEqual(delta.standard_error, 0)
         self.assertEqual(delta.better_outcome_probability, 1)
+
+        recommendation = recommendation_summary(result)
+        self.assertEqual(recommendation.recommended_candidate_id, "p1")
+        self.assertEqual(recommendation.runner_up_candidate_id, "p2")
+        self.assertEqual(recommendation.joint_outcome_count, 60)
+        self.assertEqual(recommendation.season_worlds_per_rollout, 3)
+        self.assertEqual(recommendation.decision_engine_version, 1)
+        self.assertEqual(recommendation.draft_model_version, "manual-test-v1")
+        self.assertIn("PAIRED_CHAMPIONSHIP_EDGE", recommendation.reason_codes)
+        json.dumps(asdict(recommendation))
 
         cached = evaluate_candidates(
             draft_state(),
@@ -100,10 +126,31 @@ class DecisionEvaluationTest(unittest.TestCase):
             market_utility,
             market_utility,
             league_evaluator,
+            draft_model_version="manual-test-v1",
             seed=19,
+            season_worlds_per_rollout=3,
+            survival_player_ids=("p2", "p3"),
+            tiers={"next": ("p2", "p3")},
         )
         self.assertEqual(result, cached)
         self.assertGreater(league_evaluator.cache_hits, 0)
+
+        uncached = evaluate_candidates(
+            draft_state(),
+            ("p1", "p2"),
+            1,
+            range(20),
+            market_utility,
+            market_utility,
+            league_evaluator,
+            draft_model_version="manual-test-v1",
+            seed=19,
+            season_worlds_per_rollout=3,
+            survival_player_ids=("p2", "p3"),
+            tiers={"next": ("p2", "p3")},
+            use_cache=False,
+        )
+        self.assertEqual(result, uncached)
 
     def test_nested_evaluation_rejects_one_draft_continuation(self):
         with self.assertRaisesRegex(ValueError, "at least two"):
@@ -115,7 +162,10 @@ class DecisionEvaluationTest(unittest.TestCase):
                 market_utility,
                 market_utility,
                 evaluator(),
+                draft_model_version="manual-test-v1",
             )
+        with self.assertRaisesRegex(ValueError, "exceeds"):
+            coupled_world_indices(1, 1, 5, 6)
 
 
 if __name__ == "__main__":

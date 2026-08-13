@@ -5,10 +5,10 @@ This file is the current operational state of the project. Keep it short, factua
 ## Current status
 
 **Phase:** Phase 8 — offline coupled draft rollouts and nested evaluation
-**State:** Baseline nested candidate evaluation now integrates many coupled draft continuations with paired season worlds
+**State:** Offline-unblocked baseline complete through versioned recommendation summaries; external model/live inputs are the next product dependency
 **Branch:** `feat/draft-intelligence`  
 **Implementation code changed:** Yes
-**Primary next action:** Add the compact recommendation/robustness summary around nested outcomes and survival results, then run a repo-wide correctness/Ponytail audit and realistic offline throughput check. Live polling/attachment and market-dependent opponent profiling remain owner-deferred.
+**Primary next action:** When the owner is ready, validate the FantasyPros payload/key and attach the exact redraft league/draft, then calibrate the injected choice utilities before enabling recommendation labels. Do not claim `WAIT`, `REACH`, or personalization before that validation.
 
 ## Project entrypoints
 
@@ -107,13 +107,17 @@ Read in this order:
 - [x] Return immutable per-world outcome vectors and exact cached/uncached equivalents.
 - [x] Match the existing full-season path on a frozen common-world fixture.
 
-## Phase 8 foundation in progress
+## Phase 8 offline baseline completed
 
 - [x] Pair every rollout ID with one deterministic season-world ID shared by all root candidates.
 - [x] Evaluate only selected worlds for each completed draft rather than forming a naive draft-by-season cross product.
 - [x] Return per-candidate championship/playoff outcomes, expected wins/points, Wilson title intervals, and paired championship deltas.
 - [x] Keep selected-world and all-world roster evaluation mathematically equivalent with exact cache keys.
 - [x] Preserve multiple-draft-continuation enforcement at both rollout and nested-evaluation boundaries.
+- [x] Support one or a small distinct batch of season worlds per draft continuation and cluster paired uncertainty by continuation.
+- [x] Return versioned, JSON-serializable recommendation summaries with title/playoff equity, expected wins/points, continuation percentiles, paired runner-up deltas, survival detail, and exact sample counts.
+- [x] Omit market-dependent `WAIT`/`REACH` labels when no validated market snapshot exists.
+- [x] Complete a realistic offline 12-team superflex/16-round throughput check using an explicitly benchmark-only projection board.
 
 ## Next tasks
 
@@ -173,6 +177,7 @@ Record results here after the first local audit.
 - **12-team baseline:** 0.470s load, 3.378s simulation, 29.60 simulations/s, 278 MB process peak RSS. Different league settings/rosters explain why team count alone does not order runtime.
 - **Profile:** A 30-simulation 12-team `cProfile` run took 3.755s including load/import overhead. `SimulationSeason.simulate` used 2.439s; player sampling/scoring 1.812s cumulative; lineup filling 0.277s; playoffs 0.156s; standings were negligible. This supports world reuse before lineup micro-optimization.
 - **World-bank/evaluator smoke:** The current 12-team local snapshot produced a 528-player, 50-world bank in 5.672s. One full 50-world roster evaluation took 0.123s and an exact cache hit took 0.000030s. This validates the boundary, not the final live throughput target; Phase 8 should evaluate selected world/continuation pairs rather than every world for every unique completed draft.
+- **Nested offline smoke:** A synthetic 16-round redraft using the cached 12-team superflex rules, 528 players, 20 season worlds, 3 root candidates, 50 draft continuations per candidate, and 2 season worlds per continuation built the bank in 2.287s and evaluated 300 joint outcomes in 1.992s (150.6 outcomes/s). The board was projection-ordered and benchmark-only; this is a throughput result, not opponent-model validation. Profiling justified one exact SHA-prefix reuse in Gumbel sampling and did not justify a custom RNG, multiprocessing, Numba, or GPU work.
 - **Sleeper target:** The discovered upcoming league is a 10-team PPR snake draft, 16 rounds, 90-second timer. Before draft-order assignment, `draft_order` is `null` while `slot_to_roster_id` is populated. The league allows one keeper but currently reports none; these states must remain distinct.
 - **Sleeper ownership:** Completed traded picks retain the original `draft_slot` but the pick row's `roster_id`/`picked_by` identify the actual recipient. Real pick rows contain `draft_id`, `pick_no`, `round`, `draft_slot`, `roster_id`, `picked_by`, `player_id`, `is_keeper`, and player metadata.
 - **History coverage:** A bounded crawl of the 10 target managers over 2024-2026 produced 104 draft discoveries but only 63 unique `draft_id` values: 41 duplicate discoveries removed and 12 drafts shared by multiple target managers. Nineteen completed snake drafts are provisional redraft candidates pending keeper/best-ball/context filters; manager coverage is sparse (1-7 candidates each), reinforcing partial pooling.
@@ -219,12 +224,14 @@ See `DECISIONS.md`. The foundational decisions currently include:
 
 ## Blockers
 
-External market adapters and attachment to the owner's live redraft are intentionally deferred. A FantasyPros API key is required to validate actual tier-specific response fields and quotas before enabling that adapter. Remaining Phase 3 affinity, pass, and board-adherence work requires time-local market snapshots. Offline draft-state, league-compatibility, and season-world work are not blocked.
+External market adapters and attachment to the owner's live redraft are intentionally deferred. A FantasyPros API key is required to validate actual tier-specific response fields and quotas before enabling that adapter. Remaining Phase 3 affinity, pass, board-adherence, calibrated survival, and market-relative `WAIT`/`REACH` work requires time-local market snapshots. The offline engine accepts injected utilities but does not present them as calibrated.
+
+Further bank persistence/memory mapping, candidate racing, transposition caching, multiprocessing, and accelerator work are intentionally profiling-gated rather than part of this baseline. Add them only after production bank sizing, live timing, and cache-hit measurements show the simpler path is insufficient.
 
 ## Handoff note
 
-Phase 1 is complete. Phase 2 has append-only manual market snapshots. Phase 3 has market-independent manager profiles. Phase 4 has exact attachment, explicit compatibility, and network-free replay/reconciliation for snake, linear, and auction redrafts. Phase 6 produces deterministic, content-versioned, full-pool player-week tensors independently of fantasy ownership. Phase 7 evaluates compact roster assignments with coupled schedules/streamers and immutable per-world results. Next connect injected market priors to coupled multi-continuation draft rollouts and selected-world league evaluation; do not calculate plausible-window passes or board adherence without time-local market evidence.
+Phase 1 is complete. Phase 2 has append-only manual market snapshots. Phase 3 has market-independent descriptive profiles. Phase 4 has exact attachment, explicit compatibility, network-free replay, coupled complete redraft rollouts, and survival summaries. Phase 6 produces deterministic, content-versioned, full-pool player-week tensors independently of fantasy ownership. Phase 7 evaluates compact roster assignments with coupled schedules/streamers and immutable per-world results. Phase 8 now joins many draft continuations to paired season worlds and emits versioned numeric recommendation summaries. The next product step requires owner-provided external/live inputs; do not calculate plausible-window passes, board adherence, calibrated personalization, or market-relative action labels without time-local market evidence.
 
 ## Last updated
 
-2026-08-13 — Connected coupled draft completions to selected shared season worlds with paired championship outcomes, exact cache keys, and confidence summaries; full Python validation passes 102 tests.
+2026-08-13 — Completed the offline nested baseline through multi-world continuation robustness, cluster-aware paired confidence, survival-aware recommendation summaries, exact cache parity, and a realistic 150.6 joint-outcome/s smoke check; full Python validation passes 102 tests.

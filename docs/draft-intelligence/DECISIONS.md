@@ -66,6 +66,7 @@ This makes it possible to distinguish a pick that is fragile because of future b
 ### Consequences
 
 - Results should support decomposition/diagnostics by draft path and season world.
+- A continuation may use one or a small fixed batch of season worlds; confidence calculations treat the draft continuation as the independent cluster.
 - Compute allocation can be adapted based on which uncertainty source dominates.
 
 ---
@@ -109,6 +110,7 @@ The target quantity is the difference in expected value between current-pick cho
 ### Consequences
 
 - Seeds/random streams become part of reproducibility guarantees.
+- Candidate branches use the same rollout IDs, deterministic Gumbel keys, season-world IDs, schedule worlds, and streamer worlds.
 - Paired-difference uncertainty should be preferred over comparing independent confidence intervals.
 
 ---
