@@ -248,6 +248,8 @@ See `DECISIONS.md`. The foundational decisions currently include:
 
 ## Blockers
 
+Absolute championship percentages from the live baseline are inflated (observed ~58% for the slot-1 manager at pick 1 of a 12-team mock): rollouts draft the user's future picks greedily by ADP while opponents sample with probability proportional to 1/ADP, so the user systematically out-drafts eleven noisy opponents. Paired candidate deltas remain meaningful because every candidate shares the same future policy and coupled randomness. Fixing the absolutes requires fitting opponent dispersion/temperature to observed historical picks through the existing leakage-safe backtest (and deciding deliberately whether the user's own future policy should sample rather than argmax); do not present absolute title odds as calibrated before that.
+
 The official FantasyPros market adapter and uncalibrated Sleeper-ADP choice baseline are operational. Existing completed eligible drafts occurred before the first market snapshot, so the leakage-safe backtest correctly scores zero picks. The attached post-snapshot mock is in progress and must be completed before initial live measurement; one mock is not enough to claim calibration. Phase 3 affinity, pass, board-adherence, calibrated survival, and market-relative `WAIT`/`REACH` work must not be labeled as validated until they beat the market baseline out of sample.
 
 Further bank persistence/memory mapping, candidate racing, transposition caching, multiprocessing, and accelerator work are intentionally profiling-gated rather than part of this baseline. Add them only after production bank sizing, live timing, and cache-hit measurements show the simpler path is insufficient.
