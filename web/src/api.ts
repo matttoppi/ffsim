@@ -143,6 +143,73 @@ export interface LeagueInfo {
   refresh: RefreshState
 }
 
+export interface DraftPreparation {
+  status: 'idle' | 'running' | 'ready' | 'failed'
+  stage?: string | null
+  error?: string | null
+  draft_id?: string
+  mock_draft_id?: string | null
+  live_draft_id?: string
+  league_name?: string
+  teams?: number
+  rounds?: number
+  user_slot?: number | null
+  market_players?: number
+  monitor_ready?: boolean
+  blockers?: string[]
+  history?: {
+    managers: number
+    managers_with_eligible_history: number
+    draft_discoveries: number
+    unique_drafts: number
+    duplicate_discoveries_removed: number
+    model_eligible_picks: number
+  }
+  mock_compatibility?: {
+    status: 'not_used' | 'exact' | 'mismatch'
+    reasons: Array<{
+      code: string
+      label: string
+      expected: unknown
+      actual: unknown
+    }>
+  }
+  world_bank?: { version: string | null; worlds: number; players: number }
+}
+
+export interface DraftMonitor {
+  status: 'idle' | 'starting' | 'running' | 'completed' | 'stopped' | 'failed'
+  draft_id?: string
+  poll_seconds?: number
+  sync_count?: number
+  calculation_count?: number
+  last_sync_at?: number | null
+  error?: string | null
+  state?: {
+    draft_status: string
+    completed_picks: number
+    current_pick_no: number | null
+    current_roster_id: number | null
+    user_roster_id: number | null
+    user_on_clock: boolean
+    user_next_pick_no: number | null
+    opponent_picks_until_next: number | null
+  } | null
+  recommendation?: {
+    model_status: string
+    rollout_count: number
+    joint_outcome_count: number
+    candidates: Array<{
+      player_id: string
+      name: string
+      position: string | null
+      championship_probability: number
+      playoff_probability: number
+      expected_wins: number
+    }>
+  } | null
+}
+
 export const getHealth = () => request<{ status: string }>('/api/health')
 
 export const getLeagueInfo = () => request<LeagueInfo>('/api/league')
@@ -163,6 +230,33 @@ export const selectLeague = (league_id: string, draft_id: string) =>
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ league_id, draft_id }),
   })
+
+export const prepareDraft = (params: {
+  draft_id: string
+  username: string
+  mock_draft_id?: string
+}) =>
+  request<DraftPreparation>('/api/draft-intel/prepare', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  })
+
+export const getDraftPreparation = () =>
+  request<DraftPreparation>('/api/draft-intel/prepare')
+
+export const startDraftMonitor = () =>
+  request<DraftMonitor>('/api/draft-intel/monitor', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{}',
+  })
+
+export const getDraftMonitor = () =>
+  request<DraftMonitor>('/api/draft-intel/monitor')
+
+export const stopDraftMonitor = () =>
+  request<DraftMonitor>('/api/draft-intel/monitor/stop', { method: 'POST' })
 
 export const startSimulation = (params: SimulationParams) =>
   request<JobSnapshot>('/api/simulations', {

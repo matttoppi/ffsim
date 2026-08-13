@@ -7,7 +7,7 @@ import json
 import logging
 import os
 from pathlib import Path
-from threading import Condition, Lock, Thread
+from threading import Condition, Event, Lock, Thread
 import time
 from uuid import uuid4
 
@@ -43,6 +43,30 @@ class SimulationRequest(BaseModel):
     seed: int | None = None
     workers: int | None = Field(default=None, ge=1, le=32)
     teams_only: bool = False
+
+
+class DraftPrepareRequest(BaseModel):
+    draft_id: str = Field(min_length=1)
+    username: str = Field(min_length=1)
+    mock_draft_id: str | None = None
+    season: int = Field(default=2026, ge=2020, le=2100)
+    world_count: int = Field(default=50, ge=2, le=500)
+
+    @field_validator("draft_id", "username", "mock_draft_id")
+    @classmethod
+    def strip_draft_inputs(cls, value):
+        if value is None:
+            return None
+        value = value.strip()
+        if not value:
+            raise ValueError("Draft setup values cannot be blank")
+        return value
+
+
+class DraftMonitorRequest(BaseModel):
+    poll_seconds: float = Field(default=2.0, ge=0.5, le=30)
+    rollout_count: int = Field(default=50, ge=2, le=500)
+    candidate_count: int = Field(default=5, ge=2, le=12)
 
 
 @dataclass
@@ -142,6 +166,89 @@ class SimulationJob:
             return self.events[index] if index < len(self.events) else None
 
 
+@dataclass
+class LiveDraftMonitor:
+    prepared: object
+    poll_seconds: float
+    rollout_count: int
+    candidate_count: int
+    status: str = "starting"
+    state: dict | None = None
+    recommendation: dict | None = None
+    error: str | None = None
+    sync_count: int = 0
+    calculation_count: int = 0
+    last_sync_at: float | None = None
+    lock: Lock = field(default_factory=Lock, repr=False)
+    stopped: Event = field(default_factory=Event, repr=False)
+
+    def snapshot(self):
+        with self.lock:
+            return {
+                "status": self.status,
+                "draft_id": self.prepared.live_draft_id,
+                "poll_seconds": self.poll_seconds,
+                "sync_count": self.sync_count,
+                "calculation_count": self.calculation_count,
+                "last_sync_at": self.last_sync_at,
+                "state": self.state,
+                "recommendation": self.recommendation,
+                "error": self.error,
+            }
+
+    def run(self):
+        from ffsim.draft_intel.live import (
+            calculate_live_recommendation,
+            live_state_summary,
+            sync_prepared_draft,
+        )
+
+        fingerprint = None
+        try:
+            with self.lock:
+                self.status = "running"
+            while not self.stopped.is_set():
+                sync = sync_prepared_draft(self.prepared)
+                state = sync.state
+                current = (
+                    state.status,
+                    len(state.completed_picks),
+                    state.current_roster_id,
+                )
+                recommendation = self.recommendation
+                calculated = False
+                if current != fingerprint:
+                    recommendation = calculate_live_recommendation(
+                        self.prepared,
+                        state,
+                        self.rollout_count,
+                        self.candidate_count,
+                    )
+                    calculated = recommendation is not None
+                    fingerprint = current
+                with self.lock:
+                    self.state = live_state_summary(self.prepared, state)
+                    self.recommendation = recommendation
+                    self.sync_count += 1
+                    self.calculation_count += int(calculated)
+                    self.last_sync_at = time.time()
+                    if state.status == "complete":
+                        self.status = "completed"
+                        return
+                self.stopped.wait(self.poll_seconds)
+            with self.lock:
+                if self.status != "completed":
+                    self.status = "stopped"
+        except Exception as error:
+            LOGGER.exception("Live draft monitor failed for %s", self.prepared.live_draft_id)
+            with self.lock:
+                self.status = "failed"
+                self.error = str(error)
+
+    def stop(self):
+        self.stopped.set()
+
+
 def _run_job(job, base_config):
     try:
         job.set_status("loading")
@@ -193,6 +300,38 @@ def _run_refresh(state, league_id, draft_id, weeks, season=2026):
         }
 
 
+def _run_draft_preparation(state, config_path, request):
+    from ffsim.draft_intel.live import prepare_draft
+
+    def progress(stage):
+        with state.prepare_lock:
+            state.draft_preparation["stage"] = stage
+
+    try:
+        prepared = prepare_draft(
+            config_path,
+            request.draft_id,
+            request.username,
+            mock_draft_id=request.mock_draft_id,
+            season=request.season,
+            world_count=request.world_count,
+            progress=progress,
+        )
+        with state.prepare_lock:
+            state.prepared_draft = prepared
+            state.draft_preparation = {
+                **prepared.summary,
+                "stage": "Ready",
+                "error": None,
+            }
+    except Exception as error:
+        LOGGER.exception("Draft preparation failed for %s", request.draft_id)
+        with state.prepare_lock:
+            state.prepared_draft = None
+            state.draft_preparation.update({
+                "status": "failed",
+                "error": str(error),
+            })
 def create_app(config_path="config.json"):
     app = FastAPI(title="FFSim API", version="1.0")
     # ponytail: open CORS is for the local UI; restrict origins before public hosting.
@@ -220,6 +359,14 @@ def create_app(config_path="config.json"):
         "error": None,
     }
     app.state.refresh_lock = Lock()
+    app.state.prepare_lock = Lock()
+    app.state.prepared_draft = None
+    app.state.draft_preparation = {
+        "status": "idle",
+        "stage": None,
+        "error": None,
+    }
+    app.state.live_monitor = None
 
     @app.get("/api/health")
     def health():
@@ -331,6 +478,71 @@ def create_app(config_path="config.json"):
             "league_id": request.league_id,
             "draft_id": request.draft_id,
         }
+
+    @app.post("/api/draft-intel/prepare", status_code=202)
+    def start_draft_preparation(request: DraftPrepareRequest):
+        with app.state.prepare_lock:
+            if app.state.draft_preparation["status"] == "running":
+                raise HTTPException(status_code=409, detail="Draft preparation is already running")
+            if app.state.live_monitor and app.state.live_monitor.snapshot()["status"] in {
+                "starting", "running"
+            }:
+                raise HTTPException(status_code=409, detail="Stop live monitoring before preparing")
+            app.state.prepared_draft = None
+            app.state.draft_preparation = {
+                "status": "running",
+                "stage": "Starting",
+                "draft_id": request.draft_id,
+                "mock_draft_id": request.mock_draft_id,
+                "error": None,
+            }
+        Thread(
+            target=_run_draft_preparation,
+            args=(app.state, app.state.config_path, request),
+            daemon=True,
+        ).start()
+        return dict(app.state.draft_preparation)
+
+    @app.get("/api/draft-intel/prepare")
+    def draft_preparation_status():
+        with app.state.prepare_lock:
+            return dict(app.state.draft_preparation)
+
+    @app.post("/api/draft-intel/monitor", status_code=202)
+    def start_draft_monitor(request: DraftMonitorRequest):
+        with app.state.prepare_lock:
+            prepared = app.state.prepared_draft
+            preparation = dict(app.state.draft_preparation)
+        if prepared is None or preparation.get("status") != "ready":
+            raise HTTPException(status_code=409, detail="Prepare the draft first")
+        if not preparation.get("monitor_ready"):
+            blockers = ", ".join(preparation.get("blockers") or ())
+            raise HTTPException(status_code=409, detail=f"Draft is not monitor-ready: {blockers}")
+        existing = app.state.live_monitor
+        if existing and existing.snapshot()["status"] in {"starting", "running"}:
+            raise HTTPException(status_code=409, detail="Live monitoring is already running")
+        monitor = LiveDraftMonitor(
+            prepared,
+            request.poll_seconds,
+            request.rollout_count,
+            request.candidate_count,
+        )
+        app.state.live_monitor = monitor
+        Thread(target=monitor.run, daemon=True).start()
+        return monitor.snapshot()
+
+    @app.get("/api/draft-intel/monitor")
+    def draft_monitor_status():
+        monitor = app.state.live_monitor
+        return monitor.snapshot() if monitor else {"status": "idle"}
+
+    @app.post("/api/draft-intel/monitor/stop")
+    def stop_draft_monitor():
+        monitor = app.state.live_monitor
+        if monitor is None:
+            return {"status": "idle"}
+        monitor.stop()
+        return monitor.snapshot()
 
     @app.post("/api/simulations", status_code=202)
     def start_simulation(request: SimulationRequest):

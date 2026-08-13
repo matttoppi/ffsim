@@ -250,6 +250,154 @@ code {
   margin: 0 0 12px;
 }
 
+/* Draft intelligence */
+
+.draft-intel {
+  margin-bottom: 16px;
+}
+
+.draft-intel-header,
+.draft-actions,
+.live-draft-state,
+.draft-candidates li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.draft-intel-header h2 {
+  margin: 2px 0 0;
+  font-family: var(--display);
+  font-size: 1.6rem;
+  text-transform: uppercase;
+}
+
+.draft-state,
+.mock-verified {
+  color: var(--turf);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.draft-intel-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr auto;
+  gap: 8px 12px;
+  margin-top: 16px;
+}
+
+.draft-intel-form label {
+  color: var(--dim);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.draft-intel-form input {
+  min-width: 0;
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--chalk);
+  font: inherit;
+  padding: 8px 10px;
+}
+
+.draft-intel-form .button-run {
+  grid-column: 4;
+  grid-row: 1 / 3;
+  margin: 0;
+  align-self: end;
+}
+
+.field-help {
+  grid-column: 2 / 4;
+  color: var(--dim);
+  font-size: 0.8rem;
+  margin: 0;
+}
+
+.draft-progress,
+.mock-verified {
+  margin: 14px 0 0;
+}
+
+.draft-readiness dl {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.draft-readiness dl div,
+.live-draft-state {
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.draft-readiness dt {
+  color: var(--dim);
+  font-size: 0.75rem;
+}
+
+.draft-readiness dd {
+  margin: 2px 0 0;
+  font-weight: 700;
+}
+
+.mock-warning {
+  background: rgba(228, 87, 79, 0.12);
+  border: 1px solid rgba(228, 87, 79, 0.45);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.mock-warning ul {
+  margin-bottom: 0;
+}
+
+.draft-actions {
+  justify-content: flex-start;
+}
+
+.draft-actions .button-run {
+  margin-top: 0;
+}
+
+.live-draft-state,
+.draft-candidates {
+  margin-top: 14px;
+}
+
+.draft-candidates ol {
+  margin-bottom: 0;
+  padding-left: 24px;
+}
+
+.draft-candidates li {
+  padding: 5px 0 5px 4px;
+}
+
+@media (max-width: 800px) {
+  .draft-intel-form,
+  .draft-readiness dl {
+    grid-template-columns: 1fr;
+  }
+
+  .draft-intel-form .button-run,
+  .field-help {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .live-draft-state {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
 /* Controls */
 
 .controls {

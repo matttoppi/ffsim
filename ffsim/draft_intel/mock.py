@@ -1,5 +1,6 @@
 """Standalone Sleeper mock attachment and append-only refresh."""
 
+from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
 from pathlib import Path
@@ -11,18 +12,67 @@ from ffsim.loaders.league import _fetch_json
 from ffsim.paths import CACHE_DIR
 
 
+@dataclass(frozen=True)
+class DraftSync:
+    state: object
+    draft: dict
+    cache_path: Path
+
+
 def attach_mock_draft(draft_id, *, fetch_json=None, cache_dir=None, player_ids=None):
+    cache_dir = Path(cache_dir or CACHE_DIR)
+    sync = sync_sleeper_draft(
+        draft_id,
+        standalone=True,
+        fetch_json=fetch_json,
+        cache_dir=cache_dir,
+        player_ids=player_ids,
+    )
+    draft_id = sync.state.draft_id
+    context = resolve_draft_market_context(sync.draft)
+    creator_ids = tuple(str(value) for value in sync.draft.get("creators") or ())
+    user_roster_id = _user_roster_id(sync.state, creator_ids)
+    attachment_path = cache_dir / "draft_intel" / "mock_attachment.json"
+    _atomic_write(
+        attachment_path,
+        (json.dumps({"draft_id": draft_id}, indent=2) + "\n").encode(),
+    )
+    return {
+        "draft_id": draft_id,
+        "status": sync.state.status,
+        "draft_type": sync.state.draft_type,
+        "teams": sync.state.teams,
+        "rounds": sync.state.rounds,
+        "completed_picks": len(sync.state.completed_picks),
+        "current_pick_no": sync.state.current_pick_no,
+        "creator_ids": list(creator_ids),
+        "user_roster_id": user_roster_id,
+        "market_context": context,
+        "cache_path": str(sync.cache_path),
+    }
+
+
+def sync_sleeper_draft(
+    draft_id,
+    *,
+    league_id=None,
+    standalone=False,
+    fetch_json=None,
+    cache_dir=None,
+    player_ids=None,
+):
     draft_id = str(draft_id).strip()
     if not draft_id:
-        raise ValueError("Sleeper mock draft ID is required")
+        raise ValueError("Sleeper draft ID is required")
     fetch = fetch_json or _fetch_json
     draft = fetch(f"draft/{draft_id}")
     picks = fetch(f"draft/{draft_id}/picks")
     traded_picks = fetch(f"draft/{draft_id}/traded_picks")
-    _validate_mock_payload(draft_id, draft, picks, traded_picks)
+    _validate_draft_payload(draft_id, draft, picks, traded_picks, league_id, standalone)
 
     cache_dir = Path(cache_dir or CACHE_DIR)
-    path = cache_dir / f"mock_draft_{draft_id}.json"
+    prefix = "mock_draft" if standalone else "live_draft"
+    path = cache_dir / f"{prefix}_{draft_id}.json"
     player_ids = tuple(
         _cached_player_ids(cache_dir) if player_ids is None else player_ids
     )
@@ -38,9 +88,6 @@ def attach_mock_draft(draft_id, *, fetch_json=None, cache_dir=None, player_ids=N
     else:
         state = replay_sleeper_draft(draft, picks, traded_picks, player_ids)
 
-    context = resolve_draft_market_context(draft)
-    creator_ids = tuple(str(value) for value in draft.get("creators") or ())
-    user_roster_id = _user_roster_id(state, creator_ids)
     payload = {
         "retrieved_at": datetime.now(timezone.utc).isoformat(),
         "draft": draft,
@@ -48,24 +95,7 @@ def attach_mock_draft(draft_id, *, fetch_json=None, cache_dir=None, player_ids=N
         "traded_picks": traded_picks,
     }
     _atomic_write(path, (json.dumps(payload, indent=2) + "\n").encode())
-    attachment_path = cache_dir / "draft_intel" / "mock_attachment.json"
-    _atomic_write(
-        attachment_path,
-        (json.dumps({"draft_id": draft_id}, indent=2) + "\n").encode(),
-    )
-    return {
-        "draft_id": draft_id,
-        "status": state.status,
-        "draft_type": state.draft_type,
-        "teams": state.teams,
-        "rounds": state.rounds,
-        "completed_picks": len(state.completed_picks),
-        "current_pick_no": state.current_pick_no,
-        "creator_ids": list(creator_ids),
-        "user_roster_id": user_roster_id,
-        "market_context": context,
-        "cache_path": str(path),
-    }
+    return DraftSync(state, draft, path)
 
 
 def refresh_attached_mock(*, fetch_json=None, cache_dir=None, player_ids=None):
@@ -98,11 +128,13 @@ def _cached_player_ids(cache_dir):
     return players
 
 
-def _validate_mock_payload(draft_id, draft, picks, traded_picks):
+def _validate_draft_payload(draft_id, draft, picks, traded_picks, league_id, standalone):
     if not isinstance(draft, dict) or str(draft.get("draft_id")) != draft_id:
         raise ValueError(f"Sleeper returned the wrong draft for {draft_id}")
-    if draft.get("league_id") is not None:
+    if standalone and draft.get("league_id") is not None:
         raise ValueError("Use normal league attachment for a league-backed draft")
+    if not standalone and str(draft.get("league_id")) != str(league_id):
+        raise ValueError(f"Draft {draft_id} does not belong to league {league_id}")
     if draft.get("sport") != "nfl":
         raise ValueError("Standalone mock must be an NFL draft")
     if not isinstance(picks, list) or not isinstance(traded_picks, list):

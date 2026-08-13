@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { getLeagueInfo, type LeagueInfo } from './api'
+import { DraftIntel } from './DraftIntel'
 import { LeaguePicker } from './LeaguePicker'
 import { RaceBoard } from './RaceBoard'
 import { Standings } from './Standings'
@@ -197,6 +198,8 @@ export default function App() {
           onCancel={league?.ready ? () => setPickerOpen(false) : null}
         />
       )}
+
+      <DraftIntel currentDraftId={league?.draft_id ?? null} />
 
       <div className="layout">
         <form className="panel controls" onSubmit={onSubmit} aria-label="Simulation settings">
