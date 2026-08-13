@@ -251,5 +251,6 @@ collapsed into a fixed PPR/snake schema.
   winning rosters remain unknown because they are not predetermined.
 - V1 recommendation eligibility is redraft without keeper evidence; dynasty or
   keeper evidence is reported explicitly rather than silently transformed.
-- Model components may reject unsupported settings later, but attachment and
-  source inspection must still succeed.
+- Compatibility is reported separately for attachment, deterministic replay,
+  future draft rollout, and season evaluation. A downstream rejection includes
+  stable reason codes but never prevents attachment and source inspection.

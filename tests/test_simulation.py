@@ -8,6 +8,7 @@ from unittest.mock import call, patch
 from ffsim.__main__ import setup_league
 from ffsim.config import AppConfig, save_league_attachment
 from ffsim.loaders.league import (
+    LeagueLoader,
     draft_summary,
     league_and_drafts,
     league_id_for_username,
@@ -158,6 +159,35 @@ class SimulationTest(unittest.TestCase):
                 "league",
                 {"league/league": league, "league/league/drafts": [wrong_draft]}.__getitem__,
             )
+
+    def test_unsupported_attached_league_fails_before_loading_players(self):
+        league = {
+            "total_rosters": 12,
+            "settings": {
+                "type": 0,
+                "best_ball": 1,
+                "playoff_teams": 6,
+                "playoff_round_type": 0,
+                "playoff_seed_type": 0,
+            },
+            "roster_positions": ["QB", "RB", "WR", "TE", "FLEX", "BN"],
+            "scoring_settings": {"rec": 1},
+        }
+        snapshot = {
+            "league": league,
+            "draft": {
+                "type": "snake",
+                "settings": {"teams": 12, "rounds": 16},
+                "metadata": {"scoring_type": "redraft"},
+            },
+            "draft_picks": [],
+        }
+        players = SimpleNamespace(ensure_players_loaded=lambda: self.fail("loaded players"))
+        with tempfile.TemporaryDirectory() as directory:
+            Path(directory, "league_test.json").write_text(json.dumps(snapshot))
+            with patch("ffsim.loaders.league.CACHE_DIR", Path(directory)):
+                with self.assertRaisesRegex(ValueError, '"code":"best_ball"'):
+                    LeagueLoader("test", players)
 
     @patch("ffsim.loaders.league._fetch_json")
     def test_username_resolves_one_league_and_rejects_ambiguous_leagues(self, fetch):

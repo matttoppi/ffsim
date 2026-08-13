@@ -13,6 +13,13 @@ format-agnostic; downstream model eligibility is a separate status. V1 model
 eligibility is redraft without keeper evidence, but snake, auction, and linear
 draft payloads must all remain selectable and inspectable.
 
+Expose compatibility independently for attachment, deterministic draft replay,
+future draft rollout, and season evaluation. Attachment remains supported even
+when a downstream capability is unsupported. Known blockers must use explicit
+reason codes, including auction future ownership, best ball, keeper evidence,
+unsupported scoring keys, unsupported roster slots, playoff rules, and
+league/draft team-count mismatches.
+
 ### 11.1 Exact draft geometry
 
 The engine must construct an ordered `pick_owner[pick_no]` mapping for the entire draft. Do not infer future owners only from initial slot positions when traded picks can exist.

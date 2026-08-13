@@ -3,6 +3,7 @@ from pathlib import Path
 from urllib.parse import quote
 from urllib.request import urlopen
 
+from ffsim.draft_intel.compatibility import league_compatibility
 from ffsim.models.league import League
 from ffsim.models.team import FantasyTeam
 from ffsim.paths import CACHE_DIR
@@ -82,18 +83,7 @@ def league_summary(league):
 
 
 def draft_summary(league, draft, picks=()):
-    scoring_type = str((draft.get("metadata") or {}).get("scoring_type") or "")
-    league_type = (league.get("settings") or {}).get("type")
-    reasons = []
-    if league_type == 1:
-        reasons.append("keeper_league")
-    elif league_type == 2 or "dynasty" in scoring_type.casefold():
-        reasons.append("dynasty")
-    elif league_type not in {None, 0}:
-        reasons.append(f"unknown_league_type_{league_type}")
-    if any(pick.get("is_keeper") is True for pick in picks):
-        reasons.append("keeper_picks")
-    reasons = list(dict.fromkeys(reasons))
+    compatibility = league_compatibility(league, draft, picks)
     settings = draft.get("settings") or {}
     metadata = draft.get("metadata") or {}
     return {
@@ -110,8 +100,11 @@ def draft_summary(league, draft, picks=()):
         "scoring_type": metadata.get("scoring_type"),
         "settings": settings,
         "metadata": metadata,
-        "redraft_eligible": not reasons,
-        "redraft_ineligibility_reasons": reasons,
+        "redraft_eligible": compatibility["redraft_eligible"],
+        "redraft_ineligibility_reasons": compatibility[
+            "redraft_ineligibility_reasons"
+        ],
+        "compatibility": compatibility,
     }
 
 
@@ -166,6 +159,17 @@ class LeagueLoader:
         if not path.exists():
             raise FileNotFoundError("League cache is missing. Run `python -m ffsim refresh` first.")
         self.snapshot = json.loads(path.read_text())
+        if self.snapshot.get("draft"):
+            compatibility = league_compatibility(
+                self.snapshot["league"],
+                self.snapshot["draft"],
+                self.snapshot.get("draft_picks", ()),
+            )["capabilities"]["season_evaluation"]
+            if compatibility["status"] != "supported":
+                raise ValueError(
+                    "Attached Sleeper league is not supported for season evaluation: "
+                    + json.dumps(compatibility["reasons"], separators=(",", ":"))
+                )
         self.player_loader = player_loader
         self.player_loader.ensure_players_loaded()
         self.unmatched_rostered = []
