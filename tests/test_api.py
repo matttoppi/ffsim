@@ -9,9 +9,13 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 
 from ffsim.api import (
+    DraftMonitorRequest,
+    DraftPrepareRequest,
     LeagueRequest,
+    LiveDraftMonitor,
     SimulationJob,
     SimulationRequest,
+    _run_draft_preparation,
     _run_job,
     _run_refresh,
     create_app,
@@ -78,6 +82,9 @@ class ApiTest(unittest.TestCase):
         self.assertIn("/api/league", paths)
         self.assertIn("/api/leagues", paths)
         self.assertIn("/api/leagues/{league_id}/drafts", paths)
+        self.assertIn("/api/draft-intel/prepare", paths)
+        self.assertIn("/api/draft-intel/monitor", paths)
+        self.assertIn("/api/draft-intel/monitor/stop", paths)
         with self.assertRaises(ValidationError):
             SimulationRequest(simulations=0)
         with self.assertRaises(ValidationError):
@@ -90,6 +97,16 @@ class ApiTest(unittest.TestCase):
             LeagueRequest(league_id=" league ", draft_id=" draft ").model_dump(),
             {"league_id": "league", "draft_id": "draft"},
         )
+        self.assertEqual(
+            DraftPrepareRequest(
+                draft_id=" real ",
+                mock_draft_id=" mock ",
+                username=" matt ",
+            ).model_dump()["mock_draft_id"],
+            "mock",
+        )
+        with self.assertRaises(ValidationError):
+            DraftMonitorRequest(rollout_count=1)
 
     def test_refresh_runner_updates_state_on_success_and_failure(self):
         state = SimpleNamespace(refresh={
@@ -109,11 +126,12 @@ class ApiTest(unittest.TestCase):
         ):
             _run_refresh(state, "1", "draft-1", 17)
 
-        loader.return_value.refresh.assert_called_once_with()
+        loader.return_value.refresh_if_stale.assert_called_once_with(season=2026)
         refresh_league.assert_called_once_with("1", "draft-1")
         refresh_matchups.assert_called_once_with("1", 17)
         self.assertEqual(state.refresh["status"], "ready")
         self.assertEqual(state.refresh["market"], {"fresh": True})
+        self.assertIs(state.refresh["projection"], loader.return_value.refresh_if_stale.return_value)
         refresh_market.assert_called_once_with(
             season=2026,
             sleeper_players_path=loader.return_value.sleeper_players_file,
@@ -230,6 +248,90 @@ class ApiTest(unittest.TestCase):
                     ))
             self.assertEqual(app.state.refresh["status"], "idle")
             self.assertEqual(config_path.read_text(), before)
+
+    def test_draft_preparation_and_monitor_endpoints_use_one_prepared_session(self):
+        with tempfile.TemporaryDirectory() as directory:
+            config_path = Path(directory) / "config.json"
+            config_path.write_text('{"league_id": "old"}\n')
+            app = create_app(config_path)
+            start_prepare = endpoint(app, "/api/draft-intel/prepare", "POST")
+            prepare_status = endpoint(app, "/api/draft-intel/prepare", "GET")
+            start_monitor = endpoint(app, "/api/draft-intel/monitor", "POST")
+            monitor_status = endpoint(app, "/api/draft-intel/monitor", "GET")
+            stop_monitor = endpoint(app, "/api/draft-intel/monitor/stop", "POST")
+
+            request = DraftPrepareRequest(
+                draft_id="real",
+                mock_draft_id="mock",
+                username="matt",
+            )
+            with patch("ffsim.api.Thread") as thread:
+                started = start_prepare(request)
+            self.assertEqual(started["status"], "running")
+            self.assertEqual(prepare_status()["mock_draft_id"], "mock")
+            self.assertEqual(
+                thread.call_args.kwargs["args"],
+                (app.state, config_path, request),
+            )
+
+            prepared = SimpleNamespace(
+                live_draft_id="mock",
+                summary={"status": "ready", "monitor_ready": True, "blockers": []},
+            )
+            app.state.prepared_draft = prepared
+            app.state.draft_preparation = dict(prepared.summary)
+            with patch("ffsim.api.Thread") as thread:
+                monitoring = start_monitor(DraftMonitorRequest())
+            self.assertEqual(monitoring["status"], "starting")
+            self.assertEqual(monitor_status()["draft_id"], "mock")
+            thread.return_value.start.assert_called_once_with()
+            self.assertEqual(stop_monitor()["status"], "starting")
+            self.assertTrue(app.state.live_monitor.stopped.is_set())
+
+    def test_draft_preparation_runner_publishes_success_and_failure(self):
+        state = SimpleNamespace(
+            prepare_lock=__import__("threading").Lock(),
+            prepared_draft=None,
+            draft_preparation={"status": "running", "stage": "Starting"},
+        )
+        request = DraftPrepareRequest(draft_id="real", username="matt")
+        prepared = SimpleNamespace(summary={"status": "ready", "monitor_ready": True})
+        with patch("ffsim.draft_intel.live.prepare_draft", return_value=prepared):
+            _run_draft_preparation(state, "config.json", request)
+        self.assertIs(state.prepared_draft, prepared)
+        self.assertEqual(state.draft_preparation["stage"], "Ready")
+
+        with patch(
+            "ffsim.draft_intel.live.prepare_draft",
+            side_effect=ValueError("wrong mock"),
+        ):
+            with self.assertLogs("ffsim.api", level="ERROR"):
+                _run_draft_preparation(state, "config.json", request)
+        self.assertIsNone(state.prepared_draft)
+        self.assertEqual(state.draft_preparation["status"], "failed")
+        self.assertEqual(state.draft_preparation["error"], "wrong mock")
+
+    def test_live_monitor_recovers_from_a_transient_sync_failure(self):
+        prepared = SimpleNamespace(live_draft_id="mock")
+        state = SimpleNamespace(
+            status="complete",
+            completed_picks=(),
+            current_roster_id=None,
+        )
+        monitor = LiveDraftMonitor(prepared, 0, 2, 2)
+        with (
+            patch(
+                "ffsim.draft_intel.live.sync_prepared_draft",
+                side_effect=[OSError("Sleeper unavailable"), SimpleNamespace(state=state)],
+            ),
+            patch("ffsim.draft_intel.live.calculate_live_recommendation", return_value=None),
+            patch("ffsim.draft_intel.live.live_state_summary", return_value={"complete": True}),
+        ):
+            monitor.run()
+
+        self.assertEqual(monitor.status, "completed")
+        self.assertEqual(monitor.sync_count, 1)
+        self.assertIsNone(monitor.error)
 
 if __name__ == "__main__":
     unittest.main()

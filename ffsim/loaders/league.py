@@ -202,7 +202,7 @@ class LeagueLoader:
                 if player:
                     if player.position in {"QB", "RB", "WR", "TE", "K", "DEF"} and player.projection_match_status in {"ambiguous", "position_mismatch"}:
                         raise ValueError(
-                            f"Rostered player has no unique position-consistent PFF projection: "
+                            f"Rostered player has no unique position-consistent projection: "
                             f"{player.name} ({player.position}, {player.team}, Sleeper {player.sleeper_id})"
                         )
                     if player.position in {"QB", "RB", "WR", "TE", "K", "DEF"} and player.projection_match_status == "unmatched":

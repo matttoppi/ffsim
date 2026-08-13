@@ -284,7 +284,7 @@ def main():
         from ffsim.simulation.season import refresh_matchups
 
         player_loader = PlayerLoader()
-        player_loader.refresh()
+        player_loader.refresh(season=args.season)
         refresh_league(config.league_id, config.draft_id)
         refresh_matchups(config.league_id, config.regular_season_weeks + 3)
         print(json.dumps(refresh_fantasypros_adp(

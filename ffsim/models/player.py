@@ -65,12 +65,19 @@ class Player:
         self.position = str(initial_data.get("position") or "UNKNOWN").upper().replace("DST", "DEF")
         self.team = initial_data.get("canonical_team") or initial_data.get("team")
         pff_data = initial_data.get("pff_projections")
-        self.pff_projections = PFFProjections(pff_data) if pff_data else None
+        projection_data = initial_data.get("projections") or pff_data
+        self.projections = PlayerProjections(projection_data) if projection_data else None
+        self.pff_projections = PlayerProjections(pff_data) if pff_data else None
+        projection_source = initial_data.get("projectionSource")
+        self.projection_source = (
+            str(projection_source) if self.projections and projection_source
+            else "pff" if self.projections else None
+        )
         self._projected_games = (
-            _number(self.pff_projections.get("games")) if self.pff_projections else 0.0
+            _number(self.projections.get("games")) if self.projections else 0.0
         )
         self._bye_week = (
-            int(_number(self.pff_projections.get("byeWeek"))) if self.pff_projections else 0
+            int(_number(self.projections.get("byeWeek"))) if self.projections else 0
         )
         self.sleeper_projections = initial_data.get("sleeper_projections") or {}
         self.injury_probability = _optional_number(initial_data.get("injury_probability"))
@@ -172,7 +179,7 @@ class Player:
         # backtest ever measures preseason-projection error directly.
         self.season_factor = (
             self.projection_multiplier * mean_preserving_lognormal(1.0, self.season_cv, rng)
-            if self.pff_projections else 1.0
+            if self.projections else 1.0
         )
 
     @property
@@ -219,10 +226,10 @@ class Player:
         return self.calculate_score(scoring_settings, week, rng)
 
     def season_raw_stats(self):
-        if not self.pff_projections:
+        if not self.projections:
             return {}
         stats = {
-            stat: _number(self.pff_projections.get(field))
+            stat: _number(self.projections.get(field))
             for stat, field in PFF_STAT_FIELDS.items()
         }
         for suffix in ("0_19", "20_29", "30_39", "40_49", "50_plus"):
@@ -263,7 +270,7 @@ class Player:
         return self._modeled_weekly_stats
 
     def expected_weekly_score(self, scoring_settings):
-        if not self.pff_projections or self.projected_games <= 0:
+        if not self.projections or self.projected_games <= 0:
             return 0.0
         if scoring_settings is not self._expected_score_for:
             self._expected_score = (
@@ -330,7 +337,7 @@ class Player:
         return self.total_simulated_points / self.total_simulated_games if self.total_simulated_games else 0
 
     def print_player_short(self):
-        print(f"{self.name} - {self.position} - {self.team} - 1QB: {self.value_1qb} - Redraft: {self.redraft_value} - Has PFF: {bool(self.pff_projections)}")
+        print(f"{self.name} - {self.position} - {self.team} - 1QB: {self.value_1qb} - Redraft: {self.redraft_value} - Projection: {self.projection_source or 'none'}")
 
 
 def mean_preserving_lognormal(mean, coefficient_of_variation, rng):
@@ -341,9 +348,9 @@ def mean_preserving_lognormal(mean, coefficient_of_variation, rng):
     return float(rng.lognormal(mu_log, sigma_log))
 
 
-class PFFProjections:
+class PlayerProjections:
     def __init__(self, projection_data):
-        self.data = projection_data.data.copy() if isinstance(projection_data, PFFProjections) else dict(projection_data)
+        self.data = projection_data.data.copy() if isinstance(projection_data, PlayerProjections) else dict(projection_data)
 
     def get(self, key, default=None):
         return self.data.get(key, default)
@@ -370,7 +377,10 @@ class PFFProjections:
         return _number(self.data.get("games")) > 0
 
     def __str__(self):
-        return f"PFF Projections: {self.data.get('fantasyPoints')} points over {self.data.get('games')} games"
+        return f"Projections: {self.data.get('fantasyPoints')} points over {self.data.get('games')} games"
+
+
+PFFProjections = PlayerProjections
 
 
 def _number(value):

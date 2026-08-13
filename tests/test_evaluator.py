@@ -50,7 +50,7 @@ class BankPlayer:
         self.name = self.sleeper_id
         self.position = world_bank.player_positions[index]
         self.team = f"NFL{index}"
-        self.pff_projections = True
+        self.projections = True
         self.projected_games = 17
         self.total_games_missed_this_season = 0
 

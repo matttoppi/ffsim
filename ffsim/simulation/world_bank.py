@@ -69,7 +69,7 @@ def build_season_world_bank(
         player_id
         for player_id, player in zip(player_ids, players)
         if player.position not in SUPPORTED_POSITIONS
-        or not player.pff_projections
+        or not player.projections
         or player.projected_games <= 0
     ]
     if invalid:
@@ -142,7 +142,7 @@ def draftable_players(players):
         (
             player for player in players
             if player.position in SUPPORTED_POSITIONS
-            and player.pff_projections
+            and player.projections
             and player.projected_games > 0
         ),
         key=lambda player: str(player.sleeper_id),

@@ -20,7 +20,8 @@ class SleeperLoader:
                 'height': player.get('height'),
                 'number': player.get('number'),
                 'status': player.get('status'),
-                'birth_date': player.get('birth_date')
+                'birth_date': player.get('birth_date'),
+                'sportradar_id': player.get('sportradar_id'),
             }
             for player in sleeper_data if player.get('active', False)
         ]

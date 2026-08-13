@@ -37,14 +37,14 @@ def apply_scenario(league, scenario):
         values = configured.get(player_id, {})
         if not isinstance(values, dict):
             raise ValueError(f"Scenario player {player_id} must be an object")
-        pff_points = (
+        base_points = (
             player.projected_season_score(league.scoring_settings)
-            if player.pff_projections and player.projected_games > 0
+            if player.projections and player.projected_games > 0
             else 0.0
         )
         external = [float(value) for value in values.get("projection_points", [])]
-        projection_ratios = [1.0, *(value / pff_points for value in external)] if pff_points else []
-        if pff_points > 0 and scenario.get("use_sleeper_projections") and player.sleeper_projections:
+        projection_ratios = [1.0, *(value / base_points for value in external)] if base_points else []
+        if base_points > 0 and scenario.get("use_sleeper_projections") and player.sleeper_projections:
             shared_settings = {
                 key: value
                 for key, value in league.scoring_settings.values.items()
@@ -59,13 +59,13 @@ def apply_scenario(league, scenario):
             sleeper_points = _sleeper_score(
                 player.sleeper_projections, player.position, shared_settings
             )
-            comparable_pff_points = score_raw_stats(
+            comparable_base_points = score_raw_stats(
                 player.modeled_season_raw_stats(), player.position, shared_settings
             )
-            if sleeper_points > 0 and comparable_pff_points > 0:
-                projection_ratios.append(sleeper_points / comparable_pff_points)
+            if sleeper_points > 0 and comparable_base_points > 0:
+                projection_ratios.append(sleeper_points / comparable_base_points)
         if external:
-            if pff_points <= 0 or any(value < 0 for value in external):
+            if base_points <= 0 or any(value < 0 for value in external):
                 raise ValueError(f"Invalid projection_points for {player.name}")
         if len(projection_ratios) > 1:
             disagreement = float(np.std(projection_ratios))

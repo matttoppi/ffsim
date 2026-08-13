@@ -99,7 +99,7 @@ class ScoringSettings:
     def compile_positions(self, players):
         stats_by_position = {}
         for player in players:
-            if not player.pff_projections or player.projected_games <= 0:
+            if not player.projections or player.projected_games <= 0:
                 continue
             stats_by_position.setdefault(player.position, set()).update(
                 stat for stat, value in player.modeled_weekly_raw_stats().items() if value

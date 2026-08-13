@@ -3,20 +3,19 @@ import hashlib
 import io
 import json
 import math
-import os
 import sqlite3
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from ffsim.draft_intel.storage import SCHEMA, _atomic_write
-from ffsim.paths import CACHE_DIR, PROJECT_ROOT
+from ffsim.loaders.fantasypros import FANTASYPROS_REFRESH_INTERVAL, fantasypros_api_key
+from ffsim.paths import CACHE_DIR
 
 
 CSV_COLUMNS = {"sleeper_id", "adp", "rank", "std_dev", "tier"}
 FANTASYPROS_URL = "https://api.fantasypros.com/public/v2/json/nfl/{season}/consensus-rankings"
-FANTASYPROS_REFRESH_INTERVAL = timedelta(hours=12)
 FANTASYPROS_CONTEXTS = (
     ("1qb", "STD", "ALL"),
     ("1qb", "HALF", "ALL"),
@@ -230,7 +229,7 @@ def refresh_fantasypros_adp(
     if not due:
         return {**status, "fetched_contexts": [], "skipped_contexts": list(contexts)}
 
-    api_key = api_key or _fantasypros_api_key()
+    api_key = api_key or fantasypros_api_key()
     fetch_payload = fetch_payload or _fetch_fantasypros_payload
     if sleeper_players_path is None:
         from ffsim.loaders.players import PlayerLoader
@@ -613,22 +612,6 @@ def _fetch_fantasypros_payload(*, season, scoring, position, api_key):
     )
     with urlopen(request, timeout=30) as response:
         return response.read()
-
-
-def _fantasypros_api_key(env_path=None):
-    key = os.environ.get("FANTASYPROS_API_KEY")
-    env_path = Path(env_path or PROJECT_ROOT / ".env")
-    if not key and env_path.exists():
-        for raw_line in env_path.read_text().splitlines():
-            name, separator, value = raw_line.partition("=")
-            if separator and name.strip() == "FANTASYPROS_API_KEY":
-                key = value.strip().strip("'\"")
-                break
-    if not key:
-        raise ValueError("FANTASYPROS_API_KEY is missing from the environment or .env")
-    if any(character.isspace() for character in key):
-        raise ValueError("FANTASYPROS_API_KEY contains whitespace")
-    return key
 
 
 def _ensure_market_schema(connection):

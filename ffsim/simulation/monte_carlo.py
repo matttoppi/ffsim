@@ -58,8 +58,8 @@ class MonteCarloSimulation:
     def report_lineup_gaps(self):
         slots = self.league.roster_slots
         for team in self.league.rosters:
-            unprojected = [player for player in team.players if not player.pff_projections]
-            remaining = [player for player in team.players if player.pff_projections]
+            unprojected = [player for player in team.players if not player.projections]
+            remaining = [player for player in team.players if player.projections]
             gaps = []
             for flex_pass in (False, True):
                 for position, count in slots.items():

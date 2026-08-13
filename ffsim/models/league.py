@@ -42,7 +42,7 @@ class League:
                     for player in players
                     if str(player.sleeper_id) not in rostered
                     and player.position == position
-                    and player.pff_projections
+                    and player.projections
                 ),
                 reverse=True,
             )[: len(self.rosters)]

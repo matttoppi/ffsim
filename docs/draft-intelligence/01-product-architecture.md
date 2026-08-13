@@ -115,7 +115,8 @@ The current repository is a strong starting point rather than something to repla
 
 - Sleeper league selection and league snapshot refresh.
 - Sleeper roster, matchup, player, and projection ingestion.
-- PFF projection ingestion and league-specific rescoring.
+- FantasyPros consensus offensive projection ingestion and league-specific rescoring.
+- Supplemental PFF fields, K/DST projections, and matchup grades without replacing FantasyPros offensive counting stats.
 - FantasyCalc values.
 - Injury data ingestion.
 - Empirical weekly player-stat sampling using historical nflverse data.

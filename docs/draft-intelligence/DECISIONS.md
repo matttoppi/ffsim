@@ -284,3 +284,37 @@ The Premium personal plan allows 500 requests/day at one request/second. Four co
 - Retrieval time, provider observation time, raw content hash, context, and source remain append-only and auditable.
 - Source identity uses FantasyPros `sportsdata_id` to Sleeper `sportradar_id`, with DST mapped by team; ambiguous IDs fail closed per player and are reported.
 - Only boards actually returned by the official API are stored; missing platforms are not synthesized.
+
+---
+
+## ADR-013 — Use FantasyPros offensive means with PFF only as a supplement
+
+**Status:** Accepted
+**Date:** 2026-08-13
+
+### Decision
+
+FantasyPros consensus preseason projections are the primary QB/RB/WR/TE
+counting-stat means. PFF may supply fields the FantasyPros response does not
+publish and remains the K/DST source, but a PFF offensive value never overrides
+a counting stat returned by FantasyPros. The original PFF row is retained
+separately for later validated variance, injury, floor/ceiling, or grade-based
+modifiers.
+
+### Rationale
+
+This preserves the boundary between a consensus base forecast and optional PFF
+signals while allowing the existing league-specific raw-stat scoring and
+season-world generation to remain unchanged.
+
+### Consequences
+
+- Refresh uses the official preseason projection and player-metadata endpoints.
+- League and draft setup refresh projections under the same request-driven
+  12-hour freshness interval as FantasyPros ADP; explicit refresh remains forced.
+- FantasyPros player IDs map through SportsData/Sportradar IDs to Sleeper IDs.
+- Missing offensive FantasyPros projections fail closed for title optimization;
+  there is no silent PFF projection fallback.
+- Provider disagreement and advanced PFF metrics do not change variance until a
+  specific adjustment is defined and backtested.
+- The derived player cache remains part of the `SeasonWorldBank` input hash.

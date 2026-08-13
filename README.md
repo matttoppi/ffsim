@@ -81,7 +81,10 @@ Before the first simulation, and whenever source data changes, run:
 python -m ffsim refresh
 ```
 
-This fetches Sleeper league, roster, matchup, and player data plus FantasyCalc values. It combines those sources with these checked-in files:
+This fetches Sleeper league, roster, matchup, and player data, FantasyCalc values,
+and FantasyPros consensus offensive projections. Set `FANTASYPROS_API_KEY` in
+the environment or `.env`. It combines those sources with these checked-in
+files:
 
 - `data/projections/players.csv`
 - `data/projections/kickers.csv`
@@ -90,11 +93,16 @@ This fetches Sleeper league, roster, matchup, and player data plus FantasyCalc v
 
 Generated player, league, and matchup snapshots are written to the ignored `data/cache/` directory. See [data/README.md](data/README.md) for source and season details.
 
-When a new PFF projection export replaces `data/projections/players.csv`, regenerate the kicker and defense subsets:
+The PFF export supplements fields FantasyPros does not publish and remains the
+K/DST source. When it changes, regenerate the kicker and defense subsets:
 
 ```bash
 python tools/extract_special_teams.py
 ```
+
+League and live-draft setup requests refresh FantasyPros projections and ADP
+only when their local snapshots are missing or at least 12 hours old. The
+explicit `refresh` command still forces a full source refresh.
 
 ## Run simulations
 

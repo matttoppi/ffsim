@@ -22,7 +22,7 @@ class FakePlayer:
         self.sleeper_id = player_id
         self.position = "WR"
         self.team = "NE"
-        self.pff_projections = True
+        self.projections = True
         self.projected_games = 17
         self.week_factor = 1.0
         self.season_factor = 1.0
@@ -116,7 +116,7 @@ class WorldBankTest(unittest.TestCase):
         unsupported = FakePlayer("idp")
         unsupported.position = "LB"
         unprojected = FakePlayer("unprojected")
-        unprojected.pff_projections = False
+        unprojected.projections = False
         self.assertEqual(
             [player.sleeper_id for player in draftable_players([
                 unprojected, unsupported, eligible

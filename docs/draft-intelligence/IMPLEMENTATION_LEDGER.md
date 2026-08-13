@@ -5,10 +5,10 @@ This file is the current operational state of the project. Keep it short, factua
 ## Current status
 
 **Phase:** Phase 8 — offline coupled draft rollouts and nested evaluation
-**State:** Offline nested baseline, official ADP ingestion, and an uncalibrated Sleeper-ADP choice baseline are complete; the owner's post-snapshot mock and real 2026 league draft are attached pre-draft
+**State:** Offline nested baseline, official ADP ingestion, FantasyPros-first offensive projections, and an uncalibrated Sleeper-ADP choice baseline are complete; the owner's post-snapshot mock and real 2026 league draft are attached pre-draft
 **Branch:** `feat/draft-intelligence`  
 **Implementation code changed:** Yes
-**Primary next action:** Start and refresh mock `1393628519644286976`, validate append-only live replay from the owner's assigned slot 1 against its exact 1QB STD market context, then persist completed picks for leakage-free baseline measurement. Keep real draft `1389391547115511809` attached for its exact 12-team PPR settings and teammate evidence. Do not claim `WAIT`, `REACH`, or personalization from one mock or before out-of-sample calibration.
+**Primary next action:** In the web UI, prepare real draft `1389391547115511809` with league-created mock `1393634461312106496`, start monitoring, and complete the mock from slot 1 so its picks can become leakage-free baseline evidence. Do not use generic desktop mock `1393628519644286976`, whose settings do not match the real 12-team PPR league. Do not claim `WAIT`, `REACH`, or personalization from one mock or before out-of-sample calibration.
 
 ## Project entrypoints
 
@@ -87,6 +87,8 @@ Read in this order:
 - [x] Keep `roster_id` authoritative for pick ownership and preserve `picked_by` only as actor metadata because co-managed teams can legitimately mismatch draft-order identity.
 - [x] Save league/draft attachments atomically and test discovery, selection, readiness, invalid drafts, and failed writes at the backend endpoint boundary.
 - [x] Attach standalone mocks by exact draft ID in an isolated cache and reject rewrites or removals of previously observed picks.
+- [x] Add one-click web preparation that resolves the real league from its draft ID, verifies the Sleeper user and optional league-created mock, refreshes players/history/stale ADP, and warms coupled season worlds.
+- [x] Add one-active-session live monitoring that polls append-only draft state, retries transient source failures, and recalculates the uncalibrated baseline only when the user is on the clock.
 - [x] Attach real draft `1389391547115511809`: 12-team PPR snake, owner slot 1/roster 8, no keepers, and every attachment/replay/rollout/season capability supported.
 - [x] Score Sleeper's `fgm_50_59` setting from the modeled 50-plus bucket after subtracting modeled 60-plus makes.
 - [x] Add reproducible CI geometry cases for observed 10/12/14-team snake, third-round reversal, linear, and auction formats.
@@ -101,6 +103,9 @@ Read in this order:
 
 ## Phase 6 foundation started
 
+- [x] Make FantasyPros consensus the primary QB/RB/WR/TE counting-stat source, preserve PFF separately, and allow PFF to fill only unpublished fields plus K/DST.
+- [x] Map FantasyPros projections through official SportsData/Sportradar IDs and fail closed instead of falling back to PFF for missing offensive players.
+- [x] Refresh projection and ADP caches from league/live-draft setup under the same request-driven 12-hour freshness gate; keep explicit refresh forced.
 - [x] Separate correlated player/NFL world preparation from fantasy matchup, standings, and playoff evaluation without changing the existing `SimulationSeason` path.
 - [x] Add a versioned, deterministic, read-only `SeasonWorldBank` score/availability tensor for a caller-supplied draftable player pool.
 - [x] Preserve shared game, team, competition, projection, availability, scoring, scenario, and seed behavior in the extracted generator.
@@ -171,14 +176,14 @@ Record results here after the first local audit.
 
 | Check | Status | Notes |
 |---|---|---|
-| Existing Python tests | Pass | 107 tests with `ResourceWarning` promoted to an error |
-| Frontend tests/build | Pass | 28 Vitest tests; TypeScript/Vite production build passed and both now run in CI |
+| Existing Python tests | Pass | 115 tests with `ResourceWarning` promoted to an error |
+| Frontend tests/build | Pass | 29 Vitest tests; TypeScript/Vite production build passed and both now run in CI |
 | Current simulation benchmark | Pass | M5 Max single-worker baselines recorded below |
 | Sleeper live API smoke test | Pass | Verified 2026 league, draft, picks, traded picks, roster, and per-user history payloads |
 | Offline draft geometry | Pass | CI covers representative observed 10/12/14-team snake, third-round reversal, linear, auction, trade, and co-manager actor cases. Supplemental local saved-payload validation covers 243 snake, 144 linear, and 11 auction drafts; one legacy IDP source inconsistency fails closed. |
 | Historical draft ingestion | Pass | 53,587 picks from 407 unique drafts persisted; 81 draft environments and 14,366 non-keeper picks are model-eligible. The current 12 managers produced 142 discoveries deduplicated to 34 drafts; all 12 have eligible history. |
 | ADP source validation | Pass | Premium payload validated live; four format contexts and all returned platform boards persisted, with an immediate repeat producing zero requests |
-| Sleeper ADP baseline | Awaiting mock start | Choice callback and leakage-safe backtest pass; the attached mock is post-snapshot but remains pre-draft. Existing completed eligible drafts predate the first market retrieval and are correctly skipped. |
+| Sleeper ADP baseline | Ready for mock start | One-click preparation verified mock `1393634461312106496` as an exact league-created match with zero blockers and zero FantasyPros calls while fresh. A 50-continuation live calculation completed at pre-draft pick 1. Existing completed eligible drafts predate the first market retrieval and are correctly skipped. |
 
 ## Phase 0 audit — 2026-08-12
 
@@ -245,4 +250,6 @@ Phase 1 is complete. Phase 2 now has append-only manual and official FantasyPros
 
 ## Last updated
 
-2026-08-13 — Added exact/proxy market-context resolution, leakage-safe snapshot selection, a versioned inverse-ADP Sleeper rollout callback, and a read-only baseline backtest. Current result: 80 drafts correctly skipped because all predate market retrieval; all 105 Python tests pass.
+2026-08-13 — Switched offensive counting-stat means to the official FantasyPros consensus projection API while retaining PFF only for unpublished fields, K/DST, and future validated modifiers. Projection and ADP caches now share the request-driven 12-hour setup freshness pattern; explicit refresh remains forced.
+
+2026-08-13 — Added and live-validated the Prepare Draft → Start Monitoring web flow against real draft `1389391547115511809` and league-created mock `1393634461312106496`: all 12 managers covered, 297 Sleeper ADP players, a 50-world/609-player bank, exact slot-1 mapping, and zero blockers.

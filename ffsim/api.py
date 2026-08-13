@@ -208,7 +208,13 @@ class LiveDraftMonitor:
             with self.lock:
                 self.status = "running"
             while not self.stopped.is_set():
-                sync = sync_prepared_draft(self.prepared)
+                try:
+                    sync = sync_prepared_draft(self.prepared)
+                except OSError as error:
+                    with self.lock:
+                        self.error = str(error)
+                    self.stopped.wait(self.poll_seconds)
+                    continue
                 state = sync.state
                 current = (
                     state.status,
@@ -232,6 +238,7 @@ class LiveDraftMonitor:
                     self.sync_count += 1
                     self.calculation_count += int(calculated)
                     self.last_sync_at = time.time()
+                    self.error = None
                     if state.status == "complete":
                         self.status = "completed"
                         return
@@ -276,7 +283,7 @@ def _run_refresh(state, league_id, draft_id, weeks, season=2026):
 
         refresh_league(league_id, draft_id)
         player_loader = PlayerLoader()
-        player_loader.refresh()
+        projection = player_loader.refresh_if_stale(season=season)
         refresh_matchups(league_id, weeks)
         market = refresh_fantasypros_adp(
             season=season,
@@ -287,6 +294,7 @@ def _run_refresh(state, league_id, draft_id, weeks, season=2026):
             "league_id": league_id,
             "draft_id": draft_id,
             "market": market,
+            "projection": projection,
             "error": None,
         }
     except Exception as error:

@@ -17,7 +17,7 @@ from ffsim.draft_intel.market_model import (
     sleeper_adp_model_version,
     sleeper_adp_utilities,
 )
-from ffsim.draft_intel.mock import attach_mock_draft, sync_sleeper_draft
+from ffsim.draft_intel.mock import sync_sleeper_draft
 from ffsim.draft_intel.storage import load_sleeper_identity_map, store_history
 from ffsim.loaders.league import _fetch_json, league_and_drafts, refresh_league
 from ffsim.loaders.players import PlayerLoader
@@ -77,20 +77,20 @@ def prepare_draft(
         raise ValueError(f"Sleeper user {username} is not a member of league {league_id}")
     config = save_league_attachment(config_path, league_id, draft_id)
 
-    progress("Refreshing league, draft, players, and schedule")
+    progress("Refreshing league, draft, stale players, and schedule")
     refresh_league(league_id, draft_id)
     player_loader = PlayerLoader()
-    player_loader.refresh()
+    projection_refresh = player_loader.refresh_if_stale(season=season)
     refresh_matchups(league_id, config.regular_season_weeks + 3)
+
+    progress("Crawling and deduplicating league-mate history")
+    history_summary = _refresh_history(league_id, season)
 
     progress("Refreshing stale ADP boards")
     market_refresh = refresh_fantasypros_adp(
         season=season,
         sleeper_players_path=player_loader.sleeper_players_file,
     )
-
-    progress("Crawling and deduplicating league-mate history")
-    history_summary = _refresh_history(league_id, season)
 
     progress("Validating live draft source")
     snapshot = json.loads((CACHE_DIR / f"league_{league_id}.json").read_text())
@@ -101,6 +101,7 @@ def prepare_draft(
             int(roster["roster_id"])
             for roster in snapshot.get("rosters") or ()
             if str(roster.get("owner_id")) == user_id
+            or user_id in map(str, roster.get("co_owners") or ())
         ),
         None,
     )
@@ -113,14 +114,24 @@ def prepare_draft(
         None,
     )
 
-    mock_summary = None
     mock_draft = None
+    mock_user_roster_id = None
     mismatch = []
     if mock_draft_id:
-        mock_summary = attach_mock_draft(mock_draft_id)
-        mock_draft = json.loads(Path(mock_summary["cache_path"]).read_text())["draft"]
+        mock_draft = sync_sleeper_draft(
+            mock_draft_id,
+            standalone=True,
+        ).draft
         mismatch = mock_mismatch_reasons(draft, mock_draft)
-        mock_user_slot = _slot_for_roster(mock_draft, mock_summary["user_roster_id"])
+        mock_user_slot = _manager_slot(mock_draft, user_id)
+        mock_user_roster_id = (
+            (mock_draft.get("slot_to_roster_id") or {}).get(str(mock_user_slot))
+            if mock_user_slot is not None
+            else None
+        )
+        mock_user_roster_id = (
+            int(mock_user_roster_id) if mock_user_roster_id is not None else None
+        )
         if mock_user_slot != user_slot:
             mismatch.append({
                 "code": "mock_user_slot_mismatch",
@@ -182,7 +193,7 @@ def prepare_draft(
         )
 
     live_user_roster_id = (
-        mock_summary["user_roster_id"] if mock_summary is not None else user_roster_id
+        mock_user_roster_id if mock_draft is not None else user_roster_id
     )
     if live_user_roster_id is None:
         blockers.append("live_user_slot_missing")
@@ -220,6 +231,7 @@ def prepare_draft(
             else 0
         ),
         "adp_fetched_contexts": market_refresh["fetched_contexts"],
+        "projection_refresh": projection_refresh,
         "history": {
             "managers": len(history_summary["managers"]),
             "managers_with_eligible_history": len(relevant_managers),
@@ -347,6 +359,20 @@ def mock_mismatch_reasons(real_draft, mock_draft):
     real_settings = real_draft.get("settings") or {}
     mock_settings = mock_draft.get("settings") or {}
     reasons = []
+    real_league_id = _optional_id(real_draft.get("league_id"))
+    mock_metadata = mock_draft.get("metadata") or {}
+    mock_link = {
+        "type": mock_metadata.get("type"),
+        "league_id": _optional_id(mock_metadata.get("league_id")),
+    }
+    expected_link = {"type": "league_mock", "league_id": real_league_id}
+    if mock_link != expected_link:
+        reasons.append({
+            "code": "mock_league_link_mismatch",
+            "label": "league-created mock",
+            "expected": expected_link,
+            "actual": mock_link,
+        })
     for code, label, expected, actual in (
         ("mock_draft_type_mismatch", "draft type", real_draft.get("type"), mock_draft.get("type")),
         ("mock_team_count_mismatch", "team count", real_settings.get("teams"), mock_settings.get("teams")),
@@ -438,17 +464,14 @@ def _draft_slots(settings):
     }
 
 
-def _slot_for_roster(draft, roster_id):
-    if roster_id is None:
+def _manager_slot(draft, manager_id):
+    raw_slot = (draft.get("draft_order") or {}).get(str(manager_id))
+    if raw_slot is None:
         return None
-    return next(
-        (
-            int(slot)
-            for slot, value in (draft.get("slot_to_roster_id") or {}).items()
-            if int(value) == int(roster_id)
-        ),
-        None,
-    )
+    try:
+        return int(raw_slot)
+    except (TypeError, ValueError):
+        raise ValueError(f"Sleeper returned an invalid draft slot for user {manager_id}") from None
 
 
 def _required_id(value, label):
