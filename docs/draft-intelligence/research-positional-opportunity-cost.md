@@ -1,7 +1,7 @@
 # Research note — positional opportunity cost (the "Josh Allen bias")
 
 **Date:** 2026-08-13
-**Status:** Resolved — Option A landed as ADR-016 (`vor1`); Option C landed
+**Status:** Resolved — Option A landed as ADR-016 (`vor2`); Option C landed
 as the cost-of-waiting panel. Validation results at the bottom.
 
 ## Symptom
@@ -92,7 +92,7 @@ Option A was implemented as `_projection_user_policy`: the user's future
 picks maximize projection value over positional replacement with open-slot
 awareness (replacement derived from a deterministic league-wide starter fill
 including flex seats — no constant tables, no new data sources). Opponents
-and the temperature fit are untouched; the policy is tagged `vor1` in
+and the temperature fit are untouched; the policy is tagged `vor2` in
 `draft_model_version` per the risk item above.
 
 Validation on the frozen mock states:
@@ -104,6 +104,12 @@ Validation on the frozen mock states:
 - QB sanity: 18/20 continuations draft exactly one starting QB before the
   last three rounds (2/20 outliers, versus ~0 target — monitor).
 - K/DEF guard: early windows stay skill-only under the pure-BPA pool.
+
+The `vor2` refinement keeps the QB/RB/WR/TE/flex need-aware gate but lets
+bench depth compete directly with K/DEF once that core lineup is complete;
+it also excludes duplicate K/DEF. On the frozen current-mock pick-24 Nabers
+branch, pick 96 became skill-position depth in all 50 continuations, while
+K/DEF usually moved to picks 120–144.
 
 Option B remains unpursued (A did not measurably under-correct).
 

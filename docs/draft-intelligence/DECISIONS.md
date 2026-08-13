@@ -425,9 +425,11 @@ the profiling-justified step (AGENTS.md performance ordering).
 In live candidate rollouts, the user's simulated future picks are chosen by
 projection value over positional replacement with open-starting-slot
 awareness, built from the SeasonWorldBank projections and the league's slot
-structure. Opponents keep the calibrated ADP softmax. Root candidates remain
-forced. The recommendation model version carries a `vor1` tag because this
-policy changes results.
+structure. Core QB/RB/WR/TE/flex openings are filled before bench depth; once
+the core lineup is complete, bench players compete directly with K/DEF on
+value, and K/DEF are never duplicated. Opponents keep the calibrated ADP
+softmax. Root candidates remain forced. The recommendation model version
+carries a `vor2` tag because this policy changes results.
 
 ### Rationale
 
@@ -449,5 +451,7 @@ no longer fill an open starting slot rank below all who do.
   follow-up pick maximizes model value instead of scooping the runner-up.
 - The policy is deterministic and shared across candidate branches,
   preserving paired comparisons and coupled randomness.
+- K/DEF are not mechanically drafted before useful bench depth merely because
+  their starting slots remain open.
 - Absolute equity remains provisional until the opponent temperature is
   refit on human drafts (ADR-015).

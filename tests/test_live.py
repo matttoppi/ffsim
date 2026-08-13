@@ -50,7 +50,7 @@ class LiveDraftTest(unittest.TestCase):
         self.assertEqual(sequential.rollout_ids, parallel.rollout_ids)
         self.assertEqual(sequential.world_indices, parallel.world_indices)
         self.assertEqual(sequential.draft_model_version, parallel.draft_model_version)
-        self.assertIn(":t0.11", sequential.draft_model_version)
+        self.assertTrue(sequential.draft_model_version.endswith(":t0.11:vor2"))
         self.assertEqual(
             {candidate.candidate_id: candidate for candidate in sequential.candidates},
             {candidate.candidate_id: candidate for candidate in parallel.candidates},
@@ -58,15 +58,24 @@ class LiveDraftTest(unittest.TestCase):
 
     def test_future_user_policy_prefers_value_over_replacement_in_open_slots(self):
         bank = SimpleNamespace(
-            player_ids=("qb1", "qb2", "qb3", "rb1", "rb2", "rb3", "wr1", "wr2", "te1"),
-            player_positions=("QB", "QB", "QB", "RB", "RB", "RB", "WR", "WR", "TE"),
-            expected_scores=(25.0, 24.0, 20.0, 18.0, 15.0, 8.0, 17.0, 9.0, 12.0),
+            player_ids=(
+                "qb1", "qb2", "qb3", "rb1", "rb2", "rb3", "wr1", "wr2", "te1",
+                "k1", "k2", "k3", "def1", "def2", "def3",
+            ),
+            player_positions=(
+                "QB", "QB", "QB", "RB", "RB", "RB", "WR", "WR", "TE",
+                "K", "K", "K", "DEF", "DEF", "DEF",
+            ),
+            expected_scores=(
+                25.0, 24.0, 20.0, 18.0, 15.0, 8.0, 17.0, 9.0, 12.0,
+                10.0, 9.0, 8.0, 9.0, 8.0, 7.0,
+            ),
             weeks=(1, 2, 3),
         )
         league_evaluator = SimpleNamespace(
             bank=bank,
             roster_ids=(1, 2),
-            slot_counts={"QB": 1, "RB": 1, "FLEX": 1},
+            slot_counts={"QB": 1, "RB": 1, "FLEX": 1, "K": 1, "DEF": 1},
         )
         policy = _projection_user_policy(league_evaluator)
 
@@ -81,7 +90,20 @@ class LiveDraftTest(unittest.TestCase):
         # further QB ranks below even a replacement-level open-slot player.
         after_qb = ((1, ("qb1",)), (2, ()))
         utilities = policy(1, 3, after_qb, frozenset(bank.player_ids) - {"qb1"})
-        self.assertLess(utilities["qb2"], utilities["rb3"])
+        self.assertNotIn("qb2", utilities)
+
+        # Once the core lineup is full, bench value competes with K/DEF
+        # instead of those slots being filled mechanically.
+        core_filled = ((1, ("qb1", "rb1", "wr1")), (2, ()))
+        available = frozenset(bank.player_ids) - set(core_filled[0][1])
+        utilities = policy(1, 4, core_filled, available)
+        self.assertGreater(utilities["rb2"], utilities["k1"])
+
+        # There is no reason for the user's rollout policy to draft a backup
+        # kicker or defense while replacement streaming exists.
+        after_kicker = ((1, (*core_filled[0][1], "k1")), (2, ()))
+        utilities = policy(1, 5, after_kicker, available - {"k1"})
+        self.assertNotIn("k2", utilities)
 
     def test_candidate_pool_expands_outward_from_the_current_pick(self):
         adps = {

@@ -357,9 +357,9 @@ def _bank_market_snapshot(prepared):
 
 
 def _live_model_version(snapshot, temperature):
-    # vor1: user's simulated future picks follow projection value over
-    # replacement with open-slot awareness rather than market ADP.
-    return f"{sleeper_adp_model_version(snapshot)}:t{temperature}:vor1"
+    # vor2: core starters are filled before bench depth, while K/DEF compete
+    # on value once the core lineup is complete and are never duplicated.
+    return f"{sleeper_adp_model_version(snapshot)}:t{temperature}:vor2"
 
 
 def _projection_user_policy(evaluator):
@@ -423,7 +423,7 @@ def _projection_user_policy(evaluator):
                 counts[position] = counts.get(position, 0) + 1
         open_positions = {
             position for position, count in dedicated.items()
-            if counts.get(position, 0) < count
+            if position not in {"K", "DEF"} and counts.get(position, 0) < count
         }
         for slot, count in slots.items():
             eligible = FLEX_ELIGIBILITY.get(slot)
@@ -436,12 +436,14 @@ def _projection_user_policy(evaluator):
             if surplus < count:
                 open_positions.update(eligible)
         return {
-            player_id: (
-                projection[player_id] - replacement.get(position_of[player_id], 0.0)
-                - (0.0 if position_of[player_id] in open_positions else 100000.0)
-            )
+            player_id: projection[player_id] - replacement.get(position_of[player_id], 0.0)
             for player_id in projection
             if player_id in available
+            and (not open_positions or position_of[player_id] in open_positions)
+            and not (
+                position_of[player_id] in {"K", "DEF"}
+                and counts.get(position_of[player_id], 0)
+            )
         }
 
     return policy
