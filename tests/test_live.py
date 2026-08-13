@@ -8,6 +8,7 @@ from ffsim.draft_intel.live import (
     PreparedDraft,
     _draft_id,
     _manager_slot,
+    _projection_user_policy,
     _refresh_history,
     create_live_executor,
     evaluate_live_candidates,
@@ -54,6 +55,33 @@ class LiveDraftTest(unittest.TestCase):
             {candidate.candidate_id: candidate for candidate in sequential.candidates},
             {candidate.candidate_id: candidate for candidate in parallel.candidates},
         )
+
+    def test_future_user_policy_prefers_value_over_replacement_in_open_slots(self):
+        bank = SimpleNamespace(
+            player_ids=("qb1", "qb2", "qb3", "rb1", "rb2", "rb3", "wr1", "wr2", "te1"),
+            player_positions=("QB", "QB", "QB", "RB", "RB", "RB", "WR", "WR", "TE"),
+            expected_scores=(25.0, 24.0, 20.0, 18.0, 15.0, 8.0, 17.0, 9.0, 12.0),
+            weeks=(1, 2, 3),
+        )
+        league_evaluator = SimpleNamespace(
+            bank=bank,
+            roster_ids=(1, 2),
+            slot_counts={"QB": 1, "RB": 1, "FLEX": 1},
+        )
+        policy = _projection_user_policy(league_evaluator)
+
+        # Replacement-aware: rb1's value over replacement beats the raw-points
+        # leader qb1, so the future self does not stack quarterbacks early.
+        empty = ((1, ()), (2, ()))
+        utilities = policy(1, 2, empty, frozenset(bank.player_ids))
+        self.assertGreater(utilities["rb1"], utilities["qb1"])
+        self.assertGreater(utilities["rb1"], utilities["rb2"])
+
+        # Once the only QB slot is filled (QB is not FLEX eligible here), any
+        # further QB ranks below even a replacement-level open-slot player.
+        after_qb = ((1, ("qb1",)), (2, ()))
+        utilities = policy(1, 3, after_qb, frozenset(bank.player_ids) - {"qb1"})
+        self.assertLess(utilities["qb2"], utilities["rb3"])
 
     def test_candidate_pool_expands_outward_from_the_current_pick(self):
         adps = {

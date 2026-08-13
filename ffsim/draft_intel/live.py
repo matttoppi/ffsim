@@ -357,7 +357,94 @@ def _bank_market_snapshot(prepared):
 
 
 def _live_model_version(snapshot, temperature):
-    return f"{sleeper_adp_model_version(snapshot)}:t{temperature}"
+    # vor1: user's simulated future picks follow projection value over
+    # replacement with open-slot awareness rather than market ADP.
+    return f"{sleeper_adp_model_version(snapshot)}:t{temperature}:vor1"
+
+
+def _projection_user_policy(evaluator):
+    """Future user picks by projection over positional replacement.
+
+    Opponents follow the calibrated market model, but the user's own later
+    picks should follow this tool's valuation: value over replacement from
+    the season projections, preferring players who still fill an open
+    starting slot. Root candidates are forced, so this only shapes the
+    simulated follow-up picks.
+    """
+    from ffsim.models.team import FLEX_ELIGIBILITY
+
+    bank = evaluator.bank
+    weeks = len(bank.weeks)
+    projection = {
+        player_id: float(score) * weeks
+        for player_id, score in zip(bank.player_ids, bank.expected_scores)
+    }
+    position_of = dict(zip(bank.player_ids, bank.player_positions))
+    teams = len(evaluator.roster_ids)
+    slots = dict(evaluator.slot_counts)
+    dedicated = {
+        position: count for position, count in slots.items()
+        if position not in FLEX_ELIGIBILITY
+    }
+    by_position = {}
+    for player_id, points in projection.items():
+        by_position.setdefault(position_of[player_id], []).append(points)
+    for points in by_position.values():
+        points.sort(reverse=True)
+
+    # League-wide starter fill: dedicated slots first, then each flex seat to
+    # the best remaining eligible player; what is left defines replacement.
+    taken = {position: teams * count for position, count in dedicated.items()}
+
+    def next_projection(position):
+        points = by_position.get(position, [])
+        index = taken.get(position, 0)
+        return points[index] if index < len(points) else float("-inf")
+
+    for slot, count in slots.items():
+        eligible = FLEX_ELIGIBILITY.get(slot)
+        if not eligible:
+            continue
+        for _ in range(teams * count):
+            best = max(sorted(eligible), key=next_projection)
+            taken[best] = taken.get(best, 0) + 1
+    replacement = {
+        position: max(next_projection(position), 0.0)
+        for position in by_position
+    }
+
+    def policy(roster_id, pick_no, rosters, available):
+        del pick_no
+        mine = dict(rosters)[roster_id]
+        counts = {}
+        for player_id in mine:
+            position = position_of.get(player_id)
+            if position is not None:
+                counts[position] = counts.get(position, 0) + 1
+        open_positions = {
+            position for position, count in dedicated.items()
+            if counts.get(position, 0) < count
+        }
+        for slot, count in slots.items():
+            eligible = FLEX_ELIGIBILITY.get(slot)
+            if not eligible:
+                continue
+            surplus = sum(
+                max(0, counts.get(position, 0) - dedicated.get(position, 0))
+                for position in eligible
+            )
+            if surplus < count:
+                open_positions.update(eligible)
+        return {
+            player_id: (
+                projection[player_id] - replacement.get(position_of[player_id], 0.0)
+                - (0.0 if position_of[player_id] in open_positions else 100000.0)
+            )
+            for player_id in projection
+            if player_id in available
+        }
+
+    return policy
 
 
 def _evaluate_candidate_batch(
@@ -377,7 +464,7 @@ def _evaluate_candidate_batch(
         user_roster_id,
         range(rollout_count),
         choose,
-        choose,
+        _projection_user_policy(evaluator),
         evaluator,
         draft_model_version=_live_model_version(snapshot, temperature),
         survival_player_ids=survival_ids,

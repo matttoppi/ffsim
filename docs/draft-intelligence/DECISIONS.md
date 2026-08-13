@@ -412,3 +412,42 @@ the profiling-justified step (AGENTS.md performance ordering).
 - Worker processes hold the market snapshot and season evaluator once via
   the pool initializer; per-worker evaluator caches are process-local.
 - Parallel and sequential paths must remain exactly equivalent (tested).
+
+---
+
+## ADR-016 — The user's simulated future picks follow the model, not the market
+
+**Status:** Accepted
+**Date:** 2026-08-13
+
+### Decision
+
+In live candidate rollouts, the user's simulated future picks are chosen by
+projection value over positional replacement with open-starting-slot
+awareness, built from the SeasonWorldBank projections and the league's slot
+structure. Opponents keep the calibrated ADP softmax. Root candidates remain
+forced. The recommendation model version carries a `vor1` tag because this
+policy changes results.
+
+### Rationale
+
+The previous greedy-by-market-ADP future self inherited market mispricing:
+observed live at mock pick 24, the Nabers branch drafted Love (projected 256)
+at pick 25 while Rice (projected 273) was still available — a follow-up the
+real user would never make — double-charging Nabers (11.3% before, 18.0%
+after). Raw projected points alone would over-draft quarterbacks, so the
+policy uses value over replacement, where replacement level comes from a
+deterministic league-wide starter fill including flex seats, and players who
+no longer fill an open starting slot rank below all who do.
+
+### Consequences
+
+- Candidate deltas compress: with a strong future policy, good follow-ups
+  partially repair any current pick, so near-tier candidates genuinely grade
+  close — the honest picture, not a defect.
+- Back-to-back snake-turn candidates no longer tie exactly, because the
+  follow-up pick maximizes model value instead of scooping the runner-up.
+- The policy is deterministic and shared across candidate branches,
+  preserving paired comparisons and coupled randomness.
+- Absolute equity remains provisional until the opponent temperature is
+  refit on human drafts (ADR-015).
