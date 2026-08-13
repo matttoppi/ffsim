@@ -86,15 +86,14 @@ class LiveDraftTest(unittest.TestCase):
             available_player_ids=frozenset(adps),
             current_pick_no=10,
         )
-        # Positional coverage by best market player first (RB2, WR9, QB11,
-        # TE30), then the remaining players by distance from pick 10; the
-        # kicker only enters once the window reaches its ADP.
+        # Pure best-player-available by ADP: fallers first, then the window
+        # deepens down the board; the kicker enters only at its ADP depth.
         self.assertEqual(
             live_candidate_pool(prepared, state, 10),
-            ["p02", "p09", "p11", "p30", "p10", "p14", "p90"],
+            ["p02", "p09", "p10", "p11", "p14", "p30", "p90"],
         )
-        self.assertEqual(live_candidate_pool(prepared, state, 5)[:5],
-                         ["p02", "p09", "p11", "p30", "p10"])
+        self.assertEqual(live_candidate_pool(prepared, state, 5),
+                         ["p02", "p09", "p10", "p11", "p14"])
         self.assertNotIn("p90", live_candidate_pool(prepared, state, 6))
         with self.assertRaisesRegex(ValueError, "No available market players"):
             live_candidate_pool(

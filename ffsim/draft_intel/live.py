@@ -3,7 +3,6 @@
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict, dataclass
 import json
-import math
 from pathlib import Path
 from urllib.parse import quote, urlparse
 
@@ -316,11 +315,10 @@ def live_state_summary(prepared, state):
 
 
 def live_candidate_pool(prepared, state, breadth):
-    """Order candidates as an ADP window expanding around the current pick.
+    """Order candidates best-player-available by market ADP.
 
-    The head covers the best market player per position (so no single
-    position can monopolize the board), then candidates step outward from
-    the current pick number in both ADP directions.
+    The head is simply the best remaining players (fallers first), and the
+    expanding window walks deeper down the board; the UI filters positions.
     """
     if prepared.market_snapshot is None or prepared.evaluator is None:
         raise ValueError("Prepared draft is missing market or season inputs")
@@ -329,22 +327,9 @@ def live_candidate_pool(prepared, state, breadth):
     pool = state.available_player_ids & board.keys() & bank_players
     if not pool:
         raise ValueError("No available market players can be evaluated")
-    anchor = state.current_pick_no or 1
-    adp = {player_id: math.exp(-board[player_id]) for player_id in pool}
-    by_distance = sorted(
-        pool,
-        key=lambda player_id: (abs(adp[player_id] - anchor), adp[player_id], player_id),
-    )
-    # Guarantee early coverage only for positions someone might actually be
-    # weighing at this pick; K/DEF enter by ADP distance in the late rounds.
-    uncovered = {"QB", "RB", "WR", "TE"}
-    diverse = []
-    for player_id in sorted(pool, key=lambda player_id: (-board[player_id], player_id)):
-        position = prepared.player_details.get(player_id, {}).get("position")
-        if position in uncovered:
-            uncovered.remove(position)
-            diverse.append(player_id)
-    return list(dict.fromkeys(diverse + by_distance))[:breadth]
+    return sorted(
+        pool, key=lambda player_id: (-board[player_id], player_id)
+    )[:breadth]
 
 
 # Softmax temperature fitted by maximum likelihood on 286 observed non-user
