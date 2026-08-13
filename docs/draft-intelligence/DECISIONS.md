@@ -338,9 +338,9 @@ reconciled draft state immediately. A single worker thread consumes a
 one-slot pending state: when a new pick arrives, the previous recommendation
 is cleared, any in-flight calculation is allowed to finish but its result is
 discarded unless its exact draft-state fingerprint still matches, and only
-the newest on-clock state can be calculated next. There is no FIFO queue of
-calculations, and calculations start only when the user's roster is on the
-clock.
+the newest state can be calculated next. There is no FIFO queue of
+calculations. League equity runs for every state; candidate recommendations
+run only when the user's roster is on the clock.
 
 ### Rationale
 
@@ -356,6 +356,9 @@ while Sleeper was at pick 24).
   last discarded pick, so the UI never shows vague or stale activity.
 - Every recommendation carries its source pick number; the frontend refuses
   to render it against a different current pick.
+- League equity carries its source state, publishes preliminary and refined
+  results after every pick, and keeps the previous labeled result visible
+  while the new state is calculating.
 - Hard thread cancellation is not attempted; obsolete work is abandoned
   between passes and finished stale results are discarded.
 - The worker publishes an exact preliminary pass (12 rollouts) before the
@@ -455,3 +458,36 @@ no longer fill an open starting slot rank below all who do.
   their starting slots remain open.
 - Absolute equity remains provisional until the opponent temperature is
   refit on human drafts (ADR-015).
+
+---
+
+## ADR-017 — League equity uses unforced current-state continuations
+
+**Status:** Accepted
+**Date:** 2026-08-13
+
+### Decision
+
+League-wide live championship odds are evaluated without forcing a root
+candidate. Each rollout continues from the exact current pick: the configured
+user policy selects future user picks, the opponent model samples every other
+roster's picks, and one completed assignment is scored for every roster in the
+same coupled season worlds. The monitor runs a preliminary and refined pass
+after every synchronized pick, not only when the user is on the clock.
+
+### Rationale
+
+Candidate evaluation answers a counterfactual question conditioned on one
+forced user pick, so it cannot provide neutral league standings and cannot run
+on opponent turns. The league evaluator already returns outcomes for every
+roster; retaining those results from one unforced continuation batch supplies
+the requested rankings without multiplying work by roster count.
+
+### Consequences
+
+- All roster odds share the same sampled draft continuations and season worlds.
+- Candidate recommendations remain on-clock-only and keep their forced-root
+  semantics.
+- The sidebar may show the prior labeled result while the newest state is
+  pending, then replaces it with preliminary and refined current-state odds.
+- Absolute percentages remain explicitly uncalibrated under ADR-015.

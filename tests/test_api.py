@@ -517,6 +517,52 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(monitor.recommendation_status, "ready")
         self.assertEqual(monitor.calculation_count, 1)
 
+    def test_opponent_turn_calculates_league_equity_without_a_recommendation(self):
+        prepared = SimpleNamespace(live_draft_id="mock", user_roster_id=1)
+        monitor = LiveDraftMonitor(prepared, 0, 50, 2)
+        state = SimpleNamespace(
+            status="drafting",
+            completed_picks=(object(),),
+            current_pick_no=2,
+            current_roster_id=2,
+            pick_owners=(1, 2),
+        )
+        monitor.pending_state = state
+        monitor.state_fingerprint = ("drafting", 1, 2, (1, 2))
+        monitor.calculation_event.set()
+        candidate_calls = []
+        equity_calls = []
+
+        def evaluate_equity(_prepared, _state, count, _temperature):
+            equity_calls.append(count)
+            return {"count": count}
+
+        worker = Thread(
+            target=monitor.calculate,
+            args=(
+                lambda *_args: candidate_calls.append("pool"),
+                lambda *_args: candidate_calls.append("evaluate"),
+                lambda *_args: {},
+                evaluate_equity,
+                lambda _prepared, evaluation: {"rosters": [], **evaluation},
+            ),
+        )
+        worker.start()
+        deadline = time.time() + 5
+        while (
+            monitor.snapshot()["league_equity_status"] != "ready"
+            and time.time() < deadline
+        ):
+            time.sleep(0.001)
+        monitor.stop()
+        worker.join(5)
+
+        self.assertEqual(candidate_calls, [])
+        self.assertEqual(equity_calls, [12, 50])
+        self.assertEqual(monitor.recommendation_status, "idle")
+        self.assertEqual(monitor.league_equity, {"rosters": [], "count": 50})
+        self.assertEqual(monitor.league_equity_calculation_count, 1)
+
     def test_the_candidate_window_expands_in_batches_until_ready(self):
         prepared = SimpleNamespace(live_draft_id="mock", user_roster_id=1)
         monitor = LiveDraftMonitor(prepared, 0, 2, 2, 6)

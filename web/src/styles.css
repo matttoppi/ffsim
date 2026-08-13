@@ -579,6 +579,101 @@ code {
   font-variant-numeric: tabular-nums;
 }
 
+.draft-live-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(250px, 320px);
+  gap: 20px;
+  align-items: start;
+  margin-top: 16px;
+}
+
+.draft-live-main {
+  min-width: 0;
+}
+
+.league-equity {
+  position: sticky;
+  top: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--booth-raised);
+  padding: 14px;
+}
+
+.league-equity-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.league-equity-header h4 {
+  margin: 2px 0 0;
+  font-family: var(--display);
+  font-size: 1rem;
+  text-transform: uppercase;
+}
+
+.league-equity-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.league-equity-list.is-preliminary {
+  opacity: 0.72;
+}
+
+.league-equity-row {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  border-radius: 7px;
+  padding: 7px 8px;
+  background: var(--field);
+}
+
+.league-equity-row.is-user {
+  outline: 1px solid rgba(232, 179, 59, 0.5);
+  background: var(--gold-soft);
+}
+
+.league-equity-rank,
+.league-equity-odds {
+  font-family: var(--display);
+  font-variant-numeric: tabular-nums;
+}
+
+.league-equity-rank {
+  color: var(--dim);
+  text-align: right;
+}
+
+.league-equity-team {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.league-equity-team strong,
+.league-equity-team small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.league-equity-team small {
+  color: var(--dim);
+  font-size: 0.7rem;
+}
+
+.league-equity-odds {
+  color: var(--gold);
+}
+
 .board {
   list-style: none;
   margin: 16px 0 0;
@@ -852,6 +947,15 @@ code {
   .clock-facts {
     gap: 16px;
     flex-wrap: wrap;
+  }
+
+  .draft-live-body {
+    grid-template-columns: 1fr;
+  }
+
+  .league-equity {
+    position: static;
+    grid-row: 1;
   }
 
   .board-row {

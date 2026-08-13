@@ -54,6 +54,31 @@ class PositionWaiting:
 
 
 @dataclass(frozen=True)
+class RosterEquity:
+    roster_id: int
+    championship_probability: float
+    championship_standard_error: float
+    championship_interval: tuple[float, float]
+    playoff_probability: float
+    expected_wins: float
+    expected_points: float
+
+
+@dataclass(frozen=True)
+class LeagueEquityEvaluation:
+    draft_id: str
+    state_pick_no: int | None
+    completed_picks: int
+    rollout_count: int
+    season_worlds_per_rollout: int
+    joint_outcome_count: int
+    draft_model_version: str
+    world_bank_version: str
+    league_evaluator_version: str
+    rosters: tuple[RosterEquity, ...]
+
+
+@dataclass(frozen=True)
 class PairedDelta:
     candidate_id: str
     baseline_candidate_id: str
@@ -297,6 +322,114 @@ def evaluate_candidates(
         world_bank_version=league_evaluator.bank.version,
         league_evaluator_version=league_evaluator.version,
         candidates=tuple(evaluations),
+    )
+
+
+def evaluate_league_equity(
+    state,
+    user_roster_id,
+    rollout_ids,
+    opponent_choice,
+    user_policy,
+    league_evaluator,
+    *,
+    draft_model_version,
+    seed=2026,
+    temperature=1.0,
+    season_worlds_per_rollout=1,
+    use_cache=True,
+):
+    """Estimate every roster's equity from the current unforced draft state."""
+    rollout_ids = tuple(normalize_rollout_id(value) for value in rollout_ids)
+    if len(rollout_ids) < 2 or len(set(rollout_ids)) != len(rollout_ids):
+        raise ValueError("League equity requires at least two unique rollout IDs")
+    if draft_model_version is None or not str(draft_model_version).strip():
+        raise ValueError("draft_model_version is required")
+    user_roster_id = int(user_roster_id)
+    if set(league_evaluator.roster_ids) != {roster_id for roster_id, _ in state.rosters}:
+        raise ValueError("Draft state and league evaluator roster IDs do not match")
+    if user_roster_id not in league_evaluator.roster_ids:
+        raise ValueError(f"Unknown user roster {user_roster_id}")
+
+    world_indices = tuple(
+        coupled_world_indices(
+            seed,
+            rollout_id,
+            league_evaluator.bank.world_count,
+            season_worlds_per_rollout,
+        )
+        for rollout_id in rollout_ids
+    )
+    completions = complete_drafts(
+        state,
+        None,
+        user_roster_id,
+        rollout_ids,
+        opponent_choice,
+        user_policy,
+        seed=seed,
+        temperature=temperature,
+    )
+    player_indices = {
+        player_id: player_index
+        for player_index, player_id in enumerate(league_evaluator.bank.player_ids)
+    }
+    championships = {roster_id: [] for roster_id in league_evaluator.roster_ids}
+    continuation_probabilities = {
+        roster_id: [] for roster_id in league_evaluator.roster_ids
+    }
+    playoffs = {roster_id: [] for roster_id in league_evaluator.roster_ids}
+    wins = {roster_id: [] for roster_id in league_evaluator.roster_ids}
+    points = {roster_id: [] for roster_id in league_evaluator.roster_ids}
+    for completion, completion_worlds in zip(completions, world_indices):
+        try:
+            assignment = {
+                roster_id: tuple(player_indices[player_id] for player_id in player_ids)
+                for roster_id, player_ids in completion.rosters
+            }
+        except KeyError as error:
+            raise ValueError(
+                f"Completed draft player {error.args[0]} is missing from SeasonWorldBank"
+            ) from None
+        result = league_evaluator.evaluate(
+            assignment,
+            world_indices=completion_worlds,
+            use_cache=use_cache,
+        )
+        for roster_id in league_evaluator.roster_ids:
+            roster_index = league_evaluator.roster_index[roster_id]
+            outcomes = tuple(
+                bool(champion == roster_index) for champion in result.champion_indices
+            )
+            championships[roster_id].extend(outcomes)
+            continuation_probabilities[roster_id].append(sum(outcomes) / len(outcomes))
+            playoffs[roster_id].extend(bool(value) for value in result.playoffs[:, roster_index])
+            wins[roster_id].extend(int(value) for value in result.wins[:, roster_index])
+            points[roster_id].extend(float(value) for value in result.points[:, roster_index])
+
+    roster_equities = []
+    for roster_id in league_evaluator.roster_ids:
+        probability, error = _mean_and_error(continuation_probabilities[roster_id])
+        roster_equities.append(RosterEquity(
+            roster_id=roster_id,
+            championship_probability=probability,
+            championship_standard_error=error,
+            championship_interval=_wilson_interval(probability, len(rollout_ids)),
+            playoff_probability=sum(playoffs[roster_id]) / len(playoffs[roster_id]),
+            expected_wins=sum(wins[roster_id]) / len(wins[roster_id]),
+            expected_points=sum(points[roster_id]) / len(points[roster_id]),
+        ))
+    return LeagueEquityEvaluation(
+        draft_id=state.draft_id,
+        state_pick_no=state.current_pick_no,
+        completed_picks=len(state.completed_picks),
+        rollout_count=len(rollout_ids),
+        season_worlds_per_rollout=len(world_indices[0]),
+        joint_outcome_count=len(rollout_ids) * len(world_indices[0]),
+        draft_model_version=str(draft_model_version).strip(),
+        world_bank_version=league_evaluator.bank.version,
+        league_evaluator_version=league_evaluator.version,
+        rosters=tuple(roster_equities),
     )
 
 

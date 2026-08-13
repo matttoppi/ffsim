@@ -188,6 +188,10 @@ export interface DraftMonitor {
   recommendation_pick_no?: number | null
   recommendation_error?: string | null
   recommendation_discarded_pick_no?: number | null
+  league_equity_status?: 'idle' | 'pending' | 'calculating' | 'ready' | 'failed'
+  league_equity_pick_no?: number | null
+  league_equity_error?: string | null
+  league_equity_calculation_count?: number
   error?: string | null
   state?: {
     draft_status: string
@@ -234,6 +238,25 @@ export interface DraftMonitor {
       championship_probability: number
       playoff_probability: number
       expected_wins: number
+    }>
+  } | null
+  league_equity?: {
+    model_status: string
+    pick_no: number | null
+    completed_picks: number
+    rollout_count: number
+    joint_outcome_count: number
+    rosters: Array<{
+      roster_id: number
+      name: string
+      draft_slot: number | null
+      is_user: boolean
+      championship_probability: number
+      championship_standard_error: number
+      championship_interval: [number, number]
+      playoff_probability: number
+      expected_wins: number
+      expected_points: number
     }>
   } | null
 }

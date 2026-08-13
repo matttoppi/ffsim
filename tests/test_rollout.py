@@ -32,6 +32,42 @@ def equal_utilities(roster_id, pick_no, rosters, available):
 
 
 class DraftRolloutTest(unittest.TestCase):
+    def test_unforced_completion_starts_on_an_opponent_pick(self):
+        state = replay_sleeper_draft(
+            {
+                "draft_id": "unforced",
+                "type": "linear",
+                "status": "drafting",
+                "settings": {"teams": 2, "rounds": 2},
+                "draft_order": {"a": 1, "b": 2},
+                "slot_to_roster_id": {"1": 101, "2": 102},
+            },
+            ({
+                "draft_id": "unforced",
+                "pick_no": 1,
+                "round": 1,
+                "draft_slot": 1,
+                "roster_id": 101,
+                "player_id": "p1",
+            },),
+            (),
+            ("p1", "p2", "p3", "p4"),
+        )
+
+        completions = complete_drafts(
+            state,
+            None,
+            101,
+            range(4),
+            equal_utilities,
+            equal_utilities,
+        )
+
+        self.assertEqual(state.current_roster_id, 102)
+        self.assertTrue(all(completion.root_candidate_id is None for completion in completions))
+        self.assertTrue(all(completion.picks[0].pick_no == 2 for completion in completions))
+        self.assertTrue(all(not completion.picks[0].user_pick for completion in completions))
+
     def test_choice_distribution_is_normalized_and_stable(self):
         probabilities = dict(choice_probabilities({"p1": 2, "p2": 1, "p3": -1}))
 

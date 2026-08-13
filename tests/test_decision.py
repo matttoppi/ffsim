@@ -7,6 +7,7 @@ import numpy as np
 from ffsim.draft_intel.decision import (
     coupled_world_indices,
     evaluate_candidates,
+    evaluate_league_equity,
     merge_evaluations,
     recommendation_summary,
 )
@@ -70,6 +71,43 @@ def market_utility(roster_id, pick_no, rosters, available):
 
 
 class DecisionEvaluationTest(unittest.TestCase):
+    def test_league_equity_scores_every_roster_without_forcing_a_root_pick(self):
+        state = draft_state()
+        league_evaluator = evaluator()
+        result = evaluate_league_equity(
+            state,
+            1,
+            range(8),
+            market_utility,
+            market_utility,
+            league_evaluator,
+            draft_model_version="manual-test-v1",
+            seed=19,
+            season_worlds_per_rollout=3,
+        )
+
+        self.assertEqual(result.completed_picks, 0)
+        self.assertEqual(result.state_pick_no, 1)
+        self.assertEqual(result.rollout_count, 8)
+        self.assertEqual(result.joint_outcome_count, 24)
+        self.assertEqual({row.roster_id for row in result.rosters}, {1, 2, 3, 4})
+        self.assertAlmostEqual(
+            sum(row.championship_probability for row in result.rosters),
+            1.0,
+        )
+        self.assertEqual(result, evaluate_league_equity(
+            state,
+            1,
+            range(8),
+            market_utility,
+            market_utility,
+            league_evaluator,
+            draft_model_version="manual-test-v1",
+            seed=19,
+            season_worlds_per_rollout=3,
+            use_cache=False,
+        ))
+
     def test_merged_candidate_batches_equal_one_combined_evaluation(self):
         league_evaluator = evaluator()
         kwargs = dict(

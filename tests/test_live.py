@@ -12,7 +12,9 @@ from ffsim.draft_intel.live import (
     _refresh_history,
     create_live_executor,
     evaluate_live_candidates,
+    evaluate_live_league_equity,
     live_candidate_pool,
+    live_league_equity_payload,
     live_state_summary,
     mock_mismatch_reasons,
 )
@@ -22,6 +24,48 @@ from tests.test_decision import draft_state, evaluator
 
 
 class LiveDraftTest(unittest.TestCase):
+    def test_live_league_equity_payload_names_and_ranks_every_roster(self):
+        prepared = PreparedDraft(
+            summary={},
+            live_draft_id="draft",
+            league_id=None,
+            standalone=True,
+            user_roster_id=1,
+            market_snapshot={
+                "source": SLEEPER_ADP_SOURCE,
+                "snapshot_id": "snap",
+                "observations": [
+                    {"canonical_player_id": f"p{index}", "adp": float(index)}
+                    for index in range(1, 13)
+                ],
+            },
+            evaluator=evaluator(),
+            player_details={},
+            roster_details={
+                roster_id: {
+                    "name": f"Team {roster_id}",
+                    "draft_slot": roster_id,
+                    "is_user": roster_id == 1,
+                }
+                for roster_id in range(1, 5)
+            },
+        )
+
+        payload = live_league_equity_payload(
+            prepared,
+            evaluate_live_league_equity(prepared, draft_state(), 4),
+        )
+
+        self.assertEqual(len(payload["rosters"]), 4)
+        self.assertEqual({row["name"] for row in payload["rosters"]}, {
+            "Team 1", "Team 2", "Team 3", "Team 4",
+        })
+        self.assertTrue(next(row for row in payload["rosters"] if row["roster_id"] == 1)["is_user"])
+        self.assertAlmostEqual(
+            sum(row["championship_probability"] for row in payload["rosters"]),
+            1.0,
+        )
+
     def test_parallel_candidate_evaluation_matches_the_sequential_batch(self):
         state = draft_state()
         prepared = PreparedDraft(

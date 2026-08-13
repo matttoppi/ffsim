@@ -79,11 +79,14 @@ documented guidance to stay under 1,000 API calls per minute (checked
 2026-08-13). Completion is detected from a full pick sheet as well as the
 draft status so a stale cached metadata payload cannot leave the monitor
 stuck. State publication must never wait for recommendation calculation:
-the monitor publishes the reconciled state immediately after every poll,
-queues at most one pending calculation for the newest state (and only when
-the user is on the clock), and discards any finished result whose draft-state
-fingerprint no longer matches. The worker publishes a quick preliminary pass
-(12 rollouts) on a core candidate window, refines it with the full rollout
+the monitor publishes the reconciled state immediately after every poll and
+queues at most one pending calculation for the newest state. League-wide
+championship equity is calculated after every pick from an unforced
+continuation of the current draft state; candidate recommendations are
+calculated only when the user is on the clock. Any finished result whose
+draft-state fingerprint no longer matches is discarded. The worker publishes
+a quick preliminary league-equity pass (12 rollouts), does the same for the
+core candidate window when applicable, refines both with the full rollout
 budget, then keeps widening the candidate window outward from the current
 pick in four-candidate ADP-distance batches (default breadth 40) while the
 state holds. Rollout IDs are deterministic prefixes and candidate results

@@ -19,7 +19,7 @@ class RolloutPick:
 @dataclass(frozen=True)
 class DraftCompletion:
     rollout_id: int
-    root_candidate_id: str
+    root_candidate_id: str | None
     next_user_pick_no: int | None
     initial_available_player_ids: frozenset[str]
     picks: tuple[RolloutPick, ...]
@@ -71,18 +71,19 @@ def complete_drafts(
     seed=2026,
     temperature=1.0,
 ):
-    """Sample multiple target-distribution draft completions for one root pick."""
+    """Sample target-distribution completions, optionally forcing one root pick."""
     if state.draft_type not in {"snake", "linear"}:
         raise ValueError("Future draft rollouts require predetermined pick ownership")
     user_roster_id = int(user_roster_id)
-    if state.current_roster_id != user_roster_id:
+    if root_candidate_id is not None and state.current_roster_id != user_roster_id:
         raise ValueError("The configured user roster is not on the clock")
-    root_candidate_id = str(root_candidate_id)
-    if root_candidate_id not in state.available_player_ids:
-        raise ValueError(f"Root candidate {root_candidate_id} is not available")
+    if root_candidate_id is not None:
+        root_candidate_id = str(root_candidate_id)
+        if root_candidate_id not in state.available_player_ids:
+            raise ValueError(f"Root candidate {root_candidate_id} is not available")
     rollout_ids = tuple(normalize_rollout_id(value) for value in rollout_ids)
     if len(rollout_ids) < 2 or len(set(rollout_ids)) != len(rollout_ids):
-        raise ValueError("Root candidates require at least two unique rollout IDs")
+        raise ValueError("Draft estimates require at least two unique rollout IDs")
     if not callable(opponent_choice) or not callable(user_policy):
         raise TypeError("opponent_choice and user_policy must be callable")
     seed = normalize_seed(seed)
@@ -213,20 +214,23 @@ def _complete_draft(
     available = set(initial_available)
     rosters = {roster_id: list(players) for roster_id, players in state.rosters}
     current_pick_no = state.current_pick_no
-    next_user_pick_no = next(
-        (
-            pick_no
-            for pick_no in range(current_pick_no + 1, len(state.pick_owners) + 1)
-            if state.pick_owners[pick_no - 1] == user_roster_id
-        ),
-        None,
+    next_user_pick_no = (
+        state.turn_for(user_roster_id).user_next_pick_no
+        if current_pick_no is not None
+        else None
     )
-    picks = [RolloutPick(current_pick_no, user_roster_id, root_candidate_id, 1.0, True)]
-    rosters[user_roster_id].append(root_candidate_id)
-    available.remove(root_candidate_id)
+    picks = []
+    first_pick_no = current_pick_no or len(state.pick_owners) + 1
+    if root_candidate_id is not None:
+        picks.append(RolloutPick(
+            current_pick_no, user_roster_id, root_candidate_id, 1.0, True
+        ))
+        rosters[user_roster_id].append(root_candidate_id)
+        available.remove(root_candidate_id)
+        first_pick_no += 1
     log_probability = 0.0
 
-    for pick_no in range(current_pick_no + 1, len(state.pick_owners) + 1):
+    for pick_no in range(first_pick_no, len(state.pick_owners) + 1):
         roster_id = state.pick_owners[pick_no - 1]
         if roster_id is None:
             raise ValueError(f"Pick {pick_no} has no predetermined owner")

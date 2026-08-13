@@ -117,6 +117,61 @@ describe('DraftIntel', () => {
     }
   })
 
+  it('shows league championship rankings while an opponent is on the clock', async () => {
+    mockMonitor({
+      status: 'running',
+      league_equity_status: 'calculating',
+      league_equity_pick_no: 5,
+      league_equity: {
+        model_status: 'baseline',
+        pick_no: 5,
+        completed_picks: 4,
+        rollout_count: 12,
+        joint_outcome_count: 36,
+        rosters: [
+          {
+            roster_id: 1,
+            name: 'Alpha',
+            draft_slot: 1,
+            is_user: true,
+            championship_probability: 0.125,
+            championship_standard_error: 0.02,
+            championship_interval: [0.1, 0.15],
+            playoff_probability: 0.6,
+            expected_wins: 8,
+            expected_points: 100,
+          },
+          {
+            roster_id: 2,
+            name: 'Bravo',
+            draft_slot: 2,
+            is_user: false,
+            championship_probability: 0.1,
+            championship_standard_error: 0.02,
+            championship_interval: [0.08, 0.12],
+            playoff_probability: 0.5,
+            expected_wins: 7,
+            expected_points: 90,
+          },
+        ],
+      },
+      state: monitorState(
+        [pick(1, 'One'), pick(2, 'Two'), pick(3, 'Three'), pick(4, 'Four')],
+        5,
+      ),
+    })
+    await act(async () => {
+      render(<DraftIntel currentDraftId="real" />)
+    })
+
+    expect(screen.getByText('Championship odds')).toBeTruthy()
+    expect(screen.getByText('Alpha (You)')).toBeTruthy()
+    expect(screen.getByText('Bravo')).toBeTruthy()
+    expect(screen.getByText('12.5%')).toBeTruthy()
+    expect(screen.getByText(/Refining for pick 5/)).toBeTruthy()
+    expect(screen.getByText('Watching the room')).toBeTruthy()
+  })
+
   it('refuses to show a recommendation computed for a different pick and notes discards', async () => {
     mockMonitor({
       status: 'running',

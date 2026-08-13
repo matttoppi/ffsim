@@ -1,7 +1,7 @@
 """One-click draft preparation and live recommendation calculations."""
 
 from concurrent.futures import ProcessPoolExecutor
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 import json
 from pathlib import Path
 from urllib.parse import quote, urlparse
@@ -9,6 +9,7 @@ from urllib.parse import quote, urlparse
 from ffsim.config import AppConfig, save_league_attachment
 from ffsim.draft_intel.decision import (
     evaluate_candidates,
+    evaluate_league_equity,
     merge_evaluations,
     recommendation_summary,
 )
@@ -43,6 +44,7 @@ class PreparedDraft:
     market_snapshot: dict | None
     evaluator: LeagueEvaluator | None
     player_details: dict
+    roster_details: dict = field(default_factory=dict)
 
 
 def prepare_draft(
@@ -145,6 +147,10 @@ def prepare_draft(
                 "actual": mock_user_slot,
             })
 
+    live_user_roster_id = (
+        mock_user_roster_id if mock_draft is not None else user_roster_id
+    )
+
     market = load_league_market_snapshot(league, season=season)
     live_market_snapshot = _live_market_snapshot(market["snapshot"])
     compatibility = snapshot["draft_summary"]["compatibility"]
@@ -161,17 +167,28 @@ def prepare_draft(
         blockers.append("user_roster_missing")
     blockers.extend(reason["code"] for reason in mismatch)
 
+    live_draft = mock_draft or draft
+    live_roster_by_slot = {
+        int(slot): int(roster_id)
+        for slot, roster_id in (live_draft.get("slot_to_roster_id") or {}).items()
+    }
+    real_roster_by_slot = {
+        int(slot): int(roster_id)
+        for slot, roster_id in (draft.get("slot_to_roster_id") or {}).items()
+    }
+    roster_details = _roster_details(
+        live_roster_by_slot,
+        real_roster_by_slot,
+        snapshot.get("rosters") or (),
+        league_users,
+        live_user_roster_id,
+    )
     evaluator = None
     bank = None
     if not blockers:
         progress("Building coupled season worlds")
         player_loader.load_players()
         league_model = League(league)
-        live_draft = mock_draft or draft
-        live_roster_by_slot = {
-            int(slot): int(roster_id)
-            for slot, roster_id in (live_draft.get("slot_to_roster_id") or {}).items()
-        }
         real_slot_by_roster = {
             int(roster_id): int(slot)
             for slot, roster_id in (draft.get("slot_to_roster_id") or {}).items()
@@ -197,9 +214,6 @@ def prepare_draft(
             seed=config.seed,
         )
 
-    live_user_roster_id = (
-        mock_user_roster_id if mock_draft is not None else user_roster_id
-    )
     if live_user_roster_id is None:
         blockers.append("live_user_slot_missing")
     if evaluator is None:
@@ -269,6 +283,7 @@ def prepare_draft(
         market_snapshot=live_market_snapshot,
         evaluator=evaluator,
         player_details=player_details,
+        roster_details=roster_details,
     )
 
 
@@ -548,6 +563,52 @@ def evaluate_live_candidates(
     return merge_evaluations([future.result() for future in futures])
 
 
+def evaluate_live_league_equity(prepared, state, rollout_count, temperature=None):
+    if prepared.market_snapshot is None or prepared.evaluator is None:
+        raise ValueError("Prepared draft is missing market or season inputs")
+    temperature = LIVE_TEMPERATURE if temperature is None else float(temperature)
+    snapshot = _bank_market_snapshot(prepared)
+    return evaluate_league_equity(
+        state,
+        prepared.user_roster_id,
+        range(rollout_count),
+        sleeper_adp_choice(snapshot),
+        _projection_user_policy(prepared.evaluator),
+        prepared.evaluator,
+        draft_model_version=_live_model_version(snapshot, temperature),
+        temperature=temperature,
+        season_worlds_per_rollout=LIVE_SEASON_WORLDS_PER_ROLLOUT,
+    )
+
+
+def live_league_equity_payload(prepared, evaluation):
+    rows = []
+    for equity in sorted(
+        evaluation.rosters,
+        key=lambda row: (
+            -row.championship_probability,
+            -row.playoff_probability,
+            -row.expected_wins,
+            row.roster_id,
+        ),
+    ):
+        details = prepared.roster_details.get(equity.roster_id, {})
+        rows.append({
+            **asdict(equity),
+            "name": details.get("name", f"Roster {equity.roster_id}"),
+            "draft_slot": details.get("draft_slot"),
+            "is_user": details.get("is_user", equity.roster_id == prepared.user_roster_id),
+        })
+    return {
+        "model_status": "uncalibrated_sleeper_adp_baseline",
+        "pick_no": evaluation.state_pick_no,
+        "completed_picks": evaluation.completed_picks,
+        "rollout_count": evaluation.rollout_count,
+        "joint_outcome_count": evaluation.joint_outcome_count,
+        "rosters": rows,
+    }
+
+
 def live_recommendation_payload(prepared, evaluations, candidate_pool_count):
     evaluation = merge_evaluations(evaluations)
     recommendation = asdict(recommendation_summary(evaluation))
@@ -670,6 +731,27 @@ def _player_details(path):
         }
         for player_id, player in players.items()
     }
+
+
+def _roster_details(live_by_slot, real_by_slot, rosters, users, user_roster_id):
+    users_by_id = {str(user.get("user_id")): user for user in users}
+    rosters_by_id = {int(roster["roster_id"]): roster for roster in rosters}
+    details = {}
+    for slot, live_roster_id in live_by_slot.items():
+        roster = rosters_by_id.get(real_by_slot.get(slot), {})
+        owner_id = roster.get("owner_id") or next(iter(roster.get("co_owners") or ()), None)
+        user = users_by_id.get(str(owner_id), {})
+        name = (
+            (user.get("metadata") or {}).get("team_name")
+            or user.get("display_name")
+            or f"Roster {slot}"
+        )
+        details[live_roster_id] = {
+            "name": str(name),
+            "draft_slot": slot,
+            "is_user": live_roster_id == user_roster_id,
+        }
+    return details
 
 
 def _live_market_snapshot(snapshot):

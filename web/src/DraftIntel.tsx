@@ -129,6 +129,16 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
     currentPickNo != null &&
     monitor.state?.user_next_pick_no === currentPickNo + 1
   const feed = [...(monitor.state?.recent_picks ?? [])].reverse()
+  const leagueRows = monitor.league_equity?.rosters ?? []
+  const leagueEquityCurrent =
+    monitor.league_equity?.completed_picks === monitor.state?.completed_picks
+  const leagueEquityUpdating =
+    ['pending', 'calculating'].includes(monitor.league_equity_status ?? 'idle') ||
+    !leagueEquityCurrent
+  const maxLeagueEquity = Math.max(
+    ...leagueRows.map((row) => row.championship_probability),
+    1e-9,
+  )
   const lastSync = monitor.last_sync_at
     ? new Date(monitor.last_sync_at * 1000).toLocaleTimeString()
     : null
@@ -287,10 +297,12 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
                 <div><dt>Current pick</dt><dd>{monitor.state.current_pick_no ?? '—'}</dd></div>
                 <div><dt>Picks in</dt><dd>{monitor.state.completed_picks}</dd></div>
                 <div><dt>Your next</dt><dd>{monitor.state.user_next_pick_no ?? '—'}</dd></div>
-                <div><dt>Rec passes</dt><dd>{monitor.calculation_count ?? 0}</dd></div>
+                <div><dt>Odds updates</dt><dd>{monitor.league_equity_calculation_count ?? 0}</dd></div>
               </dl>
             )}
           </div>
+          <div className="draft-live-body">
+            <div className="draft-live-main">
           {monitoring && monitor.state && (
             recStatus === 'pending' ? (
               <p className="draft-progress" role="status">
@@ -467,6 +479,67 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
               </ol>
             </div>
           )}
+            </div>
+            <aside
+              className="league-equity"
+              aria-label="League championship odds"
+              aria-live="polite"
+            >
+              <div className="league-equity-header">
+                <div>
+                  <p className="eyebrow">Live rankings</p>
+                  <h4>Championship odds</h4>
+                </div>
+                {leagueEquityUpdating && (
+                  <span className="draft-chip draft-chip-prep">Updating</span>
+                )}
+              </div>
+              {leagueRows.length > 0 ? (
+                <ol className={`league-equity-list${leagueEquityUpdating ? ' is-preliminary' : ''}`}>
+                  {leagueRows.map((row, index) => (
+                    <li
+                      key={row.roster_id}
+                      className={`league-equity-row${row.is_user ? ' is-user' : ''}`}
+                    >
+                      <span className="league-equity-rank">{index + 1}</span>
+                      <span className="league-equity-team">
+                        <strong>{row.name}{row.is_user ? ' (You)' : ''}</strong>
+                        <small>
+                          {row.draft_slot != null ? `Slot ${row.draft_slot} · ` : ''}
+                          {(row.playoff_probability * 100).toFixed(0)}% playoffs
+                        </small>
+                        <span className="board-track" aria-hidden="true">
+                          <span
+                            className="board-fill"
+                            style={{ width: `${(row.championship_probability / maxLeagueEquity) * 100}%` }}
+                          />
+                        </span>
+                      </span>
+                      <strong className="league-equity-odds">
+                        {(row.championship_probability * 100).toFixed(1)}%
+                      </strong>
+                    </li>
+                  ))}
+                </ol>
+              ) : monitor.league_equity_status === 'failed' ? (
+                <p className="form-error" role="alert">
+                  League odds failed: {monitor.league_equity_error}
+                </p>
+              ) : (
+                <p className="draft-progress" role="status">
+                  Calculating league odds for pick {monitor.league_equity_pick_no ?? 'final'}…
+                </p>
+              )}
+              {leagueRows.length > 0 && (
+                <p className="board-footnote">
+                  {leagueEquityUpdating
+                    ? `Refining for pick ${monitor.league_equity_pick_no ?? 'final'}`
+                    : `Updated through pick ${monitor.league_equity?.completed_picks ?? 0}`}{' '}
+                  · uncalibrated baseline · {monitor.league_equity?.rollout_count ?? 0} draft continuations
+                </p>
+              )}
+            </aside>
+          </div>
         </section>
       )}
     </div>

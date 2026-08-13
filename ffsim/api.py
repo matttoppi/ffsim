@@ -194,9 +194,14 @@ class LiveDraftMonitor:
     recommendation_pick_no: int | None = None
     recommendation_error: str | None = None
     recommendation_discarded_pick_no: int | None = None
+    league_equity: dict | None = None
+    league_equity_status: str = "idle"
+    league_equity_pick_no: int | None = None
+    league_equity_error: str | None = None
     error: str | None = None
     sync_count: int = 0
     calculation_count: int = 0
+    league_equity_calculation_count: int = 0
     last_sync_at: float | None = None
     lock: Lock = field(default_factory=Lock, repr=False)
     stopped: Event = field(default_factory=Event, repr=False)
@@ -220,10 +225,22 @@ class LiveDraftMonitor:
                 "recommendation_pick_no": self.recommendation_pick_no,
                 "recommendation_error": self.recommendation_error,
                 "recommendation_discarded_pick_no": self.recommendation_discarded_pick_no,
+                "league_equity": self.league_equity,
+                "league_equity_status": self.league_equity_status,
+                "league_equity_pick_no": self.league_equity_pick_no,
+                "league_equity_error": self.league_equity_error,
+                "league_equity_calculation_count": self.league_equity_calculation_count,
                 "error": self.error,
             }
 
-    def calculate(self, candidate_pool, evaluate_candidates, recommendation_payload):
+    def calculate(
+        self,
+        candidate_pool,
+        evaluate_candidates,
+        recommendation_payload,
+        evaluate_equity=None,
+        equity_payload=None,
+    ):
         while not self.stopped.is_set():
             self.calculation_event.wait()
             self.calculation_event.clear()
@@ -236,24 +253,69 @@ class LiveDraftMonitor:
                     continue
                 fingerprint = _state_fingerprint(state)
                 pick_no = state.current_pick_no
-                self.recommendation_status = "calculating"
+                on_clock = state.current_roster_id == self.prepared.user_roster_id
+                self.recommendation_status = "calculating" if on_clock else "idle"
                 self.recommendation_discarded_pick_no = None
-            try:
-                candidates = candidate_pool(
-                    self.prepared,
-                    state,
-                    max(self.candidate_breadth, self.candidate_count),
-                )
-            except Exception as error:
-                LOGGER.exception(
-                    "Live draft candidate selection failed for %s",
-                    self.prepared.live_draft_id,
-                )
+                if evaluate_equity is not None and equity_payload is not None:
+                    self.league_equity_status = "calculating"
+
+            def update_equity(rollout_count, final):
+                try:
+                    evaluation = evaluate_equity(
+                        self.prepared,
+                        state,
+                        rollout_count,
+                        self.temperature,
+                    )
+                    payload = equity_payload(self.prepared, evaluation)
+                except Exception as error:
+                    LOGGER.exception(
+                        "Live draft league equity failed for %s",
+                        self.prepared.live_draft_id,
+                    )
+                    with self.lock:
+                        if self.state_fingerprint == fingerprint:
+                            self.league_equity_status = "failed"
+                            self.league_equity_error = str(error)
+                            return True
+                        return False
                 with self.lock:
-                    if self.state_fingerprint == fingerprint:
-                        self.recommendation_status = "failed"
-                        self.recommendation_error = str(error)
-                continue
+                    if self.state_fingerprint != fingerprint or self.stopped.is_set():
+                        return False
+                    self.league_equity = payload
+                    self.league_equity_status = "ready" if final else "calculating"
+                    self.league_equity_error = None
+                    self.league_equity_calculation_count += int(final)
+                return True
+
+            equity_enabled = evaluate_equity is not None and equity_payload is not None
+            equity_finalized = not equity_enabled
+            if equity_enabled:
+                preliminary = min(self.rollout_count, PRELIMINARY_ROLLOUT_COUNT)
+                equity_finalized = preliminary == self.rollout_count
+                if not update_equity(preliminary, equity_finalized):
+                    if on_clock:
+                        with self.lock:
+                            self.recommendation_discarded_pick_no = pick_no
+                    continue
+
+            candidates = ()
+            if on_clock:
+                try:
+                    candidates = candidate_pool(
+                        self.prepared,
+                        state,
+                        max(self.candidate_breadth, self.candidate_count),
+                    )
+                except Exception as error:
+                    LOGGER.exception(
+                        "Live draft candidate selection failed for %s",
+                        self.prepared.live_draft_id,
+                    )
+                    with self.lock:
+                        if self.state_fingerprint == fingerprint:
+                            self.recommendation_status = "failed"
+                            self.recommendation_error = str(error)
             # Publish a quick preliminary pass on the core window, refine it
             # with the full rollout budget, then keep widening the candidate
             # window in small batches while the state holds. Rollout IDs are
@@ -261,15 +323,22 @@ class LiveDraftMonitor:
             # their batch, so every published board is exact.
             first = candidates[: self.candidate_count]
             steps = []
-            if self.rollout_count > PRELIMINARY_ROLLOUT_COUNT:
-                steps.append((first, PRELIMINARY_ROLLOUT_COUNT, False))
-            steps.append((first, self.rollout_count, True))
-            steps.extend(
-                (candidates[start:start + EXPANSION_BATCH_SIZE], self.rollout_count, True)
-                for start in range(len(first), len(candidates), EXPANSION_BATCH_SIZE)
-            )
+            if candidates:
+                if self.rollout_count > PRELIMINARY_ROLLOUT_COUNT:
+                    steps.append((first, PRELIMINARY_ROLLOUT_COUNT, False))
+                steps.append((first, self.rollout_count, True))
+                steps.extend(
+                    (candidates[start:start + EXPANSION_BATCH_SIZE], self.rollout_count, True)
+                    for start in range(len(first), len(candidates), EXPANSION_BATCH_SIZE)
+                )
             evaluations = []
             for step, (batch, rollout_count, cumulative) in enumerate(steps):
+                if step == 1 and not equity_finalized:
+                    equity_finalized = update_equity(self.rollout_count, True)
+                    if not equity_finalized:
+                        with self.lock:
+                            self.recommendation_discarded_pick_no = pick_no
+                        break
                 with self.lock:
                     if self.state_fingerprint != fingerprint or self.stopped.is_set():
                         # ponytail: no hard thread cancel; obsolete work is
@@ -315,18 +384,27 @@ class LiveDraftMonitor:
                     )
                     self.calculation_count += int(final)
 
+            if not equity_finalized:
+                with self.lock:
+                    current = self.state_fingerprint == fingerprint and not self.stopped.is_set()
+                if current:
+                    update_equity(self.rollout_count, True)
+
     def run(self):
         from ffsim.draft_intel.live import (
             create_live_executor,
             evaluate_live_candidates,
+            evaluate_live_league_equity,
             live_candidate_pool,
+            live_league_equity_payload,
             live_recommendation_payload,
             live_state_summary,
             sync_prepared_draft,
         )
 
+        equity_available = getattr(self.prepared, "evaluator", None) is not None
         try:
-            if getattr(self.prepared, "evaluator", None) is not None:
+            if equity_available:
                 self.executor = create_live_executor(self.prepared)
         except Exception:
             LOGGER.exception("Falling back to sequential candidate evaluation")
@@ -337,6 +415,8 @@ class LiveDraftMonitor:
                 live_candidate_pool,
                 evaluate_live_candidates,
                 live_recommendation_payload,
+                evaluate_live_league_equity if equity_available else None,
+                live_league_equity_payload if equity_available else None,
             ),
             daemon=True,
         ).start()
@@ -377,17 +457,24 @@ class LiveDraftMonitor:
                         self.recommendation_pick_no = None
                         self.recommendation_error = None
                         self.recommendation_discarded_pick_no = None
-                        self.pending_state = None
+                        self.pending_state = state
+                        self.league_equity_status = "pending" if equity_available else "failed"
+                        self.league_equity_pick_no = state.current_pick_no
+                        self.league_equity_error = None
                         if state.current_roster_id == self.prepared.user_roster_id:
-                            self.pending_state = state
                             self.recommendation_status = "pending"
                             self.recommendation_pick_no = state.current_pick_no
-                            self.calculation_event.set()
+                        self.calculation_event.set()
                     # A full pick sheet ends the draft even while the cached
                     # metadata payload still reports a stale "drafting" status.
-                    if state.status == "complete" or state.current_pick_no is None:
-                        self.status = "completed"
-                        return
+                    complete = state.status == "complete" or state.current_pick_no is None
+                if complete:
+                    while not self.stopped.is_set():
+                        with self.lock:
+                            if self.league_equity_status in {"ready", "failed"}:
+                                self.status = "completed"
+                                return
+                        time.sleep(0.01)
                 self.stopped.wait(self.poll_seconds)
             with self.lock:
                 if self.status != "completed":

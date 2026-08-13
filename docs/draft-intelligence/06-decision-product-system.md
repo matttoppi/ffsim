@@ -173,6 +173,13 @@ Live sync: healthy - last pick 0.8s ago
 Recommendation confidence: medium
 ```
 
+A persistent league rail shows every roster ranked by current championship
+probability, plus playoff probability. It updates after every synchronized
+pick, including opponent turns, and remains visible with an explicit
+preliminary/refining state while the newest calculation runs. These absolute
+odds must retain the uncalibrated-model label until backtesting supports a
+calibration claim.
+
 Candidate table/card fields:
 
 - rank
