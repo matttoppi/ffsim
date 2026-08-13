@@ -1,8 +1,8 @@
 # Research note — positional opportunity cost (the "Josh Allen bias")
 
 **Date:** 2026-08-13
-**Status:** Resolved — Option A landed as ADR-016 (`vor1`); Option C remains
-open as a display feature. Validation results at the bottom.
+**Status:** Resolved — Option A landed as ADR-016 (`vor1`); Option C landed
+as the cost-of-waiting panel. Validation results at the bottom.
 
 ## Symptom
 
@@ -105,5 +105,15 @@ Validation on the frozen mock states:
   last three rounds (2/20 outliers, versus ~0 target — monitor).
 - K/DEF guard: early windows stay skill-only under the pure-BPA pool.
 
-Option B remains unpursued (A did not measurably under-correct); Option C
-(VONA surfacing per position) is open as a display-layer follow-up.
+Option B remains unpursued (A did not measurably under-correct).
+
+Option C landed as a display layer: each candidate evaluation summarizes,
+per position, the best available season projection now versus the expected
+best remaining at the user's next pick (averaged over the recommended
+candidate's draft continuations — reusing the completions the equity engine
+already samples, no extra rollouts). The recommendation payload carries it
+as `cost_of_waiting` and the web board renders it under the candidate list.
+The numbers are conditioned on taking the recommended pick, which slightly
+overstates the wait cost at the recommended player's own position; that is
+the decision-relevant framing ("if you take this pick, waiting on QB costs
+~X points") and is documented rather than corrected.

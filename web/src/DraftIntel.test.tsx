@@ -168,6 +168,24 @@ describe('DraftIntel', () => {
             expected_wins: 8,
           },
         ],
+        cost_of_waiting: [
+          {
+            position: 'RB',
+            best_now_player_id: 'p9',
+            best_now_name: 'Fresh Player',
+            best_now_points: 280.4,
+            expected_best_next_points: 249.1,
+            cost_of_waiting: 31.3,
+          },
+          {
+            position: 'QB',
+            best_now_player_id: 'p10',
+            best_now_name: 'Patient Quarterback',
+            best_now_points: 350.2,
+            expected_best_next_points: 350.0,
+            cost_of_waiting: 0.2,
+          },
+        ],
       },
       state: { ...monitorState([pick(1, 'Alpha One')], 6), user_on_clock: true },
     })
@@ -177,6 +195,10 @@ describe('DraftIntel', () => {
     expect(screen.getByText('Fresh Player')).toBeTruthy()
     expect(screen.getByText(/Ready for pick 6/)).toBeTruthy()
     expect(screen.getByText('You are on the clock')).toBeTruthy()
+    expect(screen.getByText('Cost of waiting until pick 9')).toBeTruthy()
+    expect(screen.getByText('−31 pts')).toBeTruthy()
+    expect(screen.getByText('≈ free')).toBeTruthy()
+    expect(screen.getByText(/Patient Quarterback 350 now/)).toBeTruthy()
   })
 
   it('shows deltas versus the top option and filters candidates by position', async () => {

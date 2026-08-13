@@ -573,6 +573,10 @@ def live_recommendation_payload(prepared, evaluations, candidate_pool_count):
         }
         for candidate in ranked
     ]
+    for entry in recommendation["cost_of_waiting"] or ():
+        entry["best_now_name"] = prepared.player_details.get(
+            entry["best_now_player_id"], {}
+        ).get("name", entry["best_now_player_id"])
     recommendation["model_status"] = "uncalibrated_sleeper_adp_baseline"
     recommendation["pick_no"] = evaluation.state_pick_no
     recommendation["candidates_evaluated"] = len(evaluation.candidates)

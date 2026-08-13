@@ -793,6 +793,26 @@ code {
   padding: 7px 12px;
 }
 
+.wait-cost-row {
+  display: grid;
+  grid-template-columns: 42px 74px 1fr;
+  align-items: center;
+  gap: 12px;
+  background: var(--booth-raised);
+  border-radius: 8px;
+  padding: 7px 12px;
+}
+
+.wait-cost-points {
+  font-family: var(--display);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.wait-cost-row small {
+  color: var(--dim);
+}
+
 .feed-pick {
   font-family: var(--display);
   font-size: 0.82rem;

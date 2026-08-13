@@ -275,3 +275,5 @@ Phase 1 is complete. Phase 2 now has append-only manual and official FantasyPros
 2026-08-13 — Switched offensive counting-stat means to the official FantasyPros consensus projection API while retaining PFF only for unpublished fields, K/DST, and future validated modifiers. Projection and ADP caches now share the request-driven 12-hour setup freshness pattern; explicit refresh remains forced.
 
 2026-08-13 — Added and live-validated the Prepare Draft → Start Monitoring web flow against real draft `1389391547115511809` and league-created mock `1393634461312106496`: all 12 managers covered, 297 Sleeper ADP players, a 50-world/609-player bank, exact slot-1 mapping, and zero blockers.
+
+2026-08-13 — Landed the cost-of-waiting panel (research note Option C): candidate evaluations now summarize, per position, the best available season projection versus the expected best remaining at the next user pick, averaged over the recommended candidate's existing draft continuations (no extra rollouts). Surfaced as `cost_of_waiting` in the recommendation payload and rendered under the web board ("QB −9 pts", "≈ free"). 128 Python and 877 frontend tests pass.

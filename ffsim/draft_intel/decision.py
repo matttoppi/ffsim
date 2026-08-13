@@ -33,6 +33,7 @@ class CandidateEvaluation:
     continuation_log_probabilities: tuple[float, ...]
     continuation_championship_probabilities: tuple[float, ...]
     survival: SurvivalReport | None
+    position_waiting: tuple[PositionWaiting, ...] | None
 
     @property
     def sample_count(self):
@@ -41,6 +42,15 @@ class CandidateEvaluation:
     @property
     def rollout_count(self):
         return len(self.continuation_championship_probabilities)
+
+
+@dataclass(frozen=True)
+class PositionWaiting:
+    position: str
+    best_now_player_id: str
+    best_now_points: float
+    expected_best_next_points: float
+    cost_of_waiting: float
 
 
 @dataclass(frozen=True)
@@ -126,6 +136,7 @@ class RecommendationSummary:
     continuation_equity_percentiles: tuple[float, float, float]
     paired_delta_vs_runner_up: PairedDelta | None
     availability: SurvivalReport | None
+    cost_of_waiting: tuple[PositionWaiting, ...] | None
     rollout_count: int
     season_worlds_per_rollout: int
     joint_outcome_count: int
@@ -195,6 +206,8 @@ def evaluate_candidates(
         for player_index, player_id in enumerate(league_evaluator.bank.player_ids)
     }
     user_index = league_evaluator.roster_index[user_roster_id]
+    next_user_pick_no = state.turn_for(user_roster_id).user_next_pick_no
+    position_boards = _position_boards(state, league_evaluator.bank)
     evaluations = []
     for candidate_id in candidate_ids:
         completions = complete_drafts(
@@ -265,13 +278,16 @@ def evaluate_candidates(
                 if survival_player_ids or tiers
                 else None
             ),
+            position_waiting=_position_waiting(
+                position_boards, completions, next_user_pick_no
+            ),
         ))
 
     return DecisionEvaluation(
         draft_id=state.draft_id,
         state_pick_no=state.current_pick_no,
         user_roster_id=user_roster_id,
-        next_user_pick_no=state.turn_for(user_roster_id).user_next_pick_no,
+        next_user_pick_no=next_user_pick_no,
         rollout_ids=rollout_ids,
         world_indices=world_indices,
         season_worlds_per_rollout=season_worlds_per_rollout,
@@ -361,6 +377,7 @@ def recommendation_summary(evaluation):
         ),
         paired_delta_vs_runner_up=delta,
         availability=best.survival,
+        cost_of_waiting=best.position_waiting,
         rollout_count=best.rollout_count,
         season_worlds_per_rollout=evaluation.season_worlds_per_rollout,
         joint_outcome_count=best.sample_count,
@@ -370,6 +387,55 @@ def recommendation_summary(evaluation):
         world_bank_version=evaluation.world_bank_version,
         league_evaluator_version=evaluation.league_evaluator_version,
         reason_codes=tuple(reasons),
+    )
+
+
+def _position_boards(state, bank):
+    """Available players per position, best season projection first."""
+    weeks = len(bank.weeks)
+    boards = {}
+    for player_index, player_id in enumerate(bank.player_ids):
+        if player_id in state.available_player_ids:
+            boards.setdefault(bank.player_positions[player_index], []).append(
+                (float(bank.expected_scores[player_index]) * weeks, player_id)
+            )
+    return {
+        position: sorted(entries, key=lambda entry: (-entry[0], entry[1]))
+        for position, entries in boards.items()
+    }
+
+
+def _position_waiting(position_boards, completions, next_user_pick_no):
+    """Expected best remaining projection per position at the next user pick."""
+    if next_user_pick_no is None:
+        return None
+    taken_sets = [
+        {
+            pick.player_id
+            for pick in completion.picks
+            if pick.pick_no < next_user_pick_no
+        }
+        for completion in completions
+    ]
+    waiting = []
+    for position, entries in position_boards.items():
+        best_now_points, best_now_player_id = entries[0]
+        expected_next = sum(
+            next(
+                (points for points, player_id in entries if player_id not in taken),
+                0.0,
+            )
+            for taken in taken_sets
+        ) / len(taken_sets)
+        waiting.append(PositionWaiting(
+            position=position,
+            best_now_player_id=best_now_player_id,
+            best_now_points=best_now_points,
+            expected_best_next_points=expected_next,
+            cost_of_waiting=best_now_points - expected_next,
+        ))
+    return tuple(
+        sorted(waiting, key=lambda entry: (-entry.cost_of_waiting, entry.position))
     )
 
 

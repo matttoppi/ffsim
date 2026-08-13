@@ -219,6 +219,14 @@ export interface DraftMonitor {
     paired_delta_vs_runner_up?: {
       championship_probability_delta: number
     } | null
+    cost_of_waiting?: Array<{
+      position: string
+      best_now_player_id: string
+      best_now_name?: string
+      best_now_points: number
+      expected_best_next_points: number
+      cost_of_waiting: number
+    }> | null
     candidates: Array<{
       player_id: string
       name: string

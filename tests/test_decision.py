@@ -99,6 +99,30 @@ class DecisionEvaluationTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "duplicate candidates"):
             merge_evaluations([combined, combined])
 
+    def test_position_waiting_prices_the_best_remaining_at_the_next_pick(self):
+        result = evaluate_candidates(
+            draft_state(),
+            ("p1",),
+            user_roster_id=1,
+            rollout_ids=range(4),
+            opponent_choice=market_utility,
+            user_policy=market_utility,
+            league_evaluator=evaluator(),
+            draft_model_version="manual-test-v1",
+            seed=7,
+        )
+        # Opponents deterministically take p2..p7 before the user's next pick
+        # (pick 8), so waiting on WR costs p1 (300) minus p8 (90).
+        (entry,) = result.candidate("p1").position_waiting
+        self.assertEqual(entry.position, "WR")
+        self.assertEqual(entry.best_now_player_id, "p1")
+        self.assertAlmostEqual(entry.best_now_points, 300.0)
+        self.assertAlmostEqual(entry.expected_best_next_points, 90.0)
+        self.assertAlmostEqual(entry.cost_of_waiting, 210.0)
+        self.assertEqual(
+            recommendation_summary(result).cost_of_waiting, (entry,)
+        )
+
     def test_candidates_use_many_paired_draft_paths_and_selected_season_worlds(self):
         league_evaluator = evaluator()
         result = evaluate_candidates(

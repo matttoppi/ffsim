@@ -119,6 +119,9 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
     ? candidates.filter((c) => c.position === positionFilter)
     : candidates
   const leader = candidates[0]
+  const waitingCosts = recommendationCurrent
+    ? (monitor.recommendation?.cost_of_waiting ?? [])
+    : []
   const leaderEdge =
     monitor.recommendation?.paired_delta_vs_runner_up?.championship_probability_delta
   const backToBack =
@@ -416,6 +419,28 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
                 the top option · uncalibrated Sleeper-ADP baseline ·{' '}
                 {monitor.recommendation?.rollout_count} draft continuations
               </p>
+              {waitingCosts.length > 0 && monitor.state?.user_next_pick_no != null && (
+                <div className="pick-feed wait-cost">
+                  <h4>Cost of waiting until pick {monitor.state.user_next_pick_no}</h4>
+                  <ul className="pick-feed-list">
+                    {waitingCosts.map((row) => (
+                      <li key={row.position} className="wait-cost-row">
+                        <span className={`pos-badge pos-${row.position}`}>{row.position}</span>
+                        <strong className="wait-cost-points">
+                          {row.cost_of_waiting < 0.5
+                            ? '≈ free'
+                            : `−${row.cost_of_waiting.toFixed(0)} pts`}
+                        </strong>
+                        <small>
+                          {row.best_now_name ?? row.best_now_player_id}{' '}
+                          {row.best_now_points.toFixed(0)} now → ~
+                          {row.expected_best_next_points.toFixed(0)} projected best if you wait
+                        </small>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </>
           )}
           {feed.length > 0 && (
