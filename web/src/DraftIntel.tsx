@@ -114,7 +114,7 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
     monitor.recommendation.pick_no === currentPickNo
   const candidates = recommendationCurrent ? (monitor.recommendation?.candidates ?? []) : []
   const maxEquity = Math.max(...candidates.map((c) => c.championship_probability), 1e-9)
-  const positions = [...new Set(candidates.map((c) => c.position).filter(Boolean))] as string[]
+  const positions = [...new Set(candidates.flatMap((c) => (c.position ? [c.position] : [])))]
   const visibleCandidates = positionFilter
     ? candidates.filter((c) => c.position === positionFilter)
     : candidates
