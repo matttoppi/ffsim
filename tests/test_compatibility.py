@@ -53,6 +53,13 @@ class CompatibilityTest(unittest.TestCase):
                     for capability in report["capabilities"].values()
                 ))
 
+        league, draft = source(settings={"playoff_seed_type": 1})
+        report = league_compatibility(league, draft)
+        self.assertEqual(
+            report["capabilities"]["season_evaluation"]["status"],
+            "supported",
+        )
+
     def test_attachment_survives_auction_best_ball_and_unsupported_rules(self):
         league, draft = source(
             draft_type="auction",

@@ -207,6 +207,42 @@ class LeagueEvaluatorTest(unittest.TestCase):
                     2 if playoff_teams == 6 else 0,
                 )
 
+    def test_six_team_playoffs_reseed_after_an_upset(self):
+        world_bank = bank([[
+            [100, 80, 80, 100],
+            [90, 70, 70, 90],
+            [80, 0, 0, 0],
+            [70, 90, 60, 0],
+            [60, 0, 0, 0],
+            [50, 100, 90, 80],
+        ]])
+        assignment = {roster_id: [roster_id - 1] for roster_id in range(1, 7)}
+        schedule = {1: [(1, 6), (2, 5), (3, 4)]}
+        fixed = league(6)
+        reseeded = league(6)
+        reseeded.playoff_seed_type = 1
+
+        fixed_evaluator = LeagueEvaluator(
+            fixed, world_bank, assignment, 1, schedule=schedule
+        )
+        reseeded_evaluator = LeagueEvaluator(
+            reseeded, world_bank, assignment, 1, schedule=schedule
+        )
+
+        self.assertEqual(
+            fixed_evaluator.roster_ids[
+                fixed_evaluator.evaluate(assignment).champion_indices[0]
+            ],
+            1,
+        )
+        self.assertEqual(
+            reseeded_evaluator.roster_ids[
+                reseeded_evaluator.evaluate(assignment).champion_indices[0]
+            ],
+            2,
+        )
+        self.assertNotEqual(fixed_evaluator.version, reseeded_evaluator.version)
+
 
 if __name__ == "__main__":
     unittest.main()

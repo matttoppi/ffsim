@@ -68,8 +68,9 @@ class LeagueEvaluator:
         self.playoff_teams = league.playoff_teams
         if self.playoff_teams not in {4, 6, 8}:
             raise ValueError(f"Unsupported playoff_teams={self.playoff_teams!r}")
-        if league.playoff_round_type != 0 or league.playoff_seed_type != 0:
-            raise ValueError("Only single-week, record-seeded playoffs are supported")
+        if league.playoff_round_type != 0 or league.playoff_seed_type not in {0, 1}:
+            raise ValueError("Only single-week fixed or reseeded playoffs are supported")
+        self.playoff_reseeding = league.playoff_seed_type == 1
         if self.playoff_teams > len(self.roster_ids):
             raise ValueError("playoff_teams exceeds the roster count")
         self.league_average_match = league.league_average_match
@@ -313,12 +314,16 @@ class LeagueEvaluator:
         while len(winners) > 1:
             week += 1
             if len(playoff_order) == 6 and week == self.regular_season_weeks + 1:
-                winners = _pair_winners(
-                    ((playoff_order[0], winners[1]), (playoff_order[1], winners[0])),
-                    weekly_scores[world, :, week],
-                )
-            else:
-                winners = _round_winners(winners, weekly_scores[world, :, week])
+                if not self.playoff_reseeding:
+                    winners = _pair_winners(
+                        ((playoff_order[0], winners[1]), (playoff_order[1], winners[0])),
+                        weekly_scores[world, :, week],
+                    )
+                    continue
+                winners = [*playoff_order[:2], *winners]
+            if self.playoff_reseeding:
+                winners.sort(key=playoff_order.index)
+            winners = _round_winners(winners, weekly_scores[world, :, week])
         return winners[0]
 
 
@@ -384,6 +389,7 @@ def _version(evaluator):
         "rosters": evaluator.roster_ids,
         "slots": evaluator.slots,
         "playoff_teams": evaluator.playoff_teams,
+        "playoff_reseeding": evaluator.playoff_reseeding,
         "divisions": evaluator.divisions,
         "regular_season_weeks": evaluator.regular_season_weeks,
         "schedules": evaluator.schedules,

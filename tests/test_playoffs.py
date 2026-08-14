@@ -69,6 +69,15 @@ class PlayoffFormatTest(unittest.TestCase):
         bracket.create_next_round(winners, 16)
         self.assertEqual(pairs(bracket), [("T1", "T4"), ("T2", "T3")])
 
+    def test_six_team_bracket_reseeds_after_an_upset(self):
+        teams = [team(seed, 20 - seed, 1000 - seed) for seed in range(1, 7)]
+        bracket = self.setup(teams, 6, playoff_seed_type=1)
+
+        bracket.matches = []
+        bracket.create_next_round([teams[5], teams[3]], 16)
+
+        self.assertEqual(pairs(bracket), [("T1", "T6"), ("T2", "T4")])
+
     def test_division_and_wild_card_ties_break_on_points(self):
         teams = [
             team(1, 8, 900),
@@ -88,7 +97,7 @@ class PlayoffFormatTest(unittest.TestCase):
         cases = (
             ({"playoff_teams": 5}, "playoff_teams=5"),
             ({"playoff_teams": 4, "playoff_round_type": 1}, "playoff_round_type=1"),
-            ({"playoff_teams": 4, "playoff_seed_type": 1}, "playoff_seed_type=1"),
+            ({"playoff_teams": 4, "playoff_seed_type": 2}, "playoff_seed_type=2"),
         )
         for settings, message in cases:
             with self.subTest(settings=settings), self.assertRaisesRegex(ValueError, message):

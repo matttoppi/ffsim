@@ -99,7 +99,7 @@ def league_compatibility(league, draft, picks=()):
             "code": "unsupported_playoff_round_type",
             "value": league_settings.get("playoff_round_type"),
         })
-    if league_settings.get("playoff_seed_type") != 0:
+    if league_settings.get("playoff_seed_type") not in {0, 1}:
         season_reasons.append({
             "code": "unsupported_playoff_seed_type",
             "value": league_settings.get("playoff_seed_type"),

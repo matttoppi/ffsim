@@ -18,12 +18,13 @@ class PlayoffMatch:
 
 
 class PlayoffBracket:
-    def __init__(self, teams, division_winners, simulation_season):
+    def __init__(self, teams, division_winners, simulation_season, reseed=False):
         self.teams = teams
         self.division_winners = division_winners
         self.matches = []
         self.simulation_season = simulation_season
         self.first_week = simulation_season.weeks + 1
+        self.reseed = reseed
 
     def create_bracket(self):
         first_round = self.teams[2:] if len(self.teams) == 6 else self.teams
@@ -42,6 +43,12 @@ class PlayoffBracket:
 
     def create_next_round(self, winners, week):
         if len(self.teams) == 6 and week == self.first_week + 1:
+            if self.reseed:
+                self._pair_outer_seeds(
+                    sorted([*self.teams[:2], *winners], key=self.teams.index),
+                    week,
+                )
+                return
             self.matches.append(
                 PlayoffMatch(self.teams[0], winners[1], week, self.simulation_season)
             )
@@ -49,6 +56,8 @@ class PlayoffBracket:
                 PlayoffMatch(self.teams[1], winners[0], week, self.simulation_season)
             )
             return
+        if self.reseed:
+            winners = sorted(winners, key=self.teams.index)
         self._pair_outer_seeds(winners, week)
 
 
@@ -79,6 +88,7 @@ class PlayoffSimulation:
             playoff_teams,
             division_winners,
             self.simulation_season,
+            reseed=self.league.playoff_seed_type == 1,
         )
         self.bracket.create_bracket()
 
@@ -104,10 +114,10 @@ def validate_playoff_format(league):
             f"Unsupported Sleeper setting playoff_round_type={league.playoff_round_type!r}; "
             "only single-week rounds (0) are supported"
         )
-    if league.playoff_seed_type != 0:
+    if league.playoff_seed_type not in {0, 1}:
         raise ValueError(
             f"Unsupported Sleeper setting playoff_seed_type={league.playoff_seed_type!r}; "
-            "only record-based seeding (0) is supported"
+            "supported values are fixed (0) and reseeded (1) brackets"
         )
     assigned_rosters = {
         roster_id for roster_ids in league.divisions.values() for roster_id in roster_ids
