@@ -14,7 +14,14 @@ from ffsim.models.team import FLEX_ELIGIBILITY
 EVALUATOR_VERSION = 1
 # Deterministic projected roster-value scorer revision. Kept separate from
 # EVALUATOR_VERSION because that constant also seeds streamer randomness.
-ROSTER_VALUE_VERSION = 2
+ROSTER_VALUE_VERSION = 3
+# Discounted bench asset value (ADR-029): a benched player is worth this
+# fraction of his points over the starter cutline — trade/upside value that
+# keeps late rounds chasing the best remaining player instead of treating
+# every bench pick as worthless (which dragged K/DEF picks 2-4 rounds early).
+# ponytail: one global factor; calibrate against opponent K/DEF timing in
+# synthetic batches before trusting it further.
+BENCH_ASSET_FACTOR = 0.25
 
 
 @dataclass(frozen=True)
@@ -207,7 +214,7 @@ class LeagueEvaluator:
             scores = self.bank.scores[
                 np.ix_(world_list, order)
             ][:, :, : self.total_weeks]
-            weekly_scores[:, team, :] = self._lineup_totals(
+            weekly_scores[:, team, :], _ = self._lineup_totals(
                 order, available, scores, replacement, factors_cum[:, team]
             )
 
@@ -324,7 +331,7 @@ class LeagueEvaluator:
                 team_cum, (offset + filled[slot])[..., None], axis=2
             )[..., 0]
             totals += replacement_value * (team_cum[:, :, offset + count] - lower)
-        return totals
+        return totals, chosen
 
     def projected_roster_value(self, roster_assignment, roster_id):
         """Deterministic projected lineup points over full-streamer replacement.
@@ -344,6 +351,10 @@ class LeagueEvaluator:
           for removing him from the waiver pool — pure denial value that made
           backup QBs outrank starting-lineup upgrades.
 
+        Bench players (available but not chosen in a week's lineup) add
+        ``BENCH_ASSET_FACTOR`` times their points over the position cutline —
+        discounted trade/upside asset value, so late picks chase the best
+        remaining player instead of scoring zero once the lineup is filled.
         The all-streamer baseline is subtracted, so an empty roster scores 0.
         """
         assignment = self._canonical_assignment(roster_assignment)
@@ -364,13 +375,23 @@ class LeagueEvaluator:
                 np.arange(slot_count + 1, dtype=float), (1, weeks, 1)
             )
         order = self._lineup_order(assignment[team])
-        totals = self._lineup_totals(
+        available = self._mean_available[order][None, :, :]
+        scores = self._mean_scores[order][None, :, :]
+        totals, chosen = self._lineup_totals(
             order,
-            self._mean_available[order][None, :, :],
-            self._mean_scores[order][None, :, :],
+            available,
+            scores,
             replacement,
             self._unit_cum,
         )
+        cutline = np.asarray([
+            replacement.get(position, 0.0)
+            for position in self._position_array[order]
+        ])
+        bench_value = float((
+            np.maximum(scores - cutline[None, :, None], 0.0)
+            * (available & ~chosen)
+        ).sum())
         baseline = self.total_weeks * sum(
             count * max(
                 (
@@ -381,7 +402,7 @@ class LeagueEvaluator:
             )
             for slot, count in self.slots
         )
-        return float(totals.sum()) - baseline
+        return float(totals.sum()) - baseline + BENCH_ASSET_FACTOR * bench_value
 
     def _starter_cutline_replacement(self):
         """Weekly streamer level at the league-wide starter cutline.

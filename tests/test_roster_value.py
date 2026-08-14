@@ -107,11 +107,15 @@ class RosterValueScorerTest(unittest.TestCase):
         with_backup_qb = (*base, "qb2")
         with_wr = (*base, "wr2")
         # qb2 projects 28/week versus wr2's 17, but the QB seat is taken and
-        # QB is not FLEX eligible, so the scarce WR starter wins.
+        # QB is not FLEX eligible, so the scarce WR starter wins; the benched
+        # qb2 keeps only his discounted asset value over the QB cutline (20).
         self.assertGreater(
             value(self.subject, with_wr), value(self.subject, with_backup_qb)
         )
-        self.assertEqual(value(self.subject, base), value(self.subject, with_backup_qb))
+        self.assertAlmostEqual(
+            value(self.subject, with_backup_qb) - value(self.subject, base),
+            0.25 * (28 - 20) * 3,
+        )
 
     def test_flex_credits_eligible_positions_only(self):
         base = ("rb1", "rb2", "wr1")
@@ -128,10 +132,12 @@ class RosterValueScorerTest(unittest.TestCase):
             ("QB", "RB", "RB", "WR", "SUPER_FLEX"), mixed_players()
         )
         base = ("qb1", "rb1", "rb2", "wr1")
-        # Without a superflex seat the backup QB is bench-only; with one it
-        # starts and beats an equal-projection K and a weaker flex option.
-        self.assertEqual(
-            value(self.subject, base), value(self.subject, (*base, "qb2"))
+        # Without a superflex seat the backup QB carries only discounted
+        # bench asset value; with one it starts and beats an equal-projection
+        # K and a weaker flex option.
+        self.assertAlmostEqual(
+            value(self.subject, (*base, "qb2")) - value(self.subject, base),
+            0.25 * (28 - 20) * 3,
         )
         self.assertGreater(
             value(superflex, (*base, "qb2")), value(superflex, (*base, "kbig"))

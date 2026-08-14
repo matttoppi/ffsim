@@ -1062,3 +1062,49 @@ that actually separates "take now" from "safe to wait" within a tie.
   `FINALIST_COUNT + VALUE_POOL_COUNT` entries; screen cost scales linearly.
 - The headline can differ from the projected-value argmax only inside a
   statistical tie, so the ADR-026 objective still gates the decision.
+
+## ADR-029 — Discounted bench asset value and market tie-breaking for trade-oriented late rounds
+
+### Status
+
+Accepted (2026-08-14).
+
+### Decision
+
+`projected_roster_value` credits each bench player (available but not chosen
+in a week's greedy lineup) with `BENCH_ASSET_FACTOR` (0.25) times his points
+over the assignment-independent position cutline. `ROSTER_VALUE_VERSION`
+advances to 3. Within a statistically tied co-leader tier, ordering is
+`tier_order`: VONA quantized to whole points, then market ADP (best first),
+then engine rank; the live layer supplies the ADP tie-break, and
+`recommendation_summary` accepts it for the headline. ADP still never touches
+a player's base projected value — it only orders candidates the value model
+already declared interchangeable.
+
+### Rationale
+
+The owner wants late rounds biased toward the best remaining asset — players
+that hold value in trade packages — rather than roster-slot bookkeeping. The
+v2 scorer valued every bench player at exactly zero, which (measured on the
+first v2 synthetic batch) pulled K/DEF picks 2–4 rounds ahead of the
+opponent-model median (rounds 8–13 vs 13–15) because a real starter slot's
+small cutline edge beat "worthless" bench depth, and let one roster finish
+with nine WRs and two RBs because late boards were all-zero ties broken by
+noise. A discounted bench-VOR term makes the late-round objective "highest
+value over cutline still on the board", which is simultaneously the
+trade-asset objective; the ADP tie-break encodes that among interchangeable
+picks the market's favorite is the most packageable. A full injury/variance
+bench model was rejected: it would reopen the season-noise axis ADR-026
+removed, for marginal benefit over the asset term.
+
+### Consequences
+
+- K/DEF migrate toward the draft tail: an elite K's ~5–8 point cutline edge
+  now loses to a discounted bench skill player worth 10–20.
+- Bench composition diversifies toward genuine value: a WR7 far below the WR
+  cutline is worth ~0 while an RB near his cutline is worth something, without
+  any explicit positional-insurance model.
+- `BENCH_ASSET_FACTOR` is a calibration knob validated against opponent
+  K/DEF timing in synthetic batches; absolute projected values are again not
+  comparable across roster-value versions.
+- Sub-point VONA ordering inside tiers is intentionally discarded as noise.

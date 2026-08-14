@@ -779,7 +779,29 @@ def candidate_vona(candidate):
     return cost.value_over_next_alternative
 
 
-def recommendation_summary(evaluation):
+def tier_order(candidates, ranked, tie_break=None):
+    """Order statistically tied candidates by urgency, then market value.
+
+    VONA is quantized to whole points before comparison — its sub-point
+    differences sit below the sampling precision of the expected-best-later
+    estimate — so genuine ties fall through to ``tie_break`` (the live layer
+    passes market ADP: among interchangeable picks, prefer the asset the
+    market values most, which is the one worth the most in a trade package).
+    """
+    ranked_index = {candidate.candidate_id: i for i, candidate in enumerate(ranked)}
+
+    def key(candidate):
+        vona = candidate_vona(candidate)
+        return (
+            -(round(vona) if vona is not None else float("-inf")),
+            tie_break(candidate) if tie_break is not None else 0.0,
+            ranked_index[candidate.candidate_id],
+        )
+
+    return sorted(candidates, key=key)
+
+
+def recommendation_summary(evaluation, tie_break=None):
     """Rank candidates without inventing market-dependent reach/wait labels."""
     ranked = rank_candidates(evaluation)
     leader = ranked[0]
@@ -794,14 +816,7 @@ def recommendation_summary(evaluation):
     # Projected value cannot separate a statistical tie, but urgency can:
     # headline the tied candidate least replaceable at the next turn (highest
     # value over the expected best next-turn alternative).
-    ranked_index = {candidate.candidate_id: i for i, candidate in enumerate(ranked)}
-    best = min(
-        co_leaders,
-        key=lambda candidate: (
-            -(vona if (vona := candidate_vona(candidate)) is not None else float("-inf")),
-            ranked_index[candidate.candidate_id],
-        ),
-    )
+    best = tier_order(co_leaders, ranked, tie_break)[0]
     reasons = (
         ["PROJECTED_VALUE_LEADER"]
         if best is leader

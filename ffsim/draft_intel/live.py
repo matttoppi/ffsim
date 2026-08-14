@@ -11,7 +11,6 @@ from urllib.parse import quote, urlparse
 
 from ffsim.config import AppConfig, save_league_attachment
 from ffsim.draft_intel.decision import (
-    candidate_vona,
     evaluate_candidates,
     evaluate_completed_league,
     evaluate_league_equity,
@@ -19,6 +18,7 @@ from ffsim.draft_intel.decision import (
     merge_rollout_ranges,
     rank_candidates,
     recommendation_summary,
+    tier_order,
 )
 from ffsim.draft_intel.history import load_history, summarize_history
 from ffsim.draft_intel.identity import canonical_players_from_cache
@@ -951,28 +951,32 @@ def position_timing_outlook(prepared, state, positions=("QB", "TE")):
 
 def live_recommendation_payload(prepared, state, evaluations, candidate_pool_count):
     evaluation = merge_evaluations(evaluations)
-    recommendation = asdict(recommendation_summary(evaluation))
-    top_tier = set(recommendation["co_leader_candidate_ids"])
-    ranked = rank_candidates(evaluation)
-    # Projected value cannot order a statistical tie, so the tier leads with
-    # the least-replaceable picks (highest value over the next alternative).
-    display_order = [
-        *sorted(
-            (candidate for candidate in ranked if candidate.candidate_id in top_tier),
-            key=lambda candidate: (
-                -(vona if (vona := candidate_vona(candidate)) is not None
-                  else float("-inf")),
-                candidate.candidate_id,
-            ),
-        ),
-        *(candidate for candidate in ranked if candidate.candidate_id not in top_tier),
-    ]
     adp = {
         player_id: exp(-utility)
         for player_id, utility in sleeper_adp_utilities(
             prepared.market_snapshot
         ).items()
     }
+
+    def market_tie_break(candidate):
+        return adp.get(candidate.candidate_id, float("inf"))
+
+    recommendation = asdict(
+        recommendation_summary(evaluation, tie_break=market_tie_break)
+    )
+    top_tier = set(recommendation["co_leader_candidate_ids"])
+    ranked = rank_candidates(evaluation)
+    # Projected value cannot order a statistical tie, so the tier leads with
+    # the least-replaceable picks (highest value over the next alternative),
+    # market-best first among genuine ties.
+    display_order = [
+        *tier_order(
+            (candidate for candidate in ranked if candidate.candidate_id in top_tier),
+            ranked,
+            market_tie_break,
+        ),
+        *(candidate for candidate in ranked if candidate.candidate_id not in top_tier),
+    ]
     candidates = []
     for candidate in display_order:
         opportunity = candidate.opportunity_cost
