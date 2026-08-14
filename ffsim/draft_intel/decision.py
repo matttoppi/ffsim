@@ -424,6 +424,59 @@ def evaluate_league_equity(
     )
 
 
+def evaluate_completed_league(state, league_evaluator, *, use_cache=True):
+    """Evaluate the observed final rosters across every prepared season world."""
+    if state.current_pick_no is not None:
+        raise ValueError("The draft is not complete")
+    if set(league_evaluator.roster_ids) != {roster_id for roster_id, _ in state.rosters}:
+        raise ValueError("Draft state and league evaluator roster IDs do not match")
+
+    player_indices = {
+        player_id: player_index
+        for player_index, player_id in enumerate(league_evaluator.bank.player_ids)
+    }
+    try:
+        assignment = {
+            roster_id: tuple(player_indices[player_id] for player_id in player_ids)
+            for roster_id, player_ids in state.rosters
+        }
+    except KeyError as error:
+        raise ValueError(
+            f"Completed draft player {error.args[0]} is missing from SeasonWorldBank"
+        ) from None
+
+    result = league_evaluator.evaluate(assignment, use_cache=use_cache)
+    roster_equities = []
+    for roster_id in league_evaluator.roster_ids:
+        roster_index = league_evaluator.roster_index[roster_id]
+        championships = tuple(
+            champion == roster_index for champion in result.champion_indices
+        )
+        probability, error = _mean_and_error(championships)
+        roster_equities.append(RosterEquity(
+            roster_id=roster_id,
+            championship_probability=probability,
+            championship_standard_error=error,
+            championship_interval=_probability_interval(probability, error),
+            playoff_probability=float(result.playoffs[:, roster_index].mean()),
+            expected_wins=float(result.wins[:, roster_index].mean()),
+            expected_points=float(result.points[:, roster_index].mean()),
+        ))
+
+    return LeagueEquityEvaluation(
+        draft_id=state.draft_id,
+        state_pick_no=None,
+        completed_picks=len(state.completed_picks),
+        rollout_count=1,
+        season_worlds_per_rollout=league_evaluator.bank.world_count,
+        joint_outcome_count=league_evaluator.bank.world_count,
+        draft_model_version="observed-final-rosters-v1",
+        world_bank_version=league_evaluator.bank.version,
+        league_evaluator_version=league_evaluator.version,
+        rosters=tuple(roster_equities),
+    )
+
+
 def merge_evaluations(evaluations):
     """Combine candidate batches evaluated on identical coupled inputs.
 

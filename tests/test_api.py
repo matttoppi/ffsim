@@ -90,6 +90,8 @@ class ApiTest(unittest.TestCase):
         self.assertIn("/api/draft-intel/prepare", paths)
         self.assertIn("/api/draft-intel/monitor", paths)
         self.assertIn("/api/draft-intel/monitor/stop", paths)
+        self.assertIn("/api/draft-intel/simulation", paths)
+        self.assertIn("/api/draft-intel/telemetry", paths)
         with self.assertRaises(ValidationError):
             SimulationRequest(simulations=0)
         with self.assertRaises(ValidationError):
@@ -292,6 +294,46 @@ class ApiTest(unittest.TestCase):
             thread.return_value.start.assert_called_once_with()
             self.assertEqual(stop_monitor()["status"], "starting")
             self.assertTrue(app.state.live_monitor.stopped.is_set())
+
+    def test_completed_draft_simulation_syncs_and_scores_final_rosters(self):
+        app = create_app("config.json")
+        simulate = endpoint(app, "/api/draft-intel/simulation", "POST")
+        prepared = SimpleNamespace(live_draft_id="mock")
+        app.state.prepared_draft = prepared
+        app.state.draft_preparation = {"status": "ready"}
+        recorded = []
+        app.state.live_monitor = SimpleNamespace(
+            prepared=prepared,
+            _record=lambda *args, **kwargs: recorded.append((args, kwargs)),
+        )
+        state = SimpleNamespace(current_pick_no=None)
+        expected = {"simulation_type": "completed_draft"}
+
+        with (
+            patch(
+                "ffsim.draft_intel.live.sync_prepared_draft",
+                return_value=SimpleNamespace(state=state),
+            ) as sync,
+            patch(
+                "ffsim.draft_intel.live.completed_league_simulation",
+                return_value=expected,
+            ) as evaluate,
+        ):
+            self.assertEqual(simulate(), expected)
+        sync.assert_called_once_with(prepared, refresh_metadata=True)
+        evaluate.assert_called_once_with(prepared, state)
+        self.assertEqual(recorded, [(
+            ("completed_draft_simulation", expected),
+            {"stage": "final"},
+        )])
+
+        with patch(
+            "ffsim.draft_intel.live.sync_prepared_draft",
+            side_effect=ValueError("The draft is not complete"),
+        ):
+            with self.assertRaises(HTTPException) as raised:
+                simulate()
+        self.assertEqual(raised.exception.status_code, 409)
 
     def test_draft_preparation_runner_publishes_success_and_failure(self):
         state = SimpleNamespace(
@@ -534,6 +576,10 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(monitor.recommendation["rollout_count"], 1_000)
         self.assertEqual(monitor.recommendation_status, "ready")
         self.assertEqual(monitor.calculation_count, 1)
+        # 5 candidates * 100 screen rollouts + 5 finalists * 900 extension rollouts
+        self.assertEqual(
+            monitor.recommendation_progress, {"done": 5_000, "total": 5_000}
+        )
 
     def test_opponent_turn_calculates_league_equity_without_a_recommendation(self):
         prepared = SimpleNamespace(live_draft_id="mock", user_roster_id=1)
@@ -580,6 +626,7 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(monitor.recommendation_status, "idle")
         self.assertEqual(monitor.league_equity, {"rosters": [], "count": 50})
         self.assertEqual(monitor.league_equity_calculation_count, 1)
+        self.assertEqual(monitor.league_equity_progress, {"done": 50, "total": 50})
 
     def test_the_broad_screen_keeps_all_options_after_refining_five_finalists(self):
         prepared = SimpleNamespace(live_draft_id="mock", user_roster_id=1)

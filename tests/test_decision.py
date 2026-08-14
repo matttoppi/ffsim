@@ -9,6 +9,7 @@ import numpy as np
 from ffsim.draft_intel.decision import (
     coupled_world_indices,
     evaluate_candidates,
+    evaluate_completed_league,
     evaluate_league_equity,
     merge_evaluations,
     merge_rollout_ranges,
@@ -74,6 +75,30 @@ def market_utility(roster_id, pick_no, rosters, available):
 
 
 class DecisionEvaluationTest(unittest.TestCase):
+    def test_completed_league_uses_exact_rosters_and_every_season_world(self):
+        state = draft_state()
+        for player_id in (f"p{index}" for index in range(1, 9)):
+            state = state.with_pick(player_id)
+        league_evaluator = evaluator()
+
+        result = evaluate_completed_league(state, league_evaluator)
+
+        self.assertIsNone(result.state_pick_no)
+        self.assertEqual(result.completed_picks, 8)
+        self.assertEqual(result.rollout_count, 1)
+        self.assertEqual(result.season_worlds_per_rollout, 5)
+        self.assertEqual(result.joint_outcome_count, 5)
+        self.assertAlmostEqual(
+            sum(row.championship_probability for row in result.rosters),
+            1.0,
+        )
+        self.assertEqual(
+            result,
+            evaluate_completed_league(state, league_evaluator, use_cache=False),
+        )
+        with self.assertRaisesRegex(ValueError, "not complete"):
+            evaluate_completed_league(draft_state(), league_evaluator)
+
     def test_league_equity_scores_every_roster_without_forcing_a_root_pick(self):
         state = draft_state()
         league_evaluator = evaluator()

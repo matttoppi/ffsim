@@ -122,6 +122,7 @@ describe('DraftIntel', () => {
       status: 'running',
       league_equity_status: 'calculating',
       league_equity_pick_no: 5,
+      league_equity_progress: { done: 12, total: 50 },
       league_equity: {
         model_status: 'baseline',
         pick_no: 5,
@@ -169,7 +170,58 @@ describe('DraftIntel', () => {
     expect(screen.getByText('Bravo')).toBeTruthy()
     expect(screen.getByText('12.5%')).toBeTruthy()
     expect(screen.getByText(/Refining for pick 5/)).toBeTruthy()
+    expect(screen.getByText('24%')).toBeTruthy()
     expect(screen.getByText('Watching the room')).toBeTruthy()
+  })
+
+  it('runs the exact final-roster simulation after the draft completes', async () => {
+    const monitor = {
+      status: 'completed',
+      state: { ...monitorState([pick(1, 'One')], 2), current_pick_no: null },
+    }
+    fetchMock.mockImplementation((url: string, init?: RequestInit) =>
+      Promise.resolve(response(
+        String(url).endsWith('/api/draft-intel/simulation') && init?.method === 'POST'
+          ? {
+              model_status: 'observed_final_rosters',
+              simulation_type: 'completed_draft',
+              pick_no: null,
+              completed_picks: 1,
+              rollout_count: 1,
+              joint_outcome_count: 300,
+              rosters: [{
+                roster_id: 1,
+                name: 'Alpha',
+                draft_slot: 1,
+                is_user: true,
+                championship_probability: 0.25,
+                championship_standard_error: 0.01,
+                championship_interval: [0.23, 0.27],
+                playoff_probability: 0.7,
+                expected_wins: 8.5,
+                expected_points: 1400,
+              }],
+            }
+          : String(url).endsWith('/api/draft-intel/monitor')
+            ? monitor
+            : { status: 'idle' },
+      )),
+    )
+    await act(async () => {
+      render(<DraftIntel currentDraftId="real" />)
+    })
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Run full league simulation' }))
+    })
+
+    expect(screen.getByText('Full simulation results')).toBeTruthy()
+    expect(screen.getByText('Alpha (You)')).toBeTruthy()
+    expect(screen.getByText(/Exact final rosters · 300 season worlds/)).toBeTruthy()
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/api/draft-intel/simulation'),
+      { method: 'POST' },
+    )
   })
 
   it('refuses to show a recommendation computed for a different pick and notes discards', async () => {
@@ -283,6 +335,8 @@ describe('DraftIntel', () => {
       render(<DraftIntel currentDraftId="real" />)
     })
     expect(screen.getByText('Fresh Player')).toBeTruthy()
+    expect(screen.getByText('✓ Final suggestion')).toBeTruthy()
+    expect(screen.queryByText('First look')).toBeNull()
     expect(screen.getByText(/ADP 42.*82% chance back at pick 9/)).toBeTruthy()
     expect(screen.getByText(/Ready for pick 6/)).toBeTruthy()
     expect(screen.getByText('You are on the clock')).toBeTruthy()
@@ -291,6 +345,40 @@ describe('DraftIntel', () => {
     expect(screen.getByText('Take now')).toBeTruthy()
     expect(screen.getByText(/Patient Quarterback · 319 pts/)).toBeTruthy()
     expect(screen.getByText('−31 vs now')).toBeTruthy()
+  })
+
+  it('labels an in-progress board as a first look with pipeline steps', async () => {
+    mockMonitor({
+      status: 'running',
+      recommendation_status: 'refining',
+      recommendation_pick_no: 6,
+      recommendation_progress: { done: 2500, total: 5000 },
+      recommendation: {
+        model_status: 'baseline',
+        rollout_count: 50,
+        joint_outcome_count: 100,
+        pick_no: 6,
+        candidates: [
+          {
+            player_id: 'p1',
+            name: 'Early Leader',
+            position: 'RB',
+            championship_probability: 0.2,
+            playoff_probability: 0.6,
+            expected_wins: 9,
+          },
+        ],
+      },
+      state: { ...monitorState([pick(1, 'Alpha One')], 6), user_on_clock: true },
+    })
+    await act(async () => {
+      render(<DraftIntel currentDraftId="real" />)
+    })
+    expect(screen.getByText('First look')).toBeTruthy()
+    expect(screen.queryByText('✓ Final suggestion')).toBeNull()
+    expect(screen.getByText('Refining finalists')).toBeTruthy()
+    expect(screen.getByText(/Refining the top candidates for pick 6/)).toBeTruthy()
+    expect(screen.getByText('50%')).toBeTruthy()
   })
 
   it('shows deltas versus the top option and filters candidates by position', async () => {

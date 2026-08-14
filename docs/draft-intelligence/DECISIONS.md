@@ -770,3 +770,37 @@ racing ladder matches its own flat refinement 12/12 on the new matrices.
 - The remaining draft-side cost is roughly half availability/caps/softmax in
   the callback and half the user policy's per-pick dict construction; the
   user policy is the next draft-side lever if ever needed.
+
+## ADR-023 — Persist live draft telemetry as queryable local events
+
+**Status:** Accepted
+**Date:** 2026-08-13
+
+### Decision
+
+Each live monitor run has a unique session persisted in a dedicated local
+SQLite database. Append-only events retain synchronized draft states, observed
+picks, every published recommendation and league-equity stage, the exact
+post-draft simulation, stale-result discards, errors, and calculation durations.
+Recommendation payloads remain whole rather than being reduced to the winning
+player, preserving candidate metrics, reason codes, state/run signatures,
+seeds, sample counts, and model/world versions. A read-only API filters events
+by draft, session, type, and pick.
+
+### Rationale
+
+The live monitor previously kept only its newest recommendation in memory and
+cleared it on every pick. Completed drafts therefore retained the pick sheet
+but lost the evidence needed to compare recommendations with actual choices or
+diagnose model and latency failures. SQLite is already the local-first storage
+choice and needs no service or dependency.
+
+### Consequences
+
+- Restarting the server no longer loses completed-session outputs.
+- The full pick prefix stored with each state makes recommendation audits
+  reproducible without treating a later draft state as an earlier input.
+- Telemetry failure is surfaced as a failed monitor instead of silently
+  continuing with an incomplete audit trail.
+- The event store is separate from historical/model data so live writes do not
+  change market or manager evidence.

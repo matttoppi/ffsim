@@ -6,6 +6,8 @@ vi.mock('./api', async (importOriginal) => {
   return {
     ...actual,
     getLeagueInfo: vi.fn(() => new Promise(() => {})),
+    getDraftPreparation: vi.fn(() => new Promise(() => {})),
+    getDraftMonitor: vi.fn(() => new Promise(() => {})),
   }
 })
 

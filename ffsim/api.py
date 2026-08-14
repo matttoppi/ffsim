@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from ffsim.config import AppConfig, save_league_attachment
 from ffsim.draft_intel.decision import _state_signature as _decision_state_signature
+from ffsim.draft_intel.telemetry import DraftTelemetry
 from ffsim.paths import CACHE_DIR
 from ffsim.runtime import create_simulation
 
@@ -37,6 +38,9 @@ LEAGUE_EQUITY_ROLLOUT_COUNT = 50
 # extension work on the m=14 observation matrices.
 REFINEMENT_STAGE_ROLLOUT_COUNTS = (150, 225)
 REFINEMENT_REGRET_STOP = 0.005
+# Stages announced by prepare_draft via its progress callback; the world-bank
+# stage is skipped when blockers exist, so a blocked run tops out at 5/6.
+PREPARATION_STAGE_COUNT = 6
 
 
 def _state_fingerprint(state):
@@ -199,6 +203,8 @@ class LiveDraftMonitor:
     candidate_count: int
     candidate_breadth: int = 40
     temperature: float | None = None
+    telemetry: DraftTelemetry | None = field(default=None, repr=False)
+    session_id: str = field(default_factory=lambda: str(uuid4()))
     status: str = "starting"
     state: dict | None = None
     recommendation: dict | None = None
@@ -206,8 +212,10 @@ class LiveDraftMonitor:
     recommendation_pick_no: int | None = None
     recommendation_error: str | None = None
     recommendation_discarded_pick_no: int | None = None
+    recommendation_progress: dict | None = None
     league_equity: dict | None = None
     league_equity_status: str = "idle"
+    league_equity_progress: dict | None = None
     league_equity_pick_no: int | None = None
     league_equity_error: str | None = None
     error: str | None = None
@@ -227,6 +235,7 @@ class LiveDraftMonitor:
         with self.lock:
             return {
                 "status": self.status,
+                "session_id": self.session_id,
                 "draft_id": self.prepared.live_draft_id,
                 "poll_seconds": self.poll_seconds,
                 "sync_count": self.sync_count,
@@ -238,13 +247,75 @@ class LiveDraftMonitor:
                 "recommendation_pick_no": self.recommendation_pick_no,
                 "recommendation_error": self.recommendation_error,
                 "recommendation_discarded_pick_no": self.recommendation_discarded_pick_no,
+                "recommendation_progress": self.recommendation_progress,
                 "league_equity": self.league_equity,
                 "league_equity_status": self.league_equity_status,
+                "league_equity_progress": self.league_equity_progress,
                 "league_equity_pick_no": self.league_equity_pick_no,
                 "league_equity_error": self.league_equity_error,
                 "league_equity_calculation_count": self.league_equity_calculation_count,
                 "error": self.error,
             }
+
+    def _record(
+        self,
+        event_type,
+        payload,
+        *,
+        pick_no=None,
+        stage=None,
+        duration_seconds=None,
+    ):
+        if self.telemetry is None:
+            return
+        try:
+            self.telemetry.record(
+                self.session_id,
+                self.prepared.live_draft_id,
+                event_type,
+                payload,
+                pick_no=pick_no,
+                stage=stage,
+                duration_seconds=duration_seconds,
+            )
+        except Exception as error:
+            with self.lock:
+                self.status = "failed"
+                self.error = f"Telemetry failed: {error}"
+            self.stopped.set()
+            raise
+
+    def _publish_recommendation(
+        self,
+        fingerprint,
+        pick_no,
+        recommendation,
+        status,
+        started_at,
+        *,
+        final=False,
+        progress=None,
+    ):
+        with self.lock:
+            if self.state_fingerprint != fingerprint or self.stopped.is_set():
+                self.recommendation_discarded_pick_no = pick_no
+                published = False
+            else:
+                self.recommendation = recommendation
+                self.recommendation_status = status
+                if progress is not None:
+                    self.recommendation_progress = progress
+                self.calculation_count += int(final)
+                published = True
+        duration = time.monotonic() - started_at
+        self._record(
+            "recommendation" if published else "recommendation_discarded",
+            recommendation,
+            pick_no=pick_no,
+            stage=status,
+            duration_seconds=duration,
+        )
+        return published
 
     def calculate(
         self,
@@ -273,10 +344,14 @@ class LiveDraftMonitor:
                 on_clock = state.current_roster_id == self.prepared.user_roster_id
                 self.recommendation_status = "calculating" if on_clock else "idle"
                 self.recommendation_discarded_pick_no = None
+                self.recommendation_progress = None
                 if evaluate_equity is not None and equity_payload is not None:
                     self.league_equity_status = "calculating"
+                    self.league_equity_progress = None
+            calculation_started = time.monotonic()
 
             def update_equity(rollout_count, final):
+                started_at = time.monotonic()
                 try:
                     evaluation = evaluate_equity(
                         self.prepared,
@@ -291,19 +366,40 @@ class LiveDraftMonitor:
                         self.prepared.live_draft_id,
                     )
                     with self.lock:
-                        if self.state_fingerprint == fingerprint:
+                        current = self.state_fingerprint == fingerprint
+                        if current:
                             self.league_equity_status = "failed"
                             self.league_equity_error = str(error)
-                            return True
-                        return False
+                    if current:
+                        self._record(
+                            "league_equity_error",
+                            {"error": str(error)},
+                            pick_no=pick_no,
+                            stage="final" if final else "preliminary",
+                            duration_seconds=time.monotonic() - started_at,
+                        )
+                    return current
                 with self.lock:
                     if self.state_fingerprint != fingerprint or self.stopped.is_set():
-                        return False
-                    self.league_equity = payload
-                    self.league_equity_status = "ready" if final else "calculating"
-                    self.league_equity_error = None
-                    self.league_equity_calculation_count += int(final)
-                return True
+                        published = False
+                    else:
+                        self.league_equity = payload
+                        self.league_equity_status = "ready" if final else "calculating"
+                        self.league_equity_progress = {
+                            "done": rollout_count,
+                            "total": equity_rollout_count,
+                        }
+                        self.league_equity_error = None
+                        self.league_equity_calculation_count += int(final)
+                        published = True
+                self._record(
+                    "league_equity" if published else "league_equity_discarded",
+                    payload,
+                    pick_no=pick_no,
+                    stage="final" if final else "preliminary",
+                    duration_seconds=time.monotonic() - started_at,
+                )
+                return published
 
             equity_enabled = evaluate_equity is not None and equity_payload is not None
             equity_finalized = not equity_enabled
@@ -311,6 +407,12 @@ class LiveDraftMonitor:
                 self.rollout_count, LEAGUE_EQUITY_ROLLOUT_COUNT
             )
             if equity_enabled:
+                with self.lock:
+                    if self.state_fingerprint == fingerprint:
+                        self.league_equity_progress = {
+                            "done": 0,
+                            "total": equity_rollout_count,
+                        }
                 preliminary = min(equity_rollout_count, PRELIMINARY_ROLLOUT_COUNT)
                 equity_finalized = preliminary == equity_rollout_count
                 if not update_equity(preliminary, equity_finalized):
@@ -336,6 +438,13 @@ class LiveDraftMonitor:
                         if self.state_fingerprint == fingerprint:
                             self.recommendation_status = "failed"
                             self.recommendation_error = str(error)
+                    self._record(
+                        "recommendation_error",
+                        {"error": str(error)},
+                        pick_no=pick_no,
+                        stage="candidate_selection",
+                        duration_seconds=time.monotonic() - calculation_started,
+                    )
             # Screen broadly, then refine at least five candidates plus every
             # statistically tied screen leader.
             first = tuple(candidates[: self.candidate_count])
@@ -344,6 +453,19 @@ class LiveDraftMonitor:
             recommendation = None
             screen_failed = False
             screen_count = min(self.rollout_count, SCREEN_ROLLOUT_COUNT)
+            # Progress in candidate-rollout units: every candidate screened at
+            # screen depth, then the finalists extended to the full depth.
+            # Early refinement stops simply jump the bar to complete.
+            recommendation_total = len(candidates) * screen_count + max(
+                self.rollout_count - screen_count, 0
+            ) * min(FINALIST_COUNT, len(candidates))
+            if on_clock and candidates:
+                with self.lock:
+                    if self.state_fingerprint == fingerprint:
+                        self.recommendation_progress = {
+                            "done": 0,
+                            "total": recommendation_total,
+                        }
             speculative, self.speculative = self.speculative, None
             speculated = (
                 tuple(speculative["evaluations"])
@@ -353,6 +475,7 @@ class LiveDraftMonitor:
                 and speculative["candidates"] == tuple(candidates)
                 else ()
             )
+            screened_units = 0
             for batch_index, batch in enumerate(filter(None, (first, remainder))):
                 with self.lock:
                     if self.state_fingerprint != fingerprint or self.stopped.is_set():
@@ -396,19 +519,29 @@ class LiveDraftMonitor:
                         else:
                             self.recommendation_discarded_pick_no = pick_no
                     screen_failed = True
+                    self._record(
+                        "recommendation_error",
+                        {"error": str(error)},
+                        pick_no=pick_no,
+                        stage="screen",
+                        duration_seconds=time.monotonic() - calculation_started,
+                    )
                     break
+                screened_units += len(batch) * screen_count
                 screen_complete = batch_index == int(bool(remainder))
                 refine = screen_complete and self.rollout_count > screen_count
                 final = screen_complete and not refine
-                with self.lock:
-                    if self.state_fingerprint != fingerprint or self.stopped.is_set():
-                        self.recommendation_discarded_pick_no = pick_no
-                        break
-                    self.recommendation = recommendation
-                    self.recommendation_status = (
-                        "ready" if final else ("refining" if refine else "expanding")
-                    )
-                    self.calculation_count += int(final)
+                status = "ready" if final else ("refining" if refine else "expanding")
+                if not self._publish_recommendation(
+                    fingerprint,
+                    pick_no,
+                    recommendation,
+                    status,
+                    calculation_started,
+                    final=final,
+                    progress={"done": screened_units, "total": recommendation_total},
+                ):
+                    break
 
             if (
                 recommendation is not None
@@ -497,14 +630,20 @@ class LiveDraftMonitor:
                                     interim["candidates_evaluated"] = len(
                                         screened_candidates
                                     )
-                                    with self.lock:
-                                        if (
-                                            self.state_fingerprint != fingerprint
-                                            or self.stopped.is_set()
-                                        ):
-                                            self.recommendation_discarded_pick_no = pick_no
-                                            break
-                                        self.recommendation = interim
+                                    if not self._publish_recommendation(
+                                        fingerprint,
+                                        pick_no,
+                                        interim,
+                                        "refining",
+                                        calculation_started,
+                                        progress={
+                                            "done": screened_units
+                                            + (stage - screen_count)
+                                            * min(FINALIST_COUNT, len(candidates)),
+                                            "total": recommendation_total,
+                                        },
+                                    ):
+                                        break
                                 if (
                                     refine_survivors is not None
                                     and stage < self.rollout_count
@@ -551,17 +690,26 @@ class LiveDraftMonitor:
                                 self.recommendation_error = str(error)
                             else:
                                 self.recommendation_discarded_pick_no = pick_no
+                        self._record(
+                            "recommendation_error",
+                            {"error": str(error)},
+                            pick_no=pick_no,
+                            stage="refinement",
+                            duration_seconds=time.monotonic() - calculation_started,
+                        )
                     else:
-                        with self.lock:
-                            if (
-                                self.state_fingerprint != fingerprint
-                                or self.stopped.is_set()
-                            ):
-                                self.recommendation_discarded_pick_no = pick_no
-                            else:
-                                self.recommendation = recommendation
-                                self.recommendation_status = "ready"
-                                self.calculation_count += 1
+                        self._publish_recommendation(
+                            fingerprint,
+                            pick_no,
+                            recommendation,
+                            "ready",
+                            calculation_started,
+                            final=True,
+                            progress={
+                                "done": recommendation_total,
+                                "total": recommendation_total,
+                            },
+                        )
                 else:
                     with self.lock:
                         self.recommendation_discarded_pick_no = pick_no
@@ -680,12 +828,39 @@ class LiveDraftMonitor:
         )
 
         equity_available = getattr(self.prepared, "evaluator", None) is not None
+        telemetry_started = False
         try:
             if equity_available:
                 self.executor = create_live_executor(self.prepared)
         except Exception:
             LOGGER.exception("Falling back to sequential candidate evaluation")
             self.executor = None
+        if self.telemetry is not None:
+            try:
+                self.telemetry.start_session(
+                    self.session_id,
+                    self.prepared.live_draft_id,
+                    {
+                        "prepared": self.prepared.summary,
+                        "monitor": {
+                            "poll_seconds": self.poll_seconds,
+                            "rollout_count": self.rollout_count,
+                            "candidate_count": self.candidate_count,
+                            "candidate_breadth": self.candidate_breadth,
+                            "temperature": self.temperature,
+                        },
+                    },
+                )
+                telemetry_started = True
+            except Exception as error:
+                LOGGER.exception("Draft telemetry failed to start")
+                with self.lock:
+                    self.status = "failed"
+                    self.error = str(error)
+                self.stopped.set()
+                if self.executor is not None:
+                    self.executor.shutdown(wait=False, cancel_futures=True)
+                return
         Thread(
             target=self.calculate,
             args=(
@@ -721,17 +896,26 @@ class LiveDraftMonitor:
                     refresh_metadata = True
                     with self.lock:
                         self.error = str(error)
+                    self._record("sync_error", {"error": str(error)})
                     self.stopped.wait(self.poll_seconds)
                     continue
                 refresh_metadata = False
                 state = sync.state
                 current = _state_fingerprint(state)
+                state_summary = live_state_summary(self.prepared, state)
+                changed = False
                 with self.lock:
-                    self.state = live_state_summary(self.prepared, state)
+                    previous_pick_count = (
+                        self.state.get("completed_picks", len(state.completed_picks))
+                        if self.state is not None
+                        else len(state.completed_picks)
+                    )
+                    self.state = state_summary
                     self.sync_count += 1
                     self.last_sync_at = time.time()
                     self.error = None
                     if current != self.state_fingerprint:
+                        changed = True
                         self.state_fingerprint = current
                         self.recommendation = None
                         self.recommendation_status = "idle"
@@ -749,6 +933,28 @@ class LiveDraftMonitor:
                     # A full pick sheet ends the draft even while the cached
                     # metadata payload still reports a stale "drafting" status.
                     complete = state.status == "complete" or state.current_pick_no is None
+                if changed:
+                    for pick in state_summary.get("recent_picks", ())[previous_pick_count:]:
+                        self._record(
+                            "pick",
+                            pick,
+                            pick_no=pick["pick_no"],
+                            stage=(
+                                "user"
+                                if pick["roster_id"] == self.prepared.user_roster_id
+                                else "opponent"
+                            ),
+                        )
+                    self._record(
+                        "draft_state",
+                        state_summary,
+                        pick_no=state.current_pick_no,
+                        stage=(
+                            "on_clock"
+                            if state.current_roster_id == self.prepared.user_roster_id
+                            else "watching"
+                        ),
+                    )
                 if complete:
                     while not self.stopped.is_set():
                         with self.lock:
@@ -758,7 +964,7 @@ class LiveDraftMonitor:
                         time.sleep(0.01)
                 self.stopped.wait(self.poll_seconds)
             with self.lock:
-                if self.status != "completed":
+                if self.status not in TERMINAL_STATUSES:
                     self.status = "stopped"
         except Exception as error:
             LOGGER.exception("Live draft monitor failed for %s", self.prepared.live_draft_id)
@@ -770,6 +976,14 @@ class LiveDraftMonitor:
             self.calculation_event.set()
             if self.executor is not None:
                 self.executor.shutdown(wait=False, cancel_futures=True)
+            if telemetry_started:
+                try:
+                    self.telemetry.finish_session(self.session_id, self.status)
+                except Exception as error:
+                    LOGGER.exception("Draft telemetry failed to finish")
+                    with self.lock:
+                        self.status = "failed"
+                        self.error = f"Telemetry failed: {error}"
 
     def stop(self):
         self.stopped.set()
@@ -833,7 +1047,10 @@ def _run_draft_preparation(state, config_path, request):
 
     def progress(stage):
         with state.prepare_lock:
-            state.draft_preparation["stage"] = stage
+            preparation = state.draft_preparation
+            preparation["stage"] = stage
+            preparation["stage_no"] = (preparation.get("stage_no") or 0) + 1
+            preparation["stage_count"] = PREPARATION_STAGE_COUNT
 
     try:
         prepared = prepare_draft(
@@ -860,7 +1077,7 @@ def _run_draft_preparation(state, config_path, request):
                 "status": "failed",
                 "error": str(error),
             })
-def create_app(config_path="config.json"):
+def create_app(config_path="config.json", telemetry_path=None):
     app = FastAPI(title="FFSim API", version="1.0")
     # ponytail: open CORS is for the local UI; restrict origins before public hosting.
     app.add_middleware(
@@ -895,6 +1112,7 @@ def create_app(config_path="config.json"):
         "error": None,
     }
     app.state.live_monitor = None
+    app.state.draft_telemetry = DraftTelemetry(telemetry_path)
 
     @app.get("/api/health")
     def health():
@@ -1020,6 +1238,8 @@ def create_app(config_path="config.json"):
             app.state.draft_preparation = {
                 "status": "running",
                 "stage": "Starting",
+                "stage_no": 0,
+                "stage_count": PREPARATION_STAGE_COUNT,
                 "draft_id": request.draft_id,
                 "mock_draft_id": request.mock_draft_id,
                 "error": None,
@@ -1056,6 +1276,7 @@ def create_app(config_path="config.json"):
             request.candidate_count,
             request.candidate_breadth,
             request.temperature,
+            app.state.draft_telemetry,
         )
         app.state.live_monitor = monitor
         Thread(target=monitor.run, daemon=True).start()
@@ -1066,6 +1287,25 @@ def create_app(config_path="config.json"):
         monitor = app.state.live_monitor
         return monitor.snapshot() if monitor else {"status": "idle"}
 
+    @app.get("/api/draft-intel/telemetry")
+    def draft_telemetry(
+        draft_id: str | None = None,
+        session_id: str | None = None,
+        event_type: str | None = None,
+        pick_no: int | None = None,
+        limit: int = 1_000,
+    ):
+        try:
+            return app.state.draft_telemetry.query(
+                draft_id=draft_id,
+                session_id=session_id,
+                event_type=event_type,
+                pick_no=pick_no,
+                limit=limit,
+            )
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
+
     @app.post("/api/draft-intel/monitor/stop")
     def stop_draft_monitor():
         monitor = app.state.live_monitor
@@ -1073,6 +1313,35 @@ def create_app(config_path="config.json"):
             return {"status": "idle"}
         monitor.stop()
         return monitor.snapshot()
+
+    @app.post("/api/draft-intel/simulation")
+    def simulate_completed_draft():
+        from ffsim.draft_intel.live import (
+            completed_league_simulation,
+            sync_prepared_draft,
+        )
+
+        with app.state.prepare_lock:
+            prepared = app.state.prepared_draft
+            preparation = dict(app.state.draft_preparation)
+        if prepared is None or preparation.get("status") != "ready":
+            raise HTTPException(status_code=409, detail="Prepare the draft first")
+        try:
+            state = sync_prepared_draft(prepared, refresh_metadata=True).state
+            result = completed_league_simulation(prepared, state)
+        except ValueError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        monitor = app.state.live_monitor
+        if (
+            monitor is not None
+            and monitor.prepared.live_draft_id == prepared.live_draft_id
+        ):
+            monitor._record(
+                "completed_draft_simulation",
+                result,
+                stage="final",
+            )
+        return result
 
     @app.post("/api/simulations", status_code=202)
     def start_simulation(request: SimulationRequest):

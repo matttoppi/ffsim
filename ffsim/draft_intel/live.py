@@ -11,6 +11,7 @@ from urllib.parse import quote, urlparse
 from ffsim.config import AppConfig, save_league_attachment
 from ffsim.draft_intel.decision import (
     evaluate_candidates,
+    evaluate_completed_league,
     evaluate_league_equity,
     merge_evaluations,
     merge_rollout_ranges,
@@ -830,8 +831,26 @@ def live_league_equity_payload(prepared, evaluation):
         "pick_no": evaluation.state_pick_no,
         "completed_picks": evaluation.completed_picks,
         "rollout_count": evaluation.rollout_count,
+        "season_worlds_per_rollout": evaluation.season_worlds_per_rollout,
         "joint_outcome_count": evaluation.joint_outcome_count,
+        "draft_model_version": evaluation.draft_model_version,
+        "world_bank_version": evaluation.world_bank_version,
+        "league_evaluator_version": evaluation.league_evaluator_version,
         "rosters": rows,
+    }
+
+
+def completed_league_simulation(prepared, state):
+    if prepared.evaluator is None:
+        raise ValueError("Prepared draft is missing season inputs")
+    payload = live_league_equity_payload(
+        prepared,
+        evaluate_completed_league(state, prepared.evaluator),
+    )
+    return {
+        **payload,
+        "model_status": "observed_final_rosters",
+        "simulation_type": "completed_draft",
     }
 
 

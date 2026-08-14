@@ -1816,3 +1816,139 @@ code {
     transition: none !important;
   }
 }
+
+/* Simulation pipeline state */
+
+.spinner {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  display: inline-block;
+  border: 2px solid var(--line);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.rec-pipeline {
+  margin-top: 16px;
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: var(--field);
+}
+
+.rec-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  font-family: var(--display);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.rec-steps li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0.45;
+}
+
+.rec-steps li.is-done {
+  opacity: 1;
+  color: var(--turf);
+}
+
+.rec-steps li.is-active {
+  opacity: 1;
+  color: var(--gold);
+}
+
+.progress-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--gold);
+  transition: width 0.4s ease;
+}
+
+.progress-track.is-indeterminate .progress-fill {
+  width: 35%;
+  animation: progress-slide 1.2s ease-in-out infinite;
+}
+
+@keyframes progress-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(300%);
+  }
+}
+
+.prepare-progress {
+  display: grid;
+  gap: 6px;
+  min-width: 220px;
+}
+
+.board-state {
+  margin: 16px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(232, 179, 59, 0.35);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  color: var(--gold);
+  background: var(--gold-soft);
+}
+
+.board-state.is-final {
+  border-color: rgba(63, 191, 127, 0.4);
+  color: var(--turf);
+  background: rgba(63, 191, 127, 0.12);
+}
+
+.progress-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.progress-row .progress-track {
+  flex: 1;
+}
+
+.progress-pct {
+  font-family: var(--display);
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--gold);
+  min-width: 4ch;
+  text-align: right;
+}

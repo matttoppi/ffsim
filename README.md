@@ -196,6 +196,19 @@ SSE event types are `queued`, `status`, `progress`, `complete`, and `failed`.
 Every `progress` event includes the completed count, speed, championship
 counts, playoff appearances, division wins, and the latest simulated outcome.
 
+Live draft telemetry is stored in `data/cache/draft_intel/telemetry.sqlite3`.
+Query a completed session by draft, session, event type, or pick:
+
+```bash
+curl 'http://127.0.0.1:8000/api/draft-intel/telemetry?draft_id=DRAFT_ID&event_type=recommendation'
+```
+
+The chronological event stream includes synchronized states, observed picks,
+recommendation stages, league-equity passes, the exact post-draft simulation,
+stale-result discards, errors, and calculation durations. Recommendation
+payloads retain the full candidate board, reason codes, seed, sample counts,
+and model/world versions.
+
 ## Web frontend
 
 A live dashboard for running and watching simulations lives in `web/`

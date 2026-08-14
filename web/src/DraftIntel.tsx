@@ -3,13 +3,37 @@ import {
   getDraftMonitor,
   getDraftPreparation,
   prepareDraft,
+  simulateCompletedDraft,
   startDraftMonitor,
   stopDraftMonitor,
+  type DraftLeagueSimulation,
   type DraftMonitor,
   type DraftPreparation,
+  type WorkProgress,
 } from './api'
 
 const POLL_MS = 1000
+
+const REC_STEPS = ['Queued', 'First board', 'Screening field', 'Refining finalists', 'Final suggestion']
+const REC_PHASE: Record<string, number> = { pending: 0, calculating: 1, expanding: 2, refining: 3 }
+
+function ProgressBar({ progress }: { progress: WorkProgress | null | undefined }) {
+  const pct =
+    progress && progress.total > 0
+      ? Math.min(100, Math.round((100 * progress.done) / progress.total))
+      : null
+  return (
+    <div className="progress-row">
+      <div className={`progress-track${pct == null ? ' is-indeterminate' : ''}`}>
+        <span
+          className="progress-fill"
+          style={pct == null ? undefined : { width: `${pct}%` }}
+        />
+      </div>
+      {pct != null && <span className="progress-pct">{pct}%</span>}
+    </div>
+  )
+}
 
 export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }) {
   const [draftId, setDraftId] = useState(currentDraftId ?? '')
@@ -19,6 +43,8 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
   const [monitor, setMonitor] = useState<DraftMonitor>({ status: 'idle' })
   const [error, setError] = useState<string | null>(null)
   const [positionFilter, setPositionFilter] = useState<string | null>(null)
+  const [simulation, setSimulation] = useState<DraftLeagueSimulation | null>(null)
+  const [simulating, setSimulating] = useState(false)
 
   useEffect(() => {
     if (!draftId && currentDraftId) setDraftId(currentDraftId)
@@ -71,6 +97,7 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
         }),
       )
       setMonitor({ status: 'idle' })
+      setSimulation(null)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Draft preparation failed')
     }
@@ -90,6 +117,18 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
       setMonitor(await stopDraftMonitor())
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not stop monitoring')
+    }
+  }
+
+  const simulate = async () => {
+    setError(null)
+    setSimulating(true)
+    try {
+      setSimulation(await simulateCompletedDraft())
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not simulate the completed draft')
+    } finally {
+      setSimulating(false)
     }
   }
 
@@ -139,12 +178,13 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
     currentPickNo != null &&
     monitor.state?.user_next_pick_no === currentPickNo + 1
   const feed = [...(monitor.state?.recent_picks ?? [])].reverse()
-  const leagueRows = monitor.league_equity?.rosters ?? []
+  const leagueRows = simulation?.rosters ?? monitor.league_equity?.rosters ?? []
   const leagueEquityCurrent =
     monitor.league_equity?.completed_picks === monitor.state?.completed_picks
-  const leagueEquityUpdating =
-    ['pending', 'calculating'].includes(monitor.league_equity_status ?? 'idle') ||
-    !leagueEquityCurrent
+  const leagueEquityUpdating = simulation
+    ? false
+    : ['pending', 'calculating'].includes(monitor.league_equity_status ?? 'idle') ||
+      !leagueEquityCurrent
   const maxLeagueEquity = Math.max(
     ...leagueRows.map((row) => row.championship_probability),
     1e-9,
@@ -228,10 +268,22 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
               {preparing ? 'Preparing…' : 'Prepare draft'}
             </button>
             {preparing && (
-              <p className="draft-progress" role="status">
-                <span className="draft-chip-dot" aria-hidden="true" />
-                {preparation.stage ?? 'Preparing inputs…'}
-              </p>
+              <div className="prepare-progress">
+                <p className="draft-progress" role="status">
+                  <span className="spinner" aria-hidden="true" />
+                  {preparation.stage ?? 'Preparing inputs…'}
+                  {preparation.stage_count != null && (
+                    <> · step {preparation.stage_no ?? 0} of {preparation.stage_count}</>
+                  )}
+                </p>
+                <ProgressBar
+                  progress={
+                    preparation.stage_count != null
+                      ? { done: preparation.stage_no ?? 0, total: preparation.stage_count }
+                      : null
+                  }
+                />
+              </div>
             )}
           </div>
         </form>
@@ -310,33 +362,83 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
                 <div><dt>Odds updates</dt><dd>{monitor.league_equity_calculation_count ?? 0}</dd></div>
               </dl>
             )}
+            {monitor.status === 'completed' && (
+              <button
+                type="button"
+                className="button-run"
+                disabled={simulating}
+                onClick={() => void simulate()}
+              >
+                {simulating ? (
+                  <>
+                    <span className="spinner" aria-hidden="true" /> Simulating league…
+                  </>
+                ) : simulation ? (
+                  'Run full simulation again'
+                ) : (
+                  'Run full league simulation'
+                )}
+              </button>
+            )}
           </div>
           <div className="draft-live-body">
             <div className="draft-live-main">
           {monitoring && monitor.state && (
-            recStatus === 'pending' ? (
-              <p className="draft-progress" role="status">
-                Recommendation pending for pick {monitor.recommendation_pick_no}…
-              </p>
-            ) : recStatus === 'calculating' ? (
-              <p className="draft-progress" role="status">
-                Calculating recommendations for pick {monitor.recommendation_pick_no}…
-              </p>
-            ) : recStatus === 'expanding' ? (
-              <p className="draft-progress" role="status">
-                Screening the board for pick {monitor.recommendation_pick_no} —{' '}
-                {monitor.recommendation?.candidates_evaluated} of{' '}
-                {monitor.recommendation?.candidate_pool} candidates evaluated…
-              </p>
-            ) : recStatus === 'refining' ? (
-              <p className="draft-progress" role="status">
-                Refining the top candidates for pick {monitor.recommendation_pick_no}…
-              </p>
-            ) : recStatus === 'failed' ? (
+            recStatus === 'failed' ? (
               <p className="form-error" role="alert">
                 Calculation failed for pick {monitor.recommendation_pick_no}:{' '}
                 {monitor.recommendation_error}
               </p>
+            ) : recStatus in REC_PHASE ? (
+              <div className="rec-pipeline">
+                <ol className="rec-steps" aria-hidden="true">
+                  {REC_STEPS.map((label, index) => (
+                    <li
+                      key={label}
+                      className={
+                        index < REC_PHASE[recStatus]
+                          ? 'is-done'
+                          : index === REC_PHASE[recStatus]
+                            ? 'is-active'
+                            : ''
+                      }
+                    >
+                      {index < REC_PHASE[recStatus] ? (
+                        '✓'
+                      ) : index === REC_PHASE[recStatus] ? (
+                        <span className="spinner" />
+                      ) : null}
+                      {label}
+                    </li>
+                  ))}
+                </ol>
+                <ProgressBar
+                  progress={
+                    monitor.recommendation_progress ??
+                    (recStatus === 'expanding' && monitor.recommendation?.candidate_pool
+                      ? {
+                          done: monitor.recommendation.candidates_evaluated ?? 0,
+                          total: monitor.recommendation.candidate_pool,
+                        }
+                      : null)
+                  }
+                />
+                <p className="draft-progress" role="status">
+                  {recStatus === 'pending' ? (
+                    <>Recommendation pending for pick {monitor.recommendation_pick_no}…</>
+                  ) : recStatus === 'calculating' ? (
+                    <>Calculating recommendations for pick {monitor.recommendation_pick_no}…</>
+                  ) : recStatus === 'expanding' ? (
+                    <>
+                      Screening the board for pick {monitor.recommendation_pick_no} —{' '}
+                      {monitor.recommendation?.candidates_evaluated} of{' '}
+                      {monitor.recommendation?.candidate_pool} candidates evaluated…
+                    </>
+                  ) : (
+                    <>Refining the top candidates for pick {monitor.recommendation_pick_no}…</>
+                  )}
+                </p>
+              </div>
             ) : !onClock ? (
               <p className="controls-hint">Recommendations appear when you are on the clock.</p>
             ) : null
@@ -399,6 +501,23 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
                   No {positionFilter} among the evaluated candidates for this pick.
                 </p>
               )}
+              <p
+                className={`board-state${recStatus === 'ready' ? ' is-final' : ''}`}
+                role="status"
+              >
+                {recStatus === 'ready' ? (
+                  <>
+                    <strong>✓ Final suggestion</strong> — fully computed for pick{' '}
+                    {monitor.recommendation?.pick_no}.
+                  </>
+                ) : (
+                  <>
+                    <span className="spinner" aria-hidden="true" />
+                    <strong>First look</strong> — usable now, but rankings can still shift while
+                    the model refines.
+                  </>
+                )}
+              </p>
               <ol className={`board${recStatus === 'ready' ? '' : ' is-preliminary'}`}>
                 {visibleCandidates.map((candidate) => {
                   const rank = candidates.indexOf(candidate)
@@ -572,12 +691,18 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
               <div className="league-equity-header">
                 <div>
                   <p className="eyebrow">Live rankings</p>
-                  <h4>Championship odds</h4>
+                  <h4>{simulation ? 'Full simulation results' : 'Championship odds'}</h4>
                 </div>
                 {leagueEquityUpdating && (
-                  <span className="draft-chip draft-chip-prep">Updating</span>
+                  <span className="draft-chip draft-chip-prep">
+                    <span className="spinner" aria-hidden="true" />
+                    Updating
+                  </span>
                 )}
               </div>
+              {leagueRows.length > 0 && leagueEquityUpdating && (
+                <ProgressBar progress={monitor.league_equity_progress} />
+              )}
               {leagueRows.length > 0 ? (
                 <ol className={`league-equity-list${leagueEquityUpdating ? ' is-preliminary' : ''}`}>
                   {leagueRows.map((row, index) => (
@@ -591,6 +716,7 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
                         <small>
                           {row.draft_slot != null ? `Slot ${row.draft_slot} · ` : ''}
                           {(row.playoff_probability * 100).toFixed(0)}% playoffs
+                          {simulation && <> · {row.expected_wins.toFixed(1)} wins</>}
                         </small>
                         <span className="board-track" aria-hidden="true">
                           <span
@@ -610,16 +736,25 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
                   League odds failed: {monitor.league_equity_error}
                 </p>
               ) : (
-                <p className="draft-progress" role="status">
-                  Calculating league odds for pick {monitor.league_equity_pick_no ?? 'final'}…
-                </p>
+                <div className="rec-pipeline">
+                  <ProgressBar progress={monitor.league_equity_progress} />
+                  <p className="draft-progress" role="status">
+                    Calculating league odds for pick {monitor.league_equity_pick_no ?? 'final'}…
+                  </p>
+                </div>
               )}
               {leagueRows.length > 0 && (
                 <p className="board-footnote">
-                  {leagueEquityUpdating
-                    ? `Refining for pick ${monitor.league_equity_pick_no ?? 'final'}`
-                    : `Updated through pick ${monitor.league_equity?.completed_picks ?? 0}`}{' '}
-                  · uncalibrated baseline · {monitor.league_equity?.rollout_count ?? 0} draft continuations
+                  {simulation ? (
+                    <>Exact final rosters · {simulation.joint_outcome_count} season worlds</>
+                  ) : (
+                    <>
+                      {leagueEquityUpdating
+                        ? `Refining for pick ${monitor.league_equity_pick_no ?? 'final'}`
+                        : `Updated through pick ${monitor.league_equity?.completed_picks ?? 0}`}{' '}
+                      · uncalibrated baseline · {monitor.league_equity?.rollout_count ?? 0} draft continuations
+                    </>
+                  )}
                 </p>
               )}
             </aside>

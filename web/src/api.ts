@@ -143,9 +143,16 @@ export interface LeagueInfo {
   refresh: RefreshState
 }
 
+export interface WorkProgress {
+  done: number
+  total: number
+}
+
 export interface DraftPreparation {
   status: 'idle' | 'running' | 'ready' | 'failed'
   stage?: string | null
+  stage_no?: number
+  stage_count?: number
   error?: string | null
   draft_id?: string
   mock_draft_id?: string | null
@@ -189,6 +196,28 @@ export interface DraftRecommendationCandidate {
   best_wait_candidate_id: string | null
 }
 
+export interface DraftLeagueSimulation {
+  model_status: string
+  simulation_type?: 'completed_draft'
+  pick_no: number | null
+  completed_picks: number
+  rollout_count: number
+  season_worlds_per_rollout?: number
+  joint_outcome_count: number
+  rosters: Array<{
+    roster_id: number
+    name: string
+    draft_slot: number | null
+    is_user: boolean
+    championship_probability: number
+    championship_standard_error: number
+    championship_interval: [number, number]
+    playoff_probability: number
+    expected_wins: number
+    expected_points: number
+  }>
+}
+
 export interface DraftMonitor {
   status: 'idle' | 'starting' | 'running' | 'completed' | 'stopped' | 'failed'
   draft_id?: string
@@ -200,7 +229,9 @@ export interface DraftMonitor {
   recommendation_pick_no?: number | null
   recommendation_error?: string | null
   recommendation_discarded_pick_no?: number | null
+  recommendation_progress?: WorkProgress | null
   league_equity_status?: 'idle' | 'pending' | 'calculating' | 'ready' | 'failed'
+  league_equity_progress?: WorkProgress | null
   league_equity_pick_no?: number | null
   league_equity_error?: string | null
   league_equity_calculation_count?: number
@@ -267,25 +298,7 @@ export interface DraftMonitor {
     candidates: DraftRecommendationCandidate[]
     screened_candidates?: DraftRecommendationCandidate[]
   } | null
-  league_equity?: {
-    model_status: string
-    pick_no: number | null
-    completed_picks: number
-    rollout_count: number
-    joint_outcome_count: number
-    rosters: Array<{
-      roster_id: number
-      name: string
-      draft_slot: number | null
-      is_user: boolean
-      championship_probability: number
-      championship_standard_error: number
-      championship_interval: [number, number]
-      playoff_probability: number
-      expected_wins: number
-      expected_points: number
-    }>
-  } | null
+  league_equity?: DraftLeagueSimulation | null
 }
 
 export const getHealth = () => request<{ status: string }>('/api/health')
@@ -335,6 +348,9 @@ export const getDraftMonitor = () =>
 
 export const stopDraftMonitor = () =>
   request<DraftMonitor>('/api/draft-intel/monitor/stop', { method: 'POST' })
+
+export const simulateCompletedDraft = () =>
+  request<DraftLeagueSimulation>('/api/draft-intel/simulation', { method: 'POST' })
 
 export const startSimulation = (params: SimulationParams) =>
   request<JobSnapshot>('/api/simulations', {
