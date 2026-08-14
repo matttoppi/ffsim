@@ -1260,3 +1260,85 @@ tie gate further.
   seating of bench players at a loss) is not modeled, so bench assets are
   overpriced by up to a few points; the error is shared across same-position
   candidates and largely cancels in paired deltas.
+
+## ADR-032 — Urgency stays inside the rollout measure; the practical tie shrinks to the measured residual
+
+### Status
+
+Accepted (2026-08-14). Supersedes the ADR-030 consequence that the 0.5-point
+epsilon "absorbs that known gap" until the policy is aligned: the gap is
+removed (ADR-031), so the gate is re-sized to the measured residual model
+error. ADR-030's mechanism (a practical-equivalence tie gate on paired
+lower bounds, ties ordered by urgency then market) remains active.
+
+### Decision
+
+Objective 2 asked how take-now urgency (VONA) should shape the ranking
+itself, not just tie-breaking. The answer, measured on recorded states: it
+already does, through the rollout measure. `rank_candidates` keeps ranking
+by `Q` (mean paired completed-roster value); no urgency term is added.
+`PRACTICAL_TIE_POINTS` shrinks from 0.5 to 0.1, and the racing regret stop
+is defined as `PRACTICAL_TIE_POINTS` itself, so refinement races on exactly
+the quantity and threshold the final decision uses: sampling stops only when
+no survivor's plausible advantage could still clear the tie gate. Decision
+engine v7. The Why panel explains the headline delta as the take-vs-wait
+edge, with wait-plan language driven by next-pick survival.
+
+### Rationale
+
+All measurements from `tools/draft_policy_alignment_harness.py designs`
+(14 recorded states across sessions `7482e87c`/`19aa5ad8`/`5e61ae8e`/
+`7a45e07c`/`2083d7b9`, rounds 1-14, 150 coupled rollouts x 8 ready-board
+candidates per state), reproduced 2026-08-14 under the ADR-031 policy.
+
+- **Double-counting hazard.** With the future-user policy aligned to the
+  terminal scorer, every candidate's continuations already contain each
+  rival's best wait plan — passing on a survivor harvests him at a later
+  turn. The completed-roster objective therefore embeds wait value; any
+  additive urgency term must price only residual take-now-vs-wait asymmetry
+  or it re-adds wait value twice. Measured: the pooled regression of paired
+  deltas on VONA differences has slope 0.458 (n=68 pairs, R² 0.405) — the
+  rollouts already carry ~46% of VONA differences in the ranking quantity.
+- **Design (b), explicit take-vs-wait regret, is the current objective.**
+  For every candidate pair in all 14 states, the mean paired delta between
+  "take him now" and the rival's continuation equals the `Q` difference to
+  float precision (max |identity error| 6.6e-14). Ranking by `Q` is ranking
+  by expected regret of passing under the full rollout measure; there is
+  nothing further to generalize.
+- **Design (a), composite `Q + w * max(0, VONA)`, was rejected on measured
+  flips.** Where the ranking is decisive the composite agrees at every
+  tested `w` (0.25/0.5/1.0); where it disagrees it is wrong: at `2083d7b9`
+  pick 96, `w >= 0.5` replaces the genuine leader Hunter Henry (+0.225
+  paired edge, lower bound +0.132) with a streamable DEF whose positive
+  VONA is a below-replacement feasible-pool artifact, and at `19aa5ad8`
+  pick 38, `w = 1.0` replaces Nabers (+4.04, lower bound +2.98) with a
+  VONA-favored RB. Every calibration of `w` either changes nothing or
+  double-counts scarcity toward streamable-position artifacts.
+- **Design (c), shrink the gate, matches the measurements.** The 0.5 gate
+  existed to absorb the pre-ADR-031 policy/scorer bias (a +0.4 phantom edge
+  headlining a 99%-survival TE). Post-alignment residual bias on those
+  recorded phantom archetypes measures 0.000-0.065 points (Kelce +0.000
+  with lower bound -0.015; Pierce +0.001; the pick-78 high-survival
+  co-leaders +0.046-0.065), while the genuine Hunter Henry +0.225 edge was
+  being flattened into a tie by the old gate. 0.1 covers the measured
+  residual with margin and lets genuine sub-half-point edges decide.
+
+### Consequences
+
+- Scarcity moves the ranking through the rollout measure itself: a scarce
+  pick's `Q` rises because wait branches lose him; a survivor's `Q`
+  converges to his wait plan. There is no separate urgency term to
+  double-count. Ties within 0.1 still order by any-position VONA urgency,
+  then market ADP (ADR-028/029 behavior unchanged).
+- Genuine sub-half-point edges (paired lower bound above 0.1) are now
+  decisions: the pick-96 Henry state becomes a clear leader (was a 2-way
+  tie at 0.5). Residual-scale edges stay honest toss-ups: the pick-78 state
+  is a labeled 4-way tie headlined by the scarce 15%-survival WR while the
+  94-97%-survival co-leaders are deferred.
+- The tighter racing stop can extend refinement on genuine near-ties; that
+  is sampling effort spent exactly where the decision is close, and the
+  racing gate can never disagree with the tie gate about decisiveness.
+- The remaining known approximation under the gate is bench bye-coverage
+  overpricing (ADR-031 consequences), which largely cancels in paired
+  deltas; revisit the 0.1 sizing only with new measured residuals, not
+  intuition.

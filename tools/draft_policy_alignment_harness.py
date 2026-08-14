@@ -9,6 +9,7 @@ Usage (from the repo root):
   .venv/bin/python -m tools.draft_policy_alignment_harness trace    # phantom-edge wait-branch tracing
   .venv/bin/python -m tools.draft_policy_alignment_harness ordinal  # policy-vs-scorer ordinal disagreement
   .venv/bin/python -m tools.draft_policy_alignment_harness bench    # continuation-sampling latency
+  .venv/bin/python -m tools.draft_policy_alignment_harness designs  # Objective-2 ranking-design comparison
 """
 
 import json
@@ -226,5 +227,136 @@ def cmd_bench():
         print(f"{session} pick {pick}: 50 continuations in {time.perf_counter() - start:.3f}s")
 
 
+# Objective-2 design comparison (ADR-032): recorded states used to decide how
+# urgency enters the ranking. Includes the decisive-QB (Josh-Allen-type) and
+# scarce-vs-survivor (Fannin-type, pick 78) archetypes plus a round spread.
+DESIGN_STATES = [
+    ("7482e87c", 26),   # Josh-Allen-type: decisive QB leader
+    ("19aa5ad8", 78),   # Fannin-type: scarce RB vs high-survival kicker
+    ("5e61ae8e", 68),   # Kelce phantom (post-ADR-031: collapsed)
+    ("7a45e07c", 71),   # Pierce toss-up
+    ("2083d7b9", 96),   # Hunter Henry genuine residual
+    ("5e61ae8e", 8), ("5e61ae8e", 28), ("5e61ae8e", 108), ("5e61ae8e", 148),
+    ("2083d7b9", 24), ("2083d7b9", 72), ("2083d7b9", 145),
+    ("19aa5ad8", 38), ("19aa5ad8", 158),
+]
+
+
+def cmd_designs(rollouts=150, cands=8):
+    """Compare urgency-in-the-ranking designs on recorded states.
+
+    Per state: current ranking (Q = mean paired terminal roster value), the
+    design-b identity (mean paired delta == Q difference), composite-score
+    (design a) leader flips at a w grid, and co-leader counts at candidate
+    epsilons (design c). Pools a paired-delta ~ dVONA regression at the end:
+    the slope measures how much of VONA the aligned rollouts already price.
+    """
+    from ffsim.draft_intel.decision import (
+        evaluate_candidates, rank_candidates, candidate_vona,
+    )
+    from ffsim.draft_intel.live import _live_model_version
+
+    results = []
+    for session, pick in DESIGN_STATES:
+        prepared, state, ready = rebuild(session, pick)
+        cand_ids = []
+        for c in ready["candidates"]:
+            pid = c["player_id"]
+            if pid in state.available_player_ids and pid not in cand_ids:
+                cand_ids.append(pid)
+            if len(cand_ids) >= cands:
+                break
+        choose, policy = policy_pair(prepared, state)
+        snapshot = _bank_market_snapshot(prepared)
+        ev = evaluate_candidates(
+            state, cand_ids, prepared.user_roster_id, range(rollouts), choose,
+            policy, prepared.evaluator,
+            draft_model_version=_live_model_version(snapshot, LIVE_TEMPERATURE),
+            survival_player_ids=cand_ids, season_worlds_per_rollout=1,
+            temperature=1.0,
+        )
+        ranked = rank_candidates(ev)
+        leader = ranked[0]
+        names = {c["player_id"]: (c.get("name"), c.get("position"))
+                 for c in ready["candidates"]}
+        rows = []
+        for cand in ranked:
+            delta = None if cand is leader else ev.paired_value_delta(
+                leader.candidate_id, cand.candidate_id)
+            surv = None
+            if cand.survival:
+                for p in cand.survival.players:
+                    if p.player_id == cand.candidate_id:
+                        surv = p.survives_to_next_pick
+            rows.append({
+                "id": cand.candidate_id,
+                "name": names.get(cand.candidate_id, (cand.candidate_id, "?"))[0],
+                "pos": names.get(cand.candidate_id, (None, "?"))[1],
+                "q": cand.projected_roster_value,
+                "vona": candidate_vona(cand),
+                "survival": surv,
+                "delta_vs_leader": None if delta is None else delta.projected_value_delta,
+                "delta_lb": None if delta is None else delta.interval[0],
+                "delta_se": None if delta is None else delta.standard_error,
+            })
+        identity_err = max(
+            abs((leader.projected_roster_value - cand.projected_roster_value)
+                - ev.paired_value_delta(
+                    leader.candidate_id, cand.candidate_id).projected_value_delta)
+            for cand in ranked[1:]
+        )
+        composite_top = {
+            w: sorted(ranked, key=lambda c: -(
+                c.projected_roster_value
+                + w * max(0.0, candidate_vona(c) or 0.0)))[0].candidate_id
+            for w in (0.25, 0.5, 1.0)
+        }
+        co_leaders = {
+            eps: sum(
+                1 for cand in ranked
+                if cand is leader or ev.paired_value_delta(
+                    leader.candidate_id, cand.candidate_id).interval[0] <= eps
+            )
+            for eps in (0.5, 0.25, 0.1)
+        }
+        results.append({"session": session, "pick": pick, "rows": rows,
+                        "identity_err": identity_err,
+                        "composite_top": composite_top,
+                        "co_leaders": co_leaders})
+        r0 = rows[0]
+        print(f"\n=== {session} pick {pick}: leader {r0['name']} ({r0['pos']}) "
+              f"Q={r0['q']:.2f} vona={r0['vona']}")
+        for r in rows[1:4]:
+            print(f"   vs {r['name']} ({r['pos']}): delta {r['delta_vs_leader']:+.3f} "
+                  f"lb {r['delta_lb']:+.3f} se {r['delta_se']:.3f} "
+                  f"vona {r['vona'] if r['vona'] is None else round(r['vona'], 2)} "
+                  f"surv {r['survival']}")
+        print(f"   identity_err {identity_err:.2e}  composite_top {composite_top}  "
+              f"co_leaders {co_leaders}")
+
+    xs, ys = [], []
+    for res in results:
+        lead = res["rows"][0]
+        if lead["vona"] is None:
+            continue
+        for r in res["rows"][1:]:
+            if r["vona"] is None or r["delta_vs_leader"] is None:
+                continue
+            xs.append(lead["vona"] - r["vona"])
+            ys.append(r["delta_vs_leader"])
+    mx, my = mean(xs), mean(ys)
+    sxx = sum((x - mx) ** 2 for x in xs)
+    sxy = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
+    slope = sxy / sxx
+    intercept = my - slope * mx
+    ss_res = sum((y - (intercept + slope * x)) ** 2 for x, y in zip(xs, ys))
+    ss_tot = sum((y - my) ** 2 for y in ys)
+    print(f"\npooled regression paired_delta ~ dVONA: n={len(xs)} "
+          f"slope={slope:.3f} intercept={intercept:.3f} "
+          f"R2={1 - ss_res / ss_tot:.3f}")
+    return results
+
+
 if __name__ == "__main__":
-    {"trace": cmd_trace, "ordinal": cmd_ordinal, "bench": cmd_bench}[sys.argv[1]]()
+    {"trace": cmd_trace, "ordinal": cmd_ordinal, "bench": cmd_bench,
+     "designs": cmd_designs}[sys.argv[1]]()

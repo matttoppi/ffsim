@@ -15,15 +15,19 @@ from ffsim.draft_intel.rollout import (
 )
 
 
-DECISION_ENGINE_VERSION = 6
+DECISION_ENGINE_VERSION = 7
 # Paired projected-value edges below this are practical ties, not decisions.
-# Deterministic paired deltas make tiny systematic edges look statistically
-# certain, but sub-half-point edges sit below model error (future-user-policy
-# imperfection, projection noise) — measured live: a +0.4-point "clear leader"
-# with 99% next-pick survival outranked a genuinely scarce alternative. Ties
-# fall through to urgency (VONA) and market ordering, which prefers the
-# scarcer pick and defers the survivor. Matches the racing regret stop.
-PRACTICAL_TIE_POINTS = 0.5
+# The 0.5 gate existed to absorb the pre-ADR-031 policy/scorer gap (a +0.4
+# phantom edge headlined a 99%-survival TE). With the future-user policy
+# aligned to the terminal scorer, paired deltas ARE the take-vs-wait regret
+# — the wait branch harvests survivors — and measured residual bias on the
+# recorded phantom states collapsed to 0.000-0.065 points (Kelce lb -0.015,
+# Pierce +0.001), while a genuine +0.225 edge (Hunter Henry, lb 0.132) was
+# being flattened into a tie. 0.1 covers the measured residual with margin
+# and lets genuine sub-half-point urgency edges decide (ADR-032). Remaining
+# ties fall through to urgency (VONA) and market ordering. Must match the
+# racing regret stop: racing and the decision use the same quantity.
+PRACTICAL_TIE_POINTS = 0.1
 
 
 @dataclass(frozen=True)
@@ -773,7 +777,18 @@ def _merge_opportunity_costs(costs):
 
 
 def rank_candidates(evaluation):
-    """Order by expected completed-roster projected value; equity breaks ties."""
+    """Order by expected completed-roster projected value; equity breaks ties.
+
+    With the future-user policy aligned to the terminal scorer (ADR-031),
+    each candidate's continuations already contain every rival's best wait
+    plan — passing on a survivor harvests him at a later turn — so ranking
+    by mean paired roster value is exactly ranking by the expected regret of
+    passing (the take-vs-wait objective, ADR-032). Urgency and scarcity move
+    the ranking through the rollout measure itself; adding a separate VONA
+    term here would double-count wait value (measured: paired deltas already
+    carry ~46% of VONA differences, and composite scores only flip leaders
+    toward streamable-position artifacts).
+    """
     return tuple(
         sorted(
             evaluation.candidates,

@@ -833,7 +833,7 @@ class ApiTest(unittest.TestCase):
 
         # A statistically bounded toss-up stops at the intermediate stage.
         evaluated.clear()
-        monitor = run(("a", "b", "c", "d", "e"), 0.1)
+        monitor = run(("a", "b", "c", "d", "e"), 0.05)
         self.assertEqual(evaluated, [
             (100, ("a", "b", "c", "d", "e")),
             (range(100, 150), ("a", "b", "c", "d", "e")),

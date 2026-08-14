@@ -354,5 +354,93 @@ class ProjectedValueObjectiveTest(unittest.TestCase):
         )
 
 
+class TakeVsWaitObjectiveTest(unittest.TestCase):
+    """ADR-032: the ranking is the take-vs-wait regret; the gate is 0.1."""
+
+    def evaluation(self):
+        return evaluate_candidates(
+            draft_state(),
+            ("p1", "p2", "p3"),
+            1,
+            range(8),
+            market_utility,
+            market_utility,
+            evaluator(),
+            draft_model_version="manual-test-v1",
+            seed=19,
+        )
+
+    def test_paired_delta_is_exactly_the_ranking_difference(self):
+        # Mean paired take-vs-wait delta equals the Q difference for every
+        # pair, so ranking by Q is ranking by expected regret of passing:
+        # design (b) is the existing objective, not a new mechanism.
+        evaluation = self.evaluation()
+        for candidate in evaluation.candidates:
+            for baseline in evaluation.candidates:
+                if candidate is baseline:
+                    continue
+                delta = evaluation.paired_value_delta(
+                    candidate.candidate_id, baseline.candidate_id
+                )
+                self.assertAlmostEqual(
+                    delta.projected_value_delta,
+                    candidate.projected_roster_value
+                    - baseline.projected_roster_value,
+                    places=9,
+                )
+
+    def test_genuine_sub_half_point_edge_is_a_decision(self):
+        # A deterministic +0.3 edge (lower bound above the 0.1 gate) is a
+        # clear leader under ADR-032; the old 0.5 gate flattened it.
+        evaluation = self.evaluation()
+        leader = rank_candidates(evaluation)[0]
+        trailer = next(
+            candidate for candidate in evaluation.candidates
+            if candidate is not leader
+        )
+        shifted = replace(
+            trailer,
+            projected_roster_value=leader.projected_roster_value - 0.3,
+            continuation_roster_values=tuple(
+                value - 0.3 for value in leader.continuation_roster_values
+            ),
+        )
+        recommendation = recommendation_summary(
+            replace(evaluation, candidates=(leader, shifted))
+        )
+        self.assertEqual(recommendation.decision_status, "clear_leader")
+        self.assertEqual(recommendation.recommended_candidate_id, leader.candidate_id)
+        self.assertIn("PAIRED_VALUE_EDGE", recommendation.reason_codes)
+
+    def test_residual_scale_edge_stays_a_tie(self):
+        # +0.05 sits inside the measured residual model error, so it must
+        # remain a practical tie ordered by urgency/market, not a decision.
+        evaluation = self.evaluation()
+        leader = rank_candidates(evaluation)[0]
+        trailer = next(
+            candidate for candidate in evaluation.candidates
+            if candidate is not leader
+        )
+        shifted = replace(
+            trailer,
+            projected_roster_value=leader.projected_roster_value - 0.05,
+            continuation_roster_values=tuple(
+                value - 0.05 for value in leader.continuation_roster_values
+            ),
+        )
+        recommendation = recommendation_summary(
+            replace(evaluation, candidates=(leader, shifted))
+        )
+        self.assertEqual(recommendation.decision_status, "toss_up")
+
+    def test_racing_stop_is_the_practical_tie_gate(self):
+        # The racing gate must race on the same quantity and threshold the
+        # final decision uses.
+        from ffsim.api import REFINEMENT_REGRET_STOP
+        from ffsim.draft_intel.decision import PRACTICAL_TIE_POINTS
+
+        self.assertEqual(REFINEMENT_REGRET_STOP, PRACTICAL_TIE_POINTS)
+
+
 if __name__ == "__main__":
     unittest.main()

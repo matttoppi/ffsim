@@ -17,6 +17,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 
 from ffsim.config import AppConfig, save_league_attachment
+from ffsim.draft_intel.decision import PRACTICAL_TIE_POINTS
 from ffsim.draft_intel.decision import _state_signature as _decision_state_signature
 from ffsim.draft_intel.telemetry import DraftTelemetry
 from ffsim.paths import CACHE_DIR
@@ -38,11 +39,11 @@ LEAGUE_EQUITY_ROLLOUT_COUNT = 50
 # extension work on the m=14 observation matrices.
 REFINEMENT_STAGE_ROLLOUT_COUNTS = (150, 225)
 # Regret bound in projected-roster-value points (the primary objective's
-# unit): 0.5 season lineup points is ~0.03 points per week, far below any
-# decision-relevant margin. Shadow evaluation on recorded early/middle/late
-# 10- and 12-team states measured paired-value standard errors of 1-4 points
-# at the screen depth, so this bound only fires on genuine ties.
-REFINEMENT_REGRET_STOP = 0.5
+# unit). Racing must race on the same quantity and threshold the final
+# decision uses (ADR-032): sampling stops exactly when no survivor's
+# plausible advantage could still clear the practical-tie gate, so the
+# refined board and the tie gate can never disagree about decisiveness.
+REFINEMENT_REGRET_STOP = PRACTICAL_TIE_POINTS
 # Stages announced by prepare_draft via its progress callback; the world-bank
 # stage is skipped when blockers exist, so a blocked run tops out at 5/6.
 PREPARATION_STAGE_COUNT = 6
