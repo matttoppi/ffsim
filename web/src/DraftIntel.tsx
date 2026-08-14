@@ -9,6 +9,7 @@ import {
   type DraftLeagueSimulation,
   type DraftMonitor,
   type DraftPreparation,
+  type DraftRecommendationCandidate,
   type WorkProgress,
 } from './api'
 
@@ -32,6 +33,104 @@ function ProgressBar({ progress }: { progress: WorkProgress | null | undefined }
       </div>
       {pct != null && <span className="progress-pct">{pct}%</span>}
     </div>
+  )
+}
+
+function WhyThisPick({
+  recommendation,
+  leader,
+  runnerUpName,
+  currentPickNo,
+}: {
+  recommendation: NonNullable<DraftMonitor['recommendation']>
+  leader: DraftRecommendationCandidate
+  runnerUpName: string | null
+  currentPickNo: number | null
+}) {
+  const delta = recommendation.paired_value_delta_vs_runner_up
+  const tossUp = recommendation.decision_status === 'toss_up'
+  const nextPick = leader.next_turn_pick_no ?? recommendation.next_user_pick_no ?? null
+  const vona = leader.value_over_next_alternative
+  const survival = leader.survives_to_next_pick
+  const usualAlternative = leader.later_alternatives?.[0]
+  const adpDrift =
+    leader.adp != null && currentPickNo != null ? currentPickNo - leader.adp : null
+  const reasons: Array<{ label: string; text: string }> = []
+  if (!tossUp && delta && runnerUpName) {
+    const winShare =
+      delta.better_continuation_probability != null
+        ? ` and comes out ahead in ${(delta.better_continuation_probability * 100).toFixed(0)}% of them`
+        : ''
+    reasons.push({
+      label: 'Best final roster',
+      text:
+        `Across ${recommendation.rollout_count} simulated rest-of-drafts, taking ${leader.name} finishes with ` +
+        `${delta.projected_value_delta >= 0 ? '+' : ''}${delta.projected_value_delta.toFixed(1)} more season points of ` +
+        `starting-lineup value than ${runnerUpName} (95% range ${delta.interval[0].toFixed(1)} to ${delta.interval[1].toFixed(1)})${winShare}. ` +
+        `That already accounts for everyone you could draft instead at every later pick.`,
+    })
+  }
+  if (tossUp) {
+    reasons.push({
+      label: 'Statistical tie',
+      text:
+        `The tied options finish with the same final-roster value within simulation precision, so the order is decided by ` +
+        `what waiting would cost, then by market value — among equals, ${leader.name} is the strongest asset to hold or trade.`,
+    })
+  }
+  if (vona != null && nextPick != null) {
+    if (vona > 1) {
+      const survivalText =
+        survival != null ? ` He is back on the board at pick ${nextPick} only ${(survival * 100).toFixed(0)}% of the time` : ''
+      const alternativeText = usualAlternative
+        ? `; if you pass, the simulations say your next turn usually offers ${usualAlternative.name} (${(usualAlternative.probability * 100).toFixed(0)}%) instead`
+        : ''
+      reasons.push({
+        label: 'Waiting costs points',
+        text: `Passing now gives back about ${vona.toFixed(1)} points versus the best option expected at pick ${nextPick}.${survivalText}${alternativeText}.`,
+      })
+    } else {
+      reasons.push({
+        label: 'No urgency',
+        text: `Waiting is nearly free — comparable value should still be available at pick ${nextPick} — so he leads on overall value, not scarcity.`,
+      })
+    }
+  }
+  if (leader.positional_value_drop != null && leader.positional_value_drop > 1 && nextPick != null) {
+    reasons.push({
+      label: `${leader.position ?? 'Position'} cliff`,
+      text: `He projects ${leader.positional_value_drop.toFixed(0)} points above the best ${leader.position} expected to reach your next turn — the position drops off before it comes back to you.`,
+    })
+  }
+  if (adpDrift != null && Math.abs(adpDrift) >= 5) {
+    reasons.push(
+      adpDrift > 0
+        ? {
+            label: 'Market value',
+            text: `The market drafts him around pick ${leader.adp!.toFixed(0)} — he has fallen ${adpDrift.toFixed(0)} picks, so you are buying below price.`,
+          }
+        : {
+            label: 'Ahead of market',
+            text: `This is ${Math.abs(adpDrift).toFixed(0)} picks before his ADP of ${leader.adp!.toFixed(0)} — the model believes the points justify the reach; expect the room to see it as early.`,
+          },
+    )
+  }
+  if (reasons.length === 0) return null
+  return (
+    <section className="why-panel" aria-label="Why this pick">
+      <h4>Why {leader.name}</h4>
+      <ul>
+        {reasons.map((reason) => (
+          <li key={reason.label}>
+            <strong>{reason.label}.</strong> {reason.text}
+          </li>
+        ))}
+      </ul>
+      <small>
+        Points are projected season output of your final starting lineup versus a replacement-level
+        roster; comparisons simulate complete rest-of-drafts, not just this pick.
+      </small>
+    </section>
   )
 }
 
@@ -528,6 +627,20 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
                   </>
                 )}
               </p>
+              {monitor.recommendation && leader && (
+                <WhyThisPick
+                  recommendation={monitor.recommendation}
+                  leader={leader}
+                  runnerUpName={
+                    candidates.find(
+                      (candidate) =>
+                        candidate.player_id ===
+                        monitor.recommendation?.runner_up_candidate_id,
+                    )?.name ?? null
+                  }
+                  currentPickNo={monitor.recommendation.pick_no ?? null}
+                />
+              )}
               {boardSections.map((section) => {
                 const maxValue = Math.max(
                   ...section.candidates.map((candidate) => candidate.projected_roster_value),
