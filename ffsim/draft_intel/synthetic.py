@@ -79,7 +79,8 @@ class _RecommendationTrace:
         if (
             event_type == "recommendation"
             and "screened_candidates" not in payload
-            and payload.get("candidates_evaluated") == SYNTHETIC_CANDIDATE_BREADTH
+            and payload.get("candidates_evaluated")
+            == payload.get("candidate_pool", -1)
         ):
             self.screen = (payload, stage, duration_seconds)
 

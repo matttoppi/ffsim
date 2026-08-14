@@ -3,6 +3,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from ffsim.draft_intel.synthetic import (
+    _RecommendationTrace,
     _run_one_draft,
     estimated_telemetry_gb,
     run_synthetic_drafts,
@@ -10,6 +11,32 @@ from ffsim.draft_intel.synthetic import (
 
 
 class SyntheticDraftTest(unittest.TestCase):
+    def test_short_candidate_pool_is_a_complete_screen(self):
+        trace = _RecommendationTrace()
+        payload = {"candidates_evaluated": 7, "candidate_pool": 7}
+
+        trace.record(
+            "session", "draft", "recommendation", payload,
+            stage="calculating", duration_seconds=1.5,
+        )
+
+        self.assertEqual(trace.screen, (payload, "calculating", 1.5))
+
+    def test_trace_waits_for_the_full_screen_and_ignores_refinement(self):
+        trace = _RecommendationTrace()
+        partial = {"candidates_evaluated": 9, "candidate_pool": 12}
+        full = {"candidates_evaluated": 12, "candidate_pool": 12}
+
+        trace.record("session", "draft", "recommendation", partial)
+        self.assertIsNone(trace.screen)
+        trace.record("session", "draft", "recommendation", full)
+        self.assertEqual(trace.screen, (full, None, None))
+        trace.record(
+            "session", "draft", "recommendation",
+            {**full, "screened_candidates": []},
+        )
+        self.assertEqual(trace.screen, (full, None, None))
+
     def test_estimate_uses_450_kb_per_draft(self):
         self.assertEqual(estimated_telemetry_gb(250), 0.1125)
         with self.assertRaisesRegex(ValueError, "positive"):
