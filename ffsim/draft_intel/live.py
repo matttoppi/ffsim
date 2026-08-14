@@ -11,6 +11,7 @@ from urllib.parse import quote, urlparse
 
 from ffsim.config import AppConfig, save_league_attachment
 from ffsim.draft_intel.decision import (
+    candidate_urgency,
     evaluate_candidates,
     evaluate_completed_league,
     evaluate_league_equity,
@@ -958,11 +959,18 @@ def live_recommendation_payload(prepared, state, evaluations, candidate_pool_cou
         ).items()
     }
 
-    def market_tie_break(candidate):
-        return adp.get(candidate.candidate_id, float("inf"))
+    def market_tier_key(candidate):
+        # Streamable K/DEF are never urgent — their positive VONA is an
+        # artifact of the below-replacement feasible pool — so ties order by
+        # take-now urgency, then best market ADP (the most tradeable asset).
+        position = prepared.player_details.get(candidate.candidate_id, {}).get(
+            "position"
+        )
+        urgency = 0 if position in ("K", "DEF") else candidate_urgency(candidate)
+        return (-urgency, adp.get(candidate.candidate_id, float("inf")))
 
     recommendation = asdict(
-        recommendation_summary(evaluation, tie_break=market_tie_break)
+        recommendation_summary(evaluation, tier_key=market_tier_key)
     )
     top_tier = set(recommendation["co_leader_candidate_ids"])
     ranked = rank_candidates(evaluation)
@@ -973,7 +981,7 @@ def live_recommendation_payload(prepared, state, evaluations, candidate_pool_cou
         *tier_order(
             (candidate for candidate in ranked if candidate.candidate_id in top_tier),
             ranked,
-            market_tie_break,
+            market_tier_key,
         ),
         *(candidate for candidate in ranked if candidate.candidate_id not in top_tier),
     ]

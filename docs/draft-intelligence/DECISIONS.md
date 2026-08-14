@@ -1108,3 +1108,16 @@ removed, for marginal benefit over the asset term.
   K/DEF timing in synthetic batches; absolute projected values are again not
   comparable across roster-value versions.
 - Sub-point VONA ordering inside tiers is intentionally discarded as noise.
+
+### Amendment (2026-08-14, same day)
+
+The first v3 batch showed the VONA ordering drowning the ADP tie-break:
+late-round VONA carries large negative magnitudes (artifacts of the
+below-replacement feasible pool), and K/DEF showed false positive urgency,
+so K/DEF timing barely moved and late ties never reached the market key.
+Tier ordering now uses `candidate_urgency` = `max(0, round(VONA))` — negative
+VONA means waiting costs nothing and carries no ordering information — and
+the live layer zeroes urgency for streamable K/DEF. All zero-urgency ties
+fall through to best market ADP, which is the trade-asset preference the
+owner asked for.
+
