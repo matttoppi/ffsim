@@ -312,6 +312,14 @@ def gumbel_score_array(header, keys):
     return -np.log(-np.log(uniforms))
 
 
+def coupled_gumbel_index(log_probabilities, keys, seed, rollout_id, pick_no, roster_id):
+    """Return one array-contract choice index under shared counter-based shocks."""
+    scores = log_probabilities + gumbel_score_array(
+        _pick_header(seed, rollout_id, pick_no, roster_id), keys
+    )
+    return int(np.argmax(scores))
+
+
 def stable_gumbel(seed, rollout_id, pick_no, roster_id, player_id):
     """Return one deterministic Gumbel(0, 1) shock from stable identifiers."""
     seed = normalize_seed(seed)
@@ -336,11 +344,12 @@ def _complete_draft(
     available = set(initial_available)
     rosters = {roster_id: list(players) for roster_id, players in state.rosters}
     current_pick_no = state.current_pick_no
-    next_user_pick_no = (
-        state.turn_for(user_roster_id).user_next_pick_no
+    future_turns = (
+        state.future_turn_pick_nos(user_roster_id, count=1)
         if current_pick_no is not None
-        else None
+        else ()
     )
+    next_user_pick_no = future_turns[0] if future_turns else None
     picks = []
     first_pick_no = current_pick_no or len(state.pick_owners) + 1
     if root_candidate_id is not None:
@@ -397,10 +406,14 @@ def _complete_draft(
                 ids, log_probability_array, keys = opponent_choice(
                     roster_id, pick_no, rosters, available, mask=board_mask
                 )
-                scores = log_probability_array + gumbel_score_array(
-                    _pick_header(seed, rollout_id, pick_no, roster_id), keys
+                winner = coupled_gumbel_index(
+                    log_probability_array,
+                    keys,
+                    seed,
+                    rollout_id,
+                    pick_no,
+                    roster_id,
                 )
-                winner = int(np.argmax(scores))
                 player_id = ids[winner]
                 chosen = float(log_probability_array[winner])
             else:

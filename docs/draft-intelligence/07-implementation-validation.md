@@ -19,6 +19,8 @@ Cover:
 - tier survival calculations
 - roster legality
 - user rollout policy
+- next-turn opportunity cost under different ownership gaps and opponent distributions
+- adjacent-pick turn grouping and scarce-but-inferior-player rejection
 - world-bank hash/invalidation
 - lineup optimizer parity
 - replacement-level logic
@@ -31,6 +33,8 @@ Examples:
 - no player can be drafted twice in one rollout
 - all picks have exactly one owner
 - all completed draft rosters satisfy hard roster limits
+- live continuations fill every required starter seat by the final pick
+- one-QB/one-TE continuation policies do not exceed their configured backup caps
 - survival probability is within [0,1]
 - threat shares sum to 1 conditional on elimination
 - same seed + same inputs produces identical rollout results

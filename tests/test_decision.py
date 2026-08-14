@@ -255,7 +255,7 @@ class DecisionEvaluationTest(unittest.TestCase):
         self.assertEqual(recommendation.runner_up_candidate_id, "p2")
         self.assertEqual(recommendation.joint_outcome_count, 60)
         self.assertEqual(recommendation.season_worlds_per_rollout, 3)
-        self.assertEqual(recommendation.decision_engine_version, 2)
+        self.assertEqual(recommendation.decision_engine_version, 4)
         self.assertEqual(recommendation.draft_model_version, "manual-test-v1")
         self.assertEqual(recommendation.decision_status, "clear_leader")
         self.assertEqual(recommendation.co_leader_candidate_ids, ("p1",))
@@ -336,7 +336,7 @@ class DecisionEvaluationTest(unittest.TestCase):
         self.assertIn("LOW_CONFIDENCE_TOSS_UP", recommendation.reason_codes)
         self.assertNotIn("PAIRED_CHAMPIONSHIP_EDGE", recommendation.reason_codes)
 
-    def test_toss_up_recommends_the_co_leader_least_likely_to_return(self):
+    def test_toss_up_keeps_the_title_equity_leader_as_the_headline(self):
         def opponents(roster_id, pick_no, rosters, available):
             utilities = {
                 player_id: -100.0 * int(player_id[1:]) for player_id in available
@@ -380,10 +380,11 @@ class DecisionEvaluationTest(unittest.TestCase):
         )
 
         self.assertEqual(recommendation.decision_status, "toss_up")
-        self.assertEqual(recommendation.recommended_candidate_id, "p2")
-        self.assertEqual(recommendation.runner_up_candidate_id, "p1")
+        self.assertEqual(recommendation.recommended_candidate_id, "p1")
+        self.assertEqual(recommendation.runner_up_candidate_id, "p2")
         self.assertEqual(recommendation.co_leader_candidate_ids, ("p1", "p2"))
-        self.assertIn("SCARCITY_TIEBREAK", recommendation.reason_codes)
+        self.assertNotIn("SCARCITY_TIEBREAK", recommendation.reason_codes)
+        self.assertIn("TITLE_EQUITY_LEADER", recommendation.reason_codes)
         self.assertIn("LOW_CONFIDENCE_TOSS_UP", recommendation.reason_codes)
 
     def test_final_pick_evaluations_skip_next_pick_survival(self):

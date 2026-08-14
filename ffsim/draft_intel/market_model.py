@@ -155,18 +155,60 @@ def sleeper_adp_utilities(snapshot):
 def position_caps(slot_counts):
     """Realistic per-roster position maximums implied by the slot structure.
 
-    Humans never roster a second kicker or defense in a redraft, and cap
-    QB/TE at their startable seats plus one backup; RB/WR depth is uncapped.
+    Humans rarely roster a second kicker or defense in a redraft. QB keeps
+    room for every dedicated/superflex starter plus one backup; TE keeps its
+    dedicated seats (or one flex-capable seat) plus one backup rather than
+    treating every flex as a TE seat. RB/WR depth is uncapped.
     """
     slot_counts = dict(slot_counts)
-    flex_seats = Counter()
-    for slot, count in slot_counts.items():
-        for flex_position in FLEX_ELIGIBILITY.get(slot, ()):
-            flex_seats[flex_position] += int(count)
     caps = {position: int(slot_counts.get(position, 0)) for position in ("K", "DEF")}
-    for position in ("QB", "TE"):
-        caps[position] = int(slot_counts.get(position, 0)) + flex_seats[position] + 1
+    qb_seats = int(slot_counts.get("QB", 0)) + int(slot_counts.get("SUPER_FLEX", 0))
+    te_seats = max(
+        int(slot_counts.get("TE", 0)),
+        int(
+            any(
+                slot_counts.get(slot, 0)
+                for slot in ("FLEX", "REC_FLEX", "SUPER_FLEX")
+            )
+        ),
+    )
+    caps["QB"] = qb_seats + int(qb_seats > 0)
+    caps["TE"] = te_seats + int(te_seats > 0)
     return caps
+
+
+def starting_lineup_needs(roster, positions, slot_counts):
+    """Return the eligible positions for each currently unfilled starter seat."""
+    counts = Counter(positions.get(player_id) for player_id in roster)
+    surplus = counts.copy()
+    needs = []
+    for position, count in slot_counts.items():
+        if position in FLEX_ELIGIBILITY:
+            continue
+        filled = min(int(count), counts[position])
+        needs.extend((position,) for _ in range(int(count) - filled))
+        surplus[position] -= filled
+
+    # Fill narrower flexes before broader ones so existing players cover the
+    # maximum number of seats under the same eligibility rules as the season
+    # evaluator. FLEX and REC_FLEX have identical eligibility.
+    flexes = (
+        (FLEX_ELIGIBILITY["WRRB_FLEX"], int(slot_counts.get("WRRB_FLEX", 0))),
+        (
+            FLEX_ELIGIBILITY["FLEX"],
+            int(slot_counts.get("FLEX", 0)) + int(slot_counts.get("REC_FLEX", 0)),
+        ),
+        (FLEX_ELIGIBILITY["SUPER_FLEX"], int(slot_counts.get("SUPER_FLEX", 0))),
+    )
+    for eligible, count in flexes:
+        for _ in range(count):
+            available = [position for position in eligible if surplus[position]]
+            if not available:
+                needs.append(tuple(sorted(eligible)))
+                continue
+            chosen = max(sorted(available), key=surplus.__getitem__)
+            surplus[chosen] -= 1
+    return tuple(needs)
 
 
 def mixture_choice_probabilities(utilities, temperature, reach_rate):
@@ -191,6 +233,7 @@ def sleeper_adp_choice(
     reach_rate=0.0,
     positions=None,
     slot_counts=None,
+    roster_sizes=None,
 ):
     """Build the rollout callback accepted by ``complete_drafts``.
 
@@ -200,7 +243,9 @@ def sleeper_adp_choice(
     fitted sharp ``temperature``, with probability ``reach_rate`` a reach at
     ``REACH_TEMPERATURE``. When ``positions`` and ``slot_counts`` are given,
     players at positions the roster has realistically filled (see
-    ``position_caps``) are excluded before mixing.
+    ``position_caps``) are excluded before mixing. When final roster sizes
+    are supplied, the remaining choices are restricted to open starter seats
+    only when every remaining pick is required to fill one.
     """
     board = sleeper_adp_utilities(snapshot)
     reach_rate = float(reach_rate)
@@ -215,6 +260,7 @@ def sleeper_adp_choice(
         else {}
     )
     positions = dict(positions or {})
+    roster_sizes = dict(roster_sizes or {})
     # This callback runs for every simulated pick of every rollout, so the
     # board is precompiled into arrays and each call is a masked vectorized
     # softmax mixture instead of several dict passes (profiled ~4x faster,
@@ -251,15 +297,32 @@ def sleeper_adp_choice(
         if not mask.any():
             raise ValueError("Sleeper ADP board has no remaining available players")
         if caps:
-            counts = Counter(
-                positions.get(player_id) for player_id in dict(rosters)[roster_id]
-            )
+            roster = dict(rosters)[roster_id]
+            counts = Counter(positions.get(player_id) for player_id in roster)
             eligible = mask.copy()
             for position, cap in caps.items():
                 if counts[position] >= cap and len(capped_indices[position]):
                     eligible[capped_indices[position]] = False
             if eligible.any():
                 mask = eligible
+            needs = starting_lineup_needs(roster, positions, slot_counts)
+            remaining = roster_sizes.get(roster_id)
+            if (
+                needs
+                and remaining is not None
+                and remaining - len(roster) <= len(needs)
+            ):
+                needed_positions = {position for need in needs for position in need}
+                needed = mask & np.fromiter(
+                    (
+                        positions.get(player_id) in needed_positions
+                        for player_id in player_ids
+                    ),
+                    bool,
+                    len(player_ids),
+                )
+                if needed.any():
+                    mask = needed
 
         def softmax(temp):
             scaled = utilities[mask] / temp

@@ -14,7 +14,7 @@ def parse_args():
         choices=(
             "setup", "simulate", "refresh", "serve", "draft-audit", "market-import",
             "market-refresh", "market-backtest", "mock-attach", "mock-refresh",
-            "manager-audit",
+            "manager-audit", "synthetic-drafts",
         ),
         nargs="?",
         default="simulate",
@@ -26,6 +26,7 @@ def parse_args():
     parser.add_argument("--draft-id")
     parser.add_argument("--season", type=int, default=2026, help="NFL season used with --username")
     parser.add_argument("--simulations", type=int)
+    parser.add_argument("--drafts", type=int)
     parser.add_argument("--seed", type=int)
     parser.add_argument(
         "--workers", type=int, default=min(4, os.cpu_count() or 1),
@@ -110,6 +111,18 @@ def setup_league(config_path, username=None, season=2026, input_fn=input, print_
 
 def main():
     args = parse_args()
+    if args.command == "synthetic-drafts":
+        if args.drafts is None or args.drafts < 1:
+            raise SystemExit("synthetic-drafts requires --drafts with a positive integer")
+        from ffsim.draft_intel.synthetic import run_synthetic_drafts
+
+        try:
+            result = run_synthetic_drafts(args.config, args.drafts)
+        except (OSError, ValueError, RuntimeError) as error:
+            raise SystemExit(str(error)) from error
+        print(json.dumps(result, indent=2))
+        return
+
     if args.command == "setup":
         try:
             setup_league(args.config, args.username, args.season)

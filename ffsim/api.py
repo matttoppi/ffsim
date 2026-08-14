@@ -556,6 +556,9 @@ class LiveDraftMonitor:
                 if current:
                     try:
                         screened_candidates = recommendation["candidates"]
+                        deepest_candidates = {
+                            row["player_id"]: row for row in screened_candidates
+                        }
                         finalists = (
                             tuple(select_finalists(
                                 self.prepared,
@@ -621,9 +624,14 @@ class LiveDraftMonitor:
                                         [evaluation],
                                         len(candidates),
                                     )
+                                    deepest_candidates.update(
+                                        (row["player_id"], row)
+                                        for row in interim["candidates"]
+                                    )
                                     interim_ids = set(refined_ids)
                                     interim["screened_candidates"] = [
-                                        row for row in screened_candidates
+                                        deepest_candidates[row["player_id"]]
+                                        for row in screened_candidates
                                         if row["player_id"] not in interim_ids
                                     ]
                                     interim["screened_rollout_count"] = screen_count
@@ -670,11 +678,16 @@ class LiveDraftMonitor:
                         recommendation = recommendation_payload(
                             self.prepared, state, [evaluation], len(candidates)
                         )
+                        deepest_candidates.update(
+                            (row["player_id"], row)
+                            for row in recommendation["candidates"]
+                        )
                         finalist_ids = set(
                             refined_ids if merge_refinement is not None else finalists
                         )
                         recommendation["screened_candidates"] = [
-                            row for row in screened_candidates
+                            deepest_candidates[row["player_id"]]
+                            for row in screened_candidates
                             if row["player_id"] not in finalist_ids
                         ]
                         recommendation["screened_rollout_count"] = screen_count

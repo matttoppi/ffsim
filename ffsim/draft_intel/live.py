@@ -1,5 +1,6 @@
 """One-click draft preparation and live recommendation calculations."""
 
+from collections import Counter
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict, dataclass, field, replace
 import json
@@ -23,12 +24,19 @@ from ffsim.draft_intel.identity import canonical_players_from_cache
 from ffsim.draft_intel.market import refresh_fantasypros_adp
 from ffsim.draft_intel.market_model import (
     load_league_market_snapshot,
+    position_caps,
     resolve_draft_market_context,
     sleeper_adp_choice,
     sleeper_adp_model_version,
     sleeper_adp_utilities,
+    starting_lineup_needs,
 )
 from ffsim.draft_intel.mock import sync_sleeper_draft
+from ffsim.draft_intel.opportunity import (
+    next_turn_user_policy as _projection_user_policy,
+    next_user_turn_pick_no as _next_user_turn_pick_no,
+    season_value_over_replacement as _value_over_replacement,
+)
 from ffsim.draft_intel.storage import load_sleeper_identity_map, store_history
 from ffsim.loaders.league import _fetch_json, league_and_drafts, refresh_league
 from ffsim.loaders.players import PlayerLoader
@@ -337,16 +345,47 @@ def live_state_summary(prepared, state):
 def live_candidate_pool(prepared, state, breadth):
     """Order candidates best-player-available by market ADP.
 
-    The head is simply the best remaining players (fallers first), and the
-    expanding window walks deeper down the board; the UI filters positions.
+    The head is the best remaining players (fallers first), and the expanding
+    window walks deeper down the board. Position caps always apply; only the
+    must-fill draft tail narrows further to open starter positions.
     """
     if prepared.market_snapshot is None or prepared.evaluator is None:
         raise ValueError("Prepared draft is missing market or season inputs")
     board = sleeper_adp_utilities(prepared.market_snapshot)
-    bank_players = set(prepared.evaluator.bank.player_ids)
+    bank = prepared.evaluator.bank
+    bank_players = set(bank.player_ids)
     pool = state.available_player_ids & board.keys() & bank_players
     if not pool:
         raise ValueError("No available market players can be evaluated")
+    user_roster_id = prepared.user_roster_id
+    roster = state.roster_player_ids(user_roster_id)
+    position_of = dict(zip(bank.player_ids, bank.player_positions))
+    counts = Counter(position_of.get(player_id) for player_id in roster)
+    caps = position_caps(prepared.evaluator.slot_counts)
+    pool = {
+        player_id for player_id in pool
+        if position_of.get(player_id) not in caps
+        or counts[position_of[player_id]] < caps[position_of[player_id]]
+    }
+    if not pool:
+        raise ValueError("No available market player passes roster position limits")
+    needs = starting_lineup_needs(
+        roster,
+        position_of,
+        prepared.evaluator.slot_counts,
+    )
+    remaining = sum(
+        roster_id == user_roster_id
+        for roster_id in state.pick_owners[state.current_pick_no - 1:]
+    )
+    if needs and remaining <= len(needs):
+        needed_positions = {position for need in needs for position in need}
+        pool = {
+            player_id for player_id in pool
+            if position_of.get(player_id) in needed_positions
+        }
+        if not pool:
+            raise ValueError("No available market player can fill a required starter seat")
     return sorted(
         pool, key=lambda player_id: (-board[player_id], player_id)
     )[:breadth]
@@ -396,18 +435,16 @@ def _bank_market_snapshot(prepared):
 
 
 def _live_model_version(snapshot, temperature):
-    # vor2: core starters are filled before bench depth, while K/DEF compete
-    # on value once the core lineup is complete and are never duplicated.
-    # reach/caps: opponents mix the sharp board-follower with occasional
-    # reaches and respect positional sanity caps (ADR-019).
+    # VONA compares feasible current value plus a coupled distribution of
+    # next-turn alternatives. Roster caps and must-fill starter needs remain.
     return (
         f"{sleeper_adp_model_version(snapshot)}"
-        f":t{temperature}:reach{LIVE_REACH_RATE}:caps:vor2"
+        f":t{temperature}:reach{LIVE_REACH_RATE}:needs:vona4:hazard1"
     )
 
 
-def _live_opponent_choice(snapshot, evaluator, temperature):
-    """Calibrated ADP opponents with reach mixture and positional caps."""
+def _live_opponent_choice(snapshot, evaluator, state, temperature):
+    """Calibrated ADP opponents with reaches and roster construction limits."""
     bank = evaluator.bank
     return sleeper_adp_choice(
         snapshot,
@@ -415,107 +452,10 @@ def _live_opponent_choice(snapshot, evaluator, temperature):
         reach_rate=LIVE_REACH_RATE,
         positions=dict(zip(bank.player_ids, bank.player_positions)),
         slot_counts=evaluator.slot_counts,
+        roster_sizes=Counter(
+            roster_id for roster_id in state.pick_owners if roster_id is not None
+        ),
     )
-
-
-def _value_over_replacement(evaluator):
-    """Season projections, positions, and league-wide replacement levels."""
-    from ffsim.models.team import FLEX_ELIGIBILITY
-
-    bank = evaluator.bank
-    weeks = len(bank.weeks)
-    projection = {
-        player_id: float(score) * weeks
-        for player_id, score in zip(bank.player_ids, bank.expected_scores)
-    }
-    position_of = dict(zip(bank.player_ids, bank.player_positions))
-    teams = len(evaluator.roster_ids)
-    slots = dict(evaluator.slot_counts)
-    dedicated = {
-        position: count for position, count in slots.items()
-        if position not in FLEX_ELIGIBILITY
-    }
-    by_position = {}
-    for player_id, points in projection.items():
-        by_position.setdefault(position_of[player_id], []).append(points)
-    for points in by_position.values():
-        points.sort(reverse=True)
-
-    # League-wide starter fill: dedicated slots first, then each flex seat to
-    # the best remaining eligible player; what is left defines replacement.
-    taken = {position: teams * count for position, count in dedicated.items()}
-
-    def next_projection(position):
-        points = by_position.get(position, [])
-        index = taken.get(position, 0)
-        return points[index] if index < len(points) else float("-inf")
-
-    for slot, count in slots.items():
-        eligible = FLEX_ELIGIBILITY.get(slot)
-        if not eligible:
-            continue
-        for _ in range(teams * count):
-            best = max(sorted(eligible), key=next_projection)
-            taken[best] = taken.get(best, 0) + 1
-    replacement = {
-        position: max(next_projection(position), 0.0)
-        for position in by_position
-    }
-    return projection, position_of, replacement
-
-
-def _projection_user_policy(evaluator):
-    """Future user picks by projection over positional replacement.
-
-    Opponents follow the calibrated market model, but the user's own later
-    picks should follow this tool's valuation: value over replacement from
-    the season projections, preferring players who still fill an open
-    starting slot. Root candidates are forced, so this only shapes the
-    simulated follow-up picks.
-    """
-    from ffsim.models.team import FLEX_ELIGIBILITY
-
-    projection, position_of, replacement = _value_over_replacement(evaluator)
-    slots = dict(evaluator.slot_counts)
-    dedicated = {
-        position: count for position, count in slots.items()
-        if position not in FLEX_ELIGIBILITY
-    }
-
-    def policy(roster_id, pick_no, rosters, available):
-        del pick_no
-        mine = dict(rosters)[roster_id]
-        counts = {}
-        for player_id in mine:
-            position = position_of.get(player_id)
-            if position is not None:
-                counts[position] = counts.get(position, 0) + 1
-        open_positions = {
-            position for position, count in dedicated.items()
-            if position not in {"K", "DEF"} and counts.get(position, 0) < count
-        }
-        for slot, count in slots.items():
-            eligible = FLEX_ELIGIBILITY.get(slot)
-            if not eligible:
-                continue
-            surplus = sum(
-                max(0, counts.get(position, 0) - dedicated.get(position, 0))
-                for position in eligible
-            )
-            if surplus < count:
-                open_positions.update(eligible)
-        return {
-            player_id: projection[player_id] - replacement.get(position_of[player_id], 0.0)
-            for player_id in projection
-            if player_id in available
-            and (not open_positions or position_of[player_id] in open_positions)
-            and not (
-                position_of[player_id] in {"K", "DEF"}
-                and counts.get(position_of[player_id], 0)
-            )
-        }
-
-    return policy
 
 
 def _evaluate_candidate_batch(
@@ -528,14 +468,15 @@ def _evaluate_candidate_batch(
     rollout_ids,
     temperature,
 ):
-    choose = _live_opponent_choice(snapshot, evaluator, temperature)
+    choose = _live_opponent_choice(snapshot, evaluator, state, temperature)
+    user_policy = _projection_user_policy(evaluator, state, choose)
     return evaluate_candidates(
         state,
         candidate_ids,
         user_roster_id,
         _rollout_ids(rollout_ids),
         choose,
-        _projection_user_policy(evaluator),
+        user_policy,
         evaluator,
         draft_model_version=_live_model_version(snapshot, temperature),
         survival_player_ids=survival_ids,
@@ -727,7 +668,7 @@ def predicted_next_state(prepared, state, temperature=None):
         return None
     temperature = LIVE_TEMPERATURE if temperature is None else float(temperature)
     snapshot = _bank_market_snapshot(prepared)
-    choose = _live_opponent_choice(snapshot, prepared.evaluator, temperature)
+    choose = _live_opponent_choice(snapshot, prepared.evaluator, state, temperature)
     ids, log_probabilities, _ = choose(
         roster_id,
         state.current_pick_no,
@@ -793,12 +734,13 @@ def evaluate_live_league_equity(prepared, state, rollout_count, temperature=None
         raise ValueError("Prepared draft is missing market or season inputs")
     temperature = LIVE_TEMPERATURE if temperature is None else float(temperature)
     snapshot = _bank_market_snapshot(prepared)
+    choose = _live_opponent_choice(snapshot, prepared.evaluator, state, temperature)
     return evaluate_league_equity(
         state,
         prepared.user_roster_id,
         range(rollout_count),
-        _live_opponent_choice(snapshot, prepared.evaluator, temperature),
-        _projection_user_policy(prepared.evaluator),
+        choose,
+        _projection_user_policy(prepared.evaluator, state, choose),
         prepared.evaluator,
         draft_model_version=_live_model_version(snapshot, temperature),
         temperature=1.0,
@@ -981,6 +923,7 @@ def live_recommendation_payload(prepared, state, evaluations, candidate_pool_cou
     }
     candidates = []
     for candidate in ranked:
+        opportunity = candidate.opportunity_cost
         best_wait = next(
             (alternative for alternative in ranked if alternative is not candidate),
             None,
@@ -1015,13 +958,64 @@ def live_recommendation_payload(prepared, state, evaluations, candidate_pool_cou
             "best_wait_candidate_id": (
                 best_wait.candidate_id if best_wait else None
             ),
+            "rollout_count": candidate.rollout_count,
+            "current_marginal_value": (
+                opportunity.current_marginal_value if opportunity else None
+            ),
+            "expected_best_later_value": (
+                opportunity.expected_best_later_value if opportunity else None
+            ),
+            "expected_same_position_later_value": (
+                opportunity.expected_same_position_later_value if opportunity else None
+            ),
+            "value_over_next_alternative": (
+                opportunity.value_over_next_alternative if opportunity else None
+            ),
+            "positional_value_drop": (
+                opportunity.positional_value_drop if opportunity else None
+            ),
+            "next_turn_pick_no": (
+                opportunity.next_user_pick_no if opportunity else None
+            ),
+            "later_alternatives": (
+                [
+                    {
+                        "player_id": player_id,
+                        "name": prepared.player_details.get(player_id, {}).get(
+                            "name", player_id
+                        ),
+                        "position": prepared.player_details.get(player_id, {}).get(
+                            "position"
+                        ),
+                        "probability": probability,
+                    }
+                    for player_id, probability in (
+                        opportunity.later_alternative_distribution[:3]
+                    )
+                ]
+                if opportunity
+                else []
+            ),
+            "later_alternative_other_probability": (
+                max(
+                    0.0,
+                    1.0 - sum(
+                        probability
+                        for _, probability in (
+                            opportunity.later_alternative_distribution[:3]
+                        )
+                    ),
+                )
+                if opportunity and opportunity.sample_count
+                else 0.0
+            ),
+            "opportunity_sample_count": (
+                opportunity.sample_count if opportunity else 0
+            ),
+            "opportunity_model_version": (
+                opportunity.model_version if opportunity else None
+            ),
         })
-    # The scarcity tie-break can promote a non-argmax co-leader, so the
-    # board leads with the actual recommendation.
-    candidates.sort(
-        key=lambda row: row["player_id"]
-        != recommendation["recommended_candidate_id"]
-    )
     recommendation["candidates"] = candidates
     recommendation["position_timing"] = position_timing_outlook(prepared, state)
     recommendation["model_status"] = "uncalibrated_sleeper_adp_baseline"

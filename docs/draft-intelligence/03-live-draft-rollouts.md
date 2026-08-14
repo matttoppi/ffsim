@@ -298,6 +298,24 @@ The rollout policy must be identical across root candidates except where the roo
 
 Do not let one root candidate receive a smarter future policy than another.
 
+The live future-user policy uses league-wide season value over replacement as
+its current-player value input, but chooses among the best feasible current
+option at each position by current value plus expected best roster-feasible
+value at the next non-adjacent user turn. Expected next-turn value comes from
+the calibrated opponent callback along the exact intervening ownership path.
+For live latency, it propagates conditional pick hazards along one sequential
+modal roster path rather than nesting full draft rollouts at every user pick;
+candidate evidence is then measured from the full outer continuation sample.
+This approximation and its version are explicit (ADR-025).
+
+The policy fills open core skill slots before bench depth and caps QB/TE/K/DEF
+roster counts. Both user and opponent policies preserve their normal choice
+logic until the number of remaining selections equals the number of unfilled
+starter seats; from that point, every pick must reduce a lineup gap. This tail
+feasibility rule prevents terminal rosters that effectively receive an extra
+waiver player while leaving early RB/WR-heavy strategies possible. The root
+candidate pool applies the same position caps and tail boundary.
+
 ### 13.4 Candidate-set generation for opponent picks
 
 For speed, an opponent does not need a probability over every active NFL player. Build a plausible set from:
@@ -319,6 +337,10 @@ Honor platform/league roster rules where they constrain drafting. Distinguish:
 - soft strategic roster needs
 
 Do not force all managers into an artificially rational roster structure. If the platform allows six RBs, an RB-heavy manager must be able to draft six RBs.
+
+End-of-draft lineup feasibility is distinct from an early hard need policy:
+before the remaining-picks boundary, the opponent distribution retains its
+calibrated ADP/reach probabilities and uncapped RB/WR depth.
 
 ### 13.6 Keepers
 
@@ -535,6 +557,15 @@ For each world/week/team:
 Correctness comes before aggressive vectorization. Once verified against current `FantasyTeam.fill_starters`, optimize with NumPy/Numba/tensors.
 
 ### 16.4 Replacement levels
+
+Keep three replacement concepts separate:
+
+- season value over a league-wide starter cutline is a cheap draft value input;
+- draft opportunity cost is the probability-weighted roster-feasible value at
+  the user's next non-adjacent turn;
+- waiver/streamer replacement fills weekly season lineups after the draft.
+
+The VONA policy does not change the evaluator's weekly replacement behavior.
 
 Do not compute replacement levels from a partial live draft and reuse them for terminal championship evaluation.
 

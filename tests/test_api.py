@@ -773,9 +773,14 @@ class ApiTest(unittest.TestCase):
 
         def evaluate(_prepared, _state, rollout_ids, batch, *_args):
             evaluated.append((rollout_ids, tuple(batch)))
+            rollout_count = (
+                rollout_ids if isinstance(rollout_ids, int) else rollout_ids.stop
+            )
             return {
+                "rollout_count": rollout_count,
                 "candidates": [
-                    {"player_id": candidate_id} for candidate_id in batch
+                    {"player_id": candidate_id, "rollout_count": rollout_count}
+                    for candidate_id in batch
                 ],
             }
 
@@ -820,6 +825,10 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(
             [row["player_id"] for row in monitor.recommendation["screened_candidates"]],
             ["c", "d", "e"],
+        )
+        self.assertEqual(
+            [row["rollout_count"] for row in monitor.recommendation["screened_candidates"]],
+            [150, 150, 150],
         )
 
         # A statistically bounded toss-up stops at the intermediate stage.

@@ -16,6 +16,7 @@ from ffsim.draft_intel.market_model import (
     resolve_market_context,
     sleeper_adp_choice,
     sleeper_adp_model_version,
+    starting_lineup_needs,
 )
 from ffsim.draft_intel.rollout import (
     _gumbel_choice,
@@ -72,7 +73,7 @@ class MarketModelTest(unittest.TestCase):
         caps = position_caps({
             "QB": 1, "RB": 2, "WR": 2, "TE": 1, "FLEX": 1, "K": 1, "DEF": 1,
         })
-        self.assertEqual(caps, {"K": 1, "DEF": 1, "QB": 2, "TE": 3})
+        self.assertEqual(caps, {"K": 1, "DEF": 1, "QB": 2, "TE": 2})
         self.assertEqual(position_caps({"QB": 1, "SUPER_FLEX": 1})["QB"], 3)
 
         snapshot = {
@@ -106,6 +107,45 @@ class MarketModelTest(unittest.TestCase):
         self.assertAlmostEqual(
             sum(math.exp(value) for value in uncapped.values()), 1.0
         )
+
+    def test_last_roster_picks_fill_remaining_starter_seats(self):
+        slots = {
+            "QB": 1, "RB": 2, "WR": 2, "TE": 1, "FLEX": 1, "K": 1, "DEF": 1,
+        }
+        positions = {
+            "qb": "QB", "rb1": "RB", "rb2": "RB", "wr1": "WR",
+            "wr2": "WR", "wr3": "WR", "te": "TE", "k": "K",
+            "def": "DEF", "wr4": "WR",
+        }
+        roster = ("qb", "rb1", "rb2", "wr1", "wr2", "wr3", "te")
+        self.assertEqual(
+            starting_lineup_needs(roster, positions, slots),
+            (("K",), ("DEF",)),
+        )
+        choice = sleeper_adp_choice(
+            {
+                "source": "fantasypros:sleeper",
+                "observations": [
+                    {"canonical_player_id": player_id, "adp": adp}
+                    for player_id, adp in (("wr4", 1), ("k", 50), ("def", 60))
+                ],
+            },
+            temperature=0.11,
+            reach_rate=0.15,
+            positions=positions,
+            slot_counts=slots,
+            roster_sizes={1: 9},
+        )
+
+        ids, _, _ = choice(1, 8, ((1, roster),), frozenset({"wr4", "k", "def"}))
+        self.assertEqual(set(ids), {"k", "def"})
+        ids, _, _ = choice(
+            1,
+            9,
+            ((1, (*roster, "k")),),
+            frozenset({"wr4", "def"}),
+        )
+        self.assertEqual(ids.tolist(), ["def"])
 
     def test_vectorized_choice_matches_the_dict_reference_and_gumbel_picks(self):
         positions = {}

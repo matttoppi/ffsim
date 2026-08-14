@@ -15,7 +15,20 @@ from ffsim.draft_intel.rollout import (
 )
 
 
-DECISION_ENGINE_VERSION = 2
+DECISION_ENGINE_VERSION = 4
+
+
+@dataclass(frozen=True)
+class DraftOpportunityCost:
+    current_marginal_value: float
+    next_user_pick_no: int | None
+    expected_best_later_value: float | None
+    expected_same_position_later_value: float | None
+    value_over_next_alternative: float | None
+    positional_value_drop: float | None
+    later_alternative_distribution: tuple[tuple[str, float], ...]
+    sample_count: int
+    model_version: str
 
 
 @dataclass(frozen=True)
@@ -34,6 +47,7 @@ class CandidateEvaluation:
     continuation_log_probabilities: tuple[float, ...]
     continuation_championship_probabilities: tuple[float, ...]
     survival: SurvivalReport | None
+    opportunity_cost: DraftOpportunityCost | None = None
 
     @property
     def sample_count(self):
@@ -226,7 +240,8 @@ def evaluate_candidates(
         for player_index, player_id in enumerate(league_evaluator.bank.player_ids)
     }
     user_index = league_evaluator.roster_index[user_roster_id]
-    next_user_pick_no = state.turn_for(user_roster_id).user_next_pick_no
+    future_turns = state.future_turn_pick_nos(user_roster_id, count=1)
+    next_user_pick_no = future_turns[0] if future_turns else None
     evaluations = []
     for candidate_id in candidate_ids:
         completions = complete_drafts(
@@ -294,6 +309,11 @@ def evaluate_candidates(
             survival=(
                 summarize_survival(completions, survival_player_ids, tiers)
                 if (survival_player_ids or tiers) and next_user_pick_no is not None
+                else None
+            ),
+            opportunity_cost=(
+                user_policy.opportunity_evidence(state, candidate_id, completions)
+                if hasattr(user_policy, "opportunity_evidence")
                 else None
             ),
         ))
@@ -593,6 +613,9 @@ def merge_rollout_ranges(evaluations):
                 if survivals[0] is not None
                 else None
             ),
+            opportunity_cost=_merge_opportunity_costs(
+                tuple(part.opportunity_cost for part in parts)
+            ),
         ))
     return replace(
         base,
@@ -601,6 +624,63 @@ def merge_rollout_ranges(evaluations):
             worlds for evaluation in evaluations for worlds in evaluation.world_indices
         ),
         candidates=tuple(candidates),
+    )
+
+
+def _merge_opportunity_costs(costs):
+    if all(cost is None for cost in costs):
+        return None
+    if any(cost is None for cost in costs):
+        raise ValueError("Cannot merge partially tracked opportunity costs")
+    first = costs[0]
+    identity = (
+        first.current_marginal_value,
+        first.next_user_pick_no,
+        first.model_version,
+    )
+    if any(
+        (cost.current_marginal_value, cost.next_user_pick_no, cost.model_version)
+        != identity
+        for cost in costs[1:]
+    ):
+        raise ValueError("Cannot merge incompatible opportunity costs")
+    total = sum(cost.sample_count for cost in costs)
+
+    def weighted(field):
+        values = [
+            (getattr(cost, field), cost.sample_count)
+            for cost in costs
+            if getattr(cost, field) is not None
+        ]
+        return (
+            sum(value * count for value, count in values) / sum(count for _, count in values)
+            if values
+            else None
+        )
+
+    alternatives = {}
+    for cost in costs:
+        for player_id, probability in cost.later_alternative_distribution:
+            alternatives[player_id] = alternatives.get(player_id, 0.0) + (
+                probability * cost.sample_count
+            )
+    return DraftOpportunityCost(
+        current_marginal_value=first.current_marginal_value,
+        next_user_pick_no=first.next_user_pick_no,
+        expected_best_later_value=weighted("expected_best_later_value"),
+        expected_same_position_later_value=weighted(
+            "expected_same_position_later_value"
+        ),
+        value_over_next_alternative=weighted("value_over_next_alternative"),
+        positional_value_drop=weighted("positional_value_drop"),
+        later_alternative_distribution=tuple(
+            (player_id, count / total)
+            for player_id, count in sorted(
+                alternatives.items(), key=lambda item: (-item[1], item[0])
+            )
+        ),
+        sample_count=total,
+        model_version=first.model_version,
     )
 
 
@@ -633,26 +713,7 @@ def recommendation_summary(evaluation):
     decision_status = "clear_leader" if len(co_leaders) == 1 else "toss_up"
     best = leader
     reasons = ["TITLE_EQUITY_LEADER"]
-    if len(co_leaders) > 1:
-        # The raw argmax over statistically tied candidates is noise. Among
-        # co-leaders, recommend the one least likely to return at the next
-        # pick: the others can still be drafted later, the scarcest cannot.
-        scarcity = {
-            candidate.candidate_id: _survival_elsewhere(ranked, candidate.candidate_id)
-            for candidate in co_leaders
-        }
-        if all(value is not None for value in scarcity.values()):
-            best = min(
-                co_leaders,
-                key=lambda candidate: (
-                    scarcity[candidate.candidate_id],
-                    ranked.index(candidate),
-                ),
-            )
-            reasons.append("SCARCITY_TIEBREAK")
-    runner_up = next(
-        (candidate for candidate in ranked if candidate is not best), None
-    )
+    runner_up = ranked[1] if len(ranked) > 1 else None
     delta = (
         evaluation.paired_delta(best.candidate_id, runner_up.candidate_id)
         if runner_up
@@ -717,17 +778,6 @@ def recommendation_summary(evaluation):
         league_evaluator_version=evaluation.league_evaluator_version,
         reason_codes=tuple(reasons),
     )
-
-
-def _survival_elsewhere(ranked, player_id):
-    """Next-pick survival for a player, measured from a branch that passed."""
-    for candidate in ranked:
-        if candidate.candidate_id == player_id or candidate.survival is None:
-            continue
-        for player in candidate.survival.players:
-            if player.player_id == player_id:
-                return player.survives_to_next_pick
-    return None
 
 
 def _state_signature(state):

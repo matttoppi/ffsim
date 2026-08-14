@@ -194,6 +194,22 @@ export interface DraftRecommendationCandidate {
   adp: number | null
   survives_to_next_pick: number | null
   best_wait_candidate_id: string | null
+  rollout_count?: number
+  current_marginal_value?: number | null
+  expected_best_later_value?: number | null
+  expected_same_position_later_value?: number | null
+  value_over_next_alternative?: number | null
+  positional_value_drop?: number | null
+  next_turn_pick_no?: number | null
+  later_alternatives?: Array<{
+    player_id: string
+    name: string
+    position: string | null
+    probability: number
+  }>
+  later_alternative_other_probability?: number
+  opportunity_sample_count?: number
+  opportunity_model_version?: string | null
 }
 
 export interface DraftLeagueSimulation {
@@ -269,6 +285,7 @@ export interface DraftMonitor {
     run_signature: string
     decision_status: 'clear_leader' | 'toss_up'
     co_leader_candidate_ids: string[]
+    next_user_pick_no?: number | null
     pick_no?: number | null
     candidates_evaluated?: number
     candidate_pool?: number

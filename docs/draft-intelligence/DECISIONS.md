@@ -804,3 +804,101 @@ choice and needs no service or dependency.
   continuing with an incomplete audit trail.
 - The event store is separate from historical/model data so live writes do not
   change market or manager evidence.
+
+---
+
+## ADR-024 — Roster-feasible continuations and evidence-honest rankings
+
+**Status:** Accepted
+**Date:** 2026-08-14
+
+### Decision
+
+The live continuation model computes open starter seats from the exact roster
+and league flex rules. User and opponent policies keep their normal behavior
+until every remaining selection is required to fill a starter gap; at that
+boundary they select only positions that reduce a gap. RB/WR depth remains
+uncapped. K/DEF remain capped at their configured seats, QB at dedicated plus
+superflex seats and one backup, and TE at its dedicated/startable seats plus one
+backup. The current-pick candidate pool applies the same caps and must-fill
+boundary. The model version advances to `needs:vor3`.
+
+Recommendation engine version 3 always headlines the title-equity argmax.
+Statistically overlapping candidates remain an explicitly unordered toss-up
+tier; exact-player return chance is evidence, not a headline tiebreak.
+
+Each candidate row carries its own rollout count. Racing retains the deepest
+published estimate for a later-eliminated candidate, and the War Room renders
+refined contenders separately from an unranked earlier-stage watchlist.
+
+### Rationale
+
+Telemetry from completed mock `1393836057060978688` exposed invalid policy
+behavior rather than insufficient sampling. At pick 12, common user
+continuations ended with eight or nine TEs; after pick 149 every continuation
+ended with three QBs and three TEs. Opponent completions frequently omitted
+TE/K/DEF. Sixteen of seventeen decisions were statistical toss-ups, so the
+scarcity tiebreak promoted QB2/QB3/TE3 candidates with 79-87% return chances.
+The UI then assigned one ordinal across refined and 100-continuation rows and
+could restore a dropped candidate's shallower screen result.
+
+### Consequences
+
+- ADR-016 remains the projection-over-replacement baseline, but its unbounded
+  bench behavior is superseded by the caps and tail feasibility rule here.
+- ADR-019's scarcity headline is superseded; its reach mixture remains active.
+- ADR-018/020 racing remains active, but no ordinal compares different sample
+  depths and the deepest available evidence is retained.
+- The continuation distribution changes, so the model-version bump prevents
+  reuse of old results while common randomness and equal target-distribution
+  averaging remain unchanged.
+- True VONA/tier-depletion advice and human-draft calibration remain separate
+  later work; no unvalidated need bonus was introduced.
+
+---
+
+## ADR-025 — Next-turn draft replacement informs the future-user policy, not the root objective
+
+**Status:** Accepted
+**Date:** 2026-08-14
+
+### Decision
+
+The simulated future user compares the best roster-feasible current option at
+each position by current season value plus expected best value at the user's
+next non-adjacent turn. Adjacent owned picks form one turn. The expectation
+uses the calibrated opponent choice callback sequentially over the exact pick
+ownership schedule while preserving starter needs, QB/TE/K/DEF caps, and
+RB/WR flexibility.
+
+To stay live-usable, policy lookahead propagates marginal survival hazards
+along one conditional modal opponent roster path instead of nesting multiple
+full rollouts at every future user pick. Candidate root evidence is measured
+from the already-generated outer draft continuations and includes the top
+best-later alternatives plus remaining probability mass, sample count, and
+version. The model tag advances to `needs:vona4:hazard1`; the decision schema
+advances to version 4.
+
+Root candidates remain ranked only by coupled championship equity. VONA is not
+added to championship probability and does not change the season evaluator's
+weekly waiver/streamer replacement logic.
+
+### Rationale
+
+League-wide starter-cutline VOR measures season value but not the cost of
+waiting during a live draft. Exact nested lookahead benchmarked 27x slower in
+draft continuation sampling, while conditional-hazard lookahead was 4.0x on
+the audited 10-team pick-49 path and kept a 50-rollout, 14-world candidate pass
+to 1.20 seconds versus 0.38 seconds before the policy change. The approximation
+preserves the modeled probability input and sequential roster conditioning
+without making the live path unusable.
+
+### Consequences
+
+- Candidate rows expose current marginal value, next turn, expected later
+  value, positional drop, return probability, alternative distribution, and
+  reproducibility metadata.
+- Deterministic ADP timing remains explicitly labeled as an illustration, not
+  a calibrated survival probability.
+- Fresh human-draft telemetry is still required before claiming outcome lift;
+  the conditional-hazard independence approximation must be audited for regret.

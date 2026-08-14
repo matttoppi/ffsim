@@ -124,6 +124,22 @@ python -m ffsim simulate --teams-only
 python -m ffsim simulate --workers 1
 ```
 
+Generate offline synthetic draft telemetry from every supported cached redraft
+league and draft slot:
+
+```bash
+python -m ffsim synthetic-drafts --drafts 250
+```
+
+The command prints a hard-coded `450 KB x drafts` SQLite growth estimate in GB
+before loading data. It balances runs across cached league sizes and slots,
+samples opponent picks, always takes the engine's recommended option, and
+writes synthetic sessions to `data/cache/draft_intel/telemetry.sqlite3`.
+Sessions retain synthetic provenance, their exact scenario, screen and final
+boards, state prefixes, sampled-pick probabilities, model/world versions,
+final rosters, and post-draft outcomes. Generated picks never enter human
+draft history.
+
 Audit the current league's managers and their Sleeper draft history without changing local data:
 
 ```bash
@@ -208,6 +224,10 @@ recommendation stages, league-equity passes, the exact post-draft simulation,
 stale-result discards, errors, and calculation durations. Recommendation
 payloads retain the full candidate board, reason codes, seed, sample counts,
 and model/world versions.
+
+For batch inventory, anomaly queries, candidate-board expansion, and an agent
+audit workflow, see the
+[draft telemetry query guide](docs/draft-intelligence/TELEMETRY_QUERY_GUIDE.md).
 
 ## Web frontend
 

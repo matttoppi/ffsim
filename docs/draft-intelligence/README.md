@@ -17,6 +17,9 @@ Start in this order:
 
 For a fresh Codex session, [`CODEX_HANDOFF_PROMPT.md`](CODEX_HANDOFF_PROMPT.md) contains the ready-to-paste autonomous handoff prompt.
 
+For live or synthetic SQLite analysis, use
+[`TELEMETRY_QUERY_GUIDE.md`](TELEMETRY_QUERY_GUIDE.md).
+
 The specification describes the destination. The implementation ledger describes where the project is now. Git and tests describe what is actually implemented.
 
 ## Specification

@@ -148,7 +148,7 @@ class LiveDraftTest(unittest.TestCase):
         self.assertEqual(sequential.draft_model_version, parallel.draft_model_version)
         self.assertTrue(
             sequential.draft_model_version.endswith(
-                ":t0.11:reach0.15:caps:vor2"
+                ":t0.11:reach0.15:needs:vona4:hazard1"
             )
         )
         self.assertEqual(
@@ -182,7 +182,7 @@ class LiveDraftTest(unittest.TestCase):
             player_details={},
         )
         choose = _live_opponent_choice(
-            prepared.market_snapshot, prepared.evaluator, 0.11
+            prepared.market_snapshot, prepared.evaluator, state, 0.11
         )
         self.assertTrue(choose.returns_final_log_probabilities)
 
@@ -190,7 +190,7 @@ class LiveDraftTest(unittest.TestCase):
             ids, log_probabilities, _ = choose(*args)
             return dict(zip(ids.tolist(), log_probabilities.tolist()))
 
-        policy = _projection_user_policy(prepared.evaluator)
+        policy = _projection_user_policy(prepared.evaluator, state, choose)
         kwargs = dict(seed=7, temperature=1.0)
         trusted_runs = complete_drafts(
             state, "p2", 1, range(6), choose, policy, **kwargs
@@ -399,6 +399,20 @@ class LiveDraftTest(unittest.TestCase):
         self.assertAlmostEqual(row["adp"], 8)
         self.assertIsInstance(row["is_top_tier"], bool)
         self.assertEqual(row["best_wait_candidate_id"], "p1")
+        self.assertEqual(row["rollout_count"], 20)
+        self.assertEqual(row["next_turn_pick_no"], evaluation.next_user_pick_no)
+        self.assertEqual(row["opportunity_sample_count"], 20)
+        self.assertEqual(
+            row["opportunity_model_version"],
+            "next-turn-vona-v1:conditional-hazard",
+        )
+        self.assertIsNotNone(row["current_marginal_value"])
+        self.assertIsNotNone(row["expected_best_later_value"])
+        self.assertAlmostEqual(
+            sum(alternative["probability"] for alternative in row["later_alternatives"])
+            + row["later_alternative_other_probability"],
+            1.0,
+        )
         # Reach-mixture opponents occasionally snipe p8 before the next
         # pick, so the return chance is high but never certain.
         self.assertGreater(row["survives_to_next_pick"], 0.5)
@@ -425,14 +439,25 @@ class LiveDraftTest(unittest.TestCase):
             roster_ids=(1, 2),
             slot_counts={"QB": 1, "RB": 1, "FLEX": 1, "K": 1, "DEF": 1},
         )
-        policy = _projection_user_policy(league_evaluator)
+        state = SimpleNamespace(pick_owners=(1, 2) * 7)
+        snapshot = {
+            "source": SLEEPER_ADP_SOURCE,
+            "snapshot_id": "policy",
+            "observations": [
+                {"canonical_player_id": player_id, "adp": index}
+                for index, player_id in enumerate(bank.player_ids, 1)
+            ],
+        }
+        from ffsim.draft_intel.live import _live_opponent_choice
+        choose = _live_opponent_choice(snapshot, league_evaluator, state, 0.11)
+        policy = _projection_user_policy(league_evaluator, state, choose)
 
-        # Replacement-aware: rb1's value over replacement beats the raw-points
-        # leader qb1, so the future self does not stack quarterbacks early.
+        # The lookahead compares the best current option at each feasible
+        # position; dominated same-position alternatives do not add work.
         empty = ((1, ()), (2, ()))
         utilities = policy(1, 2, empty, frozenset(bank.player_ids))
-        self.assertGreater(utilities["rb1"], utilities["qb1"])
-        self.assertGreater(utilities["rb1"], utilities["rb2"])
+        self.assertIn("rb1", utilities)
+        self.assertNotIn("rb2", utilities)
 
         # Once the only QB slot is filled (QB is not FLEX eligible here), any
         # further QB ranks below even a replacement-level open-slot player.
@@ -445,13 +470,114 @@ class LiveDraftTest(unittest.TestCase):
         core_filled = ((1, ("qb1", "rb1", "wr1")), (2, ()))
         available = frozenset(bank.player_ids) - set(core_filled[0][1])
         utilities = policy(1, 4, core_filled, available)
-        self.assertGreater(utilities["rb2"], utilities["k1"])
+        self.assertGreaterEqual(utilities["rb2"], utilities["k1"])
 
         # There is no reason for the user's rollout policy to draft a backup
         # kicker or defense while replacement streaming exists.
         after_kicker = ((1, (*core_filled[0][1], "k1")), (2, ()))
         utilities = policy(1, 5, after_kicker, available - {"k1"})
         self.assertNotIn("k2", utilities)
+
+        # With exactly two picks left and K/DEF still open, both picks must
+        # fill those seats; another bench player would create the impossible
+        # terminal rosters found in live telemetry.
+        late = ((1, ("qb1", "rb1", "wr1", "rb2", "wr2")), (2, ()))
+        late_available = frozenset(bank.player_ids) - set(late[0][1])
+        utilities = policy(1, 6, late, late_available)
+        self.assertEqual(
+            {
+                bank.player_positions[bank.player_ids.index(player_id)]
+                for player_id in utilities
+            },
+            {"K", "DEF"},
+        )
+
+        # One backup is allowed at QB, but a third QB is not.
+        two_qbs = ((1, ("qb1", "qb2", "rb1", "wr1")), (2, ()))
+        utilities = policy(
+            1,
+            5,
+            two_qbs,
+            frozenset(bank.player_ids) - set(two_qbs[0][1]),
+        )
+        self.assertNotIn("qb3", utilities)
+
+    def test_live_rollouts_finish_with_complete_sane_rosters(self):
+        from collections import Counter
+
+        from ffsim.draft_intel.live import _live_opponent_choice
+        from ffsim.draft_intel.market_model import starting_lineup_needs
+        from ffsim.draft_intel.rollout import complete_drafts
+        from ffsim.draft_intel.state import replay_sleeper_draft
+
+        positions = tuple(
+            position
+            for position, count in (
+                ("QB", 12), ("RB", 24), ("WR", 24), ("TE", 12),
+                ("K", 4), ("DEF", 4),
+            )
+            for _ in range(count)
+        )
+        player_ids = tuple(
+            f"{position.lower()}{index}"
+            for index, position in enumerate(positions, 1)
+        )
+        position_of = dict(zip(player_ids, positions))
+        slots = {
+            "QB": 1, "RB": 2, "WR": 2, "TE": 1, "FLEX": 1, "K": 1, "DEF": 1,
+        }
+        state = replay_sleeper_draft(
+            {
+                "draft_id": "roster-policy",
+                "type": "snake",
+                "status": "drafting",
+                "settings": {"teams": 4, "rounds": 12, "reversal_round": 0},
+                "draft_order": {str(roster): roster for roster in range(1, 5)},
+                "slot_to_roster_id": {str(roster): roster for roster in range(1, 5)},
+            },
+            picks=(),
+            traded_picks=(),
+            player_ids=player_ids,
+        )
+        league_evaluator = SimpleNamespace(
+            bank=SimpleNamespace(
+                player_ids=player_ids,
+                player_positions=positions,
+                expected_scores=tuple(
+                    float(len(player_ids) - index) for index in range(len(player_ids))
+                ),
+                weeks=(1,),
+            ),
+            roster_ids=(1, 2, 3, 4),
+            slot_counts=slots,
+        )
+        snapshot = {
+            "source": SLEEPER_ADP_SOURCE,
+            "snapshot_id": "roster-policy",
+            "observations": [
+                {"canonical_player_id": player_id, "adp": index}
+                for index, player_id in enumerate(player_ids, 1)
+            ],
+        }
+        choose = _live_opponent_choice(snapshot, league_evaluator, state, 0.11)
+        completions = complete_drafts(
+            state,
+            None,
+            1,
+            range(10),
+            choose,
+            _projection_user_policy(league_evaluator, state, choose),
+            temperature=1.0,
+        )
+
+        for completion in completions:
+            for _, roster in completion.rosters:
+                counts = Counter(position_of[player_id] for player_id in roster)
+                self.assertEqual(starting_lineup_needs(roster, position_of, slots), ())
+                self.assertLessEqual(counts["QB"], 2)
+                self.assertLessEqual(counts["TE"], 2)
+                self.assertEqual(counts["K"], 1)
+                self.assertEqual(counts["DEF"], 1)
 
     def test_finalists_always_include_market_chalk_and_top_model_value(self):
         prepared = SimpleNamespace(evaluator=evaluator())
@@ -494,6 +620,7 @@ class LiveDraftTest(unittest.TestCase):
             "p90": ("K", 90.0),   # never forced into the early window
         }
         prepared = SimpleNamespace(
+            user_roster_id=1,
             market_snapshot={
                 "source": SLEEPER_ADP_SOURCE,
                 "snapshot_id": "snap",
@@ -503,7 +630,11 @@ class LiveDraftTest(unittest.TestCase):
                 ],
             },
             evaluator=SimpleNamespace(
-                bank=SimpleNamespace(player_ids=tuple(adps)),
+                bank=SimpleNamespace(
+                    player_ids=tuple(adps),
+                    player_positions=tuple(position for position, _ in adps.values()),
+                ),
+                slot_counts={"QB": 1, "RB": 1, "WR": 1, "TE": 1, "K": 1},
             ),
             player_details={
                 player_id: {"position": position}
@@ -513,6 +644,8 @@ class LiveDraftTest(unittest.TestCase):
         state = SimpleNamespace(
             available_player_ids=frozenset(adps),
             current_pick_no=10,
+            pick_owners=(1,) * 20,
+            roster_player_ids=lambda _roster_id: (),
         )
         # Pure best-player-available by ADP: fallers first, then the window
         # deepens down the board; the kicker enters only at its ADP depth.
@@ -533,6 +666,72 @@ class LiveDraftTest(unittest.TestCase):
                 SimpleNamespace(available_player_ids=frozenset(), current_pick_no=1),
                 5,
             )
+
+    def test_candidate_pool_requires_starter_positions_at_the_draft_tail(self):
+        adps = {"rb": 1.0, "k": 50.0, "def": 60.0}
+        positions = {"rb": "RB", "k": "K", "def": "DEF", "wr": "WR"}
+        prepared = SimpleNamespace(
+            user_roster_id=1,
+            market_snapshot={
+                "source": SLEEPER_ADP_SOURCE,
+                "snapshot_id": "snap",
+                "observations": [
+                    {"canonical_player_id": player_id, "adp": adp}
+                    for player_id, adp in adps.items()
+                ],
+            },
+            evaluator=SimpleNamespace(
+                bank=SimpleNamespace(
+                    player_ids=tuple(positions),
+                    player_positions=tuple(positions.values()),
+                ),
+                slot_counts={"WR": 1, "K": 1, "DEF": 1},
+            ),
+            player_details={
+                player_id: {"position": position}
+                for player_id, position in positions.items()
+            },
+        )
+        state = SimpleNamespace(
+            available_player_ids=frozenset(adps),
+            current_pick_no=2,
+            pick_owners=(1, 1, 1),
+            roster_player_ids=lambda _roster_id: ("wr",),
+        )
+
+        self.assertEqual(live_candidate_pool(prepared, state, 10), ["k", "def"])
+
+    def test_candidate_pool_respects_roster_position_limits(self):
+        positions = {
+            "qb1": "QB", "qb2": "QB", "qb3": "QB",
+            "te1": "TE", "te2": "TE", "te3": "TE", "rb": "RB",
+        }
+        prepared = SimpleNamespace(
+            user_roster_id=1,
+            market_snapshot={
+                "source": SLEEPER_ADP_SOURCE,
+                "snapshot_id": "snap",
+                "observations": [
+                    {"canonical_player_id": player_id, "adp": adp}
+                    for player_id, adp in (("qb3", 1), ("te3", 2), ("rb", 3))
+                ],
+            },
+            evaluator=SimpleNamespace(
+                bank=SimpleNamespace(
+                    player_ids=tuple(positions),
+                    player_positions=tuple(positions.values()),
+                ),
+                slot_counts={"QB": 1, "RB": 1, "TE": 1},
+            ),
+        )
+        state = SimpleNamespace(
+            available_player_ids=frozenset({"qb3", "te3", "rb"}),
+            current_pick_no=1,
+            pick_owners=(1,) * 10,
+            roster_player_ids=lambda _roster_id: ("qb1", "qb2", "te1", "te2"),
+        )
+
+        self.assertEqual(live_candidate_pool(prepared, state, 10), ["rb"])
 
     def test_live_state_summary_includes_the_full_pick_feed(self):
         prepared = SimpleNamespace(

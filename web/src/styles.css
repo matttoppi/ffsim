@@ -684,6 +684,22 @@ code {
   overflow-y: auto;
 }
 
+.board-section {
+  margin-top: 16px;
+}
+
+.board-section h4 {
+  margin: 0;
+  color: var(--dim);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.board-section .board {
+  margin-top: 8px;
+}
+
 .board-row {
   display: grid;
   grid-template-columns: 22px 42px 1fr clamp(150px, 24vw, 230px);
@@ -710,6 +726,16 @@ code {
 
 .board-row:first-child .board-rank {
   color: var(--gold);
+}
+
+.board.is-screened .board-row:first-child {
+  border-color: transparent;
+  background: var(--booth-raised);
+}
+
+.board.is-screened .board-row:first-child .board-rank,
+.board.is-screened .board-row:first-child .board-equity strong {
+  color: var(--dim);
 }
 
 .pos-badge {

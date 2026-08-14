@@ -265,6 +265,7 @@ describe('DraftIntel', () => {
         rollout_count: 50,
         joint_outcome_count: 100,
         pick_no: 6,
+        next_user_pick_no: 9,
         candidates: [
           {
             player_id: 'p9',
@@ -276,6 +277,18 @@ describe('DraftIntel', () => {
             adp: 42.4,
             survives_to_next_pick: 0.82,
             best_wait_candidate_id: 'p10',
+            current_marginal_value: 84,
+            expected_best_later_value: 78,
+            positional_value_drop: 6,
+            next_turn_pick_no: 9,
+            opportunity_sample_count: 50,
+            opportunity_model_version: 'next-turn-vona-v1:conditional-hazard',
+            later_alternatives: [{
+              player_id: 'p10',
+              name: 'Patient Quarterback',
+              position: 'QB',
+              probability: 0.64,
+            }],
           },
         ],
         position_timing: [
@@ -338,9 +351,11 @@ describe('DraftIntel', () => {
     expect(screen.getByText('✓ Final suggestion')).toBeTruthy()
     expect(screen.queryByText('First look')).toBeNull()
     expect(screen.getByText(/ADP 42.*82% chance back at pick 9/)).toBeTruthy()
+    expect(screen.getByText(/Draft value 84 now.*78 expected best at pick 9.*\+6 RB drop.*Patient Quarterback.*64%/)).toBeTruthy()
     expect(screen.getByText(/Ready for pick 6/)).toBeTruthy()
     expect(screen.getByText('You are on the clock')).toBeTruthy()
-    expect(screen.getByText('QB & TE timing by ADP · next three turns')).toBeTruthy()
+    expect(screen.getByText('QB & TE ADP-only timing · next three turns')).toBeTruthy()
+    expect(screen.getByText(/not a survival probability/)).toBeTruthy()
     expect(screen.getByText('Target by pick 9')).toBeTruthy()
     expect(screen.getByText('Take now')).toBeTruthy()
     expect(screen.getByText(/Patient Quarterback · 319 pts/)).toBeTruthy()
@@ -419,6 +434,7 @@ describe('DraftIntel', () => {
             championship_probability: 0.14,
             playoff_probability: 0.48,
             expected_wins: 7.8,
+            rollout_count: 25,
           },
         ],
       },
@@ -431,8 +447,10 @@ describe('DraftIntel', () => {
     expect(screen.getByText('-5.0%')).toBeTruthy()
     expect(screen.getByText('15.0% title')).toBeTruthy()
     expect(screen.getByText('3 options shown.')).toBeTruthy()
+    expect(screen.getByText('Refined contenders')).toBeTruthy()
+    expect(screen.getByText('Screened watchlist')).toBeTruthy()
     expect(screen.getByText('Screened Quarterback')).toBeTruthy()
-    expect(screen.getByText('14.0% title · 12 continuations')).toBeTruthy()
+    expect(screen.getByText('14.0% title · 25 continuations')).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: 'QB' }))
     expect(screen.queryByText('Lead Back')).toBeNull()

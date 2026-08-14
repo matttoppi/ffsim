@@ -11,6 +11,11 @@ Q(p) = estimated championship probability after selecting p now
 
 Select the candidate with the highest sufficiently supported `Q(p)`.
 
+When paired uncertainty makes several candidates statistically
+interchangeable, retain the raw `Q(p)` leader as the headline and present the
+co-leaders as an unordered low-confidence tier. A secondary metric such as
+exact-player return probability must not silently replace the primary leader.
+
 ### 19.2 Secondary metrics
 
 Report, but do not silently blend into the primary objective unless configured:
@@ -106,7 +111,13 @@ VONA(p) = value(p now)
           - E[value(best realistic alternative at next user pick)]
 ```
 
-VONA is a useful cheap feature for the user's rollout policy and explanations, even when the final root decision is championship simulation.
+Adjacent user picks are one turn; the horizon is the first user pick after an
+opponent has selected. The expectation must use the conditional opponent model,
+exact pick ownership, current roster, available pool, starter needs, and caps.
+The future policy compares current value plus expected later roster value rather
+than ranking positions by VONA alone, so a scarce but materially inferior player
+does not win mechanically. VONA remains a policy feature and explanation; the
+root recommendation is still coupled championship equity.
 
 ### 20.4 Correlation and stacking
 
@@ -180,7 +191,9 @@ preliminary/refining state while the newest calculation runs. These absolute
 odds must retain the uncalibrated-model label until backtesting supports a
 calibration claim.
 
-Candidate table/card fields:
+Candidate table/card fields (rank only candidates evaluated to the same
+refinement depth; earlier-stage estimates belong in a separate unranked
+watchlist):
 
 - rank
 - player
@@ -191,6 +204,8 @@ Candidate table/card fields:
 - playoff probability
 - chance player returns
 - chance tier survives
+- current marginal value and expected best next-turn alternative
+- expected positional/value drop and alternative distribution
 - target-platform ADP/board
 - cross-platform median
 - main threat manager(s)
@@ -208,6 +223,7 @@ For a selected candidate:
 - Tier alternatives.
 - Championship-delta uncertainty.
 - What assumptions are low-confidence.
+- Opportunity sample count and policy/model version.
 
 ### 21.6 "What changed?" panel
 
