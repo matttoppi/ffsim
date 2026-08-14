@@ -14,7 +14,7 @@ from ffsim.models.team import FLEX_ELIGIBILITY
 EVALUATOR_VERSION = 1
 # Deterministic projected roster-value scorer revision. Kept separate from
 # EVALUATOR_VERSION because that constant also seeds streamer randomness.
-ROSTER_VALUE_VERSION = 3
+ROSTER_VALUE_VERSION = 4
 # Discounted bench asset value (ADR-029): a benched player is worth this
 # fraction of his points over the starter cutline — trade/upside value that
 # keeps late rounds chasing the best remaining player instead of treating
@@ -350,6 +350,13 @@ class LeagueEvaluator:
           streamer pool (as in ``_evaluate``) rewards drafting a player merely
           for removing him from the waiver pool — pure denial value that made
           backup QBs outrank starting-lineup upgrades.
+        - Rostered players are floored at their position cutline: the greedy
+          lineup would otherwise start a below-replacement backup on a
+          starter's bye at his real score and lose points versus streaming,
+          which systematically ranked zero-contribution bench positions above
+          slightly-negative ones (measured: all-WR late boards over 20
+          available RBs). You would bench him and stream, so no rostered
+          player scores below replacement.
 
         Bench players (available but not chosen in a week's lineup) add
         ``BENCH_ASSET_FACTOR`` times their points over the position cutline —
@@ -368,7 +375,11 @@ class LeagueEvaluator:
             flat = (mean_scores * available).sum(
                 axis=1, keepdims=True
             ) / available_weeks
-            self._mean_scores = np.where(available, flat, 0.0)
+            floor = np.asarray([
+                replacement.get(position, 0.0)
+                for position in self.bank.player_positions
+            ])[:, None]
+            self._mean_scores = np.where(available, np.maximum(flat, floor), 0.0)
             self._mean_available = available
             slot_count = sum(count for _, count in self.slots)
             self._unit_cum = np.tile(

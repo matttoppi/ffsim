@@ -1121,3 +1121,15 @@ the live layer zeroes urgency for streamable K/DEF. All zero-urgency ties
 fall through to best market ADP, which is the trade-asset preference the
 owner asked for.
 
+### Second amendment (2026-08-14, same day)
+
+The second v3 batch showed late boards all-WR over twenty available RBs:
+the greedy lineup started below-cutline RB backups on a starter's bye at
+their real (sub-replacement) score instead of streaming, so every bench RB
+scored slightly negative while bench WRs scored exactly zero, and the
+systematic ~0.2-point deficit excluded all RBs from the statistical tie the
+ADP tie-break orders. Rostered players are now floored at their position
+cutline in the deterministic scorer (`ROSTER_VALUE_VERSION` 4): you would
+bench a sub-replacement player and stream, so no rostered player scores
+below replacement, sub-replacement picks tie exactly, and the market decides.
+
