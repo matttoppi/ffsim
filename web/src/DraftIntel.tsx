@@ -87,7 +87,7 @@ function WhyThisPick({
         : ''
       reasons.push({
         label: 'Waiting costs points',
-        text: `Passing now gives back about ${vona.toFixed(1)} points versus the best option expected at pick ${nextPick}.${survivalText}${alternativeText}.`,
+        text: `Passing now gives back about ${vona.toFixed(1)} points versus the best pick at any position expected at pick ${nextPick}.${survivalText}${alternativeText}.`,
       })
     } else {
       reasons.push({
@@ -99,7 +99,9 @@ function WhyThisPick({
   if (leader.positional_value_drop != null && leader.positional_value_drop > 1 && nextPick != null) {
     reasons.push({
       label: `${leader.position ?? 'Position'} cliff`,
-      text: `He projects ${leader.positional_value_drop.toFixed(0)} points above the best ${leader.position} expected to reach your next turn — the position drops off before it comes back to you.`,
+      text:
+        `He projects ${leader.positional_value_drop.toFixed(0)} points above the best ${leader.position} expected to reach your next turn. ` +
+        `That is the same-position gap only — you are not forced to fill ${leader.position} next turn, so the real cost of waiting is the smaller any-position number above.`,
     })
   }
   if (adpDrift != null && Math.abs(adpDrift) >= 5) {
