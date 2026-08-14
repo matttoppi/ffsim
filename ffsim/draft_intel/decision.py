@@ -8,6 +8,7 @@ from operator import index
 from ffsim.draft_intel.rollout import (
     SurvivalReport,
     complete_drafts,
+    merge_survival_reports,
     normalize_rollout_id,
     normalize_seed,
     summarize_survival,
@@ -459,6 +460,95 @@ def merge_evaluations(evaluations):
     if len({candidate.candidate_id for candidate in candidates}) != len(candidates):
         raise ValueError("Merged evaluations contain duplicate candidates")
     return replace(base, candidates=candidates)
+
+
+def merge_rollout_ranges(evaluations):
+    """Concatenate evaluations of disjoint rollout ranges for one candidate set.
+
+    Rollout outcomes are independent per deterministic rollout ID, so
+    evaluating IDs 0-99 and 100-999 separately and merging in ascending order
+    is exactly one 0-999 evaluation: identical statistics, intervals,
+    survival, and run identity.
+    """
+    evaluations = tuple(evaluations)
+    if not evaluations:
+        raise ValueError("evaluations must not be empty")
+
+    def identity(evaluation):
+        return (
+            evaluation.draft_id,
+            evaluation.state_pick_no,
+            evaluation.state_signature,
+            evaluation.user_roster_id,
+            evaluation.next_user_pick_no,
+            evaluation.season_worlds_per_rollout,
+            evaluation.seed,
+            evaluation.decision_engine_version,
+            evaluation.draft_model_version,
+            evaluation.world_bank_version,
+            evaluation.league_evaluator_version,
+            tuple(candidate.candidate_id for candidate in evaluation.candidates),
+        )
+
+    base = evaluations[0]
+    if any(identity(other) != identity(base) for other in evaluations[1:]):
+        raise ValueError("Cannot merge rollout ranges from different states or candidates")
+    rollout_ids = tuple(
+        rollout_id for evaluation in evaluations for rollout_id in evaluation.rollout_ids
+    )
+    if len(set(rollout_ids)) != len(rollout_ids):
+        raise ValueError("Cannot merge overlapping rollout ranges")
+    candidates = []
+    for candidate_index, candidate in enumerate(base.candidates):
+        parts = tuple(
+            evaluation.candidates[candidate_index] for evaluation in evaluations
+        )
+        continuation_probabilities = tuple(
+            probability
+            for part in parts
+            for probability in part.continuation_championship_probabilities
+        )
+        playoffs = tuple(o for part in parts for o in part.playoff_outcomes)
+        wins = tuple(w for part in parts for w in part.wins)
+        points = tuple(p for part in parts for p in part.points)
+        probability, error = _mean_and_error(continuation_probabilities)
+        survivals = tuple(part.survival for part in parts)
+        if any((survival is None) != (survivals[0] is None) for survival in survivals):
+            raise ValueError("Cannot merge partially tracked survival reports")
+        candidates.append(CandidateEvaluation(
+            candidate_id=candidate.candidate_id,
+            championship_probability=probability,
+            championship_standard_error=error,
+            championship_interval=_probability_interval(probability, error),
+            playoff_probability=sum(playoffs) / len(playoffs),
+            expected_wins=sum(wins) / len(wins),
+            expected_points=sum(points) / len(points),
+            championship_outcomes=tuple(
+                o for part in parts for o in part.championship_outcomes
+            ),
+            playoff_outcomes=playoffs,
+            wins=wins,
+            points=points,
+            continuation_log_probabilities=tuple(
+                value
+                for part in parts
+                for value in part.continuation_log_probabilities
+            ),
+            continuation_championship_probabilities=continuation_probabilities,
+            survival=(
+                merge_survival_reports(survivals)
+                if survivals[0] is not None
+                else None
+            ),
+        ))
+    return replace(
+        base,
+        rollout_ids=rollout_ids,
+        world_indices=tuple(
+            worlds for evaluation in evaluations for worlds in evaluation.world_indices
+        ),
+        candidates=tuple(candidates),
+    )
 
 
 def rank_candidates(evaluation):

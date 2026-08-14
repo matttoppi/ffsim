@@ -11,6 +11,7 @@ from ffsim.draft_intel.decision import (
     evaluate_candidates,
     evaluate_league_equity,
     merge_evaluations,
+    merge_rollout_ranges,
     recommendation_summary,
 )
 from ffsim.draft_intel.state import replay_sleeper_draft
@@ -138,6 +139,46 @@ class DecisionEvaluationTest(unittest.TestCase):
             ])
         with self.assertRaisesRegex(ValueError, "duplicate candidates"):
             merge_evaluations([combined, combined])
+
+    def test_merged_rollout_ranges_equal_one_full_range_evaluation(self):
+        league_evaluator = evaluator()
+        kwargs = dict(
+            user_roster_id=1,
+            opponent_choice=market_utility,
+            user_policy=market_utility,
+            league_evaluator=league_evaluator,
+            draft_model_version="manual-test-v1",
+            seed=19,
+            season_worlds_per_rollout=3,
+            survival_player_ids=("p1", "p2", "p3"),
+            tiers={"next": ("p2", "p3")},
+        )
+        candidates = ("p1", "p2")
+        flat = evaluate_candidates(
+            draft_state(), candidates, rollout_ids=range(12), **kwargs
+        )
+        merged = merge_rollout_ranges([
+            evaluate_candidates(
+                draft_state(), candidates, rollout_ids=range(5), **kwargs
+            ),
+            evaluate_candidates(
+                draft_state(), candidates, rollout_ids=range(5, 12), **kwargs
+            ),
+        ])
+        self.assertEqual(merged, flat)
+        self.assertEqual(
+            recommendation_summary(merged),
+            recommendation_summary(flat),
+        )
+        with self.assertRaisesRegex(ValueError, "overlapping rollout ranges"):
+            merge_rollout_ranges([flat, flat])
+        with self.assertRaisesRegex(ValueError, "different states or candidates"):
+            merge_rollout_ranges([
+                flat,
+                evaluate_candidates(
+                    draft_state(), ("p1", "p3"), rollout_ids=range(12, 14), **kwargs
+                ),
+            ])
 
     def test_candidates_use_many_paired_draft_paths_and_selected_season_worlds(self):
         league_evaluator = evaluator()

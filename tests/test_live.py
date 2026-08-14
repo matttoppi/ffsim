@@ -17,8 +17,10 @@ from ffsim.draft_intel.live import (
     live_league_equity_payload,
     live_recommendation_payload,
     live_state_summary,
+    merge_screen_refinement,
     mock_mismatch_reasons,
     position_timing_outlook,
+    predicted_next_state,
     select_finalists,
 )
 from ffsim.draft_intel.market_model import SLEEPER_ADP_SOURCE
@@ -154,6 +156,205 @@ class LiveDraftTest(unittest.TestCase):
             {candidate.candidate_id: candidate for candidate in parallel.candidates},
         )
 
+    def test_trusted_log_probability_callback_matches_the_generic_path(self):
+        from ffsim.draft_intel.live import (
+            _live_opponent_choice,
+            _projection_user_policy,
+        )
+        from ffsim.draft_intel.rollout import complete_drafts
+
+        state = draft_state()
+        prepared = PreparedDraft(
+            summary={},
+            live_draft_id="draft",
+            league_id=None,
+            standalone=True,
+            user_roster_id=1,
+            market_snapshot={
+                "source": SLEEPER_ADP_SOURCE,
+                "snapshot_id": "snap",
+                "observations": [
+                    {"canonical_player_id": f"p{index}", "adp": float(index)}
+                    for index in range(1, 13)
+                ],
+            },
+            evaluator=evaluator(),
+            player_details={},
+        )
+        choose = _live_opponent_choice(
+            prepared.market_snapshot, prepared.evaluator, 0.11
+        )
+        self.assertTrue(choose.returns_final_log_probabilities)
+        generic = lambda *args: choose(*args)
+        policy = _projection_user_policy(prepared.evaluator)
+        kwargs = dict(seed=7, temperature=1.0)
+        trusted_runs = complete_drafts(
+            state, "p2", 1, range(6), choose, policy, **kwargs
+        )
+        generic_runs = complete_drafts(
+            state, "p2", 1, range(6), generic, policy, **kwargs
+        )
+        for trusted_run, generic_run in zip(trusted_runs, generic_runs, strict=True):
+            self.assertEqual(
+                [pick.player_id for pick in trusted_run.picks],
+                [pick.player_id for pick in generic_run.picks],
+            )
+            self.assertEqual(trusted_run.rosters, generic_run.rosters)
+            self.assertAlmostEqual(
+                trusted_run.opponent_log_probability,
+                generic_run.opponent_log_probability,
+                places=10,
+            )
+
+    def test_refinement_survivors_match_the_recommendation_tier(self):
+        from ffsim.draft_intel.decision import recommendation_summary
+        from ffsim.draft_intel.live import refinement_survivors
+
+        state = draft_state()
+        prepared = PreparedDraft(
+            summary={},
+            live_draft_id="draft",
+            league_id=None,
+            standalone=True,
+            user_roster_id=1,
+            market_snapshot={
+                "source": SLEEPER_ADP_SOURCE,
+                "snapshot_id": "snap",
+                "observations": [
+                    {"canonical_player_id": f"p{index}", "adp": float(index)}
+                    for index in range(1, 13)
+                ],
+            },
+            evaluator=evaluator(),
+            player_details={},
+        )
+        evaluation = evaluate_live_candidates(prepared, state, 8, ("p1", "p2", "p3"))
+        survivors, max_advantage = refinement_survivors(evaluation)
+        summary = recommendation_summary(evaluation)
+        # The racing gate keeps exactly the statistically tied tier.
+        self.assertEqual(set(survivors), set(summary.co_leader_candidate_ids))
+        self.assertGreaterEqual(max_advantage, 0.0)
+
+    def test_predicted_next_state_applies_the_model_argmax_pick(self):
+        state = draft_state()
+        prepared = PreparedDraft(
+            summary={},
+            live_draft_id="draft",
+            league_id=None,
+            standalone=True,
+            user_roster_id=2,
+            market_snapshot={
+                "source": SLEEPER_ADP_SOURCE,
+                "snapshot_id": "snap",
+                "observations": [
+                    {"canonical_player_id": f"p{index}", "adp": float(index)}
+                    for index in range(1, 13)
+                ],
+            },
+            evaluator=evaluator(),
+            player_details={"p1": {"position": "WR"}},
+        )
+        self.assertEqual(state.current_roster_id, 1)
+        hypothetical = predicted_next_state(prepared, state)
+        # The sharp board-follower's most likely pick is the best ADP player.
+        self.assertEqual(hypothetical.completed_picks[-1].player_id, "p1")
+        self.assertEqual(hypothetical.completed_picks[-1].position, "WR")
+        self.assertEqual(hypothetical.current_roster_id, 2)
+        self.assertNotIn("p1", hypothetical.available_player_ids)
+        # No speculation on the user's own turn.
+        self.assertIsNone(
+            predicted_next_state(
+                PreparedDraft(
+                    summary={},
+                    live_draft_id="draft",
+                    league_id=None,
+                    standalone=True,
+                    user_roster_id=1,
+                    market_snapshot=prepared.market_snapshot,
+                    evaluator=prepared.evaluator,
+                    player_details={},
+                ),
+                state,
+            )
+        )
+
+    def test_chunked_rollout_fanout_matches_the_sequential_batch(self):
+        from ffsim.draft_intel import live
+
+        state = draft_state()
+        prepared = PreparedDraft(
+            summary={},
+            live_draft_id="draft",
+            league_id=None,
+            standalone=True,
+            user_roster_id=1,
+            market_snapshot={
+                "source": SLEEPER_ADP_SOURCE,
+                "snapshot_id": "snap",
+                "observations": [
+                    {"canonical_player_id": f"p{index}", "adp": float(index)}
+                    for index in range(1, 13)
+                ],
+            },
+            evaluator=evaluator(),
+            player_details={},
+        )
+        candidates = ("p1", "p2")
+        sequential = evaluate_live_candidates(prepared, state, 7, candidates)
+        with patch.object(live, "LIVE_ROLLOUT_CHUNK", 3):
+            self.assertEqual(
+                [range(0, 3), range(3, 7)],
+                live._rollout_chunks(range(7), 3),
+            )
+            with create_live_executor(prepared, workers=2) as executor:
+                chunked = evaluate_live_candidates(
+                    prepared, state, 7, candidates, executor=executor
+                )
+        self.assertEqual(
+            {candidate.candidate_id: candidate for candidate in sequential.candidates},
+            {candidate.candidate_id: candidate for candidate in chunked.candidates},
+        )
+        self.assertEqual(sequential.rollout_ids, chunked.rollout_ids)
+        self.assertEqual(sequential.world_indices, chunked.world_indices)
+
+    def test_screen_reuse_refinement_equals_one_full_range_evaluation(self):
+        state = draft_state()
+        prepared = PreparedDraft(
+            summary={},
+            live_draft_id="draft",
+            league_id=None,
+            standalone=True,
+            user_roster_id=1,
+            market_snapshot={
+                "source": SLEEPER_ADP_SOURCE,
+                "snapshot_id": "snap",
+                "observations": [
+                    {"canonical_player_id": f"p{index}", "adp": float(index)}
+                    for index in range(1, 13)
+                ],
+            },
+            evaluator=evaluator(),
+            player_details={},
+        )
+        pool = ("p1", "p2", "p3", "p4")
+        finalists = ("p2", "p4")
+        screen_evaluations = [
+            evaluate_live_candidates(
+                prepared, state, 5, pool[:2], survival_ids=pool
+            ),
+            evaluate_live_candidates(
+                prepared, state, 5, pool[2:], survival_ids=pool
+            ),
+        ]
+        extension = evaluate_live_candidates(
+            prepared, state, range(5, 12), finalists, survival_ids=finalists
+        )
+        merged = merge_screen_refinement(screen_evaluations, extension)
+        flat = evaluate_live_candidates(
+            prepared, state, 12, finalists, survival_ids=finalists
+        )
+        self.assertEqual(merged, flat)
+
     def test_recommendation_uses_the_best_alternative_branch_for_return_chance(self):
         state = draft_state()
         prepared = PreparedDraft(
@@ -192,6 +393,7 @@ class LiveDraftTest(unittest.TestCase):
 
         self.assertEqual(own_branch.survives_to_next_pick, 0)
         self.assertAlmostEqual(row["adp"], 8)
+        self.assertIsInstance(row["is_top_tier"], bool)
         self.assertEqual(row["best_wait_candidate_id"], "p1")
         # Reach-mixture opponents occasionally snipe p8 before the next
         # pick, so the return chance is high but never certain.
@@ -260,6 +462,22 @@ class LiveDraftTest(unittest.TestCase):
         # it at ADP 50), and p5 is the best remaining market pick; both are
         # guaranteed finalists so screen noise can only cost depth.
         self.assertEqual(finalists, ("p5", "p6", "p7", "p8", "p3"))
+
+    def test_all_statistically_tied_screen_leaders_advance(self):
+        prepared = SimpleNamespace(evaluator=evaluator())
+        rows = [
+            {
+                "player_id": f"p{number}",
+                "adp": float(number),
+                "is_top_tier": number in {5, 6, 7, 8, 9, 10},
+            }
+            for number in range(1, 11)
+        ]
+
+        self.assertEqual(
+            select_finalists(prepared, None, rows, 5),
+            ("p1", "p5", "p6", "p7", "p8", "p9", "p10"),
+        )
 
     def test_candidate_pool_expands_outward_from_the_current_pick(self):
         adps = {

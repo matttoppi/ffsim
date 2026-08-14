@@ -1,5 +1,5 @@
 from collections import Counter, defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from itertools import pairwise
 
 
@@ -78,6 +78,44 @@ class DraftState:
             return dict(self.manager_roster_ids)[str(manager_id)]
         except KeyError:
             raise ValueError(f"Unknown draft manager {manager_id}") from None
+
+    def with_pick(self, player_id, *, picked_by=None, position=None):
+        """Apply the current pick, mirroring replayed Sleeper normalization.
+
+        Validated against every cached mock transition: the result's state
+        signature equals the replayed state after the same real pick.
+        """
+        pick_no = self.current_pick_no
+        if pick_no is None:
+            raise ValueError("The draft is complete")
+        if self.draft_type not in {"snake", "linear"}:
+            raise ValueError("Only snake/linear picks have predetermined ownership")
+        player_id = str(player_id)
+        if player_id not in self.available_player_ids:
+            raise ValueError(f"Player {player_id} is not available")
+        pick = DraftPick(
+            pick_no=pick_no,
+            round=(pick_no - 1) // self.teams + 1,
+            draft_slot=self.pick_slots[pick_no - 1],
+            roster_id=self.current_roster_id,
+            picked_by=str(picked_by) if picked_by else None,
+            player_id=player_id,
+            position=str(position) if position else None,
+            price=None,
+        )
+        return replace(
+            self,
+            completed_picks=(*self.completed_picks, pick),
+            rosters=tuple(
+                (
+                    roster_id,
+                    (*players, player_id) if roster_id == pick.roster_id else players,
+                )
+                for roster_id, players in self.rosters
+            ),
+            selected_player_ids=self.selected_player_ids | {player_id},
+            available_player_ids=self.available_player_ids - {player_id},
+        )
 
     def turn_for(self, roster_id, future_pick_count=3):
         roster_id = int(roster_id)

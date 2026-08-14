@@ -56,11 +56,14 @@ Suggested warm-run strategy:
 
 Numbers are initial targets, not hard requirements. Benchmark on the M5 Max.
 
-The live V1 uses a 12-rollout coupled screen across the 40-player market
-window, followed by 300 draft continuations and three season worlds per
-continuation for the top five. This preserves roughly the prior live compute
-budget while moving it from obviously dominated candidates to plausible
-winners.
+The live V1 uses a 100-rollout coupled screen across the 40-player market
+window. At least five candidates advance, plus every candidate whose paired
+championship interval still overlaps the screen leader. The adaptive finalist
+set receives 1,000 draft continuations and three season worlds per
+continuation. Seed-stability calibration found that a hard top-five cutoff
+remained unreliable even with 500 screen continuations; confidence-based
+promotion preserves plausible winners without refining clearly dominated
+candidates.
 
 ### 17.4 Early stopping
 

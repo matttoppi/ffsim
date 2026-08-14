@@ -54,6 +54,23 @@ class DraftStateTest(unittest.TestCase):
         standard = self.replay("snake", draft=standard_draft)
         self.assertEqual(standard.pick_slots, (1, 2, 3, 3, 2, 1, 1, 2, 3))
 
+    def test_with_pick_equals_replaying_the_same_observed_pick(self):
+        data = self.fixtures["snake"]
+        picks = sorted(data["picks"], key=lambda pick: pick["pick_no"])
+        for count in range(len(picks)):
+            before = self.replay("snake", picks=picks[:count])
+            after = self.replay("snake", picks=picks[:count + 1])
+            observed = picks[count]
+            applied = before.with_pick(
+                observed["player_id"],
+                picked_by=observed.get("picked_by"),
+                position=(observed.get("metadata") or {}).get("position"),
+            )
+            self.assertEqual(applied, after)
+        state = self.replay("snake")
+        with self.assertRaisesRegex(ValueError, "not available"):
+            state.with_pick("p1")
+
     def test_linear_replay_uses_the_same_direction_each_round(self):
         state = self.replay("linear")
 

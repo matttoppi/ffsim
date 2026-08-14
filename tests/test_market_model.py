@@ -17,6 +17,7 @@ from ffsim.draft_intel.market_model import (
     sleeper_adp_choice,
     sleeper_adp_model_version,
 )
+from ffsim.draft_intel.rollout import _gumbel_choice
 from ffsim.draft_intel.storage import SCHEMA
 
 
@@ -95,6 +96,61 @@ class MarketModelTest(unittest.TestCase):
         self.assertAlmostEqual(
             sum(math.exp(value) for value in uncapped.values()), 1.0
         )
+
+    def test_vectorized_choice_matches_the_dict_reference_and_gumbel_picks(self):
+        positions = {}
+        observations = []
+        for number in range(1, 41):
+            player_id = f"p{number}"
+            observations.append({"canonical_player_id": player_id, "adp": float(number)})
+            positions[player_id] = ("QB", "RB", "WR", "TE", "K", "DEF")[number % 6]
+        snapshot = {"source": "fantasypros:sleeper", "observations": observations}
+        slot_counts = {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "FLEX": 1, "K": 1, "DEF": 1}
+        caps = position_caps(slot_counts)
+
+        def reference(roster_id, pick_no, rosters, available):
+            board = {
+                f"p{number}": -math.log(number)
+                for number in range(1, 41)
+                if f"p{number}" in available
+            }
+            counts = {}
+            for player_id in dict(rosters)[roster_id]:
+                counts[positions[player_id]] = counts.get(positions[player_id], 0) + 1
+            eligible = {
+                player_id: utility
+                for player_id, utility in board.items()
+                if (cap := caps.get(positions[player_id])) is None
+                or counts.get(positions[player_id], 0) < cap
+            }
+            return {
+                player_id: math.log(probability)
+                for player_id, probability in mixture_choice_probabilities(
+                    eligible or board, 0.11, 0.15
+                )
+            }
+
+        choice = sleeper_adp_choice(
+            snapshot,
+            temperature=0.11,
+            reach_rate=0.15,
+            positions=positions,
+            slot_counts=slot_counts,
+        )
+        rosters = ((1, ("p1", "p7", "p13")), (2, ()))
+        available = frozenset(f"p{number}" for number in range(3, 41))
+        for roster_id in (1, 2):
+            expected = reference(roster_id, 5, rosters, available)
+            actual = choice(roster_id, 5, rosters, available)
+            self.assertEqual(set(expected), set(actual))
+            worst = max(abs(expected[key] - actual[key]) for key in expected)
+            self.assertLess(worst, 1e-12)
+            # The coupled Gumbel argmax must be unchanged for every rollout.
+            for rollout_id in range(200):
+                self.assertEqual(
+                    _gumbel_choice(expected, 2026, rollout_id, 5, roster_id),
+                    _gumbel_choice(actual, 2026, rollout_id, 5, roster_id),
+                )
 
     def test_choice_callback_and_backtest_use_only_pre_draft_snapshots(self):
         with tempfile.TemporaryDirectory() as directory:

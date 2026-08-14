@@ -34,6 +34,9 @@ class PlayerSurvival:
     survives_to_next_pick: float
     pick_hazard: tuple[tuple[int, float], ...]
     threat_share: tuple[tuple[int, float], ...]
+    # Opponent eliminations backing threat_share; kept as an exact integer so
+    # reports from disjoint rollout ranges can be merged without float drift.
+    threat_total: int = 0
 
 
 @dataclass(frozen=True)
@@ -160,6 +163,7 @@ def summarize_survival(completions, player_ids=(), tiers=None):
                 (roster_id, occurrences / threat_total)
                 for roster_id, occurrences in sorted(threats[player_id].items())
             ),
+            threat_total=threat_total,
         ))
 
     tier_results = []
@@ -188,6 +192,74 @@ def summarize_survival(completions, player_ids=(), tiers=None):
         ))
 
     return SurvivalReport(count, tuple(players), tuple(tier_results))
+
+
+def merge_survival_reports(reports):
+    """Combine survival reports from disjoint rollout ranges of one root state.
+
+    Stored rates are exact multiples of 1/rollout_count, so integer counts are
+    recovered with round() and the merged report equals one report over the
+    union of completions.
+    """
+    reports = tuple(reports)
+    if not reports:
+        raise ValueError("reports must not be empty")
+    counts = tuple(report.rollout_count for report in reports)
+    total = sum(counts)
+    players = []
+    for player_parts in zip(*(report.players for report in reports), strict=True):
+        player_id = player_parts[0].player_id
+        if any(part.player_id != player_id for part in player_parts):
+            raise ValueError("Survival reports track different players")
+        eliminated = sum(
+            round((1 - part.survives_to_next_pick) * count)
+            for part, count in zip(player_parts, counts)
+        )
+        hazards = Counter()
+        threats = Counter()
+        for part, count in zip(player_parts, counts):
+            for pick_no, rate in part.pick_hazard:
+                hazards[pick_no] += round(rate * count)
+            for roster_id, share in part.threat_share:
+                threats[roster_id] += round(share * part.threat_total)
+        threat_total = sum(part.threat_total for part in player_parts)
+        players.append(PlayerSurvival(
+            player_id=player_id,
+            survives_to_next_pick=1 - eliminated / total,
+            pick_hazard=tuple(
+                (pick_no, occurrences / total)
+                for pick_no, occurrences in sorted(hazards.items())
+            ),
+            threat_share=tuple(
+                (roster_id, occurrences / threat_total)
+                for roster_id, occurrences in sorted(threats.items())
+            ),
+            threat_total=threat_total,
+        ))
+    tiers = []
+    for tier_parts in zip(*(report.tiers for report in reports), strict=True):
+        tier_id = tier_parts[0].tier_id
+        if any(part.tier_id != tier_id for part in tier_parts):
+            raise ValueError("Survival reports track different tiers")
+        remaining_counts = Counter()
+        for part, count in zip(tier_parts, counts):
+            for remaining, probability in part.remaining_count_probabilities:
+                remaining_counts[remaining] += round(probability * count)
+        probabilities = tuple(
+            (remaining, occurrences / total)
+            for remaining, occurrences in sorted(remaining_counts.items())
+        )
+        exhausted = remaining_counts[0] / total
+        tiers.append(TierSurvival(
+            tier_id=tier_id,
+            survives_to_next_pick=1 - exhausted,
+            expected_remaining=sum(
+                remaining * probability for remaining, probability in probabilities
+            ),
+            exhaustion_probability=exhausted,
+            remaining_count_probabilities=probabilities,
+        ))
+    return SurvivalReport(total, tuple(players), tuple(tiers))
 
 
 def stable_gumbel(seed, rollout_id, pick_no, roster_id, player_id):
@@ -229,29 +301,45 @@ def _complete_draft(
         available.remove(root_candidate_id)
         first_pick_no += 1
     log_probability = 0.0
+    # A callback that declares final log-probabilities over available players
+    # (see sleeper_adp_choice) skips revalidation and the temperature-1.0
+    # renormalization, which is an identity: the normalizer is one constant
+    # per pick, so the coupled Gumbel argmax is exactly unchanged.
+    trusted = temperature == 1.0 and getattr(
+        opponent_choice, "returns_final_log_probabilities", False
+    )
 
     for pick_no in range(first_pick_no, len(state.pick_owners) + 1):
         roster_id = state.pick_owners[pick_no - 1]
         if roster_id is None:
             raise ValueError(f"Pick {pick_no} has no predetermined owner")
-        roster_view = tuple(
-            (owner, tuple(players)) for owner, players in sorted(rosters.items())
-        )
-        available_view = frozenset(available)
-        raw_utilities = (
-            user_policy(roster_id, pick_no, roster_view, available_view)
-            if roster_id == user_roster_id
-            else opponent_choice(roster_id, pick_no, roster_view, available_view)
-        )
-        utilities = _available_utilities(raw_utilities, available, all_players)
         if roster_id == user_roster_id:
+            roster_view = tuple(
+                (owner, tuple(players)) for owner, players in sorted(rosters.items())
+            )
+            available_view = frozenset(available)
+            raw_utilities = user_policy(roster_id, pick_no, roster_view, available_view)
+            utilities = _available_utilities(raw_utilities, available, all_players)
             player_id = min(
                 utilities,
                 key=lambda candidate: (-utilities[candidate], candidate),
             )
             probability = 1.0
         else:
-            log_probabilities = dict(_log_probabilities(utilities, temperature))
+            if trusted:
+                log_probabilities = opponent_choice(
+                    roster_id, pick_no, rosters, available
+                )
+            else:
+                roster_view = tuple(
+                    (owner, tuple(players))
+                    for owner, players in sorted(rosters.items())
+                )
+                raw_utilities = opponent_choice(
+                    roster_id, pick_no, roster_view, frozenset(available)
+                )
+                utilities = _available_utilities(raw_utilities, available, all_players)
+                log_probabilities = dict(_log_probabilities(utilities, temperature))
             player_id = _gumbel_choice(
                 log_probabilities,
                 seed,

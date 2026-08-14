@@ -87,9 +87,10 @@ calculated only when the user is on the clock. Any finished result whose
 draft-state fingerprint no longer matches is discarded. The worker publishes
 a quick preliminary league-equity pass (12 rollouts), does the same for the
 core candidate window when applicable, then screens the remainder of the
-40-player market window with the same coupled 12-rollout sample. The five
-screening leaders receive the 300-rollout final budget; league-wide equity
-remains capped at 50 rollouts. The default 300-world bank is traversed with a
+40-player market window with the same coupled 100-rollout sample. At least
+five candidates advance, along with every candidate statistically tied with
+the screen leader; that adaptive set receives the 1,000-rollout final budget.
+League-wide equity remains capped at 50 rollouts. The default 300-world bank is traversed with a
 seeded permutation so world use is balanced before any world repeats.
 Candidate results are independent of their screening batch, so merged screen
 results equal one large evaluation of the same candidates; work is abandoned

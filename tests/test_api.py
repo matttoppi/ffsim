@@ -20,9 +20,12 @@ from ffsim.api import (
     _run_draft_preparation,
     _run_job,
     _run_refresh,
+    _state_fingerprint,
     create_app,
 )
 from ffsim.config import AppConfig
+from ffsim.draft_intel.decision import _state_signature
+from tests.test_decision import draft_state
 
 
 RESULT = {
@@ -106,7 +109,7 @@ class ApiTest(unittest.TestCase):
         )
         self.assertEqual(prepare.model_dump()["mock_draft_id"], "mock")
         self.assertEqual(prepare.world_count, 300)
-        self.assertEqual(DraftMonitorRequest().rollout_count, 300)
+        self.assertEqual(DraftMonitorRequest().rollout_count, 1_000)
         with self.assertRaises(ValidationError):
             DraftMonitorRequest(rollout_count=1)
 
@@ -472,7 +475,7 @@ class ApiTest(unittest.TestCase):
 
     def test_calculation_publishes_a_preliminary_pass_then_refines(self):
         prepared = SimpleNamespace(live_draft_id="mock", user_roster_id=1)
-        monitor = LiveDraftMonitor(prepared, 0, 50, 5)
+        monitor = LiveDraftMonitor(prepared, 0, 1_000, 5)
         state = SimpleNamespace(
             status="drafting",
             completed_picks=(),
@@ -515,11 +518,11 @@ class ApiTest(unittest.TestCase):
         worker.join(5)
 
         self.assertEqual(observed, [
-            (12, None, "calculating"),
+            (100, None, "calculating"),
             (
-                50,
+                1_000,
                 {
-                    "rollout_count": 12,
+                    "rollout_count": 100,
                     "candidates": [
                         {"player_id": candidate_id}
                         for candidate_id in ["a", "b", "c", "d", "e"]
@@ -528,7 +531,7 @@ class ApiTest(unittest.TestCase):
                 "refining",
             ),
         ])
-        self.assertEqual(monitor.recommendation["rollout_count"], 50)
+        self.assertEqual(monitor.recommendation["rollout_count"], 1_000)
         self.assertEqual(monitor.recommendation_status, "ready")
         self.assertEqual(monitor.calculation_count, 1)
 
@@ -580,7 +583,7 @@ class ApiTest(unittest.TestCase):
 
     def test_the_broad_screen_keeps_all_options_after_refining_five_finalists(self):
         prepared = SimpleNamespace(live_draft_id="mock", user_roster_id=1)
-        monitor = LiveDraftMonitor(prepared, 0, 50, 2, 6)
+        monitor = LiveDraftMonitor(prepared, 0, 1_000, 2, 6)
         state = SimpleNamespace(
             status="drafting",
             completed_picks=(),
@@ -630,9 +633,9 @@ class ApiTest(unittest.TestCase):
         worker.join(5)
 
         self.assertEqual(evaluated, [
-            (12, ["a", "b"], ["a", "b", "c", "d", "e", "f"]),
-            (12, ["c", "d", "e", "f"], ["a", "b", "c", "d", "e", "f"]),
-            (50, ["f", "e", "d", "c", "b"], ["f", "e", "d", "c", "b"]),
+            (100, ["a", "b"], ["a", "b", "c", "d", "e", "f"]),
+            (100, ["c", "d", "e", "f"], ["a", "b", "c", "d", "e", "f"]),
+            (1_000, ["f", "e", "d", "c", "b"], ["f", "e", "d", "c", "b"]),
         ])
         self.assertEqual(published, [
             ([["a", "b"]], 6, "calculating"),
@@ -644,14 +647,250 @@ class ApiTest(unittest.TestCase):
             monitor.recommendation["screened_candidates"],
             [{"player_id": "a"}],
         )
-        self.assertEqual(monitor.recommendation["screened_rollout_count"], 12)
+        self.assertEqual(monitor.recommendation["screened_rollout_count"], 100)
         self.assertEqual(monitor.recommendation["candidates_evaluated"], 6)
         self.assertEqual(monitor.recommendation_status, "ready")
         self.assertEqual(monitor.calculation_count, 1)
 
+    def test_refinement_extends_screen_rollouts_when_merge_is_available(self):
+        prepared = SimpleNamespace(live_draft_id="mock", user_roster_id=1)
+        monitor = LiveDraftMonitor(prepared, 0, 1_000, 5)
+        state = SimpleNamespace(
+            status="drafting",
+            completed_picks=(),
+            current_pick_no=1,
+            current_roster_id=1,
+            pick_owners=(1,),
+        )
+        monitor.pending_state = state
+        monitor.state_fingerprint = ("drafting", 0, 1, (1,))
+        monitor.calculation_event.set()
+        evaluated = []
+        merged = []
+
+        def evaluate(_prepared, _state, rollout_ids, batch, *_args):
+            evaluated.append((rollout_ids, tuple(batch)))
+            return {
+                "candidates": [
+                    {"player_id": candidate_id} for candidate_id in batch
+                ],
+            }
+
+        def merge(screen_evaluations, extension):
+            merged.append((tuple(screen_evaluations), extension))
+            return extension
+
+        worker = Thread(
+            target=monitor.calculate,
+            args=(
+                lambda *_args: ["a", "b", "c", "d", "e"],
+                evaluate,
+                lambda _prepared, _state, evaluations, _count: evaluations[-1],
+                None,
+                None,
+                None,
+                merge,
+            ),
+        )
+        worker.start()
+        deadline = time.time() + 5
+        while (
+            monitor.snapshot()["recommendation_status"] != "ready"
+            and time.time() < deadline
+        ):
+            time.sleep(0.001)
+        monitor.stop()
+        worker.join(5)
+
+        # Refinement evaluates only the unseen rollout IDs, in stages, and
+        # merges them with the screen instead of recomputing 0-99.
+        self.assertEqual(evaluated, [
+            (100, ("a", "b", "c", "d", "e")),
+            (range(100, 300), ("a", "b", "c", "d", "e")),
+            (range(300, 600), ("a", "b", "c", "d", "e")),
+            (range(600, 1_000), ("a", "b", "c", "d", "e")),
+        ])
+        self.assertEqual(len(merged), 3)
+        self.assertEqual(monitor.recommendation_status, "ready")
+
+    def test_racing_refinement_drops_dominated_candidates_and_stops_on_ties(self):
+        prepared = SimpleNamespace(live_draft_id="mock", user_roster_id=1)
+        state = SimpleNamespace(
+            status="drafting",
+            completed_picks=(),
+            current_pick_no=1,
+            current_roster_id=1,
+            pick_owners=(1,),
+        )
+        evaluated = []
+
+        def evaluate(_prepared, _state, rollout_ids, batch, *_args):
+            evaluated.append((rollout_ids, tuple(batch)))
+            return {
+                "candidates": [
+                    {"player_id": candidate_id} for candidate_id in batch
+                ],
+            }
+
+        def run(survivors_result, advantage):
+            monitor = LiveDraftMonitor(prepared, 0, 1_000, 5)
+            monitor.pending_state = state
+            monitor.state_fingerprint = ("drafting", 0, 1, (1,))
+            monitor.calculation_event.set()
+            worker = Thread(
+                target=monitor.calculate,
+                args=(
+                    lambda *_args: ["a", "b", "c", "d", "e"],
+                    evaluate,
+                    lambda _prepared, _state, evaluations, _count: evaluations[-1],
+                    None,
+                    None,
+                    None,
+                    lambda _screen, extension: extension,
+                    None,
+                    lambda _evaluation: (survivors_result, advantage),
+                ),
+            )
+            worker.start()
+            deadline = time.time() + 5
+            while (
+                monitor.snapshot()["recommendation_status"] != "ready"
+                and time.time() < deadline
+            ):
+                time.sleep(0.001)
+            monitor.stop()
+            worker.join(5)
+            return monitor
+
+        # Dominated candidates are dropped before the deeper extensions.
+        monitor = run(("a", "b"), 0.05)
+        self.assertEqual(evaluated, [
+            (100, ("a", "b", "c", "d", "e")),
+            (range(100, 300), ("a", "b", "c", "d", "e")),
+            (range(300, 600), ("a", "b")),
+            (range(600, 1_000), ("a", "b")),
+        ])
+        self.assertEqual(
+            [row["player_id"] for row in monitor.recommendation["screened_candidates"]],
+            ["c", "d", "e"],
+        )
+
+        # A statistically bounded toss-up stops at the intermediate stage.
+        evaluated.clear()
+        monitor = run(("a", "b", "c", "d", "e"), 0.001)
+        self.assertEqual(evaluated, [
+            (100, ("a", "b", "c", "d", "e")),
+            (range(100, 300), ("a", "b", "c", "d", "e")),
+        ])
+        self.assertEqual(monitor.recommendation["screened_candidates"], [])
+        self.assertEqual(monitor.recommendation_status, "ready")
+
+    def test_speculative_screen_is_reused_only_for_the_realized_state(self):
+        prepared = SimpleNamespace(
+            live_draft_id="mock", user_roster_id=2, player_details={}
+        )
+        monitor = LiveDraftMonitor(prepared, 0, 100, 2)
+        waiting = draft_state()
+        evaluated = []
+
+        def evaluate(_prepared, state_arg, rollout_count, batch, *_args):
+            evaluated.append(
+                (state_arg.current_pick_no, rollout_count, tuple(batch))
+            )
+            return SimpleNamespace(
+                state_signature=_state_signature(state_arg), candidates=[]
+            )
+
+        worker = Thread(
+            target=monitor.calculate,
+            args=(
+                lambda *_args: ["a", "b", "c"],
+                evaluate,
+                lambda _prepared, _state, _evaluations, _count: {"candidates": []},
+                None,
+                None,
+                None,
+                None,
+                lambda _prepared, state_arg, _temperature: state_arg.with_pick("p1"),
+            ),
+        )
+        monitor.pending_state = waiting
+        monitor.state_fingerprint = _state_fingerprint(waiting)
+        monitor.calculation_event.set()
+        worker.start()
+        deadline = time.time() + 5
+        while monitor.speculative is None and time.time() < deadline:
+            time.sleep(0.001)
+        # The opponent is on the clock, so the screen ran speculatively
+        # against the predicted next state (pick 2, user on the clock).
+        self.assertEqual(evaluated, [(2, 100, ("a", "b")), (2, 100, ("c",))])
+
+        realized = waiting.with_pick("p1")
+        with monitor.lock:
+            monitor.pending_state = realized
+            monitor.state_fingerprint = _state_fingerprint(realized)
+        monitor.calculation_event.set()
+        deadline = time.time() + 5
+        while (
+            monitor.snapshot()["recommendation_status"] != "ready"
+            and time.time() < deadline
+        ):
+            time.sleep(0.001)
+        monitor.stop()
+        worker.join(5)
+
+        self.assertEqual(monitor.recommendation_status, "ready")
+        # The realized state matched the prediction exactly: nothing recomputed.
+        self.assertEqual(len(evaluated), 2)
+        self.assertIsNone(monitor.speculative)
+
+    def test_speculative_screen_is_discarded_when_the_prediction_missed(self):
+        prepared = SimpleNamespace(
+            live_draft_id="mock", user_roster_id=2, player_details={}
+        )
+        monitor = LiveDraftMonitor(prepared, 0, 100, 2)
+        realized = draft_state().with_pick("p2")
+        evaluated = []
+
+        def evaluate(_prepared, state_arg, rollout_count, batch, *_args):
+            evaluated.append(tuple(batch))
+            return SimpleNamespace(
+                state_signature=_state_signature(state_arg), candidates=[]
+            )
+
+        monitor.speculative = {
+            "signature": _state_signature(draft_state().with_pick("p1")),
+            "candidates": ("a", "b", "c"),
+            "evaluations": [SimpleNamespace(candidates=[])],
+        }
+        monitor.pending_state = realized
+        monitor.state_fingerprint = _state_fingerprint(realized)
+        monitor.calculation_event.set()
+        worker = Thread(
+            target=monitor.calculate,
+            args=(
+                lambda *_args: ["a", "b", "c"],
+                evaluate,
+                lambda _prepared, _state, _evaluations, _count: {"candidates": []},
+            ),
+        )
+        worker.start()
+        deadline = time.time() + 5
+        while (
+            monitor.snapshot()["recommendation_status"] != "ready"
+            and time.time() < deadline
+        ):
+            time.sleep(0.001)
+        monitor.stop()
+        worker.join(5)
+
+        self.assertEqual(monitor.recommendation_status, "ready")
+        # A missed prediction is discarded and the screen recomputed fresh.
+        self.assertEqual(evaluated, [("a", "b"), ("c",)])
+
     def test_refinement_evaluates_the_injected_finalist_selection(self):
         prepared = SimpleNamespace(live_draft_id="mock", user_roster_id=1)
-        monitor = LiveDraftMonitor(prepared, 0, 50, 5)
+        monitor = LiveDraftMonitor(prepared, 0, 1_000, 5)
         state = SimpleNamespace(
             status="drafting",
             completed_picks=(),
@@ -704,8 +943,8 @@ class ApiTest(unittest.TestCase):
         worker.join(5)
 
         self.assertEqual(evaluated, [
-            (12, ("a", "b", "c", "d", "e")),
-            (50, ("e", "a")),
+            (100, ("a", "b", "c", "d", "e")),
+            (1_000, ("e", "a")),
         ])
         self.assertEqual(selected, [
             (prepared, state, ["a", "b", "c", "d", "e"], 5),
@@ -718,7 +957,7 @@ class ApiTest(unittest.TestCase):
 
     def test_refinement_is_abandoned_when_the_draft_advances(self):
         prepared = SimpleNamespace(live_draft_id="mock", user_roster_id=1)
-        monitor = LiveDraftMonitor(prepared, 0, 50, 5)
+        monitor = LiveDraftMonitor(prepared, 0, 1_000, 5)
         state = SimpleNamespace(
             status="drafting",
             completed_picks=(),
@@ -755,7 +994,7 @@ class ApiTest(unittest.TestCase):
         monitor.stop()
         worker.join(5)
 
-        self.assertEqual(passes, [12])
+        self.assertEqual(passes, [100])
         self.assertIsNone(monitor.recommendation)
         self.assertEqual(monitor.recommendation_discarded_pick_no, 1)
         self.assertEqual(monitor.calculation_count, 0)

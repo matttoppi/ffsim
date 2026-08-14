@@ -500,10 +500,11 @@ the requested rankings without multiplying work by roster count.
 
 ### Decision
 
-The live monitor evaluates the nine-player core immediately with 12 coupled
-draft continuations, screens the rest of the 40-player market window with the
-same 12 continuations, and spends the final 300-continuation budget only on
-the top five screening candidates. Each continuation uses three season
+The live monitor evaluates the nine-player core immediately with 100 coupled
+draft continuations, then screens the rest of the 40-player market window with
+the same continuations. At least five candidates advance, plus every candidate
+whose paired championship interval overlaps the screen leader. The adaptive
+finalist set receives 1,000 continuations. Each continuation uses three season
 worlds from a default 300-world bank. World selection walks one seeded
 permutation, distributing uses evenly before repeating.
 
@@ -528,14 +529,13 @@ indistinguishability rather than excessive rest-of-draft influence.
 
 ### Consequences
 
-- The broad screen remains cheap and may be visibly provisional.
-- Five finalists receive six times the old draft-continuation depth at
-  approximately the same total candidate-rollout budget. The final UI retains
-  the rest of the broad board as explicitly labeled 12-continuation screen
-  estimates rather than hiding those options or presenting them as refined.
-- A screening miss is the known ceiling; increase the screening budget or use
-  confidence-bound elimination only if backtests show top-five recall is
-  inadequate.
+- The broad screen remains visibly provisional.
+- The final UI retains eliminated candidates as explicitly labeled
+  100-continuation screen estimates rather than hiding them or presenting them
+  as refined.
+- Finalist count is evidence-driven rather than fixed: confidence-bound
+  promotion can cost more when the board is genuinely indistinguishable, but
+  a noisy rank cutoff cannot silently discard plausible winners.
 - Decision engine version 2 identifies the balanced world mapping and
   confidence-gated recommendation contract.
 
@@ -578,10 +578,10 @@ The fitted sharp softmax is calibrated on bot-heavy mock rooms and assigns
 near-zero probability to the off-board reaches real humans make, so targets
 "always" survived to the next pick, waiting looked free, and market discipline
 stopped constraining the ranking. With true candidate deltas compressed below
-one point by the strong future-self policy (ADR-016), the 12-continuation
-screen (standard error near five points on 36 outcomes) promoted noise into
-the finalist set, and exactly tied branches broke on lexicographic candidate
-IDs. Each fix targets the decision the user actually faces: honest snipe
+one point by the strong future-self policy (ADR-016), the former
+12-continuation screen (standard error near five points on 36 outcomes)
+promoted noise into the finalist set, and exactly tied branches broke on
+lexicographic candidate IDs. Each fix targets the decision the user actually faces: honest snipe
 hazard, impossible opponent rosters removed, the sensible picks always in the
 refined comparison, and ties resolved by which player cannot be recovered.
 
@@ -596,3 +596,68 @@ refined comparison, and ties resolved by which player cannot be recovered.
   target carries visible risk.
 - Among co-leaders the headline is scarcity-driven and deterministic, and a
   `toss_up` status still marks the tier as statistically tied.
+
+## ADR-020 — Racing refinement, exact rollout-range reuse, and speculative pre-clock screening
+
+**Status:** Accepted
+**Date:** 2026-08-13
+
+### Decision
+
+Live refinement no longer gives every promoted finalist a flat 1,000
+continuations. Refinement extends the screen's coupled observations in stages
+(300, then the full budget), reusing the screen's rollout IDs 0–99 exactly
+instead of recomputing them (spec §18.5). At each intermediate stage the
+racing gate keeps the leader plus every candidate whose paired 95% interval
+still overlaps the leader — the same tier definition the recommendation
+already uses — and only survivors receive the next extension. If no
+survivor's paired upper bound exceeds `REFINEMENT_REGRET_STOP` (0.5
+percentage points), refinement stops early and reports the bounded toss-up
+tier. Range merging (`merge_rollout_ranges`, `merge_survival_reports`) is
+exact: evaluating IDs 0–99 and 100–999 separately and merging equals one
+0–999 evaluation, including survival reports, intervals, ranking, and run
+identity, enforced by dataclass-equality tests. `PlayerSurvival` carries an
+integer `threat_total` so reports from disjoint ranges merge without float
+drift. Large ranges are chunked (250 rollouts per worker task) so a handful
+of finalists saturates the pool, and the pool is sized `min(12, cores - 2)`.
+
+While an opponent deliberates directly before the user's turn, the monitor
+speculatively screens the most likely next state: the opponent model's argmax
+pick is applied via `DraftState.with_pick` (validated to reproduce replayed
+states exactly across all 613 cached mock transitions) and the normal
+two-batch screen runs against that hypothetical state. The result is reused
+only when the realized state's exact signature matches the prediction;
+a miss discards it. The opponent-choice callback itself is vectorized
+(masked NumPy softmax mixture) with log-probabilities within 1e-12 of the
+dict implementation and provably identical coupled Gumbel picks.
+
+### Rationale
+
+Profiling on cached picks 24/48/120 showed ~88% of latency in continuation
+sampling and, decisively, that the unbounded co-leader tier feeds the flat
+refinement budget: at pick 48, 36 of 40 screened candidates tied the screen
+leader, making refinement 36,000 continuations (~9 minutes on the old
+4-worker pool). Offline seed-stability simulation on collected 1,000-rollout
+observation matrices (4 seeds × picks 24/48/120) showed the racing procedure
+selects the identical final recommendation as flat refinement in 12/12 runs
+at 0.48–0.91× the rollout work, with zero added regret. Real rooms leave
+30–90 seconds of opponent deliberation before the user's clock; speculation
+converts that idle time into completed screens with no correctness risk
+because reuse is signature-gated.
+
+### Consequences
+
+- Statistically dominated finalists stop at 300 continuations and fall back
+  to their labeled screen rows on the board; the full budget concentrates on
+  candidates that can still win the comparison.
+- A bounded toss-up (every survivor within 0.5pp plausible advantage) may
+  finish at 300 continuations and is reported as a tier, consistent with the
+  toss-up invariant.
+- The regret stop rarely fires at stage 300 with current interval widths; it
+  is a safety valve, not the main saving.
+- Speculation hit rate depends on opponent-model top-1 accuracy and exact
+  metadata reconstruction; misses cost only idle-time compute. Refit hit
+  rates once real human drafts accumulate.
+- Cached/uncached and merged/flat equivalence remains enforced by tests;
+  numerical results of the vectorized callback differ from the dict
+  implementation only below 1e-12 log-probability.

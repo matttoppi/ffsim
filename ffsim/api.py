@@ -17,6 +17,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 
 from ffsim.config import AppConfig, save_league_attachment
+from ffsim.draft_intel.decision import _state_signature as _decision_state_signature
 from ffsim.paths import CACHE_DIR
 from ffsim.runtime import create_simulation
 
@@ -24,8 +25,15 @@ from ffsim.runtime import create_simulation
 LOGGER = logging.getLogger(__name__)
 TERMINAL_STATUSES = {"completed", "failed"}
 PRELIMINARY_ROLLOUT_COUNT = 12
+SCREEN_ROLLOUT_COUNT = 100
 FINALIST_COUNT = 5
 LEAGUE_EQUITY_ROLLOUT_COUNT = 50
+# Racing refinement: extend finalists in stages, eliminating candidates whose
+# paired interval falls below the leader, and stop early when no survivor's
+# plausible advantage over the leader exceeds the regret bound. Validated by
+# offline seed-stability simulation on cached picks 24/48/120 (see ledger).
+REFINEMENT_STAGE_ROLLOUT_COUNTS = (300, 600)
+REFINEMENT_REGRET_STOP = 0.005
 
 
 def _state_fingerprint(state):
@@ -77,7 +85,7 @@ class DraftPrepareRequest(BaseModel):
 
 class DraftMonitorRequest(BaseModel):
     poll_seconds: float = Field(default=1.0, ge=0.5, le=30)
-    rollout_count: int = Field(default=300, ge=2, le=500)
+    rollout_count: int = Field(default=1_000, ge=2, le=2_000)
     candidate_count: int = Field(default=9, ge=2, le=12)
     candidate_breadth: int = Field(default=40, ge=2, le=100)
     temperature: float | None = Field(default=None, gt=0, le=5)
@@ -210,6 +218,7 @@ class LiveDraftMonitor:
     executor: object | None = field(default=None, repr=False)
     pending_state: object | None = field(default=None, repr=False)
     state_fingerprint: tuple | None = field(default=None, repr=False)
+    speculative: dict | None = field(default=None, repr=False)
 
     def snapshot(self):
         with self.lock:
@@ -242,6 +251,9 @@ class LiveDraftMonitor:
         evaluate_equity=None,
         equity_payload=None,
         select_finalists=None,
+        merge_refinement=None,
+        predict_next_state=None,
+        refine_survivors=None,
     ):
         while not self.stopped.is_set():
             self.calculation_event.wait()
@@ -321,14 +333,23 @@ class LiveDraftMonitor:
                         if self.state_fingerprint == fingerprint:
                             self.recommendation_status = "failed"
                             self.recommendation_error = str(error)
-            # Screen the broad board with one coupled 12-rollout sample, then
-            # spend the old 40-candidate budget on the five finalists.
+            # Screen broadly, then refine at least five candidates plus every
+            # statistically tied screen leader.
             first = tuple(candidates[: self.candidate_count])
             remainder = tuple(candidates[len(first):])
             screen_evaluations = []
             recommendation = None
             screen_failed = False
-            screen_count = min(self.rollout_count, PRELIMINARY_ROLLOUT_COUNT)
+            screen_count = min(self.rollout_count, SCREEN_ROLLOUT_COUNT)
+            speculative, self.speculative = self.speculative, None
+            speculated = (
+                tuple(speculative["evaluations"])
+                if on_clock
+                and speculative is not None
+                and speculative["signature"] == _decision_state_signature(state)
+                and speculative["candidates"] == tuple(candidates)
+                else ()
+            )
             for batch_index, batch in enumerate(filter(None, (first, remainder))):
                 with self.lock:
                     if self.state_fingerprint != fingerprint or self.stopped.is_set():
@@ -337,14 +358,21 @@ class LiveDraftMonitor:
                         self.recommendation_discarded_pick_no = pick_no
                         break
                 try:
-                    evaluation = evaluate_candidates(
-                        self.prepared,
-                        state,
-                        screen_count,
-                        batch,
-                        self.temperature,
-                        self.executor,
-                        candidates,
+                    # A speculative screen computed while the previous
+                    # opponent deliberated is reused only when the realized
+                    # state matches the predicted one exactly.
+                    evaluation = (
+                        speculated[batch_index]
+                        if batch_index < len(speculated)
+                        else evaluate_candidates(
+                            self.prepared,
+                            state,
+                            screen_count,
+                            batch,
+                            self.temperature,
+                            self.executor,
+                            candidates,
+                        )
                     )
                     screen_evaluations.append(evaluation)
                     recommendation = recommendation_payload(
@@ -405,19 +433,104 @@ class LiveDraftMonitor:
                                 for row in screened_candidates[:FINALIST_COUNT]
                             )
                         )
-                        evaluation = evaluate_candidates(
-                            self.prepared,
-                            state,
-                            self.rollout_count,
-                            finalists,
-                            self.temperature,
-                            self.executor,
-                            finalists,
-                        )
+                        if merge_refinement is not None:
+                            # The screen already evaluated rollout IDs
+                            # 0..screen_count-1 for every finalist; extend in
+                            # racing stages, dropping candidates whose paired
+                            # interval falls below the leader and stopping
+                            # early when the surviving tier is a statistically
+                            # bounded toss-up (max plausible regret below
+                            # REFINEMENT_REGRET_STOP).
+                            survivors = finalists
+                            refined_ids = finalists
+                            previous_evaluations = screen_evaluations
+                            previous_count = screen_count
+                            evaluation = None
+                            for stage in dict.fromkeys((
+                                *(
+                                    count
+                                    for count in REFINEMENT_STAGE_ROLLOUT_COUNTS
+                                    if screen_count < count < self.rollout_count
+                                ),
+                                self.rollout_count,
+                            )):
+                                with self.lock:
+                                    if (
+                                        self.state_fingerprint != fingerprint
+                                        or self.stopped.is_set()
+                                    ):
+                                        break
+                                extension = evaluate_candidates(
+                                    self.prepared,
+                                    state,
+                                    range(previous_count, stage),
+                                    survivors,
+                                    self.temperature,
+                                    self.executor,
+                                    survivors,
+                                )
+                                evaluation = merge_refinement(
+                                    previous_evaluations, extension
+                                )
+                                refined_ids = survivors
+                                previous_evaluations = [evaluation]
+                                previous_count = stage
+                                if stage < self.rollout_count:
+                                    # Publish each intermediate stage so the
+                                    # user sees the partially refined tier
+                                    # while deeper stages run.
+                                    interim = recommendation_payload(
+                                        self.prepared,
+                                        state,
+                                        [evaluation],
+                                        len(candidates),
+                                    )
+                                    interim_ids = set(refined_ids)
+                                    interim["screened_candidates"] = [
+                                        row for row in screened_candidates
+                                        if row["player_id"] not in interim_ids
+                                    ]
+                                    interim["screened_rollout_count"] = screen_count
+                                    interim["candidates_evaluated"] = len(
+                                        screened_candidates
+                                    )
+                                    with self.lock:
+                                        if (
+                                            self.state_fingerprint != fingerprint
+                                            or self.stopped.is_set()
+                                        ):
+                                            self.recommendation_discarded_pick_no = pick_no
+                                            break
+                                        self.recommendation = interim
+                                if (
+                                    refine_survivors is not None
+                                    and stage < self.rollout_count
+                                ):
+                                    survivors, max_advantage = refine_survivors(
+                                        evaluation
+                                    )
+                                    if max_advantage < REFINEMENT_REGRET_STOP:
+                                        break
+                            if evaluation is None:
+                                with self.lock:
+                                    self.recommendation_discarded_pick_no = pick_no
+                                continue
+                        else:
+                            evaluation = evaluate_candidates(
+                                self.prepared,
+                                state,
+                                self.rollout_count,
+                                finalists,
+                                self.temperature,
+                                self.executor,
+                                finalists,
+                            )
                         recommendation = recommendation_payload(
                             self.prepared, state, [evaluation], len(candidates)
                         )
-                        finalist_ids = set(finalists)
+                        finalist_ids = set(
+                            refined_ids if merge_refinement is not None else finalists
+                        )
                         recommendation["screened_candidates"] = [
                             row for row in screened_candidates
                             if row["player_id"] not in finalist_ids
@@ -456,6 +569,97 @@ class LiveDraftMonitor:
                 if current:
                     update_equity(equity_rollout_count, True)
 
+            # Real rooms leave long opponent deliberations before the user's
+            # clock starts; spend that idle time screening the most likely
+            # next state instead of waiting.
+            if (
+                not on_clock
+                and predict_next_state is not None
+                and state.status == "drafting"
+                and state.current_pick_no is not None
+            ):
+                turn = state.turn_for(self.prepared.user_roster_id)
+                if turn.user_next_pick_no == state.current_pick_no + 1:
+                    self._speculate(
+                        state,
+                        fingerprint,
+                        candidate_pool,
+                        evaluate_candidates,
+                        predict_next_state,
+                    )
+
+    def _speculate(
+        self,
+        state,
+        fingerprint,
+        candidate_pool,
+        evaluate_candidates,
+        predict_next_state,
+    ):
+        try:
+            hypothetical = predict_next_state(self.prepared, state, self.temperature)
+        except Exception:
+            LOGGER.exception(
+                "Speculative pick prediction failed for %s",
+                self.prepared.live_draft_id,
+            )
+            return
+        if (
+            hypothetical is None
+            or hypothetical.current_roster_id != self.prepared.user_roster_id
+        ):
+            return
+        try:
+            candidates = tuple(candidate_pool(
+                self.prepared,
+                hypothetical,
+                max(self.candidate_breadth, self.candidate_count),
+            ))
+        except Exception:
+            LOGGER.exception(
+                "Speculative candidate selection failed for %s",
+                self.prepared.live_draft_id,
+            )
+            return
+        first = tuple(candidates[: self.candidate_count])
+        remainder = tuple(candidates[len(first):])
+        screen_count = min(self.rollout_count, SCREEN_ROLLOUT_COUNT)
+        evaluations = []
+        signature = None
+        for batch in filter(None, (first, remainder)):
+            with self.lock:
+                if (
+                    self.state_fingerprint != fingerprint
+                    or self.stopped.is_set()
+                    or self.pending_state is not None
+                ):
+                    break
+            try:
+                evaluation = evaluate_candidates(
+                    self.prepared,
+                    hypothetical,
+                    screen_count,
+                    batch,
+                    self.temperature,
+                    self.executor,
+                    candidates,
+                )
+            except Exception:
+                LOGGER.exception(
+                    "Speculative screen failed for %s",
+                    self.prepared.live_draft_id,
+                )
+                return
+            evaluations.append(evaluation)
+            signature = evaluation.state_signature
+        if evaluations:
+            # Partial screens still save the completed batches on a hit.
+            self.speculative = {
+                "signature": signature,
+                "candidates": candidates,
+                "evaluations": evaluations,
+            }
+
     def run(self):
         from ffsim.draft_intel.live import (
             create_live_executor,
@@ -465,6 +669,9 @@ class LiveDraftMonitor:
             live_league_equity_payload,
             live_recommendation_payload,
             live_state_summary,
+            merge_screen_refinement,
+            predicted_next_state,
+            refinement_survivors,
             select_finalists,
             sync_prepared_draft,
         )
@@ -485,6 +692,9 @@ class LiveDraftMonitor:
                 evaluate_live_league_equity if equity_available else None,
                 live_league_equity_payload if equity_available else None,
                 select_finalists if equity_available else None,
+                merge_screen_refinement,
+                predicted_next_state if equity_available else None,
+                refinement_survivors,
             ),
             daemon=True,
         ).start()

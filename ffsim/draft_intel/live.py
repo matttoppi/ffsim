@@ -1,9 +1,10 @@
 """One-click draft preparation and live recommendation calculations."""
 
 from concurrent.futures import ProcessPoolExecutor
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 import json
 from math import exp
+import os
 from pathlib import Path
 from urllib.parse import quote, urlparse
 
@@ -12,6 +13,7 @@ from ffsim.draft_intel.decision import (
     evaluate_candidates,
     evaluate_league_equity,
     merge_evaluations,
+    merge_rollout_ranges,
     rank_candidates,
     recommendation_summary,
 )
@@ -363,7 +365,9 @@ LIVE_REACH_RATE = 0.15
 # Season worlds per continuation: outcome resolution is cheap relative to
 # continuation sampling, so take three coupled worlds per draft path.
 LIVE_SEASON_WORLDS_PER_ROLLOUT = 3
-LIVE_EVALUATION_WORKERS = 4
+# Benchmarked on the M5 Max (12 P-cores): 4 workers left half the achievable
+# throughput unused, 12 was 2.3x faster end-to-end, and 16 gained nothing.
+LIVE_EVALUATION_WORKERS = min(12, max(1, (os.cpu_count() or 4) - 2))
 
 _WORKER = {}
 
@@ -510,7 +514,7 @@ def _evaluate_candidate_batch(
     state,
     candidate_ids,
     survival_ids,
-    rollout_count,
+    rollout_ids,
     temperature,
 ):
     choose = _live_opponent_choice(snapshot, evaluator, temperature)
@@ -518,7 +522,7 @@ def _evaluate_candidate_batch(
         state,
         candidate_ids,
         user_roster_id,
-        range(rollout_count),
+        _rollout_ids(rollout_ids),
         choose,
         _projection_user_policy(evaluator),
         evaluator,
@@ -538,7 +542,23 @@ def _init_candidate_worker(snapshot, evaluator, user_roster_id):
     _WORKER["user_roster_id"] = user_roster_id
 
 
-def _evaluate_candidate_task(state, candidate_id, survival_ids, rollout_count, temperature):
+def _rollout_ids(rollout_ids):
+    return range(rollout_ids) if isinstance(rollout_ids, int) else rollout_ids
+
+
+def _rollout_chunks(rollout_ids, size):
+    """Split contiguous rollout IDs so every worker stays busy.
+
+    Each chunk keeps the minimum two rollouts required for paired estimates.
+    """
+    chunks = [rollout_ids[start:start + size] for start in range(0, len(rollout_ids), size)]
+    if len(chunks) > 1 and len(chunks[-1]) < 2:
+        merged = len(chunks.pop()) + len(chunks[-1])
+        chunks[-1] = rollout_ids[len(rollout_ids) - merged:]
+    return chunks
+
+
+def _evaluate_candidate_task(state, candidate_id, survival_ids, rollout_ids, temperature):
     return _evaluate_candidate_batch(
         _WORKER["snapshot"],
         _WORKER["evaluator"],
@@ -546,7 +566,7 @@ def _evaluate_candidate_task(state, candidate_id, survival_ids, rollout_count, t
         state,
         (candidate_id,),
         survival_ids,
-        rollout_count,
+        rollout_ids,
         temperature,
     )
 
@@ -562,6 +582,11 @@ def create_live_executor(prepared, workers=LIVE_EVALUATION_WORKERS):
             prepared.user_roster_id,
         ),
     )
+
+
+# Rollout-range chunk submitted per worker task: large refinement ranges are
+# split so a handful of finalists still saturates every worker process.
+LIVE_ROLLOUT_CHUNK = 250
 
 
 def evaluate_live_candidates(
@@ -580,6 +605,7 @@ def evaluate_live_candidates(
     temperature = LIVE_TEMPERATURE if temperature is None else float(temperature)
     candidate_ids = tuple(candidate_ids)
     survival_ids = tuple(candidate_ids if survival_ids is None else survival_ids)
+    rollout_ids = _rollout_ids(rollout_count)
     if executor is None:
         return _evaluate_candidate_batch(
             _bank_market_snapshot(prepared),
@@ -588,32 +614,134 @@ def evaluate_live_candidates(
             state,
             candidate_ids,
             survival_ids,
-            rollout_count,
+            rollout_ids,
             temperature,
         )
-    # Candidate evaluations are independent under coupled randomness, so a
-    # per-candidate fan-out merged afterwards is exactly one batch evaluation.
+    # Candidate evaluations are independent under coupled randomness, and so
+    # are disjoint rollout ranges, so a chunked fan-out merged afterwards is
+    # exactly one batch evaluation.
+    chunks = _rollout_chunks(rollout_ids, LIVE_ROLLOUT_CHUNK)
     futures = [
-        executor.submit(
-            _evaluate_candidate_task,
-            state,
-            candidate_id,
-            survival_ids,
-            rollout_count,
-            temperature,
-        )
+        [
+            executor.submit(
+                _evaluate_candidate_task,
+                state,
+                candidate_id,
+                survival_ids,
+                chunk,
+                temperature,
+            )
+            for chunk in chunks
+        ]
         for candidate_id in candidate_ids
     ]
-    return merge_evaluations([future.result() for future in futures])
+    return merge_evaluations([
+        merge_rollout_ranges([future.result() for future in candidate_futures])
+        for candidate_futures in futures
+    ])
+
+
+def merge_screen_refinement(screen_evaluations, extension):
+    """Extend finalists' screen observations with the refinement range.
+
+    The screen already evaluated rollout IDs 0..screen-1 for every finalist,
+    so refinement evaluates only the remaining IDs and merges (spec 18.5).
+    The merge is exactly equal to one full-range evaluation.
+    """
+    finalist_ids = tuple(
+        candidate.candidate_id for candidate in extension.candidates
+    )
+    finalist_set = set(finalist_ids)
+    screened = merge_evaluations(screen_evaluations)
+    by_id = {
+        candidate.candidate_id: candidate for candidate in screened.candidates
+    }
+    if not finalist_set <= by_id.keys():
+        raise ValueError("Screen evaluations do not cover every finalist")
+    candidates = tuple(
+        replace(
+            by_id[finalist_id],
+            survival=(
+                replace(
+                    by_id[finalist_id].survival,
+                    players=tuple(
+                        player for player in by_id[finalist_id].survival.players
+                        if player.player_id in finalist_set
+                    ),
+                )
+                if by_id[finalist_id].survival is not None
+                else None
+            ),
+        )
+        for finalist_id in finalist_ids
+    )
+    return merge_rollout_ranges([
+        replace(screened, candidates=candidates),
+        extension,
+    ])
+
+
+def refinement_survivors(evaluation):
+    """Racing gate: the leader plus every statistically tied candidate.
+
+    Returns the surviving candidate IDs and the largest paired upper-bound
+    advantage any survivor still holds over the leader. A small bound means
+    no further sampling can change the decision materially.
+    """
+    ranked = rank_candidates(evaluation)
+    leader = ranked[0]
+    survivors = [leader.candidate_id]
+    max_advantage = 0.0
+    for candidate in ranked[1:]:
+        delta = evaluation.paired_delta(candidate.candidate_id, leader.candidate_id)
+        if delta.interval[1] >= 0:
+            survivors.append(candidate.candidate_id)
+            max_advantage = max(max_advantage, delta.interval[1])
+    return tuple(survivors), max_advantage
+
+
+def predicted_next_state(prepared, state, temperature=None):
+    """Most likely next draft state under the calibrated opponent model.
+
+    Used for speculative computation while an opponent deliberates. Reuse is
+    gated on the realized state's exact signature, so a wrong guess costs
+    only otherwise-idle compute.
+    """
+    if prepared.market_snapshot is None or prepared.evaluator is None:
+        return None
+    roster_id = state.current_roster_id
+    if roster_id is None or roster_id == prepared.user_roster_id:
+        return None
+    temperature = LIVE_TEMPERATURE if temperature is None else float(temperature)
+    snapshot = _bank_market_snapshot(prepared)
+    choose = _live_opponent_choice(snapshot, prepared.evaluator, temperature)
+    utilities = choose(
+        roster_id,
+        state.current_pick_no,
+        state.rosters,
+        state.available_player_ids,
+    )
+    player_id = max(sorted(utilities), key=lambda candidate: utilities[candidate])
+    picked_by = next(
+        (
+            manager_id
+            for manager_id, manager_roster_id in state.manager_roster_ids
+            if manager_roster_id == roster_id
+        ),
+        None,
+    )
+    return state.with_pick(
+        player_id,
+        picked_by=picked_by,
+        position=prepared.player_details.get(player_id, {}).get("position"),
+    )
 
 
 def select_finalists(prepared, state, screened_rows, count):
-    """Screen leaders plus guaranteed market-chalk and top-model-value picks.
+    """Screen co-leaders plus guaranteed chalk/value and minimum breadth.
 
-    A 12-continuation screen separates statistically tied candidates by
-    noise, so the refined comparison always includes the best remaining
-    market pick and the best remaining value-over-replacement pick. A
-    screening miss can then only cost depth, never the sensible picks.
+    A noisy screen must not discard a candidate whose paired interval still
+    overlaps the leader. Market chalk and top value also always advance.
     """
     del state
     rows = [str(row["player_id"]) for row in screened_rows]
@@ -631,7 +759,14 @@ def select_finalists(prepared, state, screened_rows, count):
             key=lambda player_id: projection[player_id]
             - replacement.get(position_of[player_id], 0.0),
         ))
-    keep = dict.fromkeys(forced)
+    keep = dict.fromkeys((
+        *forced,
+        *(
+            str(row["player_id"])
+            for row in screened_rows
+            if row.get("is_top_tier")
+        ),
+    ))
     for player_id in rows:
         if len(keep) >= count:
             break
@@ -802,6 +937,7 @@ def position_timing_outlook(prepared, state, positions=("QB", "TE")):
 def live_recommendation_payload(prepared, state, evaluations, candidate_pool_count):
     evaluation = merge_evaluations(evaluations)
     recommendation = asdict(recommendation_summary(evaluation))
+    top_tier = set(recommendation["co_leader_candidate_ids"])
     ranked = rank_candidates(evaluation)
     adp = {
         player_id: exp(-utility)
@@ -835,6 +971,7 @@ def live_recommendation_payload(prepared, state, evaluations, candidate_pool_cou
                 "position"
             ),
             "championship_probability": candidate.championship_probability,
+            "is_top_tier": candidate.candidate_id in top_tier,
             "playoff_probability": candidate.playoff_probability,
             "expected_wins": candidate.expected_wins,
             "adp": adp.get(candidate.candidate_id),
