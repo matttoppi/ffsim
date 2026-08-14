@@ -661,3 +661,60 @@ because reuse is signature-gated.
 - Cached/uncached and merged/flat equivalence remains enforced by tests;
   numerical results of the vectorized callback differ from the dict
   implementation only below 1e-12 log-probability.
+
+## ADR-021 — Variance-driven reallocation: 300 continuations × 14 season worlds
+
+**Status:** Accepted
+**Date:** 2026-08-13
+
+### Decision
+
+Candidate evaluation replaces the 1,000-continuation × 3-season-world budget
+(ADR-018) with 300 coupled continuations × 14 coupled season worlds per
+continuation, uniformly across the screen and refinement so exact rollout-range
+reuse (ADR-020) is preserved. The racing ladder becomes (150, 225, 300).
+League-wide equity keeps 3 worlds per continuation
+(`LIVE_EQUITY_WORLDS_PER_ROLLOUT`): it reports marginal odds, not paired
+candidate decisions, and runs single-process on every pick. Worlds per rollout
+are clamped to the bank size so small `world_count` preparations stay valid.
+
+### Rationale
+
+Measured paired-delta variance between top candidates at cached picks
+24/48/120 is 97–100% season noise (within-continuation σ²ₛ 0.06–0.28 versus
+draft-side σ²_d ≤ 0.002), while a draft continuation costs ~7–22 ms and a
+season world ~2.3 ms. The nested-MC optimum therefore buys season worlds, not
+continuations. 300 × 14 beats the validated 1,000 × 3 paired standard error on
+every measured pair (e.g. pick 48 leaders: 0.65–0.71pp versus 0.74–0.82pp) at
+0.56–0.60× the per-candidate compute, and doubles screen precision, shrinking
+the mid-draft co-leader tiers that fed refinement.
+
+Seed-stability protocol (4 seeds × 3 picks, m=14 observation matrices versus
+the validated 1,000 × 3 matrices): pick 24 agrees 4/4 with zero reference
+regret and is cross-seed stable from n=150 (the old allocation needed n=750);
+pick 48 keeps the same modal leader and the same 3/4 cross-seed stability,
+with every per-seed flip inside the mutually reported 95% co-leader tiers and
+reference regret ≤ 0.97pp against the old procedure's own 0.70pp outlier
+seed; pick 120 is a flat ~30-candidate tier (reference spread < 1pp) where
+the old procedure itself picks a different leader on 3 of 4 seeds and every
+flip costs ≤ 0.36pp — below the 0.5pp regret stop. The (150, 225, 300) ladder
+matched its own flat refinement 12/12 at 0.54–0.72× the extension work.
+Survival at n=300 deviates from n=1,000 by at most 3.7pp (binomial noise; the
+cached states themselves are adjacent snake double-turns where survival is
+exactly 1, so the bound was measured from a mid-snake roster).
+
+### Consequences
+
+- `rollout_count` defaults to 300; joint outcomes per candidate rise from
+  3,000 to 4,200 while refinement compute roughly halves.
+- The screen costs ~2× more per candidate (the 14 worlds attach to all 100
+  screen continuations) but returns twice the precision; the full-board and
+  first-board latencies trade against a much smaller refinement tier. The
+  season evaluator is now the dominant cost and is the next vectorization
+  target.
+- Argmax stability inside statistically tied tiers remains luck at any sane
+  budget; the product's honest outputs stay the toss-up tier and the scarcity
+  headline, and flips across procedures were shown to stay inside those tiers.
+- The m=14 observation matrices (`/tmp/ffsim_race_obs2_pick*_m14.npz`,
+  patterns in the ledger) are the new reference for future criterion-2
+  sampler changes.

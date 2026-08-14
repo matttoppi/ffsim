@@ -32,7 +32,10 @@ LEAGUE_EQUITY_ROLLOUT_COUNT = 50
 # paired interval falls below the leader, and stop early when no survivor's
 # plausible advantage over the leader exceeds the regret bound. Validated by
 # offline seed-stability simulation on cached picks 24/48/120 (see ledger).
-REFINEMENT_STAGE_ROLLOUT_COUNTS = (300, 600)
+# Stages recalibrated for the 300-continuation x 14-world allocation: the
+# (150, 225, 300) ladder matched its flat refinement 12/12 at 0.54-0.72x the
+# extension work on the m=14 observation matrices.
+REFINEMENT_STAGE_ROLLOUT_COUNTS = (150, 225)
 REFINEMENT_REGRET_STOP = 0.005
 
 
@@ -85,7 +88,7 @@ class DraftPrepareRequest(BaseModel):
 
 class DraftMonitorRequest(BaseModel):
     poll_seconds: float = Field(default=1.0, ge=0.5, le=30)
-    rollout_count: int = Field(default=1_000, ge=2, le=2_000)
+    rollout_count: int = Field(default=300, ge=2, le=2_000)
     candidate_count: int = Field(default=9, ge=2, le=12)
     candidate_breadth: int = Field(default=40, ge=2, le=100)
     temperature: float | None = Field(default=None, gt=0, le=5)

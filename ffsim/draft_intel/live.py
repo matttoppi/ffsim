@@ -362,9 +362,19 @@ LIVE_TEMPERATURE = 0.11
 # ponytail: 0.15 is a prior, not a fit; refit with the temperature once real
 # human draft picks accumulate in the history store.
 LIVE_REACH_RATE = 0.15
-# Season worlds per continuation: outcome resolution is cheap relative to
-# continuation sampling, so take three coupled worlds per draft path.
-LIVE_SEASON_WORLDS_PER_ROLLOUT = 3
+# Season worlds per candidate continuation. Paired-delta variance measured on
+# cached picks 24/48/120 is 97-100% season noise (sigma_d^2 <= 0.002 vs
+# sigma_s^2 0.06-0.28) while a continuation costs ~7-22 ms and a season world
+# ~2.3 ms, so the nested-MC optimum spends the budget on worlds: 300
+# continuations x 14 worlds beats the validated 1,000 x 3 paired precision on
+# every measured candidate pair at 0.56-0.60x the compute and matches its
+# cross-seed leader stability (2026-08-13 ledger entry;
+# /tmp/ffsim_var_decomp2.py pattern).
+LIVE_SEASON_WORLDS_PER_ROLLOUT = 14
+# League-wide equity keeps the cheap allocation: it displays every roster's
+# marginal odds rather than gating paired candidate decisions, and it runs
+# single-process on every pick, so precision beyond 3 worlds is wasted there.
+LIVE_EQUITY_WORLDS_PER_ROLLOUT = 3
 # Benchmarked on the M5 Max (12 P-cores): 4 workers left half the achievable
 # throughput unused, 12 was 2.3x faster end-to-end, and 16 gained nothing.
 LIVE_EVALUATION_WORKERS = min(12, max(1, (os.cpu_count() or 4) - 2))
@@ -532,7 +542,9 @@ def _evaluate_candidate_batch(
         # fitted temperature and reach mixture folded in, so rollouts run
         # at temperature 1.0.
         temperature=1.0,
-        season_worlds_per_rollout=LIVE_SEASON_WORLDS_PER_ROLLOUT,
+        season_worlds_per_rollout=min(
+            LIVE_SEASON_WORLDS_PER_ROLLOUT, evaluator.bank.world_count
+        ),
     )
 
 
@@ -788,7 +800,9 @@ def evaluate_live_league_equity(prepared, state, rollout_count, temperature=None
         prepared.evaluator,
         draft_model_version=_live_model_version(snapshot, temperature),
         temperature=1.0,
-        season_worlds_per_rollout=LIVE_SEASON_WORLDS_PER_ROLLOUT,
+        season_worlds_per_rollout=min(
+            LIVE_EQUITY_WORLDS_PER_ROLLOUT, prepared.evaluator.bank.world_count
+        ),
     )
 
 

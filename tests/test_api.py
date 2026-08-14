@@ -109,7 +109,7 @@ class ApiTest(unittest.TestCase):
         )
         self.assertEqual(prepare.model_dump()["mock_draft_id"], "mock")
         self.assertEqual(prepare.world_count, 300)
-        self.assertEqual(DraftMonitorRequest().rollout_count, 1_000)
+        self.assertEqual(DraftMonitorRequest().rollout_count, 300)
         with self.assertRaises(ValidationError):
             DraftMonitorRequest(rollout_count=1)
 
@@ -654,7 +654,7 @@ class ApiTest(unittest.TestCase):
 
     def test_refinement_extends_screen_rollouts_when_merge_is_available(self):
         prepared = SimpleNamespace(live_draft_id="mock", user_roster_id=1)
-        monitor = LiveDraftMonitor(prepared, 0, 1_000, 5)
+        monitor = LiveDraftMonitor(prepared, 0, 300, 5)
         state = SimpleNamespace(
             status="drafting",
             completed_picks=(),
@@ -706,9 +706,9 @@ class ApiTest(unittest.TestCase):
         # merges them with the screen instead of recomputing 0-99.
         self.assertEqual(evaluated, [
             (100, ("a", "b", "c", "d", "e")),
-            (range(100, 300), ("a", "b", "c", "d", "e")),
-            (range(300, 600), ("a", "b", "c", "d", "e")),
-            (range(600, 1_000), ("a", "b", "c", "d", "e")),
+            (range(100, 150), ("a", "b", "c", "d", "e")),
+            (range(150, 225), ("a", "b", "c", "d", "e")),
+            (range(225, 300), ("a", "b", "c", "d", "e")),
         ])
         self.assertEqual(len(merged), 3)
         self.assertEqual(monitor.recommendation_status, "ready")
@@ -733,7 +733,7 @@ class ApiTest(unittest.TestCase):
             }
 
         def run(survivors_result, advantage):
-            monitor = LiveDraftMonitor(prepared, 0, 1_000, 5)
+            monitor = LiveDraftMonitor(prepared, 0, 300, 5)
             monitor.pending_state = state
             monitor.state_fingerprint = ("drafting", 0, 1, (1,))
             monitor.calculation_event.set()
@@ -766,9 +766,9 @@ class ApiTest(unittest.TestCase):
         monitor = run(("a", "b"), 0.05)
         self.assertEqual(evaluated, [
             (100, ("a", "b", "c", "d", "e")),
-            (range(100, 300), ("a", "b", "c", "d", "e")),
-            (range(300, 600), ("a", "b")),
-            (range(600, 1_000), ("a", "b")),
+            (range(100, 150), ("a", "b", "c", "d", "e")),
+            (range(150, 225), ("a", "b")),
+            (range(225, 300), ("a", "b")),
         ])
         self.assertEqual(
             [row["player_id"] for row in monitor.recommendation["screened_candidates"]],
@@ -780,7 +780,7 @@ class ApiTest(unittest.TestCase):
         monitor = run(("a", "b", "c", "d", "e"), 0.001)
         self.assertEqual(evaluated, [
             (100, ("a", "b", "c", "d", "e")),
-            (range(100, 300), ("a", "b", "c", "d", "e")),
+            (range(100, 150), ("a", "b", "c", "d", "e")),
         ])
         self.assertEqual(monitor.recommendation["screened_candidates"], [])
         self.assertEqual(monitor.recommendation_status, "ready")
