@@ -718,3 +718,55 @@ exactly 1, so the bound was measured from a mid-snake roster).
 - The m=14 observation matrices (`/tmp/ffsim_race_obs2_pick*_m14.npz`,
   patterns in the ledger) are the new reference for future criterion-2
   sampler changes.
+
+## ADR-022 — Counter-based splitmix64 Gumbel sampling with an array callback contract
+
+**Status:** Accepted
+**Date:** 2026-08-13
+
+### Decision
+
+Coupled Gumbel shocks come from a splitmix64 finalizer over a mixed 64-bit
+pick header (seed, rollout, pick, roster) XOR a per-player 64-bit key
+(SHA-256 of the player ID, precomputed once per board), replacing one SHA-256
+per eligible player per simulated pick. `stable_gumbel`, the dict-path
+`_gumbel_choice`, and the vectorized numpy path apply bit-identical 64-bit
+operations, so scalar and vectorized sampling agree exactly (enforced by
+test). Trusted callbacks may additionally declare
+`returns_log_probability_arrays` and return aligned
+`(ids, log_probabilities, gumbel_keys)` numpy arrays; `sleeper_adp_choice`
+does, exposes `board_player_ids`, and accepts a caller-maintained board
+availability mask so the pick loop updates availability incrementally instead
+of rebuilding a ~300-way membership mask per pick. Exact ties still resolve
+to the lowest player ID in both paths. Survival rates are computed as
+`(count - eliminated) / count` so they are exact multiples of 1/count.
+
+### Rationale
+
+Profiling showed one SHA-256 per eligible player per simulated pick (~780M
+hashes per recommendation) plus per-pick dict construction dominating the
+draft side. The mixer preserves the coupling invariant — shocks remain a pure
+function of (seed, rollout, pick, roster, player) — while cutting the
+continuation cost 3-4x overall (pick 24: 21.7 → 5.9 ms; the opponent-pick
+sampling itself is >10x faster; the residual is the still-dict-based user
+policy). This changes the sampled continuations (a different uniform source),
+not the model: the choice distributions are unchanged within 1e-12.
+
+Seed-stability protocol (fresh 300×14 matrices under the new sampler vs the
+ADR-021 reference): pick 24 agrees 4/4 with zero reference regret; pick 48
+agrees 3/4 with zero reference regret and improved cross-seed stability
+(modal leader 12512 on 4/4 seeds vs 3/4); pick 120 remains a flat
+~30-candidate tier where any sampler's argmax roulettes, with reference
+regret bounded at 0.211pp — below the 0.5pp regret stop. The (150, 225, 300)
+racing ladder matches its own flat refinement 12/12 on the new matrices.
+
+### Consequences
+
+- Continuation sampling no longer keys couplings to SHA-256 uniforms; the
+  m=14 splitmix64 matrices (`/tmp/ffsim_race_obs3_pick*_m14.npz` patterns)
+  are the new reference for future sampler changes.
+- Untrusted dict callbacks and tests keep working through the scalar path,
+  which uses the same mixer, so trusted-vs-generic equivalence remains exact.
+- The remaining draft-side cost is roughly half availability/caps/softmax in
+  the callback and half the user policy's per-pick dict construction; the
+  user policy is the next draft-side lever if ever needed.

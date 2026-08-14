@@ -185,7 +185,11 @@ class LiveDraftTest(unittest.TestCase):
             prepared.market_snapshot, prepared.evaluator, 0.11
         )
         self.assertTrue(choose.returns_final_log_probabilities)
-        generic = lambda *args: choose(*args)
+
+        def generic(*args):
+            ids, log_probabilities, _ = choose(*args)
+            return dict(zip(ids.tolist(), log_probabilities.tolist()))
+
         policy = _projection_user_policy(prepared.evaluator)
         kwargs = dict(seed=7, temperature=1.0)
         trusted_runs = complete_drafts(

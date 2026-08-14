@@ -727,13 +727,14 @@ def predicted_next_state(prepared, state, temperature=None):
     temperature = LIVE_TEMPERATURE if temperature is None else float(temperature)
     snapshot = _bank_market_snapshot(prepared)
     choose = _live_opponent_choice(snapshot, prepared.evaluator, temperature)
-    utilities = choose(
+    ids, log_probabilities, _ = choose(
         roster_id,
         state.current_pick_no,
         state.rosters,
         state.available_player_ids,
     )
-    player_id = max(sorted(utilities), key=lambda candidate: utilities[candidate])
+    # IDs are ascending-sorted, so the first argmax is the lowest-ID co-leader.
+    player_id = ids[int(log_probabilities.argmax())]
     picked_by = next(
         (
             manager_id

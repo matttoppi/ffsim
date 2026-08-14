@@ -6,6 +6,8 @@ from hashlib import sha256
 import math
 from operator import index
 
+import numpy as np
+
 
 @dataclass(frozen=True)
 class RolloutPick:
@@ -154,7 +156,7 @@ def summarize_survival(completions, player_ids=(), tiers=None):
         threat_total = sum(threats[player_id].values())
         players.append(PlayerSurvival(
             player_id=player_id,
-            survives_to_next_pick=1 - eliminated[player_id] / count,
+            survives_to_next_pick=(count - eliminated[player_id]) / count,
             pick_hazard=tuple(
                 (pick_no, occurrences / count)
                 for pick_no, occurrences in sorted(hazards[player_id].items())
@@ -185,7 +187,7 @@ def summarize_survival(completions, player_ids=(), tiers=None):
         exhausted = remaining_counts[0] / count
         tier_results.append(TierSurvival(
             tier_id=str(tier_id),
-            survives_to_next_pick=1 - exhausted,
+            survives_to_next_pick=(count - remaining_counts[0]) / count,
             expected_remaining=sum(remaining * probability for remaining, probability in probabilities),
             exhaustion_probability=exhausted,
             remaining_count_probabilities=probabilities,
@@ -225,7 +227,7 @@ def merge_survival_reports(reports):
         threat_total = sum(part.threat_total for part in player_parts)
         players.append(PlayerSurvival(
             player_id=player_id,
-            survives_to_next_pick=1 - eliminated / total,
+            survives_to_next_pick=(total - eliminated) / total,
             pick_hazard=tuple(
                 (pick_no, occurrences / total)
                 for pick_no, occurrences in sorted(hazards.items())
@@ -252,7 +254,7 @@ def merge_survival_reports(reports):
         exhausted = remaining_counts[0] / total
         tiers.append(TierSurvival(
             tier_id=tier_id,
-            survives_to_next_pick=1 - exhausted,
+            survives_to_next_pick=(total - remaining_counts[0]) / total,
             expected_remaining=sum(
                 remaining * probability for remaining, probability in probabilities
             ),
@@ -262,13 +264,61 @@ def merge_survival_reports(reports):
     return SurvivalReport(total, tuple(players), tuple(tiers))
 
 
+# Counter-based Gumbel sampling: one splitmix64 finalizer over a mixed pick
+# header and a per-player 64-bit key replaces one SHA-256 per eligible player
+# per simulated pick (~780M hashes per recommendation). Couplings remain per
+# (seed, rollout, pick, roster, player): the header mixes the first four, the
+# player key is derived from the player ID alone, and the scalar and numpy
+# paths apply identical 64-bit operations.
+_MASK64 = (1 << 64) - 1
+_GOLDEN64 = 0x9E3779B97F4A7C15
+
+
+def _mix64(value):
+    value &= _MASK64
+    value ^= value >> 30
+    value = (value * 0xBF58476D1CE4E5B9) & _MASK64
+    value ^= value >> 27
+    value = (value * 0x94D049BB133111EB) & _MASK64
+    return value ^ (value >> 31)
+
+
+def _pick_header(seed, rollout_id, pick_no, roster_id):
+    header = _mix64(seed + _GOLDEN64)
+    for part in (rollout_id, pick_no, roster_id):
+        header = _mix64(header ^ ((part + _GOLDEN64) & _MASK64))
+    return header
+
+
+def player_gumbel_key(player_id):
+    """Stable 64-bit key for one player, safe to precompute per board."""
+    return int.from_bytes(sha256(str(player_id).encode()).digest()[:8], "big")
+
+
+def _gumbel_from_mixed(mixed):
+    uniform = ((mixed >> 11) + 1) / (2**53 + 2)
+    return -math.log(-math.log(uniform))
+
+
+def gumbel_score_array(header, keys):
+    """Vectorized Gumbel(0, 1) shocks, bit-identical to ``stable_gumbel``."""
+    mixed = keys ^ np.uint64(header)
+    mixed = mixed ^ (mixed >> np.uint64(30))
+    mixed = mixed * np.uint64(0xBF58476D1CE4E5B9)
+    mixed = mixed ^ (mixed >> np.uint64(27))
+    mixed = mixed * np.uint64(0x94D049BB133111EB)
+    mixed = mixed ^ (mixed >> np.uint64(31))
+    uniforms = ((mixed >> np.uint64(11)).astype(np.float64) + 1.0) / (2**53 + 2)
+    return -np.log(-np.log(uniforms))
+
+
 def stable_gumbel(seed, rollout_id, pick_no, roster_id, player_id):
     """Return one deterministic Gumbel(0, 1) shock from stable identifiers."""
     seed = normalize_seed(seed)
-    payload = "\0".join(map(str, (seed, rollout_id, pick_no, roster_id, player_id)))
-    integer = int.from_bytes(sha256(payload.encode()).digest()[:8], "big") >> 11
-    uniform = (integer + 1) / (2**53 + 2)
-    return -math.log(-math.log(uniform))
+    return _gumbel_from_mixed(_mix64(
+        _pick_header(seed, rollout_id, pick_no, roster_id)
+        ^ player_gumbel_key(player_id)
+    ))
 
 
 def _complete_draft(
@@ -308,6 +358,23 @@ def _complete_draft(
     trusted = temperature == 1.0 and getattr(
         opponent_choice, "returns_final_log_probabilities", False
     )
+    # A callback that additionally declares the array contract returns
+    # (ids, log-probabilities, gumbel keys) as aligned numpy arrays, letting
+    # the coupled Gumbel argmax run vectorized instead of per player.
+    vectorized = trusted and getattr(
+        opponent_choice, "returns_log_probability_arrays", False
+    )
+    board_mask = board_index = None
+    if vectorized and getattr(opponent_choice, "board_player_ids", None) is not None:
+        # Maintain the board availability mask incrementally instead of
+        # rebuilding it from the availability set on every simulated pick.
+        board_ids = opponent_choice.board_player_ids
+        board_index = {player_id: i for i, player_id in enumerate(board_ids)}
+        board_mask = np.fromiter(
+            (player_id in available for player_id in board_ids),
+            bool,
+            len(board_ids),
+        )
 
     for pick_no in range(first_pick_no, len(state.pick_owners) + 1):
         roster_id = state.pick_owners[pick_no - 1]
@@ -326,29 +393,41 @@ def _complete_draft(
             )
             probability = 1.0
         else:
-            if trusted:
-                log_probabilities = opponent_choice(
-                    roster_id, pick_no, rosters, available
+            if vectorized:
+                ids, log_probability_array, keys = opponent_choice(
+                    roster_id, pick_no, rosters, available, mask=board_mask
                 )
+                scores = log_probability_array + gumbel_score_array(
+                    _pick_header(seed, rollout_id, pick_no, roster_id), keys
+                )
+                winner = int(np.argmax(scores))
+                player_id = ids[winner]
+                chosen = float(log_probability_array[winner])
             else:
-                roster_view = tuple(
-                    (owner, tuple(players))
-                    for owner, players in sorted(rosters.items())
+                if trusted:
+                    log_probabilities = opponent_choice(
+                        roster_id, pick_no, rosters, available
+                    )
+                else:
+                    roster_view = tuple(
+                        (owner, tuple(players))
+                        for owner, players in sorted(rosters.items())
+                    )
+                    raw_utilities = opponent_choice(
+                        roster_id, pick_no, roster_view, frozenset(available)
+                    )
+                    utilities = _available_utilities(raw_utilities, available, all_players)
+                    log_probabilities = dict(_log_probabilities(utilities, temperature))
+                player_id = _gumbel_choice(
+                    log_probabilities,
+                    seed,
+                    rollout_id,
+                    pick_no,
+                    roster_id,
                 )
-                raw_utilities = opponent_choice(
-                    roster_id, pick_no, roster_view, frozenset(available)
-                )
-                utilities = _available_utilities(raw_utilities, available, all_players)
-                log_probabilities = dict(_log_probabilities(utilities, temperature))
-            player_id = _gumbel_choice(
-                log_probabilities,
-                seed,
-                rollout_id,
-                pick_no,
-                roster_id,
-            )
-            log_probability += log_probabilities[player_id]
-            probability = math.exp(log_probabilities[player_id])
+                chosen = log_probabilities[player_id]
+            log_probability += chosen
+            probability = math.exp(chosen)
         picks.append(RolloutPick(
             pick_no,
             roster_id,
@@ -358,6 +437,10 @@ def _complete_draft(
         ))
         rosters[roster_id].append(player_id)
         available.remove(player_id)
+        if board_index is not None:
+            board_position = board_index.get(player_id)
+            if board_position is not None:
+                board_mask[board_position] = False
 
     return DraftCompletion(
         rollout_id=rollout_id,
@@ -375,16 +458,12 @@ def _complete_draft(
 
 
 def _gumbel_choice(log_probabilities, seed, rollout_id, pick_no, roster_id):
-    prefix = sha256(
-        ("\0".join(map(str, (seed, rollout_id, pick_no, roster_id))) + "\0").encode()
-    )
+    header = _pick_header(seed, rollout_id, pick_no, roster_id)
 
     def score(player_id):
-        digest = prefix.copy()
-        digest.update(player_id.encode())
-        integer = int.from_bytes(digest.digest()[:8], "big") >> 11
-        uniform = (integer + 1) / (2**53 + 2)
-        return log_probabilities[player_id] - math.log(-math.log(uniform))
+        return log_probabilities[player_id] + _gumbel_from_mixed(
+            _mix64(header ^ player_gumbel_key(player_id))
+        )
 
     return max(sorted(log_probabilities), key=score)
 

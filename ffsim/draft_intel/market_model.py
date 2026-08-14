@@ -11,7 +11,7 @@ import sqlite3
 import numpy as np
 
 from ffsim.draft_intel.market import FANTASYPROS_CONTEXTS, load_market_snapshot_at
-from ffsim.draft_intel.rollout import choice_probabilities
+from ffsim.draft_intel.rollout import choice_probabilities, player_gumbel_key
 from ffsim.models.team import FLEX_ELIGIBILITY
 from ffsim.paths import CACHE_DIR
 
@@ -219,8 +219,14 @@ def sleeper_adp_choice(
     # board is precompiled into arrays and each call is a masked vectorized
     # softmax mixture instead of several dict passes (profiled ~4x faster,
     # log-probability agreement within 2e-15 of the dict implementation).
+    # IDs stay ascending-sorted: the coupled Gumbel argmax breaks exact ties
+    # by lowest player ID in both the scalar and vectorized paths.
     player_ids = np.array(sorted(board), dtype=object)
     utilities = np.array([board[player_id] for player_id in player_ids])
+    gumbel_keys = np.array(
+        [player_gumbel_key(player_id) for player_id in player_ids],
+        dtype=np.uint64,
+    )
     capped_indices = {
         position: np.array([
             player_index
@@ -230,15 +236,18 @@ def sleeper_adp_choice(
         for position in caps
     }
 
-    def choose(roster_id, pick_no, rosters, available):
+    def choose(roster_id, pick_no, rosters, available, mask=None):
         del pick_no
         # Iterate the small ADP board, not the full availability pool: the
         # pool holds every cached Sleeper player and dominates rollout time.
-        mask = np.fromiter(
-            (player_id in available for player_id in player_ids),
-            bool,
-            len(player_ids),
-        )
+        # Callers running the vectorized pick loop pass the board availability
+        # mask they maintain incrementally; it is read, never mutated here.
+        if mask is None:
+            mask = np.fromiter(
+                (player_id in available for player_id in player_ids),
+                bool,
+                len(player_ids),
+            )
         if not mask.any():
             raise ValueError("Sleeper ADP board has no remaining available players")
         if caps:
@@ -263,15 +272,16 @@ def sleeper_adp_choice(
                 (1 - reach_rate) * probabilities
                 + reach_rate * softmax(REACH_TEMPERATURE)
             )
-        return dict(zip(
-            player_ids[mask].tolist(),
-            np.log(probabilities).tolist(),
-        ))
+        return player_ids[mask], np.log(probabilities), gumbel_keys[mask]
 
     # Contract with complete_drafts: the returned values are final normalized
-    # log-probabilities restricted to available players, so temperature-1.0
-    # rollouts may skip revalidation and renormalization exactly.
+    # log-probabilities restricted to available players as aligned
+    # (ids, log-probabilities, gumbel keys) arrays, so temperature-1.0
+    # rollouts skip revalidation and renormalization exactly and run the
+    # coupled Gumbel argmax vectorized.
     choose.returns_final_log_probabilities = True
+    choose.returns_log_probability_arrays = True
+    choose.board_player_ids = player_ids
     return choose
 
 

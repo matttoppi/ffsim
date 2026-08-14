@@ -17,7 +17,11 @@ from ffsim.draft_intel.market_model import (
     sleeper_adp_choice,
     sleeper_adp_model_version,
 )
-from ffsim.draft_intel.rollout import _gumbel_choice
+from ffsim.draft_intel.rollout import (
+    _gumbel_choice,
+    _pick_header,
+    gumbel_score_array,
+)
 from ffsim.draft_intel.storage import SCHEMA
 
 
@@ -87,11 +91,17 @@ class MarketModelTest(unittest.TestCase):
         )
         rosters = ((1, ("k1",)), (2, ()))
 
-        capped = choice(1, 5, rosters, frozenset({"k2", "wr1"}))
+        def as_dict(result):
+            ids, log_probabilities, _ = result
+            return dict(zip(ids.tolist(), log_probabilities.tolist()))
+
+        capped = as_dict(choice(1, 5, rosters, frozenset({"k2", "wr1"})))
         self.assertEqual(set(capped), {"wr1"})
         # A roster left with only capped players falls back to the board.
-        self.assertEqual(set(choice(1, 5, rosters, frozenset({"k2"}))), {"k2"})
-        uncapped = choice(2, 5, rosters, frozenset({"k2", "wr1"}))
+        self.assertEqual(
+            set(as_dict(choice(1, 5, rosters, frozenset({"k2"})))), {"k2"}
+        )
+        uncapped = as_dict(choice(2, 5, rosters, frozenset({"k2", "wr1"})))
         self.assertEqual(set(uncapped), {"k2", "wr1"})
         self.assertAlmostEqual(
             sum(math.exp(value) for value in uncapped.values()), 1.0
@@ -141,14 +151,24 @@ class MarketModelTest(unittest.TestCase):
         available = frozenset(f"p{number}" for number in range(3, 41))
         for roster_id in (1, 2):
             expected = reference(roster_id, 5, rosters, available)
-            actual = choice(roster_id, 5, rosters, available)
+            ids, log_probabilities, keys = choice(roster_id, 5, rosters, available)
+            actual = dict(zip(ids.tolist(), log_probabilities.tolist()))
             self.assertEqual(set(expected), set(actual))
             worst = max(abs(expected[key] - actual[key]) for key in expected)
             self.assertLess(worst, 1e-12)
-            # The coupled Gumbel argmax must be unchanged for every rollout.
+            # The scalar and vectorized coupled Gumbel argmax must agree for
+            # every rollout, on both the reference and the callback outputs.
             for rollout_id in range(200):
+                scores = log_probabilities + gumbel_score_array(
+                    _pick_header(2026, rollout_id, 5, roster_id), keys
+                )
+                vectorized_pick = ids[int(scores.argmax())]
                 self.assertEqual(
+                    vectorized_pick,
                     _gumbel_choice(expected, 2026, rollout_id, 5, roster_id),
+                )
+                self.assertEqual(
+                    vectorized_pick,
                     _gumbel_choice(actual, 2026, rollout_id, 5, roster_id),
                 )
 
@@ -215,7 +235,10 @@ class MarketModelTest(unittest.TestCase):
                 ],
             }
             choice = sleeper_adp_choice(snapshot)
-            utilities = choice(1, 1, (), frozenset({"sleeper:1", "sleeper:3"}))
+            ids, log_probabilities, _ = choice(
+                1, 1, (), frozenset({"sleeper:1", "sleeper:3"})
+            )
+            utilities = dict(zip(ids.tolist(), log_probabilities.tolist()))
             selected = load_league_market_snapshot(
                 {
                     "roster_positions": ["QB", "RB", "WR"],
