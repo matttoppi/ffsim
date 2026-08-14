@@ -1169,3 +1169,94 @@ prefers the scarcer pick.
 - Toss-up rates rise; that is honest reporting, not lost precision.
 - If the future-user policy is ever aligned exactly with the terminal
   scorer, the epsilon can shrink; until then it absorbs that known gap.
+
+## ADR-031 — The rollout future-user policy prices players like the terminal roster scorer
+
+### Status
+
+Accepted (2026-08-14).
+
+### Decision
+
+`next_turn_user_policy` no longer values players by static unfloored season
+VOR over raw projections. Every feasible player is priced as his marginal
+terminal roster value in season units, mirroring `projected_roster_value`
+(ADR-027/029) case for case against the roster being simulated, on the
+scorer's own value basis: the availability-discounted, cutline-floored flat
+scores now exposed as `LeagueEvaluator.flat_season_scores()` (the exact
+per-player matrix the scorer evaluates). Raw projections keep only two
+jobs: the greedy seating order and the deterministic tiebreak.
+
+- an open dedicated seat pays flat starter points over the position cutline
+  across the player's available weeks (floored at zero, as the scorer
+  floors rostered players);
+- an open flex seat pays the availability-adjusted value over that seat's
+  streamer level (the best eligible position cutline), lowest first;
+- a player who outranks a current starter in raw projection across the
+  seats reachable from his position is seated exactly as the greedy lineup
+  seats him (decision by raw projection, `_lineup_order` semantics) and pays
+  the seat-adjusted value difference plus `BENCH_ASSET_FACTOR` of the
+  displaced starter's value — honestly negative when the greedy seats a
+  raw-better but flat-score-worse player, because the scorer really loses
+  those points (measured: a projection-favored TE priced +11.8 by raw VOR
+  scored −6.6 terminally because his across-world availability-discounted
+  mean was below the durable incumbent's);
+- otherwise the player is a bench asset at `BENCH_ASSET_FACTOR` times his
+  floored value.
+
+The per-roster seat summary is computed once per policy call (greedy seating
+in raw-projection order, dedicated slots before flex, exactly
+`_lineup_order`/`_lineup_totals` semantics) and each player's price is O(1),
+so the policy stays dict-based. A deterministic `1e-9 x projection` tiebreak
+orders terminal-equivalent (mostly zero-value late) picks by real quality
+instead of lexicographic player ID. `opportunity_evidence` prices the root
+candidate with the same function against the root roster, so VONA is now a
+roster-value difference on one scale. The VONA model tag advances to
+`next-turn-vona-v2:terminal-marginal` and the live model version to
+`needs:vona5:hazard1`. Merged opportunity costs recompute
+`value_over_next_alternative`/`positional_value_drop` from the merged
+expectations so chunked and flat evaluations stay bit-identical.
+
+The mid-draft "core starters first" position gate is removed: only the
+end-of-draft feasibility guard (every remaining pick must fill an open
+starter seat) and the QB/TE/K/DEF caps restrict the pool. The gate was
+load-bearing only while bench players were overpriced at full unfloored VOR;
+with terminal marginals the pricing itself pulls open seats forward, and the
+gate was the direct mechanism of the harvest failure (an open QB/RB seat
+excluded TE entirely, so a 99%-survival TE was skipped in 148/148 wait
+rollouts where he was available). The ADR-025 conditional-hazard lookahead
+is unchanged.
+
+### Rationale
+
+The policy and the scorer disagreed structurally: the policy paid full
+unfloored VOR for every pick (a backup QB's static VOR ~40 beat a
+flex-worthy TE2's ~20 even though the terminal scorer scores them 10 and 21),
+so the wait branch systematically failed to harvest players the scorer
+values. Measured on recorded states: the pick-68 Kelce archetype
+(`5e61ae8e`, 98.7% survival) had the policy taking the leader in 0/148 wait
+rollouts where he was available, leaking +0.39 points of phantom paired edge
+— nearly the whole ADR-030 epsilon; ordinal disagreement between the policy
+ordering and terminal marginal value was 33.9% of value-separated top-10
+pairs with 6/18 top-1 mismatches, concentrated in rounds 2-10 TE/QB/K/DEF.
+Aligning the values removes the leak at its source instead of widening the
+tie gate further.
+
+### Consequences
+
+- Wait branches harvest survivors the scorer values, so phantom paired edges
+  for high-survival candidates collapse toward genuine differences; ADR-030's
+  0.5-point gate stays as the racing regret stop but no longer absorbs a
+  known systematic bias.
+- The policy now prefers an elite K/DEF's real cutline edge over a marginal
+  discounted bench skill player exactly where the scorer does (ADR-029
+  behavior), including in rollout futures.
+- `current_marginal_value`/VONA in the UI are roster-aware terminal
+  marginals, not static VOR; the War Room line reads "Adds N to your roster".
+- The displacement approximation prices one displacement chain (min
+  raw-projection reachable occupant), not a full lineup re-solve; measured
+  exact against `projected_roster_value` on dedicated/flex/displacement/
+  bench cases with full availability. Per-week availability (bye-coverage
+  seating of bench players at a loss) is not modeled, so bench assets are
+  overpriced by up to a few points; the error is shared across same-position
+  candidates and largely cancels in paired deltas.
