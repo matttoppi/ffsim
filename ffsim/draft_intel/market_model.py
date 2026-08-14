@@ -2,6 +2,7 @@
 
 from collections import Counter
 from datetime import datetime, timedelta, timezone
+from functools import cache
 from itertools import groupby
 import json
 import math
@@ -273,14 +274,39 @@ def sleeper_adp_choice(
         [player_gumbel_key(player_id) for player_id in player_ids],
         dtype=np.uint64,
     )
+    position_masks = {
+        position: np.fromiter(
+            (positions.get(player_id) == position for player_id in player_ids),
+            bool,
+            len(player_ids),
+        )
+        for position in set(positions.values())
+    }
     capped_indices = {
-        position: np.array([
-            player_index
-            for player_index, player_id in enumerate(player_ids)
-            if positions.get(player_id) == position
-        ])
+        position: np.flatnonzero(position_masks.get(position, False))
         for position in caps
     }
+
+    def softmax_weights(temp):
+        scaled = utilities / temp
+        return np.exp(scaled - scaled.max())
+
+    sharp_weights = softmax_weights(temperature)
+    reach_weights = softmax_weights(REACH_TEMPERATURE) if reach_rate else None
+    sharp_has_zeros = not sharp_weights.all()
+    reach_has_zeros = reach_weights is not None and not reach_weights.all()
+    identity_positions = {
+        position: position for position in set(positions.values())
+    }
+
+    @cache
+    def roster_context(roster_positions):
+        return (
+            Counter(roster_positions),
+            starting_lineup_needs(
+                roster_positions, identity_positions, slot_counts
+            ),
+        )
 
     def choose(roster_id, pick_no, rosters, available, mask=None):
         del pick_no
@@ -297,15 +323,18 @@ def sleeper_adp_choice(
         if not mask.any():
             raise ValueError("Sleeper ADP board has no remaining available players")
         if caps:
-            roster = dict(rosters)[roster_id]
-            counts = Counter(positions.get(player_id) for player_id in roster)
+            roster = tuple(dict(rosters)[roster_id])
+            roster_positions = tuple(sorted(
+                (positions.get(player_id) for player_id in roster),
+                key=lambda position: position or "",
+            ))
+            counts, needs = roster_context(roster_positions)
             eligible = mask.copy()
             for position, cap in caps.items():
                 if counts[position] >= cap and len(capped_indices[position]):
                     eligible[capped_indices[position]] = False
             if eligible.any():
                 mask = eligible
-            needs = starting_lineup_needs(roster, positions, slot_counts)
             remaining = roster_sizes.get(roster_id)
             if (
                 needs
@@ -313,27 +342,27 @@ def sleeper_adp_choice(
                 and remaining - len(roster) <= len(needs)
             ):
                 needed_positions = {position for need in needs for position in need}
-                needed = mask & np.fromiter(
-                    (
-                        positions.get(player_id) in needed_positions
-                        for player_id in player_ids
-                    ),
-                    bool,
-                    len(player_ids),
-                )
+                needed = np.zeros(len(player_ids), dtype=bool)
+                for position in needed_positions:
+                    needed |= position_masks.get(position, False)
+                needed &= mask
                 if needed.any():
                     mask = needed
 
-        def softmax(temp):
-            scaled = utilities[mask] / temp
-            weights = np.exp(scaled - scaled.max())
-            return weights / weights.sum()
+        def softmax(weights, temp, has_zeros):
+            selected = weights[mask]
+            if has_zeros and not selected.all():
+                scaled = utilities[mask] / temp
+                selected = np.exp(scaled - scaled.max())
+            return selected / selected.sum()
 
-        probabilities = softmax(temperature)
+        probabilities = softmax(sharp_weights, temperature, sharp_has_zeros)
         if reach_rate:
             probabilities = (
                 (1 - reach_rate) * probabilities
-                + reach_rate * softmax(REACH_TEMPERATURE)
+                + reach_rate * softmax(
+                    reach_weights, REACH_TEMPERATURE, reach_has_zeros
+                )
             )
         return player_ids[mask], np.log(probabilities), gumbel_keys[mask]
 

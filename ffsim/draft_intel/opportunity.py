@@ -1,7 +1,6 @@
 """Draft value and next-turn opportunity cost for the future-user policy."""
 
 from collections import Counter
-from math import exp
 
 import numpy as np
 
@@ -58,6 +57,10 @@ def season_value_over_replacement(evaluator):
 def next_turn_user_policy(evaluator, state, opponent_choice):
     """Choose future user picks by current plus expected next-turn value."""
     projection, position_of, replacement = season_value_over_replacement(evaluator)
+    marginal_values = {
+        player_id: points - replacement.get(position_of[player_id], 0.0)
+        for player_id, points in projection.items()
+    }
     slots = dict(evaluator.slot_counts)
     caps = position_caps(slots)
     roster_sizes = Counter(
@@ -68,8 +71,8 @@ def next_turn_user_policy(evaluator, state, opponent_choice):
 
     def policy(roster_id, pick_no, rosters, available):
         current_values = _roster_feasible_values(
-            roster_id, rosters, available, projection, position_of, replacement,
-            slots, caps, roster_sizes,
+            roster_id, rosters, available, marginal_values, position_of, slots,
+            caps, roster_sizes,
         )
         next_turn = next_user_turn_pick_no(state.pick_owners, pick_no, roster_id)
         if next_turn is None:
@@ -84,17 +87,19 @@ def next_turn_user_policy(evaluator, state, opponent_choice):
             ):
                 candidates[position] = player_id
 
+        base_rosters = dict(rosters)
+        base_mask = np.fromiter(
+            (player_id in available for player_id in board_ids),
+            bool,
+            len(board_ids),
+        )
         plans = []
         for candidate_id in candidates.values():
             future_rosters = {
-                owner: list(players) for owner, players in dict(rosters).items()
+                owner: list(players) for owner, players in base_rosters.items()
             }
             future_available = set(available)
-            future_mask = np.fromiter(
-                (player_id in future_available for player_id in board_ids),
-                bool,
-                len(board_ids),
-            )
+            future_mask = base_mask.copy()
             future_rosters[roster_id].append(candidate_id)
             future_available.remove(candidate_id)
             if candidate_id in board_index:
@@ -107,8 +112,8 @@ def next_turn_user_policy(evaluator, state, opponent_choice):
                 and state.pick_owners[future_pick_no - 1] == roster_id
             ):
                 adjacent = _roster_feasible_values(
-                    roster_id, future_rosters, future_available, projection,
-                    position_of, replacement, slots, caps, roster_sizes,
+                    roster_id, future_rosters, future_available, marginal_values,
+                    position_of, slots, caps, roster_sizes,
                 )
                 selected = min(
                     adjacent,
@@ -122,8 +127,8 @@ def next_turn_user_policy(evaluator, state, opponent_choice):
                 future_pick_no += 1
 
             later = _roster_feasible_values(
-                roster_id, future_rosters, future_available, projection,
-                position_of, replacement, slots, caps, roster_sizes,
+                roster_id, future_rosters, future_available, marginal_values,
+                position_of, slots, caps, roster_sizes,
             )
             opponent_picks = next_turn - future_pick_no
             guaranteed = sorted(later.values(), reverse=True)[
@@ -144,16 +149,19 @@ def next_turn_user_policy(evaluator, state, opponent_choice):
             if optimistic < best_lower_bound:
                 utilities[candidate_id] = optimistic
                 continue
-            survival = {player_id: 1.0 for player_id in later}
+            survival = np.ones(len(board_ids))
             for opponent_pick_no in range(future_pick_no, next_turn):
                 owner = state.pick_owners[opponent_pick_no - 1]
                 ids, log_probabilities, _ = opponent_choice(
                     owner, opponent_pick_no, future_rosters, future_available,
                     mask=future_mask,
                 )
-                for player_id, log_probability in zip(ids, log_probabilities):
-                    if player_id in survival:
-                        survival[player_id] *= 1 - exp(float(log_probability))
+                indices = np.fromiter(
+                    map(board_index.__getitem__, ids),
+                    int,
+                    len(ids),
+                )
+                survival[indices] *= 1 - np.exp(log_probabilities)
                 selected = ids[int(log_probabilities.argmax())]
                 future_rosters[owner].append(selected)
                 future_available.remove(selected)
@@ -166,16 +174,17 @@ def next_turn_user_policy(evaluator, state, opponent_choice):
             for player_id in sorted(
                 later, key=lambda player_id: (-later[player_id], player_id)
             ):
-                expected_best += later[player_id] * survival[player_id] * better_gone
-                better_gone *= 1 - survival[player_id]
+                survives = (
+                    float(survival[board_index[player_id]])
+                    if player_id in board_index else 1.0
+                )
+                expected_best += later[player_id] * survives * better_gone
+                better_gone *= 1 - survives
             utilities[candidate_id] = total + max(expected_best, guaranteed)
         return utilities
 
     def opportunity_evidence(root_state, candidate_id, completions):
-        current = _roster_feasible_values(
-            state.current_roster_id, state.rosters, state.available_player_ids,
-            projection, position_of, replacement, slots, caps, roster_sizes,
-        )[candidate_id]
+        current = marginal_values[candidate_id]
         turns = root_state.future_turn_pick_nos(state.current_roster_id, count=1)
         next_turn = turns[0] if turns else None
         if next_turn is None:
@@ -198,8 +207,8 @@ def next_turn_user_policy(evaluator, state, opponent_choice):
                 rosters[pick.roster_id].append(pick.player_id)
                 available.remove(pick.player_id)
             later = _roster_feasible_values(
-                state.current_roster_id, rosters, available, projection,
-                position_of, replacement, slots, caps, roster_sizes,
+                state.current_roster_id, rosters, available, marginal_values,
+                position_of, slots, caps, roster_sizes,
             )
             best = min(later, key=lambda player_id: (-later[player_id], player_id))
             best_players[best] += 1
@@ -236,10 +245,10 @@ def next_turn_user_policy(evaluator, state, opponent_choice):
 
 
 def _roster_feasible_values(
-    roster_id, rosters, available, projection, position_of, replacement,
-    slots, caps, roster_sizes,
+    roster_id, rosters, available, marginal_values, position_of, slots, caps,
+    roster_sizes,
 ):
-    mine = dict(rosters)[roster_id]
+    mine = rosters[roster_id] if isinstance(rosters, dict) else dict(rosters)[roster_id]
     counts = Counter(position_of.get(player_id) for player_id in mine)
     needs = starting_lineup_needs(mine, position_of, slots)
     needed_positions = {position for need in needs for position in need}
@@ -249,8 +258,8 @@ def _roster_feasible_values(
         needed_positions if needs and remaining <= len(needs) else core_positions
     )
     return {
-        player_id: projection[player_id] - replacement.get(position_of[player_id], 0.0)
-        for player_id in projection
+        player_id: marginal_values[player_id]
+        for player_id in marginal_values
         if player_id in available
         and (not allowed_positions or position_of[player_id] in allowed_positions)
         and (

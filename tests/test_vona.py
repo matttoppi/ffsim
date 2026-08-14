@@ -6,6 +6,7 @@ from ffsim.draft_intel.live import (
     _live_opponent_choice,
     _next_user_turn_pick_no,
     _projection_user_policy,
+    live_candidate_pool,
 )
 from ffsim.draft_intel.market_model import SLEEPER_ADP_SOURCE
 from ffsim.draft_intel.rollout import complete_drafts
@@ -66,6 +67,62 @@ def policy_fixture(
 
 
 class NextTurnOpportunityCostTest(unittest.TestCase):
+    def test_root_defense_evidence_does_not_reuse_future_policy_feasibility(self):
+        player_ids = (
+            "qb1", "qb2", "qb3", "rb1", "rb2", "rb3", "def1", "def2",
+        )
+        positions = ("QB", "QB", "QB", "RB", "RB", "RB", "DEF", "DEF")
+        expected = (80.0, 70.0, 60.0, 75.0, 65.0, 55.0, 30.0, 20.0)
+        league_evaluator = SimpleNamespace(
+            bank=SimpleNamespace(
+                player_ids=player_ids,
+                player_positions=positions,
+                expected_scores=expected,
+                weeks=(1,),
+            ),
+            roster_ids=(1, 2),
+            slot_counts={"QB": 1, "RB": 1, "DEF": 1},
+        )
+        state = replay_sleeper_draft(
+            {
+                "draft_id": "root-defense-evidence",
+                "type": "snake",
+                "status": "drafting",
+                "settings": {"teams": 2, "rounds": 4, "reversal_round": 0},
+                "draft_order": {"one": 1, "two": 2},
+                "slot_to_roster_id": {"1": 1, "2": 2},
+            },
+            picks=(),
+            traded_picks=(),
+            player_ids=player_ids,
+        )
+        snapshot = {
+            "source": SLEEPER_ADP_SOURCE,
+            "snapshot_id": "root-defense-evidence",
+            "observations": [
+                {"canonical_player_id": player_id, "adp": index}
+                for index, player_id in enumerate(player_ids, 1)
+            ],
+        }
+        prepared = SimpleNamespace(
+            user_roster_id=1,
+            market_snapshot=snapshot,
+            evaluator=league_evaluator,
+        )
+        choose = _live_opponent_choice(snapshot, league_evaluator, state, 0.01)
+        policy = _projection_user_policy(league_evaluator, state, choose)
+
+        self.assertIn("def1", live_candidate_pool(prepared, state, len(player_ids)))
+        future_options = policy(1, 1, state.rosters, state.available_player_ids)
+        self.assertNotIn("def1", future_options)
+        completions = complete_drafts(
+            state, "def1", 1, range(2), choose, policy, seed=17
+        )
+
+        evidence = policy.opportunity_evidence(state, "def1", completions)
+
+        self.assertEqual(evidence.current_marginal_value, 30.0)
+
     def test_audited_1393836057060978688_close_substitute_can_wait(self):
         policy, rosters, available, _, _ = policy_fixture()
 
@@ -76,6 +133,10 @@ class NextTurnOpportunityCostTest(unittest.TestCase):
         # back. RB collapses from 70 to 20, so the two-pick roster is better
         # by taking RB now and QB later.
         self.assertGreater(utilities["rb_now"], utilities["qb_now"])
+        self.assertEqual(utilities, {
+            "qb_now": 50.748479969248365,
+            "rb_now": 68.0356208862551,
+        })
 
     def test_scarce_materially_inferior_player_does_not_automatically_win(self):
         policy, rosters, available, _, _ = policy_fixture(

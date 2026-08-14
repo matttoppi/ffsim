@@ -137,8 +137,15 @@ class MarketModelTest(unittest.TestCase):
             roster_sizes={1: 9},
         )
 
-        ids, _, _ = choice(1, 8, ((1, roster),), frozenset({"wr4", "k", "def"}))
+        ids, log_probabilities, _ = choice(
+            1, 8, ((1, roster),), frozenset({"wr4", "k", "def"})
+        )
         self.assertEqual(set(ids), {"k", "def"})
+        expected = dict(mixture_choice_probabilities(
+            {"k": -math.log(50), "def": -math.log(60)}, 0.11, 0.15
+        ))
+        actual = dict(zip(ids.tolist(), map(math.exp, log_probabilities)))
+        self.assertLess(max(abs(expected[key] - actual[key]) for key in expected), 1e-15)
         ids, _, _ = choice(
             1,
             9,
@@ -187,8 +194,11 @@ class MarketModelTest(unittest.TestCase):
             positions=positions,
             slot_counts=slot_counts,
         )
-        rosters = ((1, ("p1", "p7", "p13")), (2, ()))
-        available = frozenset(f"p{number}" for number in range(3, 41))
+        rosters = ((1, ("p5", "p6", "p12")), (2, ()))
+        available = frozenset(
+            f"p{number}" for number in range(3, 41)
+            if f"p{number}" not in rosters[0][1]
+        )
         for roster_id in (1, 2):
             expected = reference(roster_id, 5, rosters, available)
             ids, log_probabilities, keys = choice(roster_id, 5, rosters, available)
@@ -211,6 +221,47 @@ class MarketModelTest(unittest.TestCase):
                     vectorized_pick,
                     _gumbel_choice(actual, 2026, rollout_id, 5, roster_id),
                 )
+
+    def test_choice_preserves_extreme_remaining_adp_probabilities_and_picks(self):
+        observations = [
+            {"canonical_player_id": "top", "adp": 1.0},
+            {"canonical_player_id": "deep1", "adp": 1e40},
+            {"canonical_player_id": "deep2", "adp": 2e40},
+        ]
+        choice = sleeper_adp_choice(
+            {"source": "fantasypros:sleeper", "observations": observations},
+            temperature=0.11,
+            reach_rate=0.15,
+        )
+        available = frozenset({"deep1", "deep2"})
+        expected = {
+            player_id: math.log(probability)
+            for player_id, probability in mixture_choice_probabilities(
+                {
+                    observation["canonical_player_id"]: -math.log(observation["adp"])
+                    for observation in observations
+                    if observation["canonical_player_id"] in available
+                },
+                0.11,
+                0.15,
+            )
+        }
+
+        ids, log_probabilities, keys = choice(1, 1, (), available)
+        actual = dict(zip(ids.tolist(), log_probabilities.tolist()))
+
+        self.assertLess(
+            max(abs(expected[player_id] - actual[player_id]) for player_id in expected),
+            1e-12,
+        )
+        for rollout_id in range(200):
+            scores = log_probabilities + gumbel_score_array(
+                _pick_header(2026, rollout_id, 1, 1), keys
+            )
+            self.assertEqual(
+                ids[int(scores.argmax())],
+                _gumbel_choice(expected, 2026, rollout_id, 1, 1),
+            )
 
     def test_choice_callback_and_backtest_use_only_pre_draft_snapshots(self):
         with tempfile.TemporaryDirectory() as directory:
