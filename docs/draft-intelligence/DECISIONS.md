@@ -973,3 +973,92 @@ zero; the old paired championship deltas there were −0.2 to −1.0pp noise).
   gated decision.
 - Absolute championship calibration caveats (ADR-015) now apply only to
   secondary fields.
+
+## ADR-027 — Flat player scores and a fixed starter-cutline replacement in the roster-value scorer
+
+### Status
+
+Accepted (2026-08-14).
+
+### Decision
+
+`LeagueEvaluator.projected_roster_value` scores the best legal weekly lineup
+on each player's flat across-world, across-available-weeks mean score, and
+credits unfilled slots and the all-streamer baseline at an
+assignment-independent league starter-cutline replacement level (the weekly
+analogue of `season_value_over_replacement`). `ROSTER_VALUE_VERSION` advances
+to 2. The championship simulation (`_evaluate`) keeps its per-world realized
+scores and rostered-set streamer semantics.
+
+### Rationale
+
+The first live Sleeper draft (2026-08-14, telemetry session `7ae93a0e`)
+exposed two systematic distortions in the v1 scorer that corrupted every
+late-round ranking:
+
+1. Matchup-varying weekly means credited perfect-foresight start/sit between
+   same-position teammates, so a backup at a single-slot position was scored
+   as `max(A_week, B_week)` every week. Measured on the final drafted roster:
+   a second TE carried +47 marginal lineup points.
+2. The replacement pool was derived from the unrostered set of each candidate
+   assignment, so drafting a good backup removed him from the streamer pool,
+   depressed the baseline, and inflated the branch by roughly
+   `weeks x cutline shift` — pure denial value. Measured: keeping a backup
+   rookie QB beat swapping him for the best undrafted WR by 6.5 points, and
+   after the user drafted a QB the next turn's top four candidates were all
+   QBs with a systematic ~+10-point edge (standard error ~1.1) in a strict
+   1QB league.
+
+Both violate the intent of ADR-026: value differences must come from the
+user's startable lineup, not from clairvoyant streaming or waiver-pool
+manipulation. With v2, the backup QB's marginal value is ~0 and skill-position
+swaps dominate it; a second TE retains only its genuine FLEX value.
+
+### Consequences
+
+- Absolute projected-roster-value magnitudes shift (the cutline replacement
+  is higher than the old unrostered-median), so values are not comparable
+  across `ROSTER_VALUE_VERSION`s; cached evaluations key on the version.
+- A rostered player below the cutline can now score slightly negative on his
+  bye-coverage weeks (greedy fill starts him instead of streaming); this
+  penalizes bad backups and is accepted.
+- The scorer intentionally diverges from `_evaluate`'s streamer semantics;
+  the "empty roster scores 0" property is preserved.
+
+## ADR-028 — Sticky, value-augmented candidate windows and VONA tie-breaking
+
+### Status
+
+Accepted (2026-08-14).
+
+### Decision
+
+`live_candidate_pool` keeps ordering by market ADP but (a) always admits the
+previous pick's finalists that are still eligible, ahead of the window, and
+(b) always admits the top `VALUE_POOL_COUNT` value-over-replacement players
+(never K/DEF, which the must-fill tail already admits when required).
+Within a statistically tied co-leader tier, `recommendation_summary`
+headlines the candidate with the highest value over the next-turn
+alternative (VONA) instead of the noise-ranked projected-value argmax, with
+reason codes `PROJECTED_VALUE_TIE`/`VONA_TIEBREAK`, and the live payload
+orders the tier by VONA. The engine-level `rank_candidates` and the racing
+gate are unchanged.
+
+### Rationale
+
+In the 2026-08-14 live draft, the model's eventual #1 (an ADP-187 RB) sat
+just outside the 40-player ADP window at pick 129 and entered at pick 132,
+flipping the recommendation between adjacent user turns while every displayed
+alternative was still available. Separately, projected-value gaps inside the
+top tier (0.5–1.5 points, standard error ~1) are draft-uncertainty noise, so
+the displayed order carried no decision information; VONA is the quantity
+that actually separates "take now" from "safe to wait" within a tie.
+
+### Consequences
+
+- Recommendations are continuous across adjacent picks by construction; a
+  finalist only disappears when drafted, capped, or genuinely outranked.
+- The candidate window can exceed the nominal breadth by up to
+  `FINALIST_COUNT + VALUE_POOL_COUNT` entries; screen cost scales linearly.
+- The headline can differ from the projected-value argmax only inside a
+  statistical tie, so the ADR-026 objective still gates the decision.

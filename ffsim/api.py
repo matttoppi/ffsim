@@ -218,6 +218,7 @@ class LiveDraftMonitor:
     recommendation_error: str | None = None
     recommendation_discarded_pick_no: int | None = None
     recommendation_progress: dict | None = None
+    previous_finalists: tuple = ()
     league_equity: dict | None = None
     league_equity_status: str = "idle"
     league_equity_progress: dict | None = None
@@ -290,6 +291,11 @@ class LiveDraftMonitor:
             self.stopped.set()
             raise
 
+    def _sticky_finalists(self):
+        """Previous pick's finalists, carried into the next candidate window."""
+        with self.lock:
+            return self.previous_finalists
+
     def _publish_recommendation(
         self,
         fingerprint,
@@ -308,6 +314,10 @@ class LiveDraftMonitor:
             else:
                 self.recommendation = recommendation
                 self.recommendation_status = status
+                self.previous_finalists = tuple(
+                    str(row["player_id"])
+                    for row in recommendation.get("candidates", ())[:FINALIST_COUNT]
+                )
                 if progress is not None:
                     self.recommendation_progress = progress
                 self.calculation_count += int(final)
@@ -433,6 +443,7 @@ class LiveDraftMonitor:
                         self.prepared,
                         state,
                         max(self.candidate_breadth, self.candidate_count),
+                        sticky=self._sticky_finalists(),
                     )
                 except Exception as error:
                     LOGGER.exception(
@@ -783,6 +794,7 @@ class LiveDraftMonitor:
                 self.prepared,
                 hypothetical,
                 max(self.candidate_breadth, self.candidate_count),
+                sticky=self._sticky_finalists(),
             ))
         except Exception:
             LOGGER.exception(

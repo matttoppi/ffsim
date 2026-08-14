@@ -771,6 +771,14 @@ def rank_candidates(evaluation):
     )
 
 
+def candidate_vona(candidate):
+    """Value over the expected best next-turn alternative; None-safe."""
+    cost = candidate.opportunity_cost
+    if cost is None or cost.value_over_next_alternative is None:
+        return None
+    return cost.value_over_next_alternative
+
+
 def recommendation_summary(evaluation):
     """Rank candidates without inventing market-dependent reach/wait labels."""
     ranked = rank_candidates(evaluation)
@@ -783,9 +791,25 @@ def recommendation_summary(evaluation):
         ).interval[0] <= 0
     )
     decision_status = "clear_leader" if len(co_leaders) == 1 else "toss_up"
-    best = leader
-    reasons = ["PROJECTED_VALUE_LEADER"]
-    runner_up = ranked[1] if len(ranked) > 1 else None
+    # Projected value cannot separate a statistical tie, but urgency can:
+    # headline the tied candidate least replaceable at the next turn (highest
+    # value over the expected best next-turn alternative).
+    ranked_index = {candidate.candidate_id: i for i, candidate in enumerate(ranked)}
+    best = min(
+        co_leaders,
+        key=lambda candidate: (
+            -(vona if (vona := candidate_vona(candidate)) is not None else float("-inf")),
+            ranked_index[candidate.candidate_id],
+        ),
+    )
+    reasons = (
+        ["PROJECTED_VALUE_LEADER"]
+        if best is leader
+        else ["PROJECTED_VALUE_TIE", "VONA_TIEBREAK"]
+    )
+    runner_up = next(
+        (candidate for candidate in ranked if candidate is not best), None
+    )
     delta = (
         evaluation.paired_delta(best.candidate_id, runner_up.candidate_id)
         if runner_up

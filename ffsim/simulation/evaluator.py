@@ -14,7 +14,7 @@ from ffsim.models.team import FLEX_ELIGIBILITY
 EVALUATOR_VERSION = 1
 # Deterministic projected roster-value scorer revision. Kept separate from
 # EVALUATOR_VERSION because that constant also seeds streamer randomness.
-ROSTER_VALUE_VERSION = 1
+ROSTER_VALUE_VERSION = 2
 
 
 @dataclass(frozen=True)
@@ -132,6 +132,7 @@ class LeagueEvaluator:
         self._mean_scores = None
         self._mean_available = None
         self._unit_cum = None
+        self._fixed_replacement = None
         self.version = _version(self)
         self._cache = {}
         self.cache_hits = 0
@@ -328,21 +329,36 @@ class LeagueEvaluator:
     def projected_roster_value(self, roster_assignment, roster_id):
         """Deterministic projected lineup points over full-streamer replacement.
 
-        Scores one roster's best legal weekly lineup on the bank's expected
-        (across-world mean) player-week points, with byes/never-available
-        weeks masked out and unfilled slots credited at the same replacement
-        semantics as ``_evaluate`` (the streamer factor's mean is exactly 1).
+        Scores one roster's best legal weekly lineup on each player's flat
+        across-world, across-available-weeks mean points, with byes and
+        never-available weeks masked out and unfilled slots credited at the
+        assignment-independent league starter cutline. Two properties are
+        load-bearing for candidate comparisons and must not regress:
+
+        - Scores are flat per player across weeks: a matchup-varying weekly
+          mean would credit perfect-foresight start/sit between same-position
+          teammates, overvaluing backup QB/TE/K/DEF picks. A backup is worth
+          only its availability coverage.
+        - Replacement is independent of the assignment: a rostered-set-derived
+          streamer pool (as in ``_evaluate``) rewards drafting a player merely
+          for removing him from the waiver pool — pure denial value that made
+          backup QBs outrank starting-lineup upgrades.
+
         The all-streamer baseline is subtracted, so an empty roster scores 0.
         """
         assignment = self._canonical_assignment(roster_assignment)
         team = self.roster_index[roster_id]
-        replacement = self._replacement_scores(assignment)
+        replacement = self._starter_cutline_replacement()
         if self._mean_scores is None:
             weeks = self.total_weeks
-            self._mean_scores = self.bank.scores[:, :, :weeks].mean(
-                axis=0, dtype=float
-            )
-            self._mean_available = self.bank.available[:, :, :weeks].any(axis=0)
+            mean_scores = self.bank.scores[:, :, :weeks].mean(axis=0, dtype=float)
+            available = self.bank.available[:, :, :weeks].any(axis=0)
+            available_weeks = np.maximum(available.sum(axis=1, keepdims=True), 1)
+            flat = (mean_scores * available).sum(
+                axis=1, keepdims=True
+            ) / available_weeks
+            self._mean_scores = np.where(available, flat, 0.0)
+            self._mean_available = available
             slot_count = sum(count for _, count in self.slots)
             self._unit_cum = np.tile(
                 np.arange(slot_count + 1, dtype=float), (1, weeks, 1)
@@ -366,6 +382,52 @@ class LeagueEvaluator:
             for slot, count in self.slots
         )
         return float(totals.sum()) - baseline
+
+    def _starter_cutline_replacement(self):
+        """Weekly streamer level at the league-wide starter cutline.
+
+        Mirrors ``ffsim.draft_intel.opportunity.season_value_over_replacement``
+        in weekly units (that module cannot be imported here without inverting
+        the layering): dedicated slots reserve ``teams x count`` players per
+        position, flex slots go to the best remaining projection, and the
+        replacement level is the first player past the cutline.
+        """
+        if self._fixed_replacement is None:
+            teams = len(self.roster_ids)
+            by_position = {}
+            for player, position in enumerate(self.bank.player_positions):
+                by_position.setdefault(position, []).append(
+                    float(self.bank.expected_scores[player])
+                )
+            for scores in by_position.values():
+                scores.sort(reverse=True)
+            taken = {
+                position: teams * count
+                for position, count in self.slots
+                if position not in FLEX_ELIGIBILITY
+            }
+
+            def next_score(position):
+                scores = by_position.get(position, [])
+                position_taken = taken.get(position, 0)
+                return (
+                    scores[position_taken]
+                    if position_taken < len(scores)
+                    else float("-inf")
+                )
+
+            for slot, count in self.slots:
+                eligible = FLEX_ELIGIBILITY.get(slot)
+                if not eligible:
+                    continue
+                for _ in range(teams * count):
+                    best = max(sorted(eligible), key=next_score)
+                    taken[best] = taken.get(best, 0) + 1
+            self._fixed_replacement = {
+                position: max(next_score(position), 0.0)
+                for position in by_position
+            }
+        return self._fixed_replacement
 
     def _replacement_scores(self, assignment):
         rostered = {player for roster in assignment for player in roster}

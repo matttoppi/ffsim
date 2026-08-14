@@ -652,7 +652,10 @@ class LiveDraftTest(unittest.TestCase):
                 bank=SimpleNamespace(
                     player_ids=tuple(adps),
                     player_positions=tuple(position for position, _ in adps.values()),
+                    expected_scores=(20.0, 15.0, 14.0, 18.0, 17.0, 10.0, 5.0),
+                    weeks=(1, 2, 3),
                 ),
+                roster_ids=(1, 2),
                 slot_counts={"QB": 1, "RB": 1, "WR": 1, "TE": 1, "K": 1},
             ),
             player_details={
@@ -666,15 +669,21 @@ class LiveDraftTest(unittest.TestCase):
             pick_owners=(1,) * 20,
             roster_player_ids=lambda _roster_id: (),
         )
-        # Pure best-player-available by ADP: fallers first, then the window
-        # deepens down the board; the kicker enters only at its ADP depth.
+        # Best-player-available by ADP: fallers first, then the window deepens
+        # down the board; the kicker enters only at its ADP depth. Top
+        # value-over-replacement players (never K/DEF) always join the window
+        # so an ADP cutoff cannot exclude the value model's favorite.
         self.assertEqual(
             live_candidate_pool(prepared, state, 10),
             ["p02", "p09", "p10", "p11", "p14", "p30", "p90"],
         )
         self.assertEqual(live_candidate_pool(prepared, state, 5),
-                         ["p02", "p09", "p10", "p11", "p14"])
+                         ["p02", "p09", "p10", "p11", "p14", "p30"])
         self.assertNotIn("p90", live_candidate_pool(prepared, state, 6))
+        self.assertEqual(
+            live_candidate_pool(prepared, state, 5, sticky=("p30", "gone")),
+            ["p30", "p02", "p09", "p10", "p11", "p14"],
+        )
         with self.assertRaisesRegex(ValueError, "No available market players"):
             live_candidate_pool(
                 SimpleNamespace(
@@ -703,7 +712,10 @@ class LiveDraftTest(unittest.TestCase):
                 bank=SimpleNamespace(
                     player_ids=tuple(positions),
                     player_positions=tuple(positions.values()),
+                    expected_scores=(12.0, 8.0, 7.0, 11.0),
+                    weeks=(1, 2, 3),
                 ),
+                roster_ids=(1, 2),
                 slot_counts={"WR": 1, "K": 1, "DEF": 1},
             ),
             player_details={
@@ -739,7 +751,10 @@ class LiveDraftTest(unittest.TestCase):
                 bank=SimpleNamespace(
                     player_ids=tuple(positions),
                     player_positions=tuple(positions.values()),
+                    expected_scores=(20.0, 19.0, 18.0, 12.0, 11.0, 10.0, 14.0),
+                    weeks=(1, 2, 3),
                 ),
+                roster_ids=(1, 2),
                 slot_counts={"QB": 1, "RB": 1, "TE": 1},
             ),
         )

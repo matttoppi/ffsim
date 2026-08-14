@@ -472,9 +472,10 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
               )}
               {tossUp && (
                 <p className="controls-hint" role="status">
-                  <strong>No clear winner.</strong>{' '}
-                  {coLeaderNames.join(', ')} form the top tier; their paired title-equity
-                  uncertainty still overlaps.
+                  <strong>No clear winner on projected value.</strong>{' '}
+                  {coLeaderNames.join(', ')} form the top tier; they are ordered by value
+                  over next available (VONA) — how much you lose by waiting until your
+                  next pick instead of taking them now.
                 </p>
               )}
               {backToBack && (
@@ -577,7 +578,7 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
                           candidate.expected_best_later_value != null &&
                           candidate.next_turn_pick_no != null && (
                             <small>
-                              Draft value {candidate.current_marginal_value.toFixed(0)} now ·{' '}
+                              Value over replacement {candidate.current_marginal_value.toFixed(0)} now ·{' '}
                               {candidate.expected_best_later_value.toFixed(0)} expected best at pick{' '}
                               {candidate.next_turn_pick_no}
                               {candidate.positional_value_drop != null && (
@@ -614,7 +615,13 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
                           <span className="board-numbers">
                             <strong>{candidate.projected_roster_value.toFixed(1)} pts</strong>
                             {tossUp ? (
-                              <small>top tier · no clear edge</small>
+                              <small>
+                                top tier
+                                {candidate.value_over_next_alternative != null && (
+                                  <> · VONA {candidate.value_over_next_alternative >= 0 ? '+' : ''}
+                                    {candidate.value_over_next_alternative.toFixed(1)}</>
+                                )}
+                              </small>
                             ) : leaderEdge != null && (
                               <small>
                                 {Math.abs(leaderEdge) < 0.05
@@ -627,7 +634,9 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
                           <span className="board-numbers">
                             <strong className="board-delta">
                               {inTopTier
-                                ? 'top tier'
+                                ? candidate.value_over_next_alternative != null
+                                  ? `VONA ${candidate.value_over_next_alternative >= 0 ? '+' : ''}${candidate.value_over_next_alternative.toFixed(1)}`
+                                  : 'top tier'
                                 : Math.abs(deltaVsLeader) < 0.05
                                 ? 'even'
                                 : `${deltaVsLeader.toFixed(1)} pts`}

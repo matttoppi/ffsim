@@ -11,6 +11,7 @@ from urllib.parse import quote, urlparse
 
 from ffsim.config import AppConfig, save_league_attachment
 from ffsim.draft_intel.decision import (
+    candidate_vona,
     evaluate_candidates,
     evaluate_completed_league,
     evaluate_league_equity,
@@ -342,12 +343,18 @@ def live_state_summary(prepared, state):
     }
 
 
-def live_candidate_pool(prepared, state, breadth):
+def live_candidate_pool(prepared, state, breadth, sticky=()):
     """Order candidates best-player-available by market ADP.
 
     The head is the best remaining players (fallers first), and the expanding
     window walks deeper down the board. Position caps always apply; only the
     must-fill draft tail narrows further to open starter positions.
+
+    ``sticky`` players (the previous pick's finalists) lead the window when
+    still eligible, and the top value-over-replacement players always enter
+    it: the value model diverges from ADP late, so a pure ADP cutoff can
+    exclude the model's favorite at one pick and admit it at the next,
+    flipping recommendations between adjacent turns.
     """
     if prepared.market_snapshot is None or prepared.evaluator is None:
         raise ValueError("Prepared draft is missing market or season inputs")
@@ -386,11 +393,33 @@ def live_candidate_pool(prepared, state, breadth):
         }
         if not pool:
             raise ValueError("No available market player can fill a required starter seat")
-    return sorted(
+    head = sorted(
         pool, key=lambda player_id: (-board[player_id], player_id)
     )[:breadth]
+    projection, _, replacement = _value_over_replacement(prepared.evaluator)
+    valued = sorted(
+        (
+            player_id for player_id in pool
+            if player_id in projection
+            # Streamable positions never force the window open early; the
+            # must-fill draft tail already admits them when required.
+            and position_of[player_id] not in ("K", "DEF")
+        ),
+        key=lambda player_id: (
+            replacement.get(position_of[player_id], 0.0) - projection[player_id],
+            player_id,
+        ),
+    )[:VALUE_POOL_COUNT]
+    return list(dict.fromkeys((
+        *(player_id for player_id in sticky if player_id in pool),
+        *head,
+        *valued,
+    )))
 
 
+# Guaranteed value-over-replacement entrants in the candidate window,
+# regardless of ADP rank.
+VALUE_POOL_COUNT = 10
 # Softmax temperature fitted by maximum likelihood on 286 observed non-user
 # picks from this league's Sleeper mocks (2026-08-13); see the ledger. It is
 # provisional evidence, refit as real human drafts accumulate.
@@ -925,6 +954,19 @@ def live_recommendation_payload(prepared, state, evaluations, candidate_pool_cou
     recommendation = asdict(recommendation_summary(evaluation))
     top_tier = set(recommendation["co_leader_candidate_ids"])
     ranked = rank_candidates(evaluation)
+    # Projected value cannot order a statistical tie, so the tier leads with
+    # the least-replaceable picks (highest value over the next alternative).
+    display_order = [
+        *sorted(
+            (candidate for candidate in ranked if candidate.candidate_id in top_tier),
+            key=lambda candidate: (
+                -(vona if (vona := candidate_vona(candidate)) is not None
+                  else float("-inf")),
+                candidate.candidate_id,
+            ),
+        ),
+        *(candidate for candidate in ranked if candidate.candidate_id not in top_tier),
+    ]
     adp = {
         player_id: exp(-utility)
         for player_id, utility in sleeper_adp_utilities(
@@ -932,7 +974,7 @@ def live_recommendation_payload(prepared, state, evaluations, candidate_pool_cou
         ).items()
     }
     candidates = []
-    for candidate in ranked:
+    for candidate in display_order:
         opportunity = candidate.opportunity_cost
         best_wait = next(
             (alternative for alternative in ranked if alternative is not candidate),

@@ -544,7 +544,7 @@ class ApiTest(unittest.TestCase):
         worker = Thread(
             target=monitor.calculate,
             args=(
-                lambda *_args: ["a", "b", "c", "d", "e"],
+                lambda *_args, **_kwargs: ["a", "b", "c", "d", "e"],
                 evaluate,
                 lambda _prepared, _state, evaluations, _count: evaluations[-1],
             ),
@@ -604,7 +604,7 @@ class ApiTest(unittest.TestCase):
         worker = Thread(
             target=monitor.calculate,
             args=(
-                lambda *_args: candidate_calls.append("pool"),
+                lambda *_args, **_kwargs: candidate_calls.append("pool"),
                 lambda *_args: candidate_calls.append("evaluate"),
                 lambda *_args: {},
                 evaluate_equity,
@@ -667,7 +667,7 @@ class ApiTest(unittest.TestCase):
 
         worker = Thread(
             target=monitor.calculate,
-            args=(lambda *_args: ["a", "b", "c", "d", "e", "f"], evaluate, payload),
+            args=(lambda *_args, **_kwargs: ["a", "b", "c", "d", "e", "f"], evaluate, payload),
         )
         worker.start()
         deadline = time.time() + 5
@@ -730,7 +730,7 @@ class ApiTest(unittest.TestCase):
         worker = Thread(
             target=monitor.calculate,
             args=(
-                lambda *_args: ["a", "b", "c", "d", "e"],
+                lambda *_args, **_kwargs: ["a", "b", "c", "d", "e"],
                 evaluate,
                 lambda _prepared, _state, evaluations, _count: evaluations[-1],
                 None,
@@ -792,7 +792,7 @@ class ApiTest(unittest.TestCase):
             worker = Thread(
                 target=monitor.calculate,
                 args=(
-                    lambda *_args: ["a", "b", "c", "d", "e"],
+                    lambda *_args, **_kwargs: ["a", "b", "c", "d", "e"],
                     evaluate,
                     lambda _prepared, _state, evaluations, _count: evaluations[-1],
                     None,
@@ -860,7 +860,7 @@ class ApiTest(unittest.TestCase):
         worker = Thread(
             target=monitor.calculate,
             args=(
-                lambda *_args: ["a", "b", "c"],
+                lambda *_args, **_kwargs: ["a", "b", "c"],
                 evaluate,
                 lambda _prepared, _state, _evaluations, _count: {"candidates": []},
                 None,
@@ -925,7 +925,7 @@ class ApiTest(unittest.TestCase):
         worker = Thread(
             target=monitor.calculate,
             args=(
-                lambda *_args: ["a", "b", "c"],
+                lambda *_args, **_kwargs: ["a", "b", "c"],
                 evaluate,
                 lambda _prepared, _state, _evaluations, _count: {"candidates": []},
             ),
@@ -980,7 +980,7 @@ class ApiTest(unittest.TestCase):
         worker = Thread(
             target=monitor.calculate,
             args=(
-                lambda *_args: ["a", "b", "c", "d", "e"],
+                lambda *_args, **_kwargs: ["a", "b", "c", "d", "e"],
                 evaluate,
                 lambda _prepared, _state, evaluations, _count: evaluations[-1],
                 None,
@@ -1035,7 +1035,7 @@ class ApiTest(unittest.TestCase):
         worker = Thread(
             target=monitor.calculate,
             args=(
-                lambda *_args: ["a", "b", "c", "d", "e"],
+                lambda *_args, **_kwargs: ["a", "b", "c", "d", "e"],
                 evaluate,
                 lambda _prepared, _state, evaluations, _count: evaluations[-1],
             ),
@@ -1076,7 +1076,7 @@ class ApiTest(unittest.TestCase):
         worker = Thread(
             target=monitor.calculate,
             args=(
-                lambda *_args: ["c"],
+                lambda *_args, **_kwargs: ["c"],
                 evaluate,
                 lambda _prepared, _state, evaluations, _count: evaluations[-1],
             ),

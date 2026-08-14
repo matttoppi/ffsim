@@ -89,9 +89,11 @@ class RosterValueScorerTest(unittest.TestCase):
     def test_replacement_marginal_value_is_exact(self):
         # Empty roster scores exactly the all-streamer baseline.
         self.assertEqual(value(self.subject, ()), 0.0)
-        # RB replacement with rb1 rostered: median of (18, 12, 5, 5) = 8.5,
-        # so one starting RB is worth (20 - 8.5) per week for three weeks.
-        self.assertAlmostEqual(value(self.subject, ("rb1",)), 3 * (20 - 8.5))
+        # RB replacement is the assignment-independent starter cutline: four
+        # teams reserve eight dedicated RBs and the flex cutline leaves the
+        # ninth RB at 5.0, so one starting RB is worth (20 - 5) per week for
+        # three weeks regardless of who is rostered elsewhere.
+        self.assertAlmostEqual(value(self.subject, ("rb1",)), 3 * (20 - 5))
 
     def test_bench_points_are_not_credited(self):
         starters = ("rb1", "rb2", "rb3", "wr1")
@@ -153,8 +155,8 @@ class RosterValueScorerTest(unittest.TestCase):
         object.__setattr__(bye_subject.bank, "scores", scores)
         object.__setattr__(bye_subject.bank, "available", available)
         # rb1 contributes two playable weeks; the bye week falls back to the
-        # replacement streamer instead of crediting the bye as zero starters.
-        self.assertAlmostEqual(value(bye_subject, ("rb1",)), 2 * (20 - 8.5))
+        # cutline streamer instead of crediting the bye as zero starters.
+        self.assertAlmostEqual(value(bye_subject, ("rb1",)), 2 * (20 - 5))
 
     def test_scorer_is_deterministic_and_versioned(self):
         roster = ("qb1", "rb1", "rb2", "wr1", "te1")
