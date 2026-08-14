@@ -255,7 +255,7 @@ class DecisionEvaluationTest(unittest.TestCase):
         self.assertEqual(recommendation.runner_up_candidate_id, "p2")
         self.assertEqual(recommendation.joint_outcome_count, 60)
         self.assertEqual(recommendation.season_worlds_per_rollout, 3)
-        self.assertEqual(recommendation.decision_engine_version, 5)
+        self.assertEqual(recommendation.decision_engine_version, 6)
         self.assertEqual(recommendation.draft_model_version, "manual-test-v1")
         self.assertEqual(recommendation.decision_status, "clear_leader")
         self.assertEqual(recommendation.co_leader_candidate_ids, ("p1",))

@@ -1133,3 +1133,39 @@ cutline in the deterministic scorer (`ROSTER_VALUE_VERSION` 4): you would
 bench a sub-replacement player and stream, so no rostered player scores
 below replacement, sub-replacement picks tie exactly, and the market decides.
 
+
+## ADR-030 — Practical-equivalence tie gate on paired projected-value edges
+
+### Status
+
+Accepted (2026-08-14).
+
+### Decision
+
+`recommendation_summary` treats a candidate as a co-leader when the leader's
+paired projected-value edge has a lower bound at or below
+`PRACTICAL_TIE_POINTS` (0.5, matching the racing regret stop), not merely
+when the interval crosses zero. Decision engine v6. The racing survivor gate
+keeps its statistical criterion — it governs sampling effort, not decisions.
+
+### Rationale
+
+Paired deltas are deterministic per continuation, so a tiny systematic edge
+carries a tiny standard error and read as a "clear leader". Observed live: a
++0.4-point edge (interval 0.0–0.8, ahead in 3% of continuations) headlined a
+TE with 99% next-pick survival over a genuinely scarce alternative — the
+survivor should be deferred and drafted at the next turn, as the owner
+immediately recognized. Sub-half-point edges sit below model error (the
+rollout future-user policy imperfectly harvests survivors, projections carry
+noise), so they must not outrank scarcity. Widening the tie hands these cases
+to the tier ordering — urgency (any-position VONA), then market ADP — which
+prefers the scarcer pick.
+
+### Consequences
+
+- Knife-edge "clear leaders" become labeled ties with the urgency/market
+  rationale shown; genuinely decisive edges (lower bound above half a point)
+  are unaffected.
+- Toss-up rates rise; that is honest reporting, not lost precision.
+- If the future-user policy is ever aligned exactly with the terminal
+  scorer, the epsilon can shrink; until then it absorbs that known gap.

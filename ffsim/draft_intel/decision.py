@@ -15,7 +15,15 @@ from ffsim.draft_intel.rollout import (
 )
 
 
-DECISION_ENGINE_VERSION = 5
+DECISION_ENGINE_VERSION = 6
+# Paired projected-value edges below this are practical ties, not decisions.
+# Deterministic paired deltas make tiny systematic edges look statistically
+# certain, but sub-half-point edges sit below model error (future-user-policy
+# imperfection, projection noise) — measured live: a +0.4-point "clear leader"
+# with 99% next-pick survival outranked a genuinely scarce alternative. Ties
+# fall through to urgency (VONA) and market ordering, which prefers the
+# scarcer pick and defers the survivor. Matches the racing regret stop.
+PRACTICAL_TIE_POINTS = 0.5
 
 
 @dataclass(frozen=True)
@@ -820,7 +828,7 @@ def recommendation_summary(evaluation, tier_key=None):
         if candidate is leader
         or evaluation.paired_value_delta(
             leader.candidate_id, candidate.candidate_id
-        ).interval[0] <= 0
+        ).interval[0] <= PRACTICAL_TIE_POINTS
     )
     decision_status = "clear_leader" if len(co_leaders) == 1 else "toss_up"
     # Projected value cannot separate a statistical tie, but urgency can:
