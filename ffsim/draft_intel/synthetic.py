@@ -42,7 +42,7 @@ from ffsim.simulation.evaluator import LeagueEvaluator
 from ffsim.simulation.world_bank import build_season_world_bank, draftable_players
 
 
-ESTIMATED_TELEMETRY_KB_PER_DRAFT = 450
+ESTIMATED_TELEMETRY_KB_PER_DRAFT = 1700
 SYNTHETIC_ROLLOUT_COUNT = 300
 SYNTHETIC_CANDIDATE_COUNT = 9
 SYNTHETIC_CANDIDATE_BREADTH = 40
@@ -403,12 +403,10 @@ def _sample_to_next_user(
         seed=seed,
         temperature=1.0,
     )
+    current_pick_no = state.current_pick_no
     picks = []
     for pick in completions[0].picks:
-        if (
-            completions[0].next_user_pick_no is not None
-            and pick.pick_no >= completions[0].next_user_pick_no
-        ):
+        if pick.user_pick and pick.pick_no != current_pick_no:
             break
         picks.append(pick)
         state = state.with_pick(

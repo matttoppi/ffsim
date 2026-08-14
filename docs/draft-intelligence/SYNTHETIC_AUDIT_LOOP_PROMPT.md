@@ -1,10 +1,10 @@
 # Synthetic Draft Audit Loop Prompt
 
 This prompt runs 110 synthetic drafts across five investigation-and-fix cycles.
-At 22 drafts per cycle, the current 22-scenario grid is covered once each time,
-with roughly 2.75–3.7 hours of simulation and a hard-coded estimate of
-`0.0495 GB` of additional SQLite telemetry in total. The remaining time in the
-six-hour target is reserved for investigation, fixes, and validation.
+At 22 drafts per cycle, the current 22-scenario grid is covered once each time.
+The first complete VONA batch took about one hour; fresh recommendations at
+adjacent snake picks add roughly 9% more work. The calibrated planning estimate
+is `0.187 GB` of additional SQLite telemetry across all 110 drafts.
 
 ```text
 Work autonomously in the current ffsim repository until five complete synthetic-draft investigation-and-fix cycles have finished.
