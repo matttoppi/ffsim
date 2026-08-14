@@ -148,7 +148,7 @@ class LiveDraftTest(unittest.TestCase):
         self.assertEqual(sequential.draft_model_version, parallel.draft_model_version)
         self.assertTrue(
             sequential.draft_model_version.endswith(
-                ":t0.11:reach0.15:needs:vona4:hazard1"
+                ":t0.11:reach0.15:needs:vona5:hazard1"
             )
         )
         self.assertEqual(
@@ -423,7 +423,7 @@ class LiveDraftTest(unittest.TestCase):
         self.assertEqual(row["opportunity_sample_count"], 20)
         self.assertEqual(
             row["opportunity_model_version"],
-            "next-turn-vona-v1:conditional-hazard",
+            "next-turn-vona-v2:terminal-marginal",
         )
         self.assertIsNotNone(row["current_marginal_value"])
         self.assertIsNotNone(row["expected_best_later_value"])
@@ -478,18 +478,24 @@ class LiveDraftTest(unittest.TestCase):
         self.assertIn("rb1", utilities)
         self.assertNotIn("rb2", utilities)
 
-        # Once the only QB slot is filled (QB is not FLEX eligible here), any
-        # further QB ranks below even a replacement-level open-slot player.
+        # Once the only QB slot is filled (QB is not FLEX eligible here), a
+        # backup QB stays priced as a discounted bench asset (ADR-031) and
+        # never leads while starter seats are open.
         after_qb = ((1, ("qb1",)), (2, ()))
         utilities = policy(1, 3, after_qb, frozenset(bank.player_ids) - {"qb1"})
-        self.assertNotIn("qb2", utilities)
+        self.assertIn("qb2", utilities)
+        self.assertNotEqual(max(utilities, key=utilities.get), "qb2")
 
         # Once the core lineup is full, bench value competes with K/DEF
-        # instead of those slots being filled mechanically.
+        # instead of those slots being filled mechanically: rb2 stays in the
+        # pool at discounted bench-asset value (ADR-029/031), and k1's full
+        # starter edge over the kicker cutline honestly outranks it here
+        # (6.0 over cutline versus 0.25 x 21 = 5.25 bench credit).
         core_filled = ((1, ("qb1", "rb1", "wr1")), (2, ()))
         available = frozenset(bank.player_ids) - set(core_filled[0][1])
         utilities = policy(1, 4, core_filled, available)
-        self.assertGreaterEqual(utilities["rb2"], utilities["k1"])
+        self.assertIn("rb2", utilities)
+        self.assertGreaterEqual(utilities["k1"], utilities["rb2"])
 
         # There is no reason for the user's rollout policy to draft a backup
         # kicker or defense while replacement streaming exists.

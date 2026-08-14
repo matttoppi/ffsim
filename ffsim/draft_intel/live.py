@@ -467,9 +467,11 @@ def _bank_market_snapshot(prepared):
 def _live_model_version(snapshot, temperature):
     # VONA compares feasible current value plus a coupled distribution of
     # next-turn alternatives. Roster caps and must-fill starter needs remain.
+    # vona5: policy values mirror the terminal roster scorer (floored at the
+    # cutline, flex-aware seats, discounted bench assets) per ADR-031.
     return (
         f"{sleeper_adp_model_version(snapshot)}"
-        f":t{temperature}:reach{LIVE_REACH_RATE}:needs:vona4:hazard1"
+        f":t{temperature}:reach{LIVE_REACH_RATE}:needs:vona5:hazard1"
     )
 
 

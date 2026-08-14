@@ -7,9 +7,15 @@ import numpy as np
 from ffsim.draft_intel.decision import DraftOpportunityCost
 from ffsim.draft_intel.market_model import position_caps, starting_lineup_needs
 from ffsim.models.team import FLEX_ELIGIBILITY
+from ffsim.simulation.evaluator import BENCH_ASSET_FACTOR
 
 
-VONA_MODEL_VERSION = "next-turn-vona-v1:conditional-hazard"
+VONA_MODEL_VERSION = "next-turn-vona-v2:terminal-marginal"
+
+# Orders terminal-equivalent (mostly zero-marginal late) picks by raw
+# projection instead of lexicographic player ID. Small enough that it can
+# never reorder players the terminal scorer actually separates.
+_PROJECTION_TIEBREAK = 1e-9
 
 
 def season_value_over_replacement(evaluator):
@@ -55,12 +61,55 @@ def season_value_over_replacement(evaluator):
 
 
 def next_turn_user_policy(evaluator, state, opponent_choice):
-    """Choose future user picks by current plus expected next-turn value."""
+    """Choose future user picks by current plus expected next-turn value.
+
+    Player values mirror the terminal roster scorer
+    (``LeagueEvaluator.projected_roster_value``, ADR-027/029): the value
+    basis is the scorer's own availability-discounted, cutline-floored flat
+    scores (``flat_season_scores``), full credit goes only to a greedy-lineup
+    seat (flex-aware, seating decided by raw projection exactly like
+    ``_lineup_order``), and bench assets earn ``BENCH_ASSET_FACTOR`` of value
+    over the cutline. Keeping the two consistent stops the wait branch from
+    leaking value the root-forced branch captures, which produced phantom
+    paired edges for high-survival candidates (ADR-031).
+    """
     projection, position_of, replacement = season_value_over_replacement(evaluator)
-    marginal_values = {
-        player_id: points - replacement.get(position_of[player_id], 0.0)
-        for player_id, points in projection.items()
+    weeks = len(evaluator.bank.weeks)
+    weekly_cut = {
+        position: value / weeks for position, value in replacement.items()
     }
+    flat = getattr(evaluator, "flat_season_scores", None)
+    if flat is None:
+        # Bare test evaluators without score tensors: full availability at
+        # the projection mean, which makes starter points equal projection.
+        starter_points = dict(projection)
+        available_weeks = {player_id: weeks for player_id in projection}
+    else:
+        scores, available = flat()
+        player_index = {
+            player_id: index
+            for index, player_id in enumerate(evaluator.bank.player_ids)
+        }
+        starter_points = {
+            player_id: float(scores[player_index[player_id]].sum())
+            for player_id in projection
+        }
+        available_weeks = {
+            player_id: int(available[player_index[player_id]].sum())
+            for player_id in projection
+        }
+    floored_values = {
+        player_id: max(
+            0.0,
+            points
+            - available_weeks[player_id]
+            * weekly_cut.get(position_of[player_id], 0.0),
+        )
+        for player_id, points in starter_points.items()
+    }
+    value_model = (
+        floored_values, projection, position_of, weekly_cut, available_weeks,
+    )
     slots = dict(evaluator.slot_counts)
     caps = position_caps(slots)
     roster_sizes = Counter(
@@ -71,8 +120,8 @@ def next_turn_user_policy(evaluator, state, opponent_choice):
 
     def policy(roster_id, pick_no, rosters, available):
         current_values = _roster_feasible_values(
-            roster_id, rosters, available, marginal_values, position_of, slots,
-            caps, roster_sizes,
+            roster_id, rosters, available, value_model, slots, caps,
+            roster_sizes,
         )
         next_turn = next_user_turn_pick_no(state.pick_owners, pick_no, roster_id)
         if next_turn is None:
@@ -112,8 +161,8 @@ def next_turn_user_policy(evaluator, state, opponent_choice):
                 and state.pick_owners[future_pick_no - 1] == roster_id
             ):
                 adjacent = _roster_feasible_values(
-                    roster_id, future_rosters, future_available, marginal_values,
-                    position_of, slots, caps, roster_sizes,
+                    roster_id, future_rosters, future_available, value_model,
+                    slots, caps, roster_sizes,
                 )
                 selected = min(
                     adjacent,
@@ -127,8 +176,8 @@ def next_turn_user_policy(evaluator, state, opponent_choice):
                 future_pick_no += 1
 
             later = _roster_feasible_values(
-                roster_id, future_rosters, future_available, marginal_values,
-                position_of, slots, caps, roster_sizes,
+                roster_id, future_rosters, future_available, value_model,
+                slots, caps, roster_sizes,
             )
             opponent_picks = next_turn - future_pick_no
             guaranteed = sorted(later.values(), reverse=True)[
@@ -184,7 +233,16 @@ def next_turn_user_policy(evaluator, state, opponent_choice):
         return utilities
 
     def opportunity_evidence(root_state, candidate_id, completions):
-        current = marginal_values[candidate_id]
+        # Terminal marginal value against the root roster: same scale as the
+        # later-alternative values, so VONA differences are roster-value
+        # differences. Never feasibility-filtered (a legal root candidate is
+        # priced, not excluded).
+        root_roster = dict(root_state.rosters)[state.current_roster_id]
+        root_summary = _seat_summary(
+            root_roster, projection, floored_values, position_of, slots,
+            weekly_cut, available_weeks,
+        )
+        current = _terminal_marginal(candidate_id, root_summary, value_model)
         turns = root_state.future_turn_pick_nos(state.current_roster_id, count=1)
         next_turn = turns[0] if turns else None
         if next_turn is None:
@@ -207,8 +265,8 @@ def next_turn_user_policy(evaluator, state, opponent_choice):
                 rosters[pick.roster_id].append(pick.player_id)
                 available.remove(pick.player_id)
             later = _roster_feasible_values(
-                state.current_roster_id, rosters, available, marginal_values,
-                position_of, slots, caps, roster_sizes,
+                state.current_roster_id, rosters, available, value_model,
+                slots, caps, roster_sizes,
             )
             best = min(later, key=lambda player_id: (-later[player_id], player_id))
             best_players[best] += 1
@@ -244,29 +302,197 @@ def next_turn_user_policy(evaluator, state, opponent_choice):
     return policy
 
 
+def _seat_summary(mine, projection, values, position_of, slots, weekly_cut, available_weeks):
+    """Greedy seat assignment of a roster under the terminal scorer's rules.
+
+    Mirrors ``projected_roster_value``: players are seated in raw-projection
+    order (``_lineup_order``), dedicated slots first, then flex slots in
+    ``FLEX_ELIGIBILITY`` order. Gains are priced in the scorer's floored
+    flat-score units: a seat's opportunity cost is its weekly streamer level
+    (the position cutline for dedicated seats, the best eligible cutline for
+    flex seats) over the occupant's available weeks.
+
+    Returns per position ``(dedicated_open, open_flex_weekly_cutline,
+    displaced_player_id, displaced_seat_weekly_cutline)``.
+    """
+    ranked = sorted(
+        mine, key=lambda player_id: (-projection.get(player_id, 0.0), player_id)
+    )
+    used = set()
+    occupants_by_slot = {}
+    open_seats = {}
+    seat_cutlines = {}
+    for slot, count in slots.items():
+        if slot in FLEX_ELIGIBILITY:
+            continue
+        occupants = [
+            player_id for player_id in ranked
+            if player_id not in used and position_of.get(player_id) == slot
+        ][:count]
+        used.update(occupants)
+        occupants_by_slot[slot] = occupants
+        open_seats[slot] = count - len(occupants)
+        seat_cutlines[slot] = weekly_cut.get(slot, 0.0)
+    for slot, eligible in FLEX_ELIGIBILITY.items():
+        count = slots.get(slot, 0)
+        if not count:
+            continue
+        occupants = [
+            player_id for player_id in ranked
+            if player_id not in used and position_of.get(player_id) in eligible
+        ][:count]
+        used.update(occupants)
+        occupants_by_slot[slot] = occupants
+        open_seats[slot] = count - len(occupants)
+        seat_cutlines[slot] = max(
+            weekly_cut.get(position, 0.0) for position in eligible
+        )
+
+    summary = {}
+    for position in ("QB", "RB", "WR", "TE", "K", "DEF"):
+        dedicated_open = bool(open_seats.get(position, 0))
+        open_flex_cut = None
+        displaced = None
+        displaced_seat_cut = 0.0
+        for slot, occupants in occupants_by_slot.items():
+            eligible = FLEX_ELIGIBILITY.get(slot)
+            if eligible is None:
+                if slot != position:
+                    continue
+            elif position not in eligible:
+                continue
+            else:
+                if open_seats[slot] > 0 and (
+                    open_flex_cut is None or seat_cutlines[slot] < open_flex_cut
+                ):
+                    open_flex_cut = seat_cutlines[slot]
+            for player_id in occupants:
+                if displaced is None or (
+                    projection.get(player_id, 0.0)
+                    < projection.get(displaced, 0.0)
+                ):
+                    displaced = player_id
+                    displaced_seat_cut = seat_cutlines[slot]
+        summary[position] = (
+            dedicated_open, open_flex_cut, displaced, displaced_seat_cut
+        )
+    return summary
+
+
+def _terminal_marginal(player_id, summary, value_model):
+    """Marginal terminal roster value of adding one player (season units).
+
+    Exactly the scorer's cases: an open dedicated seat pays value over the
+    position cutline; an open flex seat pays the availability-adjusted value
+    over the flex streamer; a player who outranks a current starter in raw
+    projection is seated by the greedy lineup (decision by raw projection,
+    ``_lineup_order`` semantics) and pays the seat-adjusted value difference
+    while the displaced starter keeps ``BENCH_ASSET_FACTOR`` of his value —
+    honestly negative when the greedy seats a raw-better but floored-worse
+    player; otherwise the player is a discounted bench asset.
+    """
+    values, projection, position_of, weekly_cut, available_weeks = value_model
+
+    def seat_adjusted(candidate, seat_cut):
+        # Starter points over the seat's streamer level for the candidate's
+        # available weeks: value over his own cutline minus the cutline gap.
+        position = position_of[candidate]
+        return values[candidate] - available_weeks[candidate] * (
+            seat_cut - weekly_cut.get(position, 0.0)
+        )
+
+    position = position_of[player_id]
+    value = values[player_id]
+    dedicated_open, flex_cut, displaced, displaced_seat_cut = summary.get(
+        position, (False, None, None, 0.0)
+    )
+    if dedicated_open:
+        return value
+    if flex_cut is not None:
+        return seat_adjusted(player_id, flex_cut)
+    if displaced is not None and (
+        projection.get(player_id, 0.0) > projection.get(displaced, 0.0)
+    ):
+        return (
+            seat_adjusted(player_id, displaced_seat_cut)
+            - seat_adjusted(displaced, displaced_seat_cut)
+            + BENCH_ASSET_FACTOR * values.get(displaced, 0.0)
+        )
+    return BENCH_ASSET_FACTOR * value
+
+
 def _roster_feasible_values(
-    roster_id, rosters, available, marginal_values, position_of, slots, caps,
-    roster_sizes,
+    roster_id, rosters, available, value_model, slots, caps, roster_sizes,
 ):
+    values, projection, position_of, weekly_cut, available_weeks = value_model
     mine = rosters[roster_id] if isinstance(rosters, dict) else dict(rosters)[roster_id]
     counts = Counter(position_of.get(player_id) for player_id in mine)
     needs = starting_lineup_needs(mine, position_of, slots)
     needed_positions = {position for need in needs for position in need}
-    core_positions = needed_positions - {"K", "DEF"}
     remaining = roster_sizes[roster_id] - len(mine)
+    # Only the end-of-draft feasibility guard restricts positions: every
+    # remaining pick must fill an open starter seat. Before that boundary the
+    # terminal marginal prices the choice itself — an open seat pays full
+    # value over the cutline while bench depth pays the discounted asset
+    # fraction — so a hard "core starters first" gate would re-create the
+    # ADR-030 phantom edges by refusing flex/bench players the terminal
+    # scorer values (measured: the policy skipped a 99%-survival TE in
+    # 148/148 wait rollouts because open QB/RB seats gated TE out entirely).
     allowed_positions = (
-        needed_positions if needs and remaining <= len(needs) else core_positions
+        needed_positions if needs and remaining <= len(needs) else set()
     )
-    return {
-        player_id: marginal_values[player_id]
-        for player_id in marginal_values
-        if player_id in available
-        and (not allowed_positions or position_of[player_id] in allowed_positions)
-        and (
-            position_of[player_id] not in caps
-            or counts[position_of[player_id]] < caps[position_of[player_id]]
+    summary = _seat_summary(
+        mine, projection, values, position_of, slots, weekly_cut,
+        available_weeks,
+    )
+    # Per-position piecewise parameters make the per-player marginal a couple
+    # of arithmetic ops: profiling showed the per-player _terminal_marginal
+    # call dominating the policy (1.3M calls per 50 continuations).
+    params = {}
+    for position, (dedicated_open, flex_cut, displaced, seat_cut) in summary.items():
+        own_cut = weekly_cut.get(position, 0.0)
+        if dedicated_open:
+            params[position] = (0, 0.0, 0.0, 0.0)
+        elif flex_cut is not None:
+            params[position] = (1, flex_cut - own_cut, 0.0, 0.0)
+        elif displaced is not None:
+            displaced_value = values.get(displaced, 0.0)
+            displaced_adjusted = displaced_value - available_weeks[displaced] * (
+                seat_cut - weekly_cut.get(position_of.get(displaced), 0.0)
+            )
+            params[position] = (
+                2,
+                seat_cut - own_cut,
+                projection.get(displaced, 0.0),
+                BENCH_ASSET_FACTOR * displaced_value - displaced_adjusted,
+            )
+        else:
+            params[position] = (3, 0.0, 0.0, 0.0)
+    result = {}
+    tiebreak = _PROJECTION_TIEBREAK
+    bench = BENCH_ASSET_FACTOR
+    for player_id, value in values.items():
+        if player_id not in available:
+            continue
+        position = position_of[player_id]
+        if allowed_positions and position not in allowed_positions:
+            continue
+        if position in caps and counts[position] >= caps[position]:
+            continue
+        raw = projection[player_id]
+        mode, gap, displaced_projection, base = params.get(
+            position, (3, 0.0, 0.0, 0.0)
         )
-    }
+        if mode == 0:
+            marginal = value
+        elif mode == 1:
+            marginal = value - available_weeks[player_id] * gap
+        elif mode == 2 and raw > displaced_projection:
+            marginal = value - available_weeks[player_id] * gap + base
+        else:
+            marginal = bench * value
+        result[player_id] = marginal + tiebreak * raw
+    return result
 
 
 def next_user_turn_pick_no(pick_owners, pick_no, roster_id):

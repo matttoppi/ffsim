@@ -113,8 +113,11 @@ class NextTurnOpportunityCostTest(unittest.TestCase):
         policy = _projection_user_policy(league_evaluator, state, choose)
 
         self.assertIn("def1", live_candidate_pool(prepared, state, len(player_ids)))
+        # DEF is no longer hard-gated out of future picks while other seats
+        # are open; it is priced at its open-seat terminal value (ADR-031)
+        # and only the end-of-draft feasibility guard restricts positions.
         future_options = policy(1, 1, state.rosters, state.available_player_ids)
-        self.assertNotIn("def1", future_options)
+        self.assertIn("def1", future_options)
         completions = complete_drafts(
             state, "def1", 1, range(2), choose, policy, seed=17
         )
@@ -133,9 +136,11 @@ class NextTurnOpportunityCostTest(unittest.TestCase):
         # back. RB collapses from 70 to 20, so the two-pick roster is better
         # by taking RB now and QB later.
         self.assertGreater(utilities["rb_now"], utilities["qb_now"])
+        # Exact values carry the deterministic 1e-9 projection tiebreak the
+        # terminal-marginal policy adds on top of the floored VOR terms.
         self.assertEqual(utilities, {
-            "qb_now": 50.748479969248365,
-            "rb_now": 68.0356208862551,
+            "qb_now": 50.7484801147467,
+            "rb_now": 68.03562105627304,
         })
 
     def test_scarce_materially_inferior_player_does_not_automatically_win(self):
@@ -311,6 +316,111 @@ class NextTurnOpportunityCostTest(unittest.TestCase):
         self.assertEqual(cached.world_indices, reversed_order.world_indices)
         self.assertEqual(cached.candidate("p1"), reversed_order.candidate("p1"))
         self.assertEqual(cached.candidate("p2"), reversed_order.candidate("p2"))
+
+
+class TerminalMarginalAlignmentTest(unittest.TestCase):
+    """The policy's player values mirror the terminal roster scorer (ADR-031)."""
+
+    def _policy(self, subject, pick_owners=(1, 2, 1)):
+        state = SimpleNamespace(pick_owners=pick_owners)
+        snapshot = {
+            "source": SLEEPER_ADP_SOURCE,
+            "snapshot_id": "terminal-marginal",
+            "observations": [
+                {"canonical_player_id": player_id, "adp": index}
+                for index, player_id in enumerate(subject.bank.player_ids, 1)
+            ],
+        }
+        choose = _live_opponent_choice(snapshot, subject, state, 0.11)
+        return _projection_user_policy(subject, state, choose)
+
+    def _current_values(self, subject, roster, available):
+        # The final user pick has no next turn, so the policy returns its
+        # current per-player values directly.
+        policy = self._policy(subject)
+        rosters = ((1, tuple(roster)), (2, ()), (3, ()), (4, ()))
+        return policy(1, len(subject.bank.player_ids), rosters, frozenset(available))
+
+    def test_policy_values_equal_terminal_scorer_marginals(self):
+        from tests.test_roster_value import mixed_evaluator, mixed_players, value
+
+        subject = mixed_evaluator(("QB", "RB", "RB", "WR", "FLEX"), mixed_players())
+        roster = ("qb1", "rb1", "wr1")
+        base = value(subject, roster)
+        available = [
+            player_id for player_id, _, _ in mixed_players()
+            if player_id not in roster
+        ]
+        utilities = self._current_values(subject, roster, available)
+        # Open dedicated seat (rb2), open flex seat (te1), and a bench asset
+        # behind the flex (rb3 once te1 outranks it) all price exactly like
+        # adding the player to the terminal scorer's roster.
+        for candidate in ("rb2", "te1", "wr2", "rb3"):
+            self.assertAlmostEqual(
+                utilities[candidate],
+                value(subject, (*roster, candidate)) - base,
+                places=5,
+                msg=candidate,
+            )
+
+    def test_flex_worthy_te_outranks_backup_qb_when_lineup_is_full(self):
+        # Regression for the 7ae93a0e QB pile-up and the ADR-030 phantom
+        # survivor edge: static season VOR loved backup QBs and skipped
+        # flex-worthy second TEs the terminal scorer values, so wait branches
+        # leaked the value the root-forced branch captured.
+        player_ids = (
+            "qb1", "qb2", "rb1", "rbw", "wr1", "wr2", "te1", "te2",
+            "qbr", "rbr", "wrr", "ter",
+        )
+        positions = ("QB", "QB", "RB", "RB", "WR", "WR", "TE", "TE",
+                     "QB", "RB", "WR", "TE")
+        # qb2 has a huge static VOR (40 over the QB cutline); te2 is worth 20
+        # over the TE cutline and displaces the weak flex starter rbw.
+        expected = (80.0, 60.0, 50.0, 12.0, 48.0, 44.0, 40.0, 30.0,
+                    20.0, 10.0, 12.0, 10.0)
+        subject = SimpleNamespace(
+            bank=SimpleNamespace(
+                player_ids=player_ids,
+                player_positions=positions,
+                expected_scores=expected,
+                weeks=(1,),
+            ),
+            roster_ids=(1, 2),
+            slot_counts={"QB": 1, "RB": 1, "WR": 1, "TE": 1, "FLEX": 1},
+        )
+        roster = ("qb1", "rb1", "wr1", "te1", "rbw")
+        utilities = self._current_values(
+            subject, roster, set(player_ids) - set(roster)
+        )
+        # te2 takes the FLEX seat from rbw (30 - 12 plus the displaced bench
+        # credit); qb2 is a bench asset at the discounted fraction despite
+        # the larger static VOR, which the old policy would have preferred.
+        self.assertGreater(utilities["te2"], utilities["qb2"])
+        self.assertAlmostEqual(utilities["qb2"], 0.25 * (60.0 - 20.0), places=5)
+        self.assertAlmostEqual(
+            utilities["te2"], (30.0 - 12.0) + 0.25 * 12.0, places=5
+        )
+
+    def test_zero_value_bench_ties_break_by_projection(self):
+        # Below-cutline bench players are terminal ties at zero; the rollout
+        # still drafts the better real player, not the smallest player ID.
+        player_ids = ("qb1", "rb1", "wr1", "z_big", "a_small")
+        positions = ("QB", "RB", "WR", "RB", "RB")
+        expected = (80.0, 50.0, 48.0, 30.0, 29.0)
+        subject = SimpleNamespace(
+            bank=SimpleNamespace(
+                player_ids=player_ids,
+                player_positions=positions,
+                expected_scores=expected,
+                weeks=(1,),
+            ),
+            roster_ids=(1, 2),
+            slot_counts={"QB": 1, "RB": 1, "WR": 1},
+        )
+        utilities = self._current_values(
+            subject, ("qb1", "rb1", "wr1"), {"z_big", "a_small"}
+        )
+        self.assertGreater(utilities["z_big"], utilities["a_small"])
 
 
 if __name__ == "__main__":

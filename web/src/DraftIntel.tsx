@@ -693,7 +693,7 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
                           candidate.expected_best_later_value != null &&
                           candidate.next_turn_pick_no != null && (
                             <small>
-                              Value over replacement {candidate.current_marginal_value.toFixed(0)} now ·{' '}
+                              Adds {candidate.current_marginal_value.toFixed(0)} to your roster now ·{' '}
                               {candidate.expected_best_later_value.toFixed(0)} expected best at pick{' '}
                               {candidate.next_turn_pick_no}
                               {candidate.positional_value_drop != null && (

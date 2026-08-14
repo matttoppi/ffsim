@@ -742,15 +742,25 @@ def _merge_opportunity_costs(costs):
             alternatives[player_id] = alternatives.get(player_id, 0.0) + (
                 probability * cost.sample_count
             )
+    expected_best = weighted("expected_best_later_value")
+    expected_same_position = weighted("expected_same_position_later_value")
+    current = first.current_marginal_value
     return DraftOpportunityCost(
-        current_marginal_value=first.current_marginal_value,
+        current_marginal_value=current,
         next_user_pick_no=first.next_user_pick_no,
-        expected_best_later_value=weighted("expected_best_later_value"),
-        expected_same_position_later_value=weighted(
-            "expected_same_position_later_value"
+        expected_best_later_value=expected_best,
+        expected_same_position_later_value=expected_same_position,
+        # Recomputed from the merged expectations so the definitional
+        # identity (VONA = current - expected best) holds exactly and merged
+        # results equal one flat evaluation bit-for-bit.
+        value_over_next_alternative=(
+            current - expected_best if expected_best is not None else None
         ),
-        value_over_next_alternative=weighted("value_over_next_alternative"),
-        positional_value_drop=weighted("positional_value_drop"),
+        positional_value_drop=(
+            current - expected_same_position
+            if expected_same_position is not None
+            else None
+        ),
         later_alternative_distribution=tuple(
             (player_id, count / total)
             for player_id, count in sorted(

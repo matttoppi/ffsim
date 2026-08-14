@@ -367,24 +367,7 @@ class LeagueEvaluator:
         assignment = self._canonical_assignment(roster_assignment)
         team = self.roster_index[roster_id]
         replacement = self._starter_cutline_replacement()
-        if self._mean_scores is None:
-            weeks = self.total_weeks
-            mean_scores = self.bank.scores[:, :, :weeks].mean(axis=0, dtype=float)
-            available = self.bank.available[:, :, :weeks].any(axis=0)
-            available_weeks = np.maximum(available.sum(axis=1, keepdims=True), 1)
-            flat = (mean_scores * available).sum(
-                axis=1, keepdims=True
-            ) / available_weeks
-            floor = np.asarray([
-                replacement.get(position, 0.0)
-                for position in self.bank.player_positions
-            ])[:, None]
-            self._mean_scores = np.where(available, np.maximum(flat, floor), 0.0)
-            self._mean_available = available
-            slot_count = sum(count for _, count in self.slots)
-            self._unit_cum = np.tile(
-                np.arange(slot_count + 1, dtype=float), (1, weeks, 1)
-            )
+        self.flat_season_scores()
         order = self._lineup_order(assignment[team])
         available = self._mean_available[order][None, :, :]
         scores = self._mean_scores[order][None, :, :]
@@ -414,6 +397,37 @@ class LeagueEvaluator:
             for slot, count in self.slots
         )
         return float(totals.sum()) - baseline + BENCH_ASSET_FACTOR * bench_value
+
+    def flat_season_scores(self):
+        """Floored flat per-week scores and availability the value scorer uses.
+
+        ``scores[player, week]`` is the across-world, across-available-weeks
+        mean, floored at the player's position cutline, zero where the player
+        is never available; ``available[player, week]`` is the any-world
+        availability mask. This is the exact per-player input to
+        ``projected_roster_value`` and the authoritative value basis for the
+        rollout future-user policy (ADR-031).
+        """
+        if self._mean_scores is None:
+            replacement = self._starter_cutline_replacement()
+            weeks = self.total_weeks
+            mean_scores = self.bank.scores[:, :, :weeks].mean(axis=0, dtype=float)
+            available = self.bank.available[:, :, :weeks].any(axis=0)
+            available_weeks = np.maximum(available.sum(axis=1, keepdims=True), 1)
+            flat = (mean_scores * available).sum(
+                axis=1, keepdims=True
+            ) / available_weeks
+            floor = np.asarray([
+                replacement.get(position, 0.0)
+                for position in self.bank.player_positions
+            ])[:, None]
+            self._mean_scores = np.where(available, np.maximum(flat, floor), 0.0)
+            self._mean_available = available
+            slot_count = sum(count for _, count in self.slots)
+            self._unit_cum = np.tile(
+                np.arange(slot_count + 1, dtype=float), (1, weeks, 1)
+            )
+        return self._mean_scores, self._mean_available
 
     def _starter_cutline_replacement(self):
         """Weekly streamer level at the league-wide starter cutline.

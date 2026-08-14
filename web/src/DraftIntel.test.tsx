@@ -352,7 +352,7 @@ describe('DraftIntel', () => {
     expect(screen.getByText('✓ Final suggestion')).toBeTruthy()
     expect(screen.queryByText('First look')).toBeNull()
     expect(screen.getByText(/ADP 42.*82% chance back at pick 9/)).toBeTruthy()
-    expect(screen.getByText(/Value over replacement 84 now.*78 expected best at pick 9.*\+6 RB drop.*Patient Quarterback.*64%/)).toBeTruthy()
+    expect(screen.getByText(/Adds 84 to your roster now.*78 expected best at pick 9.*\+6 RB drop.*Patient Quarterback.*64%/)).toBeTruthy()
     expect(screen.getByText('Why Fresh Player')).toBeTruthy()
     expect(screen.getByText(/RB cliff/)).toBeTruthy()
     expect(screen.getByText(/6 points above the best RB expected to reach your next turn/)).toBeTruthy()
