@@ -143,6 +143,8 @@ SELECT
   e.pick_no,
   json_extract(e.payload_json, '$.recommended_candidate_id') AS player_id,
   json_extract(e.payload_json, '$.decision_status') AS decision_status,
+  round(json_extract(e.payload_json, '$.projected_roster_value'), 2)
+    AS projected_value,
   round(100 * json_extract(e.payload_json, '$.championship_probability'), 2)
     AS title_pct,
   json_extract(e.payload_json, '$.reason_codes') AS reason_codes,
@@ -193,6 +195,7 @@ SELECT
   json_extract(c.value, '$.position') AS position,
   json_extract(c.value, '$.adp') AS adp,
   json_extract(c.value, '$.rollout_count') AS rollouts,
+  json_extract(c.value, '$.projected_roster_value') AS projected_value,
   json_extract(c.value, '$.championship_probability') AS title_probability,
   json_extract(c.value, '$.survives_to_next_pick') AS next_pick_survival,
   json_extract(c.value, '$.is_top_tier') AS top_tier
@@ -202,11 +205,14 @@ JOIN json_each(e.payload_json, '$.candidates') AS c
 WHERE json_extract(s.config_json, '$.batch_id') = @batch
   AND e.event_type = 'recommendation'
   AND e.stage = 'ready'
-ORDER BY e.draft_id, e.pick_no, title_probability DESC;
+ORDER BY e.draft_id, e.pick_no, projected_value DESC;
 ```
 
 The final payload can also contain `screened_candidates`; those are the
 unranked watchlist rows that did not receive the final refinement depth.
+Batches recorded before decision engine version 5 predate the
+projected-roster-value objective; their `projected_roster_value` columns
+return NULL and their rankings follow championship probability.
 
 ## 4. Find model and roster anomalies
 

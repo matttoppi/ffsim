@@ -100,7 +100,7 @@ mid-draft traded pick or transient bad payload heals itself. Every published
 recommendation carries the pick number it was computed for, and the UI must
 refuse to display it against any other current pick. Final output includes a
 state/run signature and reports a top tier rather than a unique winner when
-the paired championship-delta interval includes zero.
+the paired projected-value-delta interval includes zero (ADR-026).
 
 ### 11.3 Live room adaptation
 
@@ -196,21 +196,23 @@ Q_best_wait_path(p)
 WaitDelta(p) = Q_best_wait_path(p) - Q_take_now(p)
 ```
 
-where `Q` is expected championship probability under the modeled future draft and season outcomes.
+where `Q` is the expected projected value of the completed roster under the
+modeled future draft outcomes (ADR-026).
 
 The displayed return chance for `p` is counterfactual: measure `p`'s survival
-in the highest-equity root branch that selects a different player now. Do not
+in the highest-value root branch that selects a different player now. Do not
 report survival from the branch that forces `p` at the current pick, where it
 is mechanically zero. Because every root branch completes the draft with the
-ADP-driven opponent model and the same future-user policy, championship equity
-already includes the chance to select `p` later when it survives.
+ADP-driven opponent model and the same future-user policy, the projected
+completed-roster value already includes the chance to select `p` later when
+it survives.
 
 The live V1 also exposes a simpler QB/TE timing diagnostic. It groups adjacent
 snake selections into one turn, then compares the best projected player
 available now with the best projected player whose Sleeper ADP reaches each of
 the user's next three turns. The suggested target is the pick immediately
 before the largest incremental projection drop. This ADP curve explains
-positional timing; it does not replace the coupled championship-equity board
+positional timing; it does not replace the coupled projected-value board
 when deciding whether QB/TE beats another position now.
 
 ### 12.6 Strategic reach
@@ -225,7 +227,7 @@ A **justified reach** occurs when:
 
 - the player is earlier than market expectation,
 - the player's survival probability is low enough that waiting is dangerous,
-- the player's root championship branch is better than the best alternative branch by a meaningful amount.
+- the player's root branch produces a meaningfully better projected completed roster than the best alternative branch.
 
 The UI should be capable of saying:
 
@@ -233,7 +235,7 @@ The UI should be capable of saying:
 REACH IS JUSTIFIED
 Market ADP suggests you are 9 picks early, but the player survives to your
 next pick in only 14% of personalized rollouts. Taking him now increases
-estimated title equity by 1.3 percentage points versus the best wait branch.
+the projected completed-roster value by 4.2 points versus the best wait branch.
 ```
 
 ### 12.7 Safe wait
@@ -243,7 +245,7 @@ A high-value player can still be labeled `WAIT` when:
 - survival is high,
 - equivalent tier depth is high,
 - a different current player has much greater loss-of-waiting risk,
-- paired championship simulations favor the two-pick combination created by waiting.
+- paired completions favor the projected value of the two-pick combination created by waiting.
 
 ---
 

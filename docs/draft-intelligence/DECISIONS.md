@@ -902,3 +902,74 @@ without making the live path unusable.
   a calibrated survival probability.
 - Fresh human-draft telemetry is still required before claiming outcome lift;
   the conditional-hazard independence approximation must be audited for regret.
+
+---
+
+## ADR-026 — Root candidates are ranked by projected completed-roster value, not championship equity
+
+**Status:** Accepted
+**Date:** 2026-08-14
+
+### Decision
+
+The primary root objective is:
+
+```text
+Q(candidate) = mean projected value of the completed user roster across
+               paired draft completions conditioned on selecting the
+               candidate now
+```
+
+Each completed roster is scored deterministically: the best legal starting
+lineup is chosen for every fantasy week over the `SeasonWorldBank`'s
+across-world mean player-week points (byes/never-available weeks masked),
+using the exact `LeagueEvaluator` lineup rule, slot structure, and streamer
+replacement semantics, minus the all-streamer baseline. The unit is projected
+lineup points over replacement for the season. The scorer lives on
+`LeagueEvaluator` (`projected_roster_value`), shares the `_lineup_totals`
+lineup engine with the stochastic evaluator, and carries
+`ROSTER_VALUE_VERSION` inside the evaluator version hash.
+
+`rank_candidates`, co-leader tiers, refinement survivors,
+`recommended_candidate_id`/`runner_up_candidate_id`, and reason codes
+(`PROJECTED_VALUE_LEADER`, `PAIRED_VALUE_EDGE`) all use this objective with
+paired projected-value deltas across the same coupled continuations. The
+racing regret stop is 0.5 projected points. Championship, playoff, wins, and
+points fields remain computed and published as clearly secondary telemetry;
+the league-equity sidebar and post-draft simulation still report championship
+odds. The decision engine version advances to 5.
+
+### Rationale
+
+The championship argmax was dominated by season-simulation noise: candidate
+deltas of well under one percentage point rode on binary title outcomes with
+paired standard errors near the whole spread of the board, producing
+noise-ranked headlines (a kicker twice led a recorded late 12-team state
+across seeds) and broad toss-up tiers. The deterministic roster-value
+objective removes the season-noise axis from the decision entirely — its only
+uncertainty is draft uncertainty — while preserving every model boundary:
+projections determine value, ADP/opponents determine availability, VONA
+prices waiting, and rest-of-draft completions translate today's pick into a
+completed roster. Shadow evaluation on recorded early/middle/late 10- and
+12-team synthetic states across four seeds picked one stable leader wherever
+the old objective was stable, split only inside sub-point statistical ties,
+and reversed the old headline exactly where it was indefensible (the kicker
+state: value leader +3.3 points over the kicker with an interval excluding
+zero; the old paired championship deltas there were −0.2 to −1.0pp noise).
+
+### Consequences
+
+- ADR-024's "headline the title-equity argmax" and ADR-025's "root candidates
+  remain ranked only by coupled championship equity" are superseded on the
+  ranking question; their roster-feasibility, racing, and VONA policy
+  decisions remain active.
+- ADP still never touches a player's base projected value (tested): a board
+  change moves survival/VONA evidence and completions, not the scorer.
+- Paired projected-value deltas are deterministic per continuation, so
+  co-leader tiers shrink to genuine draft-uncertainty ties instead of season
+  noise; screen-vs-ready leader churn drops accordingly.
+- Season worlds are still evaluated for the secondary championship telemetry,
+  so latency is unchanged; reducing that budget is a separate, convergence-
+  gated decision.
+- Absolute championship calibration caveats (ADR-015) now apply only to
+  secondary fields.

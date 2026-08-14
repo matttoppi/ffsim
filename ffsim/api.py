@@ -37,7 +37,12 @@ LEAGUE_EQUITY_ROLLOUT_COUNT = 50
 # (150, 225, 300) ladder matched its flat refinement 12/12 at 0.54-0.72x the
 # extension work on the m=14 observation matrices.
 REFINEMENT_STAGE_ROLLOUT_COUNTS = (150, 225)
-REFINEMENT_REGRET_STOP = 0.005
+# Regret bound in projected-roster-value points (the primary objective's
+# unit): 0.5 season lineup points is ~0.03 points per week, far below any
+# decision-relevant margin. Shadow evaluation on recorded early/middle/late
+# 10- and 12-team states measured paired-value standard errors of 1-4 points
+# at the screen depth, so this bound only fires on genuine ties.
+REFINEMENT_REGRET_STOP = 0.5
 # Stages announced by prepare_draft via its progress callback; the world-bank
 # stage is skipped when blockers exist, so a blocked run tops out at 5/6.
 PREPARATION_STAGE_COUNT = 6

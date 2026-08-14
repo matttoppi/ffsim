@@ -226,7 +226,7 @@ After V1 is validated:
 
 - Auction draft engine.
 - Dynasty/keeper-specific choice models.
-- Season-long waiver and trade optimizer using the same title-equity objective.
+- Season-long waiver and trade optimizer using the same projected-roster-value objective.
 - Explicit value-of-information recommendations when uncertain manager signals matter.
 - Browser extension/overlay on top of Sleeper draft room.
 - Mobile companion view.
@@ -309,4 +309,4 @@ It should answer:
 
 The product is successful when it can transform data that is individually weak - a few league-mate drafts, platform ADP differences, current roster needs, exact draft order, live room behavior, projections, injuries, and schedule variance - into one coherent and calibrated decision process without pretending any single signal is stronger than it is.
 
-The highest-value implementation is therefore a **live, manager-conditioned, multi-market draft rollout engine whose terminal objective is paired `ffsim` championship equity**.
+The highest-value implementation is therefore a **live, manager-conditioned, multi-market draft rollout engine whose terminal objective is the paired projected value of the completed roster under `ffsim`'s lineup and replacement rules** (ADR-026), with `ffsim` championship equity retained as secondary telemetry.

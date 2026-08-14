@@ -383,6 +383,25 @@ class LiveDraftTest(unittest.TestCase):
         )
         evaluation = evaluate_live_candidates(prepared, state, 20, ("p1", "p8"))
 
+        payload = live_recommendation_payload(prepared, state, [evaluation], 2)
+        self.assertIn("PROJECTED_VALUE_LEADER", payload["reason_codes"])
+        self.assertEqual(
+            payload["recommended_candidate_id"],
+            max(
+                evaluation.candidates,
+                key=lambda candidate: candidate.projected_roster_value,
+            ).candidate_id,
+        )
+        self.assertIn("projected_roster_value", payload)
+        self.assertIn("paired_value_delta_vs_runner_up", payload)
+        for candidate_row in payload["candidates"]:
+            self.assertIn("projected_roster_value", candidate_row)
+        # Ranked payload order follows projected value, not championship.
+        values = [
+            row["projected_roster_value"] for row in payload["candidates"]
+        ]
+        self.assertEqual(values, sorted(values, reverse=True))
+
         own_branch = next(
             player for player in evaluation.candidate("p8").survival.players
             if player.player_id == "p8"

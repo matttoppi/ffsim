@@ -255,7 +255,7 @@ class DecisionEvaluationTest(unittest.TestCase):
         self.assertEqual(recommendation.runner_up_candidate_id, "p2")
         self.assertEqual(recommendation.joint_outcome_count, 60)
         self.assertEqual(recommendation.season_worlds_per_rollout, 3)
-        self.assertEqual(recommendation.decision_engine_version, 4)
+        self.assertEqual(recommendation.decision_engine_version, 5)
         self.assertEqual(recommendation.draft_model_version, "manual-test-v1")
         self.assertEqual(recommendation.decision_status, "clear_leader")
         self.assertEqual(recommendation.co_leader_candidate_ids, ("p1",))
@@ -263,7 +263,7 @@ class DecisionEvaluationTest(unittest.TestCase):
             tuple(player.player_id for player in recommendation.availability.players),
             ("p1",),
         )
-        self.assertIn("PAIRED_CHAMPIONSHIP_EDGE", recommendation.reason_codes)
+        self.assertIn("PAIRED_VALUE_EDGE", recommendation.reason_codes)
         json.dumps(asdict(recommendation))
 
         cached = evaluate_candidates(
@@ -320,6 +320,8 @@ class DecisionEvaluationTest(unittest.TestCase):
         leader = evaluation.candidate("p1")
         tied = replace(
             evaluation.candidate("p2"),
+            projected_roster_value=leader.projected_roster_value,
+            continuation_roster_values=leader.continuation_roster_values,
             championship_probability=leader.championship_probability,
             championship_outcomes=leader.championship_outcomes,
             continuation_championship_probabilities=(
@@ -334,9 +336,9 @@ class DecisionEvaluationTest(unittest.TestCase):
         self.assertEqual(recommendation.decision_status, "toss_up")
         self.assertEqual(recommendation.co_leader_candidate_ids, ("p1", "p2"))
         self.assertIn("LOW_CONFIDENCE_TOSS_UP", recommendation.reason_codes)
-        self.assertNotIn("PAIRED_CHAMPIONSHIP_EDGE", recommendation.reason_codes)
+        self.assertNotIn("PAIRED_VALUE_EDGE", recommendation.reason_codes)
 
-    def test_toss_up_keeps_the_title_equity_leader_as_the_headline(self):
+    def test_toss_up_keeps_the_projected_value_leader_as_the_headline(self):
         def opponents(roster_id, pick_no, rosters, available):
             utilities = {
                 player_id: -100.0 * int(player_id[1:]) for player_id in available
@@ -365,6 +367,8 @@ class DecisionEvaluationTest(unittest.TestCase):
         leader = evaluation.candidate("p1")
         tied = replace(
             evaluation.candidate("p2"),
+            projected_roster_value=leader.projected_roster_value,
+            continuation_roster_values=leader.continuation_roster_values,
             championship_probability=leader.championship_probability,
             playoff_probability=leader.playoff_probability,
             expected_wins=leader.expected_wins,
@@ -384,7 +388,7 @@ class DecisionEvaluationTest(unittest.TestCase):
         self.assertEqual(recommendation.runner_up_candidate_id, "p2")
         self.assertEqual(recommendation.co_leader_candidate_ids, ("p1", "p2"))
         self.assertNotIn("SCARCITY_TIEBREAK", recommendation.reason_codes)
-        self.assertIn("TITLE_EQUITY_LEADER", recommendation.reason_codes)
+        self.assertIn("PROJECTED_VALUE_LEADER", recommendation.reason_codes)
         self.assertIn("LOW_CONFIDENCE_TOSS_UP", recommendation.reason_codes)
 
     def test_final_pick_evaluations_skip_next_pick_survival(self):

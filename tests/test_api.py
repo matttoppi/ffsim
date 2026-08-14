@@ -815,7 +815,7 @@ class ApiTest(unittest.TestCase):
             return monitor
 
         # Dominated candidates are dropped before the deeper extensions.
-        monitor = run(("a", "b"), 0.05)
+        monitor = run(("a", "b"), 5.0)
         self.assertEqual(evaluated, [
             (100, ("a", "b", "c", "d", "e")),
             (range(100, 150), ("a", "b", "c", "d", "e")),
@@ -833,7 +833,7 @@ class ApiTest(unittest.TestCase):
 
         # A statistically bounded toss-up stops at the intermediate stage.
         evaluated.clear()
-        monitor = run(("a", "b", "c", "d", "e"), 0.001)
+        monitor = run(("a", "b", "c", "d", "e"), 0.1)
         self.assertEqual(evaluated, [
             (100, ("a", "b", "c", "d", "e")),
             (range(100, 150), ("a", "b", "c", "d", "e")),

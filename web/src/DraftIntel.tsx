@@ -177,7 +177,7 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
     ? (monitor.recommendation?.position_timing ?? [])
     : []
   const leaderEdge =
-    monitor.recommendation?.paired_delta_vs_runner_up?.championship_probability_delta
+    monitor.recommendation?.paired_value_delta_vs_runner_up?.projected_value_delta
   const tossUp = monitor.recommendation?.decision_status === 'toss_up'
   const coLeaderIds = new Set(monitor.recommendation?.co_leader_candidate_ids ?? [])
   const coLeaderNames = candidates.flatMap((candidate) =>
@@ -528,8 +528,8 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
                 )}
               </p>
               {boardSections.map((section) => {
-                const maxEquity = Math.max(
-                  ...section.candidates.map((candidate) => candidate.championship_probability),
+                const maxValue = Math.max(
+                  ...section.candidates.map((candidate) => candidate.projected_roster_value),
                   1e-9,
                 )
                 const List = section.screened ? 'ul' : 'ol'
@@ -545,7 +545,7 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
                   const screened = section.screened
                   const inTopTier = tossUp && coLeaderIds.has(candidate.player_id)
                   const deltaVsLeader =
-                    (candidate.championship_probability - leader.championship_probability) * 100
+                    candidate.projected_roster_value - leader.projected_roster_value
                   return (
                     <li key={candidate.player_id} className="board-row">
                       <span className="board-rank">
@@ -557,6 +557,7 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
                       <span className="board-player">
                         <strong>{candidate.name}</strong>
                         <small>
+                          title {(candidate.championship_probability * 100).toFixed(1)}% ·{' '}
                           {(candidate.playoff_probability * 100).toFixed(0)}% playoffs ·{' '}
                           {candidate.expected_wins.toFixed(1)} wins
                         </small>
@@ -594,14 +595,16 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
                         <span className="board-track" aria-hidden="true">
                           <span
                             className="board-fill"
-                            style={{ width: `${(candidate.championship_probability / maxEquity) * 100}%` }}
+                            style={{
+                              width: `${Math.max(0, (candidate.projected_roster_value / maxValue) * 100)}%`,
+                            }}
                           />
                         </span>
                         {screened ? (
                           <span className="board-numbers">
                             <strong className="board-delta">watchlist</strong>
                             <small>
-                              {(candidate.championship_probability * 100).toFixed(1)}% title ·{' '}
+                              {candidate.projected_roster_value.toFixed(1)} proj pts ·{' '}
                               {candidate.rollout_count ??
                                 monitor.recommendation?.screened_rollout_count}{' '}
                               continuations
@@ -609,14 +612,14 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
                           </span>
                         ) : rank === 0 ? (
                           <span className="board-numbers">
-                            <strong>{(candidate.championship_probability * 100).toFixed(1)}%</strong>
+                            <strong>{candidate.projected_roster_value.toFixed(1)} pts</strong>
                             {tossUp ? (
                               <small>top tier · no clear edge</small>
                             ) : leaderEdge != null && (
                               <small>
-                                {Math.abs(leaderEdge * 100) < 0.05
+                                {Math.abs(leaderEdge) < 0.05
                                   ? 'even with next'
-                                  : `+${(leaderEdge * 100).toFixed(1)}% vs next`}
+                                  : `+${leaderEdge.toFixed(1)} pts vs next`}
                               </small>
                             )}
                           </span>
@@ -627,9 +630,9 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
                                 ? 'top tier'
                                 : Math.abs(deltaVsLeader) < 0.05
                                 ? 'even'
-                                : `${deltaVsLeader.toFixed(1)}%`}
+                                : `${deltaVsLeader.toFixed(1)} pts`}
                             </strong>
-                            <small>{(candidate.championship_probability * 100).toFixed(1)}% title</small>
+                            <small>{candidate.projected_roster_value.toFixed(1)} proj pts</small>
                           </span>
                         )}
                       </span>
@@ -648,8 +651,9 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
                     : recStatus === 'refining'
                       ? 'Refining'
                       : 'Preliminary'}{' '}
-                for pick {monitor.recommendation?.pick_no} · title odds if drafted now, ± vs
-                the top option · uncalibrated Sleeper-ADP baseline ·{' '}
+                for pick {monitor.recommendation?.pick_no} · projected lineup points over
+                replacement for the completed roster if drafted now, ± vs the top option ·
+                title odds shown as secondary telemetry · uncalibrated Sleeper-ADP baseline ·{' '}
                 {monitor.recommendation?.rollout_count} draft continuations
                 {screenedCandidates.length > 0 ? ' for finalists' : ''}
                 {monitor.recommendation?.run_signature && (

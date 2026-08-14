@@ -15,7 +15,7 @@ from ffsim.draft_intel.rollout import (
 )
 
 
-DECISION_ENGINE_VERSION = 4
+DECISION_ENGINE_VERSION = 5
 
 
 @dataclass(frozen=True)
@@ -34,6 +34,10 @@ class DraftOpportunityCost:
 @dataclass(frozen=True)
 class CandidateEvaluation:
     candidate_id: str
+    projected_roster_value: float
+    projected_roster_value_standard_error: float
+    projected_roster_value_interval: tuple[float, float]
+    continuation_roster_values: tuple[float, ...]
     championship_probability: float
     championship_standard_error: float
     championship_interval: tuple[float, float]
@@ -95,6 +99,19 @@ class PairedDelta:
 
 
 @dataclass(frozen=True)
+class PairedValueDelta:
+    """Paired projected-roster-value difference across coupled continuations."""
+
+    candidate_id: str
+    baseline_candidate_id: str
+    projected_value_delta: float
+    standard_error: float
+    interval: tuple[float, float]
+    better_continuation_probability: float
+    worse_continuation_probability: float
+
+
+@dataclass(frozen=True)
 class DecisionEvaluation:
     draft_id: str
     state_pick_no: int
@@ -150,6 +167,33 @@ class DecisionEvaluation:
             worse_outcome_probability=sum(value < 0 for value in differences) / len(differences),
         )
 
+    def paired_value_delta(self, candidate_id, baseline_candidate_id):
+        """Paired projected-roster-value delta; one deterministic value per continuation."""
+        candidate = self.candidate(candidate_id)
+        baseline = self.candidate(baseline_candidate_id)
+        differences = tuple(
+            left - right
+            for left, right in zip(
+                candidate.continuation_roster_values,
+                baseline.continuation_roster_values,
+                strict=True,
+            )
+        )
+        mean, standard_error = _mean_and_error(differences)
+        return PairedValueDelta(
+            candidate_id=candidate.candidate_id,
+            baseline_candidate_id=baseline.candidate_id,
+            projected_value_delta=mean,
+            standard_error=standard_error,
+            interval=(mean - 1.96 * standard_error, mean + 1.96 * standard_error),
+            better_continuation_probability=(
+                sum(value > 0 for value in differences) / len(differences)
+            ),
+            worse_continuation_probability=(
+                sum(value < 0 for value in differences) / len(differences)
+            ),
+        )
+
 
 @dataclass(frozen=True)
 class RecommendationSummary:
@@ -163,6 +207,9 @@ class RecommendationSummary:
     runner_up_candidate_id: str | None
     decision_status: str
     co_leader_candidate_ids: tuple[str, ...]
+    projected_roster_value: float
+    projected_roster_value_interval: tuple[float, float]
+    paired_value_delta_vs_runner_up: PairedValueDelta | None
     championship_probability: float
     championship_interval: tuple[float, float]
     playoff_probability: float
@@ -260,6 +307,7 @@ def evaluate_candidates(
         points = []
         log_probabilities = []
         continuation_probabilities = []
+        roster_values = []
         for completion, completion_worlds in zip(completions, world_indices):
             try:
                 assignment = {
@@ -270,6 +318,9 @@ def evaluate_candidates(
                 raise ValueError(
                     f"Completed draft player {error.args[0]} is missing from SeasonWorldBank"
                 ) from None
+            roster_values.append(
+                league_evaluator.projected_roster_value(assignment, user_roster_id)
+            )
             result = league_evaluator.evaluate(
                 assignment,
                 world_indices=completion_worlds,
@@ -290,8 +341,16 @@ def evaluate_candidates(
         championship_probability, championship_error = _mean_and_error(
             continuation_probabilities
         )
+        roster_value, roster_value_error = _mean_and_error(roster_values)
         evaluations.append(CandidateEvaluation(
             candidate_id=candidate_id,
+            projected_roster_value=roster_value,
+            projected_roster_value_standard_error=roster_value_error,
+            projected_roster_value_interval=(
+                roster_value - 1.96 * roster_value_error,
+                roster_value + 1.96 * roster_value_error,
+            ),
+            continuation_roster_values=tuple(roster_values),
             championship_probability=championship_probability,
             championship_standard_error=championship_error,
             championship_interval=_probability_interval(
@@ -585,11 +644,22 @@ def merge_rollout_ranges(evaluations):
         wins = tuple(w for part in parts for w in part.wins)
         points = tuple(p for part in parts for p in part.points)
         probability, error = _mean_and_error(continuation_probabilities)
+        roster_values = tuple(
+            value for part in parts for value in part.continuation_roster_values
+        )
+        roster_value, roster_value_error = _mean_and_error(roster_values)
         survivals = tuple(part.survival for part in parts)
         if any((survival is None) != (survivals[0] is None) for survival in survivals):
             raise ValueError("Cannot merge partially tracked survival reports")
         candidates.append(CandidateEvaluation(
             candidate_id=candidate.candidate_id,
+            projected_roster_value=roster_value,
+            projected_roster_value_standard_error=roster_value_error,
+            projected_roster_value_interval=(
+                roster_value - 1.96 * roster_value_error,
+                roster_value + 1.96 * roster_value_error,
+            ),
+            continuation_roster_values=roster_values,
             championship_probability=probability,
             championship_standard_error=error,
             championship_interval=_probability_interval(probability, error),
@@ -685,10 +755,12 @@ def _merge_opportunity_costs(costs):
 
 
 def rank_candidates(evaluation):
+    """Order by expected completed-roster projected value; equity breaks ties."""
     return tuple(
         sorted(
             evaluation.candidates,
             key=lambda candidate: (
+                -candidate.projected_roster_value,
                 -candidate.championship_probability,
                 -candidate.playoff_probability,
                 -candidate.expected_wins,
@@ -706,23 +778,28 @@ def recommendation_summary(evaluation):
     co_leaders = tuple(
         candidate for candidate in ranked
         if candidate is leader
-        or evaluation.paired_delta(
+        or evaluation.paired_value_delta(
             leader.candidate_id, candidate.candidate_id
         ).interval[0] <= 0
     )
     decision_status = "clear_leader" if len(co_leaders) == 1 else "toss_up"
     best = leader
-    reasons = ["TITLE_EQUITY_LEADER"]
+    reasons = ["PROJECTED_VALUE_LEADER"]
     runner_up = ranked[1] if len(ranked) > 1 else None
     delta = (
         evaluation.paired_delta(best.candidate_id, runner_up.candidate_id)
         if runner_up
         else None
     )
+    value_delta = (
+        evaluation.paired_value_delta(best.candidate_id, runner_up.candidate_id)
+        if runner_up
+        else None
+    )
     if decision_status == "toss_up":
         reasons.append("LOW_CONFIDENCE_TOSS_UP")
-    elif delta:
-        reasons.append("PAIRED_CHAMPIONSHIP_EDGE")
+    elif value_delta:
+        reasons.append("PAIRED_VALUE_EDGE")
     availability = None
     if runner_up and runner_up.survival:
         players = tuple(
@@ -757,6 +834,9 @@ def recommendation_summary(evaluation):
         co_leader_candidate_ids=tuple(
             candidate.candidate_id for candidate in co_leaders
         ),
+        projected_roster_value=best.projected_roster_value,
+        projected_roster_value_interval=best.projected_roster_value_interval,
+        paired_value_delta_vs_runner_up=value_delta,
         championship_probability=best.championship_probability,
         championship_interval=best.championship_interval,
         playoff_probability=best.playoff_probability,

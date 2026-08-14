@@ -35,7 +35,7 @@ The specification describes the destination. The implementation ledger describes
 
 ## Core invariant
 
-A root candidate must never be evaluated from a single sampled rest-of-draft completion. For each serious current-pick option, the system must integrate over many probabilistically generated future draft continuations and season outcomes, with the existing/refactored `ffsim` engine supplying terminal championship equity.
+A root candidate must never be evaluated from a single sampled rest-of-draft completion. For each serious current-pick option, the system must integrate over many probabilistically generated future draft continuations, with the existing/refactored `ffsim` engine's lineup and replacement rules supplying the terminal projected roster value (ADR-026) and its season simulation supplying secondary championship telemetry.
 
 ## Starting point for implementation
 

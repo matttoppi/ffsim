@@ -188,6 +188,8 @@ export interface DraftRecommendationCandidate {
   player_id: string
   name: string
   position: string | null
+  projected_roster_value: number
+  projected_roster_value_standard_error: number
   championship_probability: number
   playoff_probability: number
   expected_wins: number
@@ -285,6 +287,13 @@ export interface DraftMonitor {
     run_signature: string
     decision_status: 'clear_leader' | 'toss_up'
     co_leader_candidate_ids: string[]
+    projected_roster_value?: number
+    projected_roster_value_interval?: [number, number]
+    paired_value_delta_vs_runner_up?: {
+      projected_value_delta: number
+      standard_error: number
+      interval: [number, number]
+    } | null
     next_user_pick_no?: number | null
     pick_no?: number | null
     candidates_evaluated?: number

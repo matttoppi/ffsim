@@ -37,7 +37,7 @@ Build a live fantasy-football draft decision engine that combines:
 - probabilistic rest-of-draft rollouts,
 - and `ffsim` season/championship simulation as the terminal objective.
 
-The final decision target is expected championship equity across both draft uncertainty and football-season uncertainty, not a static player ranking.
+The final decision target is the expected projected value of the completed user roster across draft uncertainty (ADR-026) — deterministic best-legal-lineup points over replacement under `ffsim`'s rules — not a static player ranking. Championship equity across football-season uncertainty remains secondary telemetry.
 
 ## Non-negotiable correctness invariants
 

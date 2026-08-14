@@ -467,6 +467,7 @@ def _evaluate_candidate_batch(
     survival_ids,
     rollout_ids,
     temperature,
+    seed=2026,
 ):
     choose = _live_opponent_choice(snapshot, evaluator, state, temperature)
     user_policy = _projection_user_policy(evaluator, state, choose)
@@ -480,6 +481,7 @@ def _evaluate_candidate_batch(
         evaluator,
         draft_model_version=_live_model_version(snapshot, temperature),
         survival_player_ids=survival_ids,
+        seed=seed,
         # The opponent callback returns final log-probabilities with the
         # fitted temperature and reach mixture folded in, so rollouts run
         # at temperature 1.0.
@@ -512,7 +514,9 @@ def _rollout_chunks(rollout_ids, size):
     return chunks
 
 
-def _evaluate_candidate_task(state, candidate_id, survival_ids, rollout_ids, temperature):
+def _evaluate_candidate_task(
+    state, candidate_id, survival_ids, rollout_ids, temperature, seed=2026
+):
     return _evaluate_candidate_batch(
         _WORKER["snapshot"],
         _WORKER["evaluator"],
@@ -522,6 +526,7 @@ def _evaluate_candidate_task(state, candidate_id, survival_ids, rollout_ids, tem
         survival_ids,
         rollout_ids,
         temperature,
+        seed,
     )
 
 
@@ -551,6 +556,7 @@ def evaluate_live_candidates(
     temperature=None,
     executor=None,
     survival_ids=None,
+    seed=2026,
 ):
     if state.current_roster_id != prepared.user_roster_id:
         raise ValueError("Live recommendations require the user on the clock")
@@ -570,6 +576,7 @@ def evaluate_live_candidates(
             survival_ids,
             rollout_ids,
             temperature,
+            seed,
         )
     # Candidate evaluations are independent under coupled randomness, and so
     # are disjoint rollout ranges, so a chunked fan-out merged afterwards is
@@ -584,6 +591,7 @@ def evaluate_live_candidates(
                 survival_ids,
                 chunk,
                 temperature,
+                seed,
             )
             for chunk in chunks
         ]
@@ -647,7 +655,9 @@ def refinement_survivors(evaluation):
     survivors = [leader.candidate_id]
     max_advantage = 0.0
     for candidate in ranked[1:]:
-        delta = evaluation.paired_delta(candidate.candidate_id, leader.candidate_id)
+        delta = evaluation.paired_value_delta(
+            candidate.candidate_id, leader.candidate_id
+        )
         if delta.interval[1] >= 0:
             survivors.append(candidate.candidate_id)
             max_advantage = max(max_advantage, delta.interval[1])
@@ -946,6 +956,10 @@ def live_recommendation_payload(prepared, state, evaluations, candidate_pool_cou
             ),
             "position": prepared.player_details.get(candidate.candidate_id, {}).get(
                 "position"
+            ),
+            "projected_roster_value": candidate.projected_roster_value,
+            "projected_roster_value_standard_error": (
+                candidate.projected_roster_value_standard_error
             ),
             "championship_probability": candidate.championship_probability,
             "is_top_tier": candidate.candidate_id in top_tier,

@@ -2,14 +2,21 @@
 
 ### 19.1 Primary objective
 
-For root candidate `p`:
+For root candidate `p` (ADR-026):
 
 ```text
-Q(p) = estimated championship probability after selecting p now
-       and following the configured future user policy
+Q(p) = mean projected value of the completed user roster across paired
+       draft completions conditioned on selecting p now and following the
+       configured future user policy
 ```
 
-Select the candidate with the highest sufficiently supported `Q(p)`.
+Completed rosters are scored deterministically: the best legal weekly
+starting lineup over mean projected player-week points with the league's
+exact slot/flex rules and streamer replacement semantics, reported as
+projected lineup points over replacement. Select the candidate with the
+highest sufficiently supported `Q(p)`. Championship probability, playoff
+odds, wins, and points remain secondary telemetry and must be labeled as
+such.
 
 When paired uncertainty makes several candidates statistically
 interchangeable, retain the raw `Q(p)` leader as the headline and present the
@@ -20,6 +27,7 @@ exact-player return probability must not silently replace the primary leader.
 
 Report, but do not silently blend into the primary objective unless configured:
 
+- championship probability
 - playoff probability
 - average wins
 - average points
@@ -32,9 +40,18 @@ Report, but do not silently blend into the primary objective unless configured:
 
 If championship deltas are statistically indistinguishable, secondary metrics can be tie-breakers or the UI can state that the decision is effectively a toss-up.
 
-### 19.3 Paired championship delta
+### 19.3 Paired deltas
 
-For top candidate A versus B:
+The decision gate (co-leader tiers, refinement survivors) uses the paired
+projected-value delta across the same coupled continuations:
+
+```text
+DeltaValue(A,B) = mean(RosterValue_A_r - RosterValue_B_r)
+```
+
+Each per-continuation roster value is deterministic, so this delta carries
+draft uncertainty only. The paired championship delta remains secondary
+evidence:
 
 ```text
 DeltaChamp(A,B) = mean(ChampOutcome_A_i - ChampOutcome_B_i)
@@ -117,7 +134,9 @@ exact pick ownership, current roster, available pool, starter needs, and caps.
 The future policy compares current value plus expected later roster value rather
 than ranking positions by VONA alone, so a scarce but materially inferior player
 does not win mechanically. VONA remains a policy feature and explanation; the
-root recommendation is still coupled championship equity.
+root recommendation is the coupled projected completed-roster value (ADR-026),
+which already prices whether taking one player now leaves better or worse
+alternatives later.
 
 ### 20.4 Correlation and stacking
 

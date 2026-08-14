@@ -271,6 +271,7 @@ describe('DraftIntel', () => {
             player_id: 'p9',
             name: 'Fresh Player',
             position: 'RB',
+            projected_roster_value: 812.4,
             championship_probability: 0.2,
             playoff_probability: 0.5,
             expected_wins: 8,
@@ -378,6 +379,7 @@ describe('DraftIntel', () => {
             player_id: 'p1',
             name: 'Early Leader',
             position: 'RB',
+            projected_roster_value: 810,
             championship_probability: 0.2,
             playoff_probability: 0.6,
             expected_wins: 9,
@@ -406,13 +408,14 @@ describe('DraftIntel', () => {
         rollout_count: 50,
         joint_outcome_count: 100,
         pick_no: 6,
-        paired_delta_vs_runner_up: { championship_probability_delta: 0.05 },
+        paired_value_delta_vs_runner_up: { projected_value_delta: 5.2 },
         screened_rollout_count: 12,
         candidates: [
           {
             player_id: 'p1',
             name: 'Lead Back',
             position: 'RB',
+            projected_roster_value: 815.4,
             championship_probability: 0.2,
             playoff_probability: 0.6,
             expected_wins: 9,
@@ -421,6 +424,7 @@ describe('DraftIntel', () => {
             player_id: 'p2',
             name: 'Second Wideout',
             position: 'WR',
+            projected_roster_value: 810.2,
             championship_probability: 0.15,
             playoff_probability: 0.5,
             expected_wins: 8,
@@ -431,6 +435,7 @@ describe('DraftIntel', () => {
             player_id: 'p3',
             name: 'Screened Quarterback',
             position: 'QB',
+            projected_roster_value: 802.7,
             championship_probability: 0.14,
             playoff_probability: 0.48,
             expected_wins: 7.8,
@@ -443,14 +448,14 @@ describe('DraftIntel', () => {
     await act(async () => {
       render(<DraftIntel currentDraftId="real" />)
     })
-    expect(screen.getByText('+5.0% vs next')).toBeTruthy()
-    expect(screen.getByText('-5.0%')).toBeTruthy()
-    expect(screen.getByText('15.0% title')).toBeTruthy()
+    expect(screen.getByText('+5.2 pts vs next')).toBeTruthy()
+    expect(screen.getByText('-5.2 pts')).toBeTruthy()
+    expect(screen.getByText('810.2 proj pts')).toBeTruthy()
     expect(screen.getByText('3 options shown.')).toBeTruthy()
     expect(screen.getByText('Refined contenders')).toBeTruthy()
     expect(screen.getByText('Screened watchlist')).toBeTruthy()
     expect(screen.getByText('Screened Quarterback')).toBeTruthy()
-    expect(screen.getByText('14.0% title · 25 continuations')).toBeTruthy()
+    expect(screen.getByText('802.7 proj pts · 25 continuations')).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: 'QB' }))
     expect(screen.queryByText('Lead Back')).toBeNull()
@@ -481,15 +486,16 @@ describe('DraftIntel', () => {
         decision_status: 'toss_up',
         co_leader_candidate_ids: ['p1', 'p2'],
         pick_no: 24,
-        paired_delta_vs_runner_up: {
-          championship_probability_delta: 0,
-          interval: [-0.05, 0.05],
+        paired_value_delta_vs_runner_up: {
+          projected_value_delta: 0,
+          interval: [-4.1, 4.1],
         },
         candidates: [
           {
             player_id: 'p1',
             name: 'Lead Back',
             position: 'RB',
+            projected_roster_value: 820.3,
             championship_probability: 0.3,
             playoff_probability: 0.92,
             expected_wins: 9.7,
@@ -498,6 +504,7 @@ describe('DraftIntel', () => {
             player_id: 'p2',
             name: 'Even Wideout',
             position: 'WR',
+            projected_roster_value: 820.3,
             championship_probability: 0.3,
             playoff_probability: 0.9,
             expected_wins: 9.8,
@@ -518,7 +525,7 @@ describe('DraftIntel', () => {
     expect(screen.getAllByText('T1')).toHaveLength(2)
     expect(screen.getByText('top tier · no clear edge')).toBeTruthy()
     expect(screen.getByText('top tier')).toBeTruthy()
-    expect(screen.queryByText('+0.0% vs next')).toBeNull()
+    expect(screen.queryByText('+0.0 pts vs next')).toBeNull()
     expect(screen.getByText(/run 1234567890ab/)).toBeTruthy()
     expect(screen.getByText(/model sleeper-adp:t0.11:vor2/)).toBeTruthy()
     expect(screen.getByText(/You also have pick 25/)).toBeTruthy()

@@ -12,6 +12,9 @@ from ffsim.models.team import FLEX_ELIGIBILITY
 
 
 EVALUATOR_VERSION = 1
+# Deterministic projected roster-value scorer revision. Kept separate from
+# EVALUATOR_VERSION because that constant also seeds streamer randomness.
+ROSTER_VALUE_VERSION = 1
 
 
 @dataclass(frozen=True)
@@ -126,6 +129,9 @@ class LeagueEvaluator:
             )
             for stream in streams
         ], dtype=np.float32)
+        self._mean_scores = None
+        self._mean_available = None
+        self._unit_cum = None
         self.version = _version(self)
         self._cache = {}
         self.cache_hits = 0
@@ -184,8 +190,6 @@ class LeagueEvaluator:
         # so "best count available players matching a slot" is a masked
         # cumulative count over that order — identical picks to the previous
         # per-week loop, computed for every world and week at once.
-        expected = self.bank.expected_scores
-        player_ids = self.bank.player_ids
         factors = self.streamer_factors[world_list, :, : self.total_weeks]
         factors_cum = np.concatenate(
             [
@@ -195,56 +199,16 @@ class LeagueEvaluator:
             axis=3,
         )
         for team, roster in enumerate(assignment):
-            order = sorted(
-                roster,
-                key=lambda player: (-expected[player], str(player_ids[player])),
-            )
+            order = self._lineup_order(roster)
             available = self.bank.available[
                 np.ix_(world_list, order)
             ][:, :, : self.total_weeks]
             scores = self.bank.scores[
                 np.ix_(world_list, order)
             ][:, :, : self.total_weeks]
-            team_positions = self._position_array[order]
-            chosen = np.zeros(available.shape, dtype=bool)
-            filled = {}
-            for slot, count in self.slots:
-                if slot in FLEX_ELIGIBILITY:
-                    continue
-                slot_mask = team_positions == slot
-                candidates = available & slot_mask[None, :, None] & ~chosen
-                take = candidates & (np.cumsum(candidates, axis=1) <= count)
-                chosen |= take
-                filled[slot] = take.sum(axis=1)
-            for slot, eligible in FLEX_ELIGIBILITY.items():
-                count = self.slot_counts.get(slot, 0)
-                if not count:
-                    continue
-                member = np.fromiter(
-                    (position in eligible for position in team_positions),
-                    bool,
-                    len(team_positions),
-                )
-                candidates = available & member[None, :, None] & ~chosen
-                take = candidates & (np.cumsum(candidates, axis=1) <= count)
-                chosen |= take
-                filled[slot] = take.sum(axis=1)
-            totals = (scores * chosen).sum(axis=1, dtype=float)
-            for slot, count in self.slots:
-                replacement_value = max(
-                    (
-                        replacement.get(position, 0.0)
-                        for position in FLEX_ELIGIBILITY.get(slot, {slot})
-                    ),
-                    default=0.0,
-                )
-                offset = self.slot_offsets[slot]
-                team_cum = factors_cum[:, team]
-                lower = np.take_along_axis(
-                    team_cum, (offset + filled[slot])[..., None], axis=2
-                )[..., 0]
-                totals += replacement_value * (team_cum[:, :, offset + count] - lower)
-            weekly_scores[:, team, :] = totals
+            weekly_scores[:, team, :] = self._lineup_totals(
+                order, available, scores, replacement, factors_cum[:, team]
+            )
 
         wins = np.zeros((worlds, teams), dtype=int)
         points = np.zeros((worlds, teams), dtype=float)
@@ -306,6 +270,102 @@ class LeagueEvaluator:
             division_wins,
             champions,
         )
+
+    def _lineup_order(self, roster):
+        expected = self.bank.expected_scores
+        player_ids = self.bank.player_ids
+        return sorted(
+            roster,
+            key=lambda player: (-expected[player], str(player_ids[player])),
+        )
+
+    def _lineup_totals(self, order, available, scores, replacement, team_cum):
+        """Greedy legal lineup totals for one team over (world, week) cells.
+
+        ``available``/``scores`` are (worlds, len(order), weeks) in lineup
+        order; ``team_cum`` is the per-slot cumulative streamer factor.
+        """
+        team_positions = self._position_array[order]
+        chosen = np.zeros(available.shape, dtype=bool)
+        filled = {}
+        for slot, count in self.slots:
+            if slot in FLEX_ELIGIBILITY:
+                continue
+            slot_mask = team_positions == slot
+            candidates = available & slot_mask[None, :, None] & ~chosen
+            take = candidates & (np.cumsum(candidates, axis=1) <= count)
+            chosen |= take
+            filled[slot] = take.sum(axis=1)
+        for slot, eligible in FLEX_ELIGIBILITY.items():
+            count = self.slot_counts.get(slot, 0)
+            if not count:
+                continue
+            member = np.fromiter(
+                (position in eligible for position in team_positions),
+                bool,
+                len(team_positions),
+            )
+            candidates = available & member[None, :, None] & ~chosen
+            take = candidates & (np.cumsum(candidates, axis=1) <= count)
+            chosen |= take
+            filled[slot] = take.sum(axis=1)
+        totals = (scores * chosen).sum(axis=1, dtype=float)
+        for slot, count in self.slots:
+            replacement_value = max(
+                (
+                    replacement.get(position, 0.0)
+                    for position in FLEX_ELIGIBILITY.get(slot, {slot})
+                ),
+                default=0.0,
+            )
+            offset = self.slot_offsets[slot]
+            lower = np.take_along_axis(
+                team_cum, (offset + filled[slot])[..., None], axis=2
+            )[..., 0]
+            totals += replacement_value * (team_cum[:, :, offset + count] - lower)
+        return totals
+
+    def projected_roster_value(self, roster_assignment, roster_id):
+        """Deterministic projected lineup points over full-streamer replacement.
+
+        Scores one roster's best legal weekly lineup on the bank's expected
+        (across-world mean) player-week points, with byes/never-available
+        weeks masked out and unfilled slots credited at the same replacement
+        semantics as ``_evaluate`` (the streamer factor's mean is exactly 1).
+        The all-streamer baseline is subtracted, so an empty roster scores 0.
+        """
+        assignment = self._canonical_assignment(roster_assignment)
+        team = self.roster_index[roster_id]
+        replacement = self._replacement_scores(assignment)
+        if self._mean_scores is None:
+            weeks = self.total_weeks
+            self._mean_scores = self.bank.scores[:, :, :weeks].mean(
+                axis=0, dtype=float
+            )
+            self._mean_available = self.bank.available[:, :, :weeks].any(axis=0)
+            slot_count = sum(count for _, count in self.slots)
+            self._unit_cum = np.tile(
+                np.arange(slot_count + 1, dtype=float), (1, weeks, 1)
+            )
+        order = self._lineup_order(assignment[team])
+        totals = self._lineup_totals(
+            order,
+            self._mean_available[order][None, :, :],
+            self._mean_scores[order][None, :, :],
+            replacement,
+            self._unit_cum,
+        )
+        baseline = self.total_weeks * sum(
+            count * max(
+                (
+                    replacement.get(position, 0.0)
+                    for position in FLEX_ELIGIBILITY.get(slot, {slot})
+                ),
+                default=0.0,
+            )
+            for slot, count in self.slots
+        )
+        return float(totals.sum()) - baseline
 
     def _replacement_scores(self, assignment):
         rostered = {player for roster in assignment for player in roster}
@@ -401,6 +461,7 @@ def _pair_winners(pairs, scores):
 def _version(evaluator):
     return sha256(json.dumps({
         "evaluator": EVALUATOR_VERSION,
+        "roster_value": ROSTER_VALUE_VERSION,
         "world_bank": evaluator.bank.version,
         "rosters": evaluator.roster_ids,
         "slots": evaluator.slots,
