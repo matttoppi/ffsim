@@ -471,6 +471,63 @@ describe('DraftIntel', () => {
     expect(screen.getByText('Lead Back')).toBeTruthy()
   })
 
+  it.each([
+    [0.82, /wait plan is not naive.*survives to pick 9 \(82% of the time\).*not double-counted scarcity/],
+    [0.03, /survives to pick 9 only 3% of the time.*most of this edge is scarcity/],
+  ])('explains the take-vs-wait edge for survival %s', async (survival, expected) => {
+    mockMonitor({
+      status: 'running',
+      recommendation_status: 'ready',
+      recommendation_pick_no: 6,
+      recommendation: {
+        model_status: 'baseline',
+        rollout_count: 300,
+        joint_outcome_count: 600,
+        pick_no: 6,
+        next_user_pick_no: 9,
+        decision_status: 'clear_leader',
+        recommended_candidate_id: 'p1',
+        runner_up_candidate_id: 'p2',
+        co_leader_candidate_ids: ['p1'],
+        paired_value_delta_vs_runner_up: {
+          projected_value_delta: 2.4,
+          interval: [1.1, 3.7],
+          better_continuation_probability: 0.9,
+        },
+        candidates: [
+          {
+            player_id: 'p1',
+            name: 'Scarce Back',
+            position: 'RB',
+            projected_roster_value: 815.4,
+            championship_probability: 0.2,
+            playoff_probability: 0.6,
+            expected_wins: 9,
+            survives_to_next_pick: survival,
+          },
+          {
+            player_id: 'p2',
+            name: 'Patient Wideout',
+            position: 'WR',
+            projected_roster_value: 813.0,
+            championship_probability: 0.15,
+            playoff_probability: 0.5,
+            expected_wins: 8,
+          },
+        ],
+      },
+      state: { ...monitorState([pick(1, 'Alpha One')], 6), user_on_clock: true },
+    })
+    await act(async () => {
+      render(<DraftIntel currentDraftId="real" />)
+    })
+    expect(screen.getByText('Why Scarce Back')).toBeTruthy()
+    expect(
+      screen.getByText(/taking Scarce Back finishes with \+2\.4 more season points/),
+    ).toBeTruthy()
+    expect(screen.getByText(expected)).toBeTruthy()
+  })
+
   it('reports statistically interchangeable candidates as one top tier', async () => {
     mockMonitor({
       status: 'running',

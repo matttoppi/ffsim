@@ -61,13 +61,19 @@ function WhyThisPick({
       delta.better_continuation_probability != null
         ? ` and comes out ahead in ${(delta.better_continuation_probability * 100).toFixed(0)}% of them`
         : ''
+    const waitPlan =
+      survival != null && nextPick != null
+        ? survival > 0.05
+          ? ` The wait plan is not naive: when he survives to pick ${nextPick} (${(survival * 100).toFixed(0)}% of the time), passing still drafts him there — so this edge is what taking him now beats waiting by, not double-counted scarcity.`
+          : ` He survives to pick ${nextPick} only ${(survival * 100).toFixed(0)}% of the time, so most of this edge is scarcity: the branches that pass rarely get him back.`
+        : ' That already prices the best wait plan — the branches that pass still draft him later whenever he survives.'
     reasons.push({
       label: 'Best final roster',
       text:
         `Across ${recommendation.rollout_count} simulated rest-of-drafts, taking ${leader.name} finishes with ` +
         `${delta.projected_value_delta >= 0 ? '+' : ''}${delta.projected_value_delta.toFixed(1)} more season points of ` +
-        `starting-lineup value than ${runnerUpName} (95% range ${delta.interval[0].toFixed(1)} to ${delta.interval[1].toFixed(1)})${winShare}. ` +
-        `That already accounts for everyone you could draft instead at every later pick.`,
+        `starting-lineup value than ${runnerUpName} (95% range ${delta.interval[0].toFixed(1)} to ${delta.interval[1].toFixed(1)})${winShare}.` +
+        waitPlan,
     })
   }
   if (tossUp) {
