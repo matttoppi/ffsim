@@ -113,6 +113,7 @@ class LeagueEvaluator:
         for slot, count in self.slots:
             self.slot_offsets[slot] = slot_count
             slot_count += count
+        self._position_array = np.asarray(world_bank.player_positions, dtype=object)
         sigma = math.sqrt(math.log(1 + 0.5**2))
         streams = np.random.SeedSequence((self.seed, EVALUATOR_VERSION)).spawn(
             world_bank.world_count
@@ -176,20 +177,74 @@ class LeagueEvaluator:
         replacement = self._replacement_scores(assignment)
         worlds = len(world_indices)
         teams = len(self.roster_ids)
+        world_list = list(world_indices)
         weekly_scores = np.zeros((worlds, teams, self.total_weeks), dtype=float)
-        for output_world, bank_world in enumerate(world_indices):
-            for team, roster in enumerate(assignment):
-                for week in range(self.total_weeks):
-                    starters, missing = self._lineup(roster, bank_world, week)
-                    weekly_scores[output_world, team, week] = sum(
-                        self.bank.scores[bank_world, player, week] for player in starters
-                    ) + sum(
-                        max(
-                            (replacement.get(position, 0.0) for position in eligible),
-                            default=0.0,
-                        ) * self.streamer_factors[bank_world, team, week, factor]
-                        for eligible, factor in missing
-                    )
+        # Greedy lineup selection vectorized over (world, roster player, week):
+        # within one team the roster order by (-expected, player_id) is fixed,
+        # so "best count available players matching a slot" is a masked
+        # cumulative count over that order — identical picks to the previous
+        # per-week loop, computed for every world and week at once.
+        expected = self.bank.expected_scores
+        player_ids = self.bank.player_ids
+        factors = self.streamer_factors[world_list, :, : self.total_weeks]
+        factors_cum = np.concatenate(
+            [
+                np.zeros((*factors.shape[:3], 1), dtype=factors.dtype),
+                np.cumsum(factors, axis=3),
+            ],
+            axis=3,
+        )
+        for team, roster in enumerate(assignment):
+            order = sorted(
+                roster,
+                key=lambda player: (-expected[player], str(player_ids[player])),
+            )
+            available = self.bank.available[
+                np.ix_(world_list, order)
+            ][:, :, : self.total_weeks]
+            scores = self.bank.scores[
+                np.ix_(world_list, order)
+            ][:, :, : self.total_weeks]
+            team_positions = self._position_array[order]
+            chosen = np.zeros(available.shape, dtype=bool)
+            filled = {}
+            for slot, count in self.slots:
+                if slot in FLEX_ELIGIBILITY:
+                    continue
+                slot_mask = team_positions == slot
+                candidates = available & slot_mask[None, :, None] & ~chosen
+                take = candidates & (np.cumsum(candidates, axis=1) <= count)
+                chosen |= take
+                filled[slot] = take.sum(axis=1)
+            for slot, eligible in FLEX_ELIGIBILITY.items():
+                count = self.slot_counts.get(slot, 0)
+                if not count:
+                    continue
+                member = np.fromiter(
+                    (position in eligible for position in team_positions),
+                    bool,
+                    len(team_positions),
+                )
+                candidates = available & member[None, :, None] & ~chosen
+                take = candidates & (np.cumsum(candidates, axis=1) <= count)
+                chosen |= take
+                filled[slot] = take.sum(axis=1)
+            totals = (scores * chosen).sum(axis=1, dtype=float)
+            for slot, count in self.slots:
+                replacement_value = max(
+                    (
+                        replacement.get(position, 0.0)
+                        for position in FLEX_ELIGIBILITY.get(slot, {slot})
+                    ),
+                    default=0.0,
+                )
+                offset = self.slot_offsets[slot]
+                team_cum = factors_cum[:, team]
+                lower = np.take_along_axis(
+                    team_cum, (offset + filled[slot])[..., None], axis=2
+                )[..., 0]
+                totals += replacement_value * (team_cum[:, :, offset + count] - lower)
+            weekly_scores[:, team, :] = totals
 
         wins = np.zeros((worlds, teams), dtype=int)
         points = np.zeros((worlds, teams), dtype=float)
@@ -251,45 +306,6 @@ class LeagueEvaluator:
             division_wins,
             champions,
         )
-
-    def _lineup(self, roster, world, week):
-        available = sorted(
-            (player for player in roster if self.bank.available[world, player, week]),
-            key=lambda player: (
-                -self.bank.expected_scores[player],
-                str(self.bank.player_ids[player]),
-            ),
-        )
-        selected = {slot: [] for slot, _ in self.slots}
-        for slot, count in self.slots:
-            if slot in FLEX_ELIGIBILITY:
-                continue
-            matches = [
-                player for player in available
-                if self.bank.player_positions[player] == slot
-            ][:count]
-            selected[slot].extend(matches)
-            available = [player for player in available if player not in matches]
-        for slot, eligible in FLEX_ELIGIBILITY.items():
-            count = self.slot_counts.get(slot, 0)
-            if not count:
-                continue
-            matches = [
-                player for player in available
-                if self.bank.player_positions[player] in eligible
-            ][:count]
-            selected[slot].extend(matches)
-            available = [player for player in available if player not in matches]
-        starters = [player for players in selected.values() for player in players]
-        missing = [
-            (
-                FLEX_ELIGIBILITY.get(slot, {slot}),
-                self.slot_offsets[slot] + filled,
-            )
-            for slot, count in self.slots
-            for filled in range(len(selected[slot]), count)
-        ]
-        return starters, missing
 
     def _replacement_scores(self, assignment):
         rostered = {player for roster in assignment for player in roster}
