@@ -266,6 +266,7 @@ describe('DraftIntel', () => {
         joint_outcome_count: 100,
         pick_no: 6,
         next_user_pick_no: 9,
+        bench_asset_factor: 0.25,
         candidates: [
           {
             player_id: 'p9',
@@ -278,8 +279,14 @@ describe('DraftIntel', () => {
             adp: 42.4,
             survives_to_next_pick: 0.82,
             best_wait_candidate_id: 'p10',
+            survival_branch_root_candidate_id: 'p10',
+            opportunity_evidence_branch_root_candidate_id: 'p9',
+            target_available_count: 41,
+            target_selected_when_available_count: 20,
+            target_rollout_count: 50,
             current_marginal_value: 84,
             expected_best_later_value: 78,
+            effective_tie_break_urgency: 6,
             positional_value_drop: 6,
             next_turn_pick_no: 9,
             opportunity_sample_count: 50,
@@ -351,12 +358,12 @@ describe('DraftIntel', () => {
     expect(screen.getByText('Fresh Player')).toBeTruthy()
     expect(screen.getByText('✓ Final suggestion')).toBeTruthy()
     expect(screen.queryByText('First look')).toBeNull()
-    expect(screen.getByText(/ADP 42.*82% chance back at pick 9/)).toBeTruthy()
-    expect(screen.getByText(/Adds 84 to your roster now.*78 expected best at pick 9.*\+6 RB drop.*Patient Quarterback.*64%/)).toBeTruthy()
+    expect(screen.getByText('ADP 42')).toBeTruthy()
+    expect(screen.getByText(/Fresh Player-root local opportunity evidence.*84 current marginal.*78 expected best at pick 9.*\+6 RB drop.*Patient Quarterback.*64%/)).toBeTruthy()
     expect(screen.getByText('Why Fresh Player')).toBeTruthy()
     expect(screen.getByText(/RB cliff/)).toBeTruthy()
-    expect(screen.getByText(/6 points above the best RB expected to reach your next turn/)).toBeTruthy()
-    expect(screen.getByText(/36 picks before his ADP of 42/)).toBeTruthy()
+    expect(screen.getByText(/same-position value falls 6 points by pick 9/)).toBeTruthy()
+    expect(screen.getByText(/36 picks before Fresh Player's ADP of 42/)).toBeTruthy()
     expect(screen.getByText(/Ready for pick 6/)).toBeTruthy()
     expect(screen.getByText('You are on the clock')).toBeTruthy()
     expect(screen.getByText('QB & TE ADP-only timing · next three turns')).toBeTruthy()
@@ -378,6 +385,7 @@ describe('DraftIntel', () => {
         rollout_count: 50,
         joint_outcome_count: 100,
         pick_no: 6,
+        bench_asset_factor: 0.25,
         candidates: [
           {
             player_id: 'p1',
@@ -412,7 +420,18 @@ describe('DraftIntel', () => {
         rollout_count: 50,
         joint_outcome_count: 100,
         pick_no: 6,
-        paired_value_delta_vs_runner_up: { projected_value_delta: 5.2 },
+        decision_status: 'clear_leader',
+        bench_asset_factor: 0.25,
+        paired_value_delta_vs_runner_up: {
+          candidate_id: 'p1',
+          baseline_candidate_id: 'p2',
+          projected_value_delta: 5.2,
+          standard_error: 0.5,
+          interval: [4.2, 6.2],
+          better_continuation_probability: 0.8,
+          tied_continuation_probability: 0.1,
+          worse_continuation_probability: 0.1,
+        },
         screened_rollout_count: 12,
         candidates: [
           {
@@ -471,10 +490,7 @@ describe('DraftIntel', () => {
     expect(screen.getByText('Lead Back')).toBeTruthy()
   })
 
-  it.each([
-    [0.82, /wait plan is not naive.*survives to pick 9 \(82% of the time\).*not double-counted scarcity/],
-    [0.03, /survives to pick 9 only 3% of the time.*most of this edge is scarcity/],
-  ])('explains the take-vs-wait edge for survival %s', async (survival, expected) => {
+  it('separates paired value, alternative-root availability, selection, and local opportunity evidence', async () => {
     mockMonitor({
       status: 'running',
       recommendation_status: 'ready',
@@ -486,24 +502,50 @@ describe('DraftIntel', () => {
         pick_no: 6,
         next_user_pick_no: 9,
         decision_status: 'clear_leader',
+        practical_tie_points: 0.1,
+        headline_tie_break_basis: null,
+        bench_asset_factor: 0.25,
+        q_leader_candidate_id: 'p1',
+        reason_codes: ['PAIRED_VALUE_EDGE'],
         recommended_candidate_id: 'p1',
         runner_up_candidate_id: 'p2',
         co_leader_candidate_ids: ['p1'],
         paired_value_delta_vs_runner_up: {
+          candidate_id: 'p1',
+          baseline_candidate_id: 'p2',
           projected_value_delta: 2.4,
+          standard_error: 0.7,
           interval: [1.1, 3.7],
-          better_continuation_probability: 0.9,
+          better_continuation_probability: 0.4,
+          tied_continuation_probability: 0.05,
+          worse_continuation_probability: 0.55,
         },
         candidates: [
           {
             player_id: 'p1',
-            name: 'Scarce Back',
-            position: 'RB',
+            name: 'Oronde Gadsden',
+            position: 'TE',
             projected_roster_value: 815.4,
             championship_probability: 0.2,
             playoff_probability: 0.6,
             expected_wins: 9,
-            survives_to_next_pick: survival,
+            survives_to_next_pick: 1,
+            best_wait_candidate_id: 'p2',
+            survival_branch_root_candidate_id: 'p2',
+            opportunity_evidence_branch_root_candidate_id: 'p1',
+            target_available_count: 300,
+            target_selected_when_available_count: 0,
+            target_rollout_count: 300,
+            current_marginal_value: 80,
+            expected_best_later_value: 77,
+            effective_tie_break_urgency: 3,
+            next_turn_pick_no: 9,
+            later_alternatives: [{
+              player_id: 'p3',
+              name: 'Late Tight End',
+              position: 'TE',
+              probability: 0.65,
+            }],
           },
           {
             player_id: 'p2',
@@ -521,14 +563,22 @@ describe('DraftIntel', () => {
     await act(async () => {
       render(<DraftIntel currentDraftId="real" />)
     })
-    expect(screen.getByText('Why Scarce Back')).toBeTruthy()
-    expect(
-      screen.getByText(/taking Scarce Back finishes with \+2\.4 more season points/),
-    ).toBeTruthy()
-    expect(screen.getByText(expected)).toBeTruthy()
+    const why = screen.getByLabelText('Why this pick').textContent ?? ''
+    expect(screen.getByText('Why Oronde Gadsden')).toBeTruthy()
+    expect(why).toMatch(/taking Oronde Gadsden instead of Patient Wideout/)
+    expect(why).toMatch(/risk-neutral expected projected completed-roster value by \+2\.4 points/)
+    expect(why).toMatch(/higher in 40%, tied in 5%, and lower in 55%/)
+    expect(why).toMatch(/branch rooted at taking Patient Wideout.*available at pick 9 in 300\/300/)
+    expect(why).toMatch(/selects Oronde Gadsden in 0\/300 continuations where it is available/)
+    expect(why).toMatch(/Oronde Gadsden-root local opportunity evidence/)
+    expect(why).toMatch(/most common local later alternative is Late Tight End \(65%\)/)
+    expect(why).toMatch(/best-legal-lineup points over replacement.*bench value discounted by a 0\.25 factor/)
+    expect(document.body.textContent).not.toMatch(
+      /Best final roster|starting-lineup value|Statistical tie|if you pass|passing still drafts|runner-up with your next pick/i,
+    )
   })
 
-  it('reports statistically interchangeable candidates as one top tier', async () => {
+  it('reports a market-ordered practical toss-up without exposing raw DEF VONA as urgency', async () => {
     mockMonitor({
       status: 'running',
       recommendation_status: 'ready',
@@ -545,21 +595,35 @@ describe('DraftIntel', () => {
         state_signature: 'state-signature',
         run_signature: '1234567890abcdef',
         decision_status: 'toss_up',
+        practical_tie_points: 0.1,
+        headline_tie_break_basis: 'market_adp',
+        bench_asset_factor: 0.25,
+        q_leader_candidate_id: 'p2',
+        reason_codes: ['MARKET_ADP_TIEBREAK'],
         co_leader_candidate_ids: ['p1', 'p2'],
         pick_no: 24,
         paired_value_delta_vs_runner_up: {
+          candidate_id: 'p1',
+          baseline_candidate_id: 'p2',
           projected_value_delta: 0,
+          standard_error: 2.1,
           interval: [-4.1, 4.1],
+          better_continuation_probability: 0.45,
+          tied_continuation_probability: 0.1,
+          worse_continuation_probability: 0.45,
         },
         candidates: [
           {
             player_id: 'p1',
-            name: 'Lead Back',
-            position: 'RB',
+            name: 'Lead Defense',
+            position: 'DEF',
             projected_roster_value: 820.3,
             championship_probability: 0.3,
             playoff_probability: 0.92,
             expected_wins: 9.7,
+            adp: 24,
+            value_over_next_alternative: 99,
+            effective_tie_break_urgency: 0,
           },
           {
             player_id: 'p2',
@@ -569,6 +633,9 @@ describe('DraftIntel', () => {
             championship_probability: 0.3,
             playoff_probability: 0.9,
             expected_wins: 9.8,
+            adp: 25,
+            value_over_next_alternative: 99,
+            effective_tie_break_urgency: 0,
           },
         ],
       },
@@ -581,15 +648,17 @@ describe('DraftIntel', () => {
     await act(async () => {
       render(<DraftIntel currentDraftId="real" />)
     })
-    expect(screen.getByText('No clear winner on projected value.')).toBeTruthy()
-    expect(screen.getByText(/Lead Back, Even Wideout form the top tier/)).toBeTruthy()
+    const page = document.body.textContent ?? ''
+    expect(page).toMatch(/Practical toss-up under the 0\.1-point gate/)
+    expect(page).toMatch(/Lead Defense, Even Wideout form the top tier/)
+    expect(page).toMatch(/Lead Defense leads on market ADP, a draft-position proxy, not trade value/)
     expect(screen.getAllByText('T1')).toHaveLength(2)
-    expect(screen.getAllByText('top tier')).toHaveLength(2)
+    expect(screen.getAllByText(/urgency \+0\.0/)).toHaveLength(2)
     expect(screen.queryByText('+0.0 pts vs next')).toBeNull()
+    expect(page).not.toMatch(/VONA|99\.0|statistical equality/i)
     expect(screen.getByText(/run 1234567890ab/)).toBeTruthy()
     expect(screen.getByText(/model sleeper-adp:t0.11:vor2/)).toBeTruthy()
-    expect(screen.getByText(/You also have pick 25/)).toBeTruthy()
-    expect(screen.getByText(/runner-up with your next pick/)).toBeTruthy()
+    expect(page).not.toMatch(/runner-up with your next pick/)
   })
 
   it.each([

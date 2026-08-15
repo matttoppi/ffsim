@@ -909,12 +909,14 @@ class ApiTest(unittest.TestCase):
                         "opportunity_evidence_branch_root_candidate_id": candidate_id,
                         "target_available_count": rollout_count - 1,
                         "target_selected_when_available_count": rollout_count - 2,
+                        "target_rollout_count": rollout_count + 7,
                     }
                     for candidate_id in candidate_ids
                 ],
                 "recommended_candidate_id": headline_id,
                 "q_leader_candidate_id": headline_id,
                 "decision_status": "practical_tie",
+                "headline_tie_break_basis": "market_adp",
                 "co_leader_candidate_ids": candidate_ids[:2],
                 "paired_value_bounds_vs_q_leader": [
                     {
@@ -988,7 +990,8 @@ class ApiTest(unittest.TestCase):
             ["f", "e", "d", "c", "b"],
         )
         self.assertEqual(ready["target_candidate_id"], "f")
-        self.assertEqual(ready["target_rollout_count"], 150)
+        self.assertEqual(ready["target_rollout_count"], 157)
+        self.assertEqual(ready["headline_tie_break_basis"], "market_adp")
         self.assertEqual(ready["survival_branch_root_candidate_id"], "wait-f")
         self.assertEqual(
             ready["opportunity_evidence_branch_root_candidate_id"], "f"
@@ -1002,7 +1005,7 @@ class ApiTest(unittest.TestCase):
         self.assertTrue(
             {"candidates", "screened_candidates", "continuations"}.isdisjoint(schema)
         )
-        self.assertTrue(all(stage["schema_version"] == 1 for stage in recorded))
+        self.assertTrue(all(stage["schema_version"] == 2 for stage in recorded))
         self.assertTrue(all(stage["stage_duration_seconds"] >= 0 for stage in recorded))
         self.assertEqual(
             [stage["cumulative_duration_seconds"] for stage in recorded],

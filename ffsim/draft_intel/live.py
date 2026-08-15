@@ -4,7 +4,7 @@ from collections import Counter
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict, dataclass, field, replace
 import json
-from math import exp
+from math import exp, isfinite
 import os
 from pathlib import Path
 from urllib.parse import quote, urlparse
@@ -46,7 +46,7 @@ from ffsim.loaders.league import _fetch_json, league_and_drafts, refresh_league
 from ffsim.loaders.players import PlayerLoader
 from ffsim.models.league import League
 from ffsim.paths import CACHE_DIR
-from ffsim.simulation.evaluator import LeagueEvaluator
+from ffsim.simulation.evaluator import BENCH_ASSET_FACTOR, LeagueEvaluator
 from ffsim.simulation.season import refresh_matchups
 from ffsim.simulation.world_bank import build_season_world_bank, draftable_players
 
@@ -962,21 +962,58 @@ def live_recommendation_payload(prepared, state, evaluations, candidate_pool_cou
         ).items()
     }
 
-    def market_tier_key(candidate):
+    def effective_tie_break_urgency(candidate):
         # Streamable K/DEF are never urgent — their positive VONA is an
-        # artifact of the below-replacement feasible pool — so ties order by
-        # take-now urgency, then best market ADP (the most tradeable asset).
+        # artifact of the below-replacement feasible pool.
         position = prepared.player_details.get(candidate.candidate_id, {}).get(
             "position"
         )
-        urgency = 0 if position in ("K", "DEF") else candidate_urgency(candidate)
-        return (-urgency, adp.get(candidate.candidate_id, float("inf")))
+        return 0 if position in ("K", "DEF") else candidate_urgency(candidate)
+
+    def market_tier_key(candidate):
+        return (
+            -effective_tie_break_urgency(candidate),
+            adp.get(candidate.candidate_id, float("inf")),
+        )
 
     recommendation = asdict(
         recommendation_summary(evaluation, tier_key=market_tier_key)
     )
     top_tier = set(recommendation["co_leader_candidate_ids"])
     ranked = rank_candidates(evaluation)
+    co_leaders = tuple(
+        candidate for candidate in ranked if candidate.candidate_id in top_tier
+    )
+    tie_break_basis = None
+    if recommendation["decision_status"] == "toss_up":
+        max_urgency = max(map(effective_tie_break_urgency, co_leaders))
+        max_urgency_candidates = tuple(
+            candidate for candidate in co_leaders
+            if effective_tie_break_urgency(candidate) == max_urgency
+        )
+        if len(max_urgency_candidates) == 1:
+            tie_break_basis = "urgency"
+        else:
+            finite_adps = tuple(
+                adp[candidate.candidate_id]
+                for candidate in max_urgency_candidates
+                if isfinite(adp.get(candidate.candidate_id, float("inf")))
+            )
+            tie_break_basis = (
+                "market_adp"
+                if finite_adps and finite_adps.count(min(finite_adps)) == 1
+                else "engine_rank"
+            )
+    recommendation["headline_tie_break_basis"] = tie_break_basis
+    recommendation["practical_tie_points"] = PRACTICAL_TIE_POINTS
+    recommendation["bench_asset_factor"] = BENCH_ASSET_FACTOR
+    reason_codes = tuple(
+        code for code in recommendation["reason_codes"]
+        if code != "VONA_TIEBREAK"
+    )
+    if tie_break_basis:
+        reason_codes += (f"{tie_break_basis.upper()}_TIEBREAK",)
+    recommendation["reason_codes"] = reason_codes
     q_leader = ranked[0]
     recommendation["q_leader_candidate_id"] = q_leader.candidate_id
     recommendation["paired_value_bounds_vs_q_leader"] = [
@@ -1058,7 +1095,15 @@ def live_recommendation_payload(prepared, state, evaluations, candidate_pool_cou
             "target_selected_when_available_count": (
                 survival.selected_when_available_count if survival else None
             ),
+            "target_rollout_count": (
+                best_wait.survival.rollout_count
+                if best_wait and best_wait.survival
+                else None
+            ),
             "rollout_count": candidate.rollout_count,
+            "effective_tie_break_urgency": (
+                effective_tie_break_urgency(candidate)
+            ),
             "current_marginal_value": (
                 opportunity.current_marginal_value if opportunity else None
             ),

@@ -18,6 +18,18 @@ const POLL_MS = 1000
 const REC_STEPS = ['Queued', 'First board', 'Screening field', 'Refining finalists', 'Final suggestion']
 const REC_PHASE: Record<string, number> = { pending: 0, calculating: 1, expanding: 2, refining: 3 }
 
+function tieBreakText(
+  basis: NonNullable<DraftMonitor['recommendation']>['headline_tie_break_basis'],
+  leaderName: string,
+) {
+  if (basis === 'urgency') return `${leaderName} leads on effective next-turn urgency.`
+  if (basis === 'market_adp') {
+    return `${leaderName} leads on market ADP, a draft-position proxy, not trade value.`
+  }
+  if (basis === 'engine_rank') return `${leaderName} leads on the engine's deterministic rank.`
+  return 'No secondary tie-break basis was recorded.'
+}
+
 function ProgressBar({ progress }: { progress: WorkProgress | null | undefined }) {
   const pct =
     progress && progress.total > 0
@@ -39,87 +51,98 @@ function ProgressBar({ progress }: { progress: WorkProgress | null | undefined }
 function WhyThisPick({
   recommendation,
   leader,
-  runnerUpName,
   currentPickNo,
 }: {
   recommendation: NonNullable<DraftMonitor['recommendation']>
   leader: DraftRecommendationCandidate
-  runnerUpName: string | null
   currentPickNo: number | null
 }) {
   const delta = recommendation.paired_value_delta_vs_runner_up
   const tossUp = recommendation.decision_status === 'toss_up'
   const nextPick = leader.next_turn_pick_no ?? recommendation.next_user_pick_no ?? null
-  const vona = leader.value_over_next_alternative
-  const survival = leader.survives_to_next_pick
+  const rows = [...recommendation.candidates, ...(recommendation.screened_candidates ?? [])]
+  const candidateName = (candidateId: string) =>
+    rows.find((candidate) => candidate.player_id === candidateId)?.name ?? candidateId
+  const survivalRoot = leader.survival_branch_root_candidate_id
+  const opportunityRoot = leader.opportunity_evidence_branch_root_candidate_id
   const usualAlternative = leader.later_alternatives?.[0]
   const adpDrift =
     leader.adp != null && currentPickNo != null ? currentPickNo - leader.adp : null
   const reasons: Array<{ label: string; text: string }> = []
-  if (!tossUp && delta && runnerUpName) {
-    const winShare =
-      delta.better_continuation_probability != null
-        ? ` and comes out ahead in ${(delta.better_continuation_probability * 100).toFixed(0)}% of them`
-        : ''
-    const waitPlan =
-      survival != null && nextPick != null
-        ? survival > 0.05
-          ? ` The wait plan is not naive: when he survives to pick ${nextPick} (${(survival * 100).toFixed(0)}% of the time), passing still drafts him there — so this edge is what taking him now beats waiting by, not double-counted scarcity.`
-          : ` He survives to pick ${nextPick} only ${(survival * 100).toFixed(0)}% of the time, so most of this edge is scarcity: the branches that pass rarely get him back.`
-        : ' That already prices the best wait plan — the branches that pass still draft him later whenever he survives.'
+  if (!tossUp && delta) {
+    const pairedCandidate = candidateName(delta.candidate_id)
+    const baselineCandidate = candidateName(delta.baseline_candidate_id)
     reasons.push({
-      label: 'Best final roster',
+      label: 'Paired expected value',
       text:
-        `Across ${recommendation.rollout_count} simulated rest-of-drafts, taking ${leader.name} finishes with ` +
-        `${delta.projected_value_delta >= 0 ? '+' : ''}${delta.projected_value_delta.toFixed(1)} more season points of ` +
-        `starting-lineup value than ${runnerUpName} (95% range ${delta.interval[0].toFixed(1)} to ${delta.interval[1].toFixed(1)})${winShare}.` +
-        waitPlan,
+        `Across ${recommendation.rollout_count} paired simulated rest-of-drafts, taking ${pairedCandidate} instead of ${baselineCandidate} changes ` +
+        `risk-neutral expected projected completed-roster value by ${delta.projected_value_delta >= 0 ? '+' : ''}${delta.projected_value_delta.toFixed(1)} points ` +
+        `(paired interval ${delta.interval[0].toFixed(1)} to ${delta.interval[1].toFixed(1)}). ${pairedCandidate} is higher in ` +
+        `${(delta.better_continuation_probability * 100).toFixed(0)}%, tied in ${(delta.tied_continuation_probability * 100).toFixed(0)}%, ` +
+        `and lower in ${(delta.worse_continuation_probability * 100).toFixed(0)}% of continuations.`,
     })
   }
   if (tossUp) {
     reasons.push({
-      label: 'Statistical tie',
-      text:
-        `The tied options finish with the same final-roster value within simulation precision, so the order is decided by ` +
-        `what waiting would cost, then by market value — among equals, ${leader.name} is the strongest asset to hold or trade.`,
+      label: 'Practical toss-up',
+      text: `These candidates are a practical toss-up under the ${recommendation.practical_tie_points.toFixed(1)}-point gate. ${tieBreakText(recommendation.headline_tie_break_basis, leader.name)}`,
     })
   }
-  if (vona != null && nextPick != null) {
-    if (vona > 1) {
-      const survivalText =
-        survival != null ? ` He is back on the board at pick ${nextPick} only ${(survival * 100).toFixed(0)}% of the time` : ''
-      const alternativeText = usualAlternative
-        ? `; if you pass, the simulations say your next turn usually offers ${usualAlternative.name} (${(usualAlternative.probability * 100).toFixed(0)}%) instead`
+  if (
+    survivalRoot &&
+    nextPick != null &&
+    leader.target_available_count != null &&
+    leader.target_rollout_count != null
+  ) {
+    const selection =
+      leader.target_selected_when_available_count != null && leader.target_available_count > 0
+        ? ` The future-user policy selects ${leader.name} in ${leader.target_selected_when_available_count}/${leader.target_available_count} continuations where it is available.`
         : ''
-      reasons.push({
-        label: 'Waiting costs points',
-        text: `Passing now gives back about ${vona.toFixed(1)} points versus the best pick at any position expected at pick ${nextPick}.${survivalText}${alternativeText}.`,
-      })
-    } else {
-      reasons.push({
-        label: 'No urgency',
-        text: `Waiting is nearly free — comparable value should still be available at pick ${nextPick} — so he leads on overall value, not scarcity.`,
-      })
-    }
+    reasons.push({
+      label: 'Alternative-root availability',
+      text:
+        `Under the branch rooted at taking ${candidateName(survivalRoot)}, ${leader.name} is available at pick ${nextPick} in ` +
+        `${leader.target_available_count}/${leader.target_rollout_count} continuations.${selection}`,
+    })
   }
-  if (leader.positional_value_drop != null && leader.positional_value_drop > 1 && nextPick != null) {
+  if (opportunityRoot && nextPick != null && leader.effective_tie_break_urgency != null) {
+    const marginal =
+      leader.current_marginal_value != null && leader.expected_best_later_value != null
+        ? ` Current marginal value is ${leader.current_marginal_value.toFixed(1)} points and expected best marginal value at pick ${nextPick} is ${leader.expected_best_later_value.toFixed(1)} points.`
+        : ''
+    const alternative = usualAlternative
+      ? ` The most common local later alternative is ${usualAlternative.name} (${(usualAlternative.probability * 100).toFixed(0)}%).`
+      : ''
+    reasons.push({
+      label: 'Candidate-root opportunity',
+      text:
+        `This is ${candidateName(opportunityRoot)}-root local opportunity evidence, not the paired alternative-root comparison.${marginal} ` +
+        `Effective tie-break urgency is ${leader.effective_tie_break_urgency.toFixed(1)} points.${alternative}`,
+    })
+  }
+  if (
+    opportunityRoot &&
+    leader.positional_value_drop != null &&
+    leader.positional_value_drop > 1 &&
+    nextPick != null
+  ) {
     reasons.push({
       label: `${leader.position ?? 'Position'} cliff`,
       text:
-        `He projects ${leader.positional_value_drop.toFixed(0)} points above the best ${leader.position} expected to reach your next turn. ` +
-        `That is the same-position gap only — you are not forced to fill ${leader.position} next turn, so the real cost of waiting is the smaller any-position number above.`,
+        `In ${candidateName(opportunityRoot)}-root local opportunity evidence, same-position value falls ` +
+        `${leader.positional_value_drop.toFixed(0)} points by pick ${nextPick}; this is not a requirement to draft ${leader.position} then.`,
     })
   }
   if (adpDrift != null && Math.abs(adpDrift) >= 5) {
     reasons.push(
       adpDrift > 0
         ? {
-            label: 'Market value',
-            text: `The market drafts him around pick ${leader.adp!.toFixed(0)} — he has fallen ${adpDrift.toFixed(0)} picks, so you are buying below price.`,
+            label: 'Market ADP',
+            text: `Market ADP is a draft-position proxy, not trade value. ${leader.name} usually goes around pick ${leader.adp!.toFixed(0)} and has fallen ${adpDrift.toFixed(0)} picks.`,
           }
         : {
             label: 'Ahead of market',
-            text: `This is ${Math.abs(adpDrift).toFixed(0)} picks before his ADP of ${leader.adp!.toFixed(0)} — the model believes the points justify the reach; expect the room to see it as early.`,
+            text: `Market ADP is a draft-position proxy, not trade value. This is ${Math.abs(adpDrift).toFixed(0)} picks before ${leader.name}'s ADP of ${leader.adp!.toFixed(0)}.`,
           },
     )
   }
@@ -135,8 +158,9 @@ function WhyThisPick({
         ))}
       </ul>
       <small>
-        Points are projected season output of your final starting lineup versus a replacement-level
-        roster; comparisons simulate complete rest-of-drafts, not just this pick.
+        Projected roster value is deterministic best-legal-lineup points over replacement plus
+        positive bench value discounted by a {recommendation.bench_asset_factor.toFixed(2)} factor;
+        comparisons simulate complete rest-of-drafts, not just this pick.
       </small>
     </section>
   )
@@ -290,10 +314,6 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
   const coLeaderNames = candidates.flatMap((candidate) =>
     coLeaderIds.has(candidate.player_id) ? [candidate.name] : [],
   )
-  const backToBack =
-    onClock &&
-    currentPickNo != null &&
-    monitor.state?.user_next_pick_no === currentPickNo + 1
   const feed = [...(monitor.state?.recent_picks ?? [])].reverse()
   const leagueRows = simulation?.rosters ?? monitor.league_equity?.rosters ?? []
   const leagueEquityCurrent =
@@ -579,17 +599,13 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
               )}
               {tossUp && (
                 <p className="controls-hint" role="status">
-                  <strong>No clear winner on projected value.</strong>{' '}
-                  {coLeaderNames.join(', ')} form the top tier; they are ordered by value
-                  over next available (VONA) — how much you lose by waiting until your
-                  next pick instead of taking them now.
-                </p>
-              )}
-              {backToBack && (
-                <p className="controls-hint">
-                  You also have pick {monitor.state?.user_next_pick_no}. Back-to-back
-                  options often grade even because the model assumes you take the
-                  runner-up with your next pick.
+                  <strong>
+                    Practical toss-up under the{' '}
+                    {monitor.recommendation?.practical_tie_points.toFixed(1)}-point gate.
+                  </strong>{' '}
+                  {coLeaderNames.join(', ')} form the top tier.{' '}
+                  {leader && monitor.recommendation &&
+                    tieBreakText(monitor.recommendation.headline_tie_break_basis, leader.name)}
                 </p>
               )}
               {positions.length > 1 && (
@@ -639,13 +655,6 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
                 <WhyThisPick
                   recommendation={monitor.recommendation}
                   leader={leader}
-                  runnerUpName={
-                    candidates.find(
-                      (candidate) =>
-                        candidate.player_id ===
-                        monitor.recommendation?.runner_up_candidate_id,
-                    )?.name ?? null
-                  }
                   currentPickNo={monitor.recommendation.pick_no ?? null}
                 />
               )}
@@ -666,6 +675,17 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
                 {section.candidates.map((candidate, rank) => {
                   const screened = section.screened
                   const inTopTier = tossUp && coLeaderIds.has(candidate.player_id)
+                  const survivalRootName = candidate.survival_branch_root_candidate_id
+                    ? candidates.find(
+                        (row) => row.player_id === candidate.survival_branch_root_candidate_id,
+                      )?.name ?? candidate.survival_branch_root_candidate_id
+                    : null
+                  const opportunityRootName = candidate.opportunity_evidence_branch_root_candidate_id
+                    ? candidates.find(
+                        (row) =>
+                          row.player_id === candidate.opportunity_evidence_branch_root_candidate_id,
+                      )?.name ?? candidate.opportunity_evidence_branch_root_candidate_id
+                    : null
                   const deltaVsLeader =
                     candidate.projected_roster_value - leader.projected_roster_value
                   return (
@@ -684,22 +704,26 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
                           {candidate.expected_wins.toFixed(1)} wins
                         </small>
                         {candidate.adp != null && (
-                          <small>
-                            ADP {candidate.adp.toFixed(0)}
-                            {candidate.survives_to_next_pick != null &&
-                              (candidate.next_turn_pick_no ??
-                                monitor.recommendation?.next_user_pick_no) != null && (
-                                <> · {(candidate.survives_to_next_pick * 100).toFixed(0)}% chance back at pick{' '}
-                                  {candidate.next_turn_pick_no ??
-                                    monitor.recommendation?.next_user_pick_no}</>
-                              )}
-                          </small>
+                          <small>ADP {candidate.adp.toFixed(0)}</small>
+                        )}
+                        {candidate.target_available_count != null &&
+                          candidate.target_rollout_count != null &&
+                          survivalRootName &&
+                          (candidate.next_turn_pick_no ??
+                            monitor.recommendation?.next_user_pick_no) != null && (
+                            <small>
+                              Available {candidate.target_available_count}/{candidate.target_rollout_count} at pick{' '}
+                              {candidate.next_turn_pick_no ??
+                                monitor.recommendation?.next_user_pick_no} under {survivalRootName}-root
+                            </small>
                         )}
                         {candidate.current_marginal_value != null &&
                           candidate.expected_best_later_value != null &&
+                          opportunityRootName &&
                           candidate.next_turn_pick_no != null && (
                             <small>
-                              Adds {candidate.current_marginal_value.toFixed(0)} to your roster now ·{' '}
+                              {opportunityRootName}-root local opportunity evidence ·{' '}
+                              {candidate.current_marginal_value.toFixed(0)} current marginal ·{' '}
                               {candidate.expected_best_later_value.toFixed(0)} expected best at pick{' '}
                               {candidate.next_turn_pick_no}
                               {candidate.positional_value_drop != null && (
@@ -707,7 +731,7 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
                                   {candidate.positional_value_drop.toFixed(0)} {candidate.position} drop</>
                               )}
                               {candidate.later_alternatives?.[0] && (
-                                <> · often {candidate.later_alternatives[0].name}{' '}
+                                <> · common local later alternative {candidate.later_alternatives[0].name}{' '}
                                   ({(candidate.later_alternatives[0].probability * 100).toFixed(0)}%)</>
                               )}
                             </small>
@@ -738,9 +762,9 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
                             {tossUp ? (
                               <small>
                                 top tier
-                                {candidate.value_over_next_alternative != null && (
-                                  <> · VONA {candidate.value_over_next_alternative >= 0 ? '+' : ''}
-                                    {candidate.value_over_next_alternative.toFixed(1)}</>
+                                {candidate.effective_tie_break_urgency != null && (
+                                  <> · urgency {candidate.effective_tie_break_urgency >= 0 ? '+' : ''}
+                                    {candidate.effective_tie_break_urgency.toFixed(1)}</>
                                 )}
                               </small>
                             ) : leaderEdge != null && (
@@ -755,8 +779,8 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
                           <span className="board-numbers">
                             <strong className="board-delta">
                               {inTopTier
-                                ? candidate.value_over_next_alternative != null
-                                  ? `VONA ${candidate.value_over_next_alternative >= 0 ? '+' : ''}${candidate.value_over_next_alternative.toFixed(1)}`
+                                ? candidate.effective_tie_break_urgency != null
+                                  ? `urgency ${candidate.effective_tie_break_urgency >= 0 ? '+' : ''}${candidate.effective_tie_break_urgency.toFixed(1)}`
                                   : 'top tier'
                                 : Math.abs(deltaVsLeader) < 0.05
                                 ? 'even'
@@ -781,8 +805,9 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
                     : recStatus === 'refining'
                       ? 'Refining'
                       : 'Preliminary'}{' '}
-                for pick {monitor.recommendation?.pick_no} · projected lineup points over
-                replacement for the completed roster if drafted now, ± vs the top option ·
+                for pick {monitor.recommendation?.pick_no} · projected roster value is deterministic
+                best-legal-lineup points over replacement plus positive bench value discounted by a{' '}
+                {monitor.recommendation?.bench_asset_factor.toFixed(2)} factor, ± vs the top option ·
                 title odds shown as secondary telemetry · uncalibrated Sleeper-ADP baseline ·{' '}
                 {monitor.recommendation?.rollout_count} draft continuations
                 {screenedCandidates.length > 0 ? ' for finalists' : ''}
@@ -793,8 +818,7 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
                     {monitor.recommendation.world_bank_version.slice(0, 8)} · model{' '}
                     {monitor.recommendation.draft_model_version}</>
                 )}
-                . Title odds include ADP-driven future drafts and the chance to select players
-                who survive to later picks.
+                .
               </p>
               {positionTiming.length > 0 && (
                 <div className="pick-feed position-timing">

@@ -124,19 +124,45 @@ A third RB has a different marginal value on a roster with two elite RBs than on
 Define value over next availability:
 
 ```text
-VONA(p) = value(p now)
-          - E[value(best realistic alternative at next user pick)]
+VONA_root(p) = value(p now)
+               - E[value(best realistic alternative at next user pick)
+                   | the root branch takes p now]
 ```
 
 Adjacent user picks are one turn; the horizon is the first user pick after an
 opponent has selected. The expectation must use the conditional opponent model,
 exact pick ownership, current roster, available pool, starter needs, and caps.
+This opportunity evidence is local to the candidate-taken root branch. Its
+later-alternative distribution does not describe the branch that passes on the
+candidate, and VONA is not the paired take-versus-alternative-root delta.
+
+Keep three evidence families separate:
+
+- Paired Q compares two named root candidates across coupled completed-roster
+  continuations. Report the mean delta, interval, and the shares where the
+  headline root finishes higher, tied, or lower than the named baseline root.
+- Target availability comes from a separately named alternative-root branch.
+  Report `target_available_count / target_rollout_count` as availability and
+  `target_selected_when_available_count / target_available_count` as
+  conditional selection. Availability alone does not prove later selection.
+- Opportunity fields (`current_marginal_value`, expected later values, and
+  `later_alternatives`) come from the named candidate-root branch and remain
+  local policy diagnostics.
+
 The future policy compares current value plus expected later roster value rather
 than ranking positions by VONA alone, so a scarce but materially inferior player
 does not win mechanically. VONA remains a policy feature and explanation; the
 root recommendation is the coupled projected completed-roster value (ADR-026),
 which already prices whether taking one player now leaves better or worse
 alternatives later.
+
+Projected roster value is deterministic best-legal-lineup season points over
+the all-streamer replacement baseline, plus `BENCH_ASSET_FACTOR` times positive
+bench-player value over the applicable position cutline. Raw VONA remains
+diagnostic, but effective tie-break urgency is zero for K/DEF. Within a practical
+toss-up, order by effective urgency, then market ADP, then engine rank, and name
+the key that decided the headline. ADP is a market draft-position proxy; it is
+not modeled trade value.
 
 ### 20.4 Correlation and stacking
 
@@ -219,30 +245,56 @@ watchlist):
 - position/team
 - action label
 - championship probability
-- delta vs best alternative
+- paired Q delta between the named headline and baseline root branches,
+  including interval and higher/tied/lower continuation shares
 - playoff probability
-- chance player returns
+- alternative-root next-turn availability with its branch root and exact
+  `available / rollout` counts
+- conditional future-policy selection as a separate `selected / available`
+  count
 - chance tier survives
-- current marginal value and expected best next-turn alternative
-- expected positional/value drop and alternative distribution
-- target-platform ADP/board
+- candidate-root local current marginal value, expected best next-turn value,
+  positional drop, and later-alternative distribution
+- effective tie-break urgency; retain raw VONA only as labeled diagnostic data
+- practical-tie threshold and the headline basis: urgency, market ADP, or
+  engine rank
+- target-platform ADP/board, labeled as a market draft-position proxy
 - cross-platform median
 - main threat manager(s)
 - confidence
 
-### 21.5 Candidate detail panel
+Label the primary score as projected roster value. Define it in the interface
+as deterministic best-legal-lineup points over replacement plus positive bench
+value discounted by the published `bench_asset_factor`; do not describe it as
+starting-lineup value alone.
+
+### 21.5 Candidate detail panel and evidence contract
 
 For a selected candidate:
 
-- Why take/wait.
-- Exact survival curve to next pick.
+- Explain why the named root has the best risk-neutral expected completed-roster
+  value. A positive mean can coexist with a below-50% higher share; show
+  higher/tied/lower continuation shares instead of implying a majority win.
+- Name both roots in every paired-Q comparison. The baseline root is not a
+  universal "wait" action.
+- State exact next-pick availability under the named
+  `survival_branch_root_candidate_id` branch. State conditional selection only
+  from `target_selected_when_available_count`, separately from availability.
+- Label current marginal value and later alternatives as local evidence from
+  `opportunity_evidence_branch_root_candidate_id`; never present them as facts
+  about the alternative-root branch.
+- For a practical toss-up, state the gate and the actual
+  `headline_tie_break_basis`: effective urgency, market ADP, or engine rank.
+  K/DEF effective urgency is zero even when raw diagnostic VONA is positive.
+- Describe ADP as a market draft-position proxy, not trade or package value.
+- Show the exact survival curve to the next pick.
 - Threat managers and their reasons.
 - Manager history evidence counts, not just percentages.
 - Expected next two-pick combinations.
 - Tier alternatives.
 - Championship-delta uncertainty.
 - What assumptions are low-confidence.
-- Opportunity sample count and policy/model version.
+- Opportunity sample count, branch root, and policy/model version.
 
 ### 21.6 "What changed?" panel
 

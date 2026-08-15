@@ -86,7 +86,7 @@ def _recommendation_stage_payload(
     headline_id = recommendation.get("recommended_candidate_id")
     headline = rows.get(str(headline_id), {})
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "phase": phase,
         "cumulative_duration_seconds": cumulative_duration_seconds,
         "stage_duration_seconds": stage_duration_seconds,
@@ -96,6 +96,9 @@ def _recommendation_stage_payload(
         "q_leader_candidate_id": recommendation.get("q_leader_candidate_id"),
         "displayed_headline_candidate_id": headline_id,
         "decision_status": recommendation.get("decision_status"),
+        "headline_tie_break_basis": recommendation.get(
+            "headline_tie_break_basis"
+        ),
         "practical_co_leader_candidate_ids": list(
             recommendation.get("co_leader_candidate_ids", ())
         ),
@@ -120,7 +123,7 @@ def _recommendation_stage_payload(
         "target_selected_when_available_count": headline.get(
             "target_selected_when_available_count"
         ),
-        "target_rollout_count": headline.get("rollout_count"),
+        "target_rollout_count": headline.get("target_rollout_count"),
         "run_signature": recommendation.get("run_signature"),
     }
 

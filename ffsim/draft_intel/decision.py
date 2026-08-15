@@ -125,6 +125,7 @@ class PairedValueDelta:
     standard_error: float
     interval: tuple[float, float]
     better_continuation_probability: float
+    tied_continuation_probability: float
     worse_continuation_probability: float
 
 
@@ -205,6 +206,9 @@ class DecisionEvaluation:
             interval=(mean - 1.96 * standard_error, mean + 1.96 * standard_error),
             better_continuation_probability=(
                 sum(value > 0 for value in differences) / len(differences)
+            ),
+            tied_continuation_probability=(
+                sum(value == 0 for value in differences) / len(differences)
             ),
             worse_continuation_probability=(
                 sum(value < 0 for value in differences) / len(differences)
@@ -835,8 +839,7 @@ def tier_order(candidates, ranked, key=None):
 
     ``key`` refines ordering among equally urgent candidates; the live layer
     passes market ADP (and zeroes streamable K/DEF urgency): among
-    interchangeable picks, prefer the asset the market values most — the one
-    worth the most in a trade package.
+    interchangeable picks, prefer the player the current market drafts first.
     """
     ranked_index = {candidate.candidate_id: i for i, candidate in enumerate(ranked)}
 

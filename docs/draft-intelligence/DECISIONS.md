@@ -1046,7 +1046,8 @@ swaps dominate it; a second TE retains only its genuine FLEX value.
 
 ### Status
 
-Accepted (2026-08-14).
+Accepted (2026-08-14). Its headline/reason wording is superseded by ADR-029
+and ADR-034.
 
 ### Decision
 
@@ -1080,7 +1081,7 @@ that actually separates "take now" from "safe to wait" within a tie.
 - The headline can differ from the projected-value argmax only inside a
   statistical tie, so the ADR-026 objective still gates the decision.
 
-## ADR-029 — Discounted bench asset value and market tie-breaking for trade-oriented late rounds
+## ADR-029 — Discounted positive bench value and market tie-breaking for late rounds
 
 ### Status
 
@@ -1089,30 +1090,31 @@ Accepted (2026-08-14).
 ### Decision
 
 `projected_roster_value` credits each bench player (available but not chosen
-in a week's greedy lineup) with `BENCH_ASSET_FACTOR` (0.25) times his points
-over the assignment-independent position cutline. `ROSTER_VALUE_VERSION`
+in a week's greedy lineup) with `BENCH_ASSET_FACTOR` (0.25) times his positive
+points over the assignment-independent position cutline. `ROSTER_VALUE_VERSION`
 advances to 3. Within a statistically tied co-leader tier, ordering is
 `tier_order`: VONA quantized to whole points, then market ADP (best first),
 then engine rank; the live layer supplies the ADP tie-break, and
 `recommendation_summary` accepts it for the headline. ADP still never touches
 a player's base projected value — it only orders candidates the value model
-already declared interchangeable.
+already declared interchangeable. It is a market draft-position proxy, not a
+model of trade value.
 
 ### Rationale
 
-The owner wants late rounds biased toward the best remaining asset — players
-that hold value in trade packages — rather than roster-slot bookkeeping. The
-v2 scorer valued every bench player at exactly zero, which (measured on the
-first v2 synthetic batch) pulled K/DEF picks 2–4 rounds ahead of the
-opponent-model median (rounds 8–13 vs 13–15) because a real starter slot's
-small cutline edge beat "worthless" bench depth, and let one roster finish
-with nine WRs and two RBs because late boards were all-zero ties broken by
-noise. A discounted bench-VOR term makes the late-round objective "highest
-value over cutline still on the board", which is simultaneously the
-trade-asset objective; the ADP tie-break encodes that among interchangeable
-picks the market's favorite is the most packageable. A full injury/variance
-bench model was rejected: it would reopen the season-noise axis ADR-026
-removed, for marginal benefit over the asset term.
+Late rounds still need to distinguish positive bench depth after the starting
+lineup is full. The v2 scorer valued every bench player at exactly zero, which
+(measured on the first v2 synthetic batch) pulled K/DEF picks 2–4 rounds ahead
+of the opponent-model median (rounds 8–13 vs 13–15) because a real starter
+slot's small cutline edge beat zero-valued bench depth, and let one roster
+finish with nine WRs and two RBs because late boards were all-zero ties broken
+by noise. A discounted bench-VOR term makes the late-round objective prefer
+the highest positive value over cutline still on the board. Among candidates
+the value model cannot separate, ADP supplies only the market's consensus
+draft-position ordering. The system does not model trades, counterpart demand,
+or package value. A full injury/variance bench model was rejected because it
+would reopen the season-noise axis ADR-026 removed for marginal benefit over
+the discounted bench term.
 
 ### Consequences
 
@@ -1135,8 +1137,7 @@ so K/DEF timing barely moved and late ties never reached the market key.
 Tier ordering now uses `candidate_urgency` = `max(0, round(VONA))` — negative
 VONA means waiting costs nothing and carries no ordering information — and
 the live layer zeroes urgency for streamable K/DEF. All zero-urgency ties
-fall through to best market ADP, which is the trade-asset preference the
-owner asked for.
+fall through to best market ADP, used only as a market draft-position proxy.
 
 ### Second amendment (2026-08-14, same day)
 
@@ -1227,8 +1228,11 @@ in raw-projection order, dedicated slots before flex, exactly
 so the policy stays dict-based. A deterministic `1e-9 x projection` tiebreak
 orders terminal-equivalent (mostly zero-value late) picks by real quality
 instead of lexicographic player ID. `opportunity_evidence` prices the root
-candidate with the same function against the root roster, so VONA is now a
-roster-value difference on one scale. The VONA model tag advances to
+candidate with the same function against the root roster and samples later
+alternatives from completions conditioned on taking that candidate at the
+root. VONA is therefore a branch-local roster-value diagnostic on one scale;
+it is neither the paired Q delta nor evidence from the branch that takes a
+different root candidate. The VONA model tag advances to
 `next-turn-vona-v2:terminal-marginal` and the live model version to
 `needs:vona5:hazard1`. Merged opportunity costs recompute
 `value_over_next_alternative`/`positional_value_drop` from the merged
@@ -1268,8 +1272,9 @@ tie gate further.
 - The policy now prefers an elite K/DEF's real cutline edge over a marginal
   discounted bench skill player exactly where the scorer does (ADR-029
   behavior), including in rollout futures.
-- `current_marginal_value`/VONA in the UI are roster-aware terminal
-  marginals, not static VOR; the War Room line reads "Adds N to your roster".
+- `current_marginal_value`, VONA, and later alternatives are roster-aware
+  terminal evidence local to the candidate-taken root branch, not static VOR,
+  paired regret, or evidence from an alternative-root branch.
 - The displacement approximation prices one displacement chain (min
   raw-projection reachable occupant), not a full lineup re-solve; measured
   exact against `projected_roster_value` on dedicated/flex/displacement/
@@ -1298,8 +1303,8 @@ by `Q` (mean paired completed-roster value); no urgency term is added.
 is defined as `PRACTICAL_TIE_POINTS` itself. Refinement must use the same
 leader-minus-candidate quantity and threshold as the final decision. Decision
 engine v7 did not implement that requirement correctly; ADR-033 records the
-v8 correction. The Why panel explains the headline delta as the take-vs-wait
-edge, with wait-plan language driven by next-pick survival.
+v8 correction. ADR-034 supersedes the original wait-plan UI wording with a
+named-root evidence contract.
 
 ### Rationale
 
@@ -1309,11 +1314,11 @@ All measurements from `tools/draft_policy_alignment_harness.py designs`
 candidates per state), reproduced 2026-08-14 under the ADR-031 policy.
 
 - **Double-counting hazard.** With the future-user policy aligned to the
-  terminal scorer, every candidate's continuations already contain each
-  rival's best wait plan — passing on a survivor harvests him at a later
-  turn. The completed-roster objective therefore embeds wait value; any
-  additive urgency term must price only residual take-now-vs-wait asymmetry
-  or it re-adds wait value twice. Measured: the pooled regression of paired
+  terminal scorer, every root's continuations already contain the future
+  policy's actual later choices. The completed-roster objective therefore
+  embeds their value; any additive urgency term must price only residual
+  take-now-vs-wait asymmetry or it re-adds wait value twice. Measured: the
+  pooled regression of paired
   deltas on VONA differences has slope 0.458 (n=68 pairs, R² 0.405) — the
   rollouts already carry ~46% of VONA differences in the ranking quantity.
 - **Design (b), explicit take-vs-wait regret, is the current objective.**
@@ -1415,3 +1420,71 @@ the common decision boundary.
   only the leader.
 - The exact racing-versus-flat comparison across all 2,384 corpus states
   remains required before RACE-01 is complete or releasable.
+
+## ADR-034 — War Room evidence is branch-named and field-derived
+
+### Status
+
+Accepted and implemented (2026-08-15).
+
+### Decision
+
+Every War Room explanation must identify the field and modeled branch that
+supports it:
+
+- Paired Q compares the root in
+  `paired_value_delta_vs_runner_up.candidate_id` with the named
+  `baseline_candidate_id`. It reports risk-neutral expected completed-roster
+  value, its interval, and higher/tied/lower continuation shares. A positive
+  mean does not imply that the candidate finishes higher in most continuations.
+- Target availability is `target_available_count / target_rollout_count` under
+  `survival_branch_root_candidate_id`. Conditional future-policy selection is
+  the separate `target_selected_when_available_count / target_available_count`
+  fact; availability alone never supports a selection claim.
+- Current marginal value, expected later values, raw
+  `value_over_next_alternative`, and `later_alternatives` are local to
+  `opportunity_evidence_branch_root_candidate_id`, which is the
+  candidate-taken root. They are not evidence from the alternative-root branch
+  and are not the paired Q delta.
+- A practical toss-up names `practical_tie_points` and
+  `headline_tie_break_basis`: `urgency`, `market_adp`, or `engine_rank`.
+  `effective_tie_break_urgency` is zero for K/DEF; raw VONA remains diagnostic.
+  ADP is a market draft-position proxy, not modeled trade value.
+- Projected roster value means deterministic best-legal-lineup points over the
+  all-streamer replacement baseline plus positive bench value discounted by
+  the published `bench_asset_factor` (`BENCH_ASSET_FACTOR`).
+
+Compact `recommendation_stage` telemetry advances to schema version 2. The
+additive contract records `headline_tie_break_basis`, and
+`target_rollout_count` is the denominator from the named survival branch. The
+WHY-01 payload and copy correction does not change recommendation math or
+cache identity, so the decision engine, draft/VONA model, roster scorer, and
+cache versions do not advance.
+
+### Rationale
+
+The prior panel combined paired-Q, candidate-root opportunity, and
+alternative-root availability into one wait narrative. It could imply later
+selection from availability alone, describe a positive expected value as a
+majority outcome, expose neutralized K/DEF VONA as urgency, and call ADP a
+trade-value signal. Named provenance and exact counts make each sentence
+reconstructable from recorded evidence without changing the underlying model.
+
+### Validation
+
+- Warning-strict Python tests pass 210/210, including exact tie shares,
+  branch denominators, K/DEF effective urgency, all three headline bases, and
+  compact stage schema version 2.
+- Frontend tests pass 46/46 and the production build passes. The Gadsden-style
+  regression reports 300/300 available and 0/300 selected, keeps
+  candidate-root alternatives local, and covers a positive mean with a
+  below-50% higher share.
+
+### Consequences
+
+- The panel describes expected value and outcome frequency as separate facts.
+- Availability, conditional selection, and branch-local opportunity remain
+  separate even when they concern the same target player.
+- Practical-toss-up copy states the actual ordering key and makes no trade or
+  statistical-equality claim.
+- Recommendation math and versioned model/cache identities remain unchanged.

@@ -196,11 +196,17 @@ export interface DraftRecommendationCandidate {
   adp: number | null
   survives_to_next_pick: number | null
   best_wait_candidate_id: string | null
+  survival_branch_root_candidate_id: string | null
+  opportunity_evidence_branch_root_candidate_id: string | null
+  target_available_count: number | null
+  target_selected_when_available_count: number | null
+  target_rollout_count: number | null
   rollout_count?: number
   current_marginal_value?: number | null
   expected_best_later_value?: number | null
   expected_same_position_later_value?: number | null
   value_over_next_alternative?: number | null
+  effective_tie_break_urgency: number
   positional_value_drop?: number | null
   next_turn_pick_no?: number | null
   later_alternatives?: Array<{
@@ -286,16 +292,25 @@ export interface DraftMonitor {
     state_signature: string
     run_signature: string
     decision_status: 'clear_leader' | 'toss_up'
+    practical_tie_points: number
+    headline_tie_break_basis: 'urgency' | 'market_adp' | 'engine_rank' | null
+    bench_asset_factor: number
+    q_leader_candidate_id: string
+    reason_codes: string[]
     co_leader_candidate_ids: string[]
     recommended_candidate_id?: string
     runner_up_candidate_id?: string | null
     projected_roster_value?: number
     projected_roster_value_interval?: [number, number]
     paired_value_delta_vs_runner_up?: {
+      candidate_id: string
+      baseline_candidate_id: string
       projected_value_delta: number
       standard_error: number
       interval: [number, number]
-      better_continuation_probability?: number
+      better_continuation_probability: number
+      tied_continuation_probability: number
+      worse_continuation_probability: number
     } | null
     next_user_pick_no?: number | null
     pick_no?: number | null

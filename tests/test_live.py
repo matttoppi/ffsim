@@ -1,4 +1,5 @@
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -445,6 +446,10 @@ class LiveDraftTest(unittest.TestCase):
             row["target_selected_when_available_count"],
             row["target_available_count"],
         )
+        self.assertEqual(
+            row["target_rollout_count"],
+            evaluation.candidate("p1").survival.rollout_count,
+        )
         self.assertEqual(row["rollout_count"], 20)
         self.assertEqual(row["next_turn_pick_no"], evaluation.next_user_pick_no)
         self.assertEqual(row["opportunity_sample_count"], 20)
@@ -474,6 +479,158 @@ class LiveDraftTest(unittest.TestCase):
             {bound["candidate_id"] for bound in payload["paired_value_bounds_vs_q_leader"]},
             {"p1", "p8"},
         )
+
+    def test_live_payload_exposes_branch_denominator_and_effective_urgency(self):
+        prepared = PreparedDraft(
+            summary={},
+            live_draft_id="draft",
+            league_id=None,
+            standalone=True,
+            user_roster_id=1,
+            market_snapshot={
+                "source": SLEEPER_ADP_SOURCE,
+                "snapshot_id": "snap",
+                "observations": [
+                    {"canonical_player_id": f"p{index}", "adp": float(index)}
+                    for index in range(1, 13)
+                ],
+            },
+            evaluator=evaluator(),
+            player_details={
+                **{
+                    f"p{index}": {"name": f"Player {index}", "position": "WR"}
+                    for index in range(1, 13)
+                },
+                "p1": {"name": "Player 1", "position": "K"},
+            },
+        )
+        evaluation = evaluate_live_candidates(
+            prepared, draft_state(), 20, ("p1", "p8")
+        )
+        p1, p8 = evaluation.candidates
+        evaluation = replace(
+            evaluation,
+            candidates=(
+                p1,
+                replace(
+                    p8,
+                    continuation_championship_probabilities=(
+                        p8.continuation_championship_probabilities[:7]
+                    ),
+                ),
+            ),
+        )
+
+        payload = live_recommendation_payload(
+            prepared, draft_state(), [evaluation], 2
+        )
+        kicker = next(
+            row for row in payload["candidates"] if row["player_id"] == "p1"
+        )
+        shortened = next(
+            row for row in payload["candidates"] if row["player_id"] == "p8"
+        )
+
+        self.assertGreater(kicker["value_over_next_alternative"], 0)
+        self.assertEqual(kicker["effective_tie_break_urgency"], 0)
+        self.assertEqual(shortened["rollout_count"], 7)
+        self.assertEqual(shortened["target_rollout_count"], 20)
+        self.assertEqual(payload["practical_tie_points"], 0.1)
+        self.assertEqual(payload["bench_asset_factor"], 0.25)
+        self.assertIsNone(payload["headline_tie_break_basis"])
+
+    def test_toss_up_payload_names_the_actual_tie_break_basis(self):
+        prepared = PreparedDraft(
+            summary={},
+            live_draft_id="draft",
+            league_id=None,
+            standalone=True,
+            user_roster_id=1,
+            market_snapshot={
+                "source": SLEEPER_ADP_SOURCE,
+                "snapshot_id": "snap",
+                "observations": [
+                    {"canonical_player_id": f"p{index}", "adp": float(index)}
+                    for index in range(1, 13)
+                ],
+            },
+            evaluator=evaluator(),
+            player_details={
+                f"p{index}": {"name": f"Player {index}", "position": "WR"}
+                for index in range(1, 13)
+            },
+        )
+        evaluation = evaluate_live_candidates(
+            prepared, draft_state(), 20, ("p1", "p8")
+        )
+        leader, rival = evaluation.candidates
+        rival = replace(
+            rival,
+            projected_roster_value=leader.projected_roster_value,
+            continuation_roster_values=leader.continuation_roster_values,
+        )
+
+        cases = (
+            ("urgency", 0.0, 2.0, 1.0, 8.0, "p8", "URGENCY_TIEBREAK"),
+            ("market_adp", 0.0, 0.0, 8.0, 1.0, "p8", "MARKET_ADP_TIEBREAK"),
+            ("engine_rank", 0.0, 0.0, 1.0, 1.0, "p1", "ENGINE_RANK_TIEBREAK"),
+        )
+        for (
+            basis,
+            leader_vona,
+            rival_vona,
+            leader_adp,
+            rival_adp,
+            headline,
+            reason,
+        ) in cases:
+            with self.subTest(basis=basis):
+                candidates = (
+                    replace(
+                        leader,
+                        opportunity_cost=replace(
+                            leader.opportunity_cost,
+                            value_over_next_alternative=leader_vona,
+                        ),
+                    ),
+                    replace(
+                        rival,
+                        opportunity_cost=replace(
+                            rival.opportunity_cost,
+                            value_over_next_alternative=rival_vona,
+                        ),
+                    ),
+                )
+                observations = [
+                    {**row, "adp": leader_adp}
+                    if row["canonical_player_id"] == "p1"
+                    else {**row, "adp": rival_adp}
+                    if row["canonical_player_id"] == "p8"
+                    else row
+                    for row in prepared.market_snapshot["observations"]
+                ]
+                case_prepared = replace(
+                    prepared,
+                    market_snapshot={
+                        **prepared.market_snapshot,
+                        "observations": observations,
+                    },
+                )
+
+                payload = live_recommendation_payload(
+                    case_prepared,
+                    draft_state(),
+                    [replace(evaluation, candidates=candidates)],
+                    2,
+                )
+
+                self.assertEqual(payload["decision_status"], "toss_up")
+                self.assertEqual(payload["headline_tie_break_basis"], basis)
+                self.assertEqual(payload["recommended_candidate_id"], headline)
+                self.assertEqual(
+                    {code for code in payload["reason_codes"] if "TIEBREAK" in code},
+                    {reason},
+                )
 
     def test_future_user_policy_prefers_value_over_replacement_in_open_slots(self):
         bank = SimpleNamespace(

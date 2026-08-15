@@ -352,6 +352,30 @@ class DecisionEvaluationTest(unittest.TestCase):
         self.assertIn("LOW_CONFIDENCE_TOSS_UP", recommendation.reason_codes)
         self.assertNotIn("PAIRED_VALUE_EDGE", recommendation.reason_codes)
 
+    def test_paired_value_delta_reports_exact_tied_continuation_share(self):
+        evaluation = evaluate_candidates(
+            draft_state(),
+            ("p1", "p2"),
+            1,
+            range(4),
+            market_utility,
+            market_utility,
+            evaluator(),
+            draft_model_version="manual-test-v1",
+            seed=19,
+        )
+        left, right = evaluation.candidates
+        evaluation = replace(evaluation, candidates=(
+            replace(left, continuation_roster_values=(3.0, 2.0, 1.0, 2.0)),
+            replace(right, continuation_roster_values=(2.0, 2.0, 2.0, 2.0)),
+        ))
+
+        delta = evaluation.paired_value_delta("p1", "p2")
+
+        self.assertEqual(delta.better_continuation_probability, 0.25)
+        self.assertEqual(delta.tied_continuation_probability, 0.5)
+        self.assertEqual(delta.worse_continuation_probability, 0.25)
+
     def test_toss_up_keeps_the_projected_value_leader_as_the_headline(self):
         def opponents(roster_id, pick_no, rosters, available):
             utilities = {

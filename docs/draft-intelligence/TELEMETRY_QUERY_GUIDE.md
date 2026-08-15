@@ -49,6 +49,9 @@ Replace the example batch ID with the `batch_id` printed by
 - Live and synthetic drafts use the same compact `recommendation_stage`
   contract. Phases are `first_board`, `full_screen`, `refinement_150`,
   `refinement_225`, and `ready` when reached.
+- New stage events use schema version 2. Version 2 adds
+  `headline_tie_break_basis`; `target_rollout_count` is the rollout denominator
+  from the named survival branch, not the target candidate's root branch.
 - A stage payload uses these field groups:
   - identity: `schema_version`, `phase`, and `run_signature`;
   - timing and work: `cumulative_duration_seconds`, `stage_duration_seconds`,
@@ -56,7 +59,8 @@ Replace the example batch ID with the `batch_id` printed by
     `cumulative_candidate_rollout_work`;
   - board state: `evaluated_candidate_ids`, `refined_candidate_ids`,
     `q_leader_candidate_id`, `displayed_headline_candidate_id`,
-    `decision_status`, `practical_co_leader_candidate_ids`,
+    `decision_status`, `headline_tie_break_basis`,
+    `practical_co_leader_candidate_ids`,
     `paired_value_bounds_vs_q_leader`, and `survivor_candidate_ids`;
   - outcome: `stop_reason`, `speculation_attempted`, `speculation_hit`, and
     `speculation_miss`; and
@@ -66,8 +70,9 @@ Replace the example batch ID with the `batch_id` printed by
     `target_available_count`, and `target_selected_when_available_count`.
 - `stop_reason` is `bounded_practical_tie`, `single_clear_survivor`,
   `max_budget`, or `state_advanced` when the stage terminates work.
-- `target_available_count` and `target_selected_when_available_count` are
-  integers from the target branch. They satisfy
+- `target_rollout_count`, `target_available_count`, and
+  `target_selected_when_available_count` are integers from the branch named by
+  `survival_branch_root_candidate_id`. They satisfy
   `selected_when_available <= available <= target_rollout_count`.
 - Full `recommendation` payloads are retained only for the completed broad
   screen and the authoritative `ready` result. They contain the decision,
