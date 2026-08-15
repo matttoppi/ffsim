@@ -841,11 +841,186 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(monitor.recommendation["screened_candidates"], [])
         self.assertEqual(monitor.recommendation_status, "ready")
 
+    def test_recommendation_stage_telemetry_is_compact_and_tracks_racing(self):
+        prepared = SimpleNamespace(live_draft_id="mock", user_roster_id=1)
+        recorded = []
+        ready_recorded = Event()
+
+        def record(_session_id, _draft_id, event_type, payload, **_metadata):
+            if event_type != "recommendation_stage":
+                return
+            recorded.append(payload)
+            if payload["phase"] == "ready":
+                ready_recorded.set()
+
+        monitor = LiveDraftMonitor(
+            prepared,
+            0,
+            300,
+            2,
+            6,
+            telemetry=SimpleNamespace(record=record),
+        )
+        state = SimpleNamespace(
+            status="drafting",
+            completed_picks=(),
+            current_pick_no=1,
+            current_roster_id=1,
+            pick_owners=(1,),
+        )
+        monitor.pending_state = state
+        monitor.state_fingerprint = _state_fingerprint(state)
+        monitor.calculation_event.set()
+
+        def evaluate(_prepared, _state, rollout_ids, batch, *_args):
+            rollout_count = (
+                rollout_ids if isinstance(rollout_ids, int) else rollout_ids.stop
+            )
+            return {
+                "rollout_count": rollout_count,
+                "candidates": [
+                    {"player_id": candidate_id} for candidate_id in batch
+                ],
+            }
+
+        def payload(_prepared, _state, evaluations, _pool_count):
+            rollout_count = evaluations[-1]["rollout_count"]
+            candidate_ids = [
+                row["player_id"]
+                for evaluation in evaluations
+                for row in evaluation["candidates"]
+            ]
+            headline_id = candidate_ids[0]
+            return {
+                "rollout_count": rollout_count,
+                "candidates": [
+                    {
+                        "player_id": candidate_id,
+                        "rollout_count": rollout_count,
+                        "survival_branch_root_candidate_id": f"wait-{candidate_id}",
+                        "opportunity_evidence_branch_root_candidate_id": candidate_id,
+                        "target_available_count": rollout_count - 1,
+                        "target_selected_when_available_count": rollout_count - 2,
+                    }
+                    for candidate_id in candidate_ids
+                ],
+                "recommended_candidate_id": headline_id,
+                "q_leader_candidate_id": headline_id,
+                "decision_status": "practical_tie",
+                "co_leader_candidate_ids": candidate_ids[:2],
+                "paired_value_bounds_vs_q_leader": [
+                    {
+                        "candidate_id": candidate_id,
+                        "lower_bound": -0.1,
+                        "upper_bound": 0.1,
+                    }
+                    for candidate_id in candidate_ids
+                ],
+                "run_signature": "run-signature",
+            }
+
+        worker = Thread(
+            target=monitor.calculate,
+            args=(
+                lambda *_args, **_kwargs: ["a", "b", "c", "d", "e", "f"],
+                evaluate,
+                payload,
+                None,
+                None,
+                lambda *_args: ("f", "e", "d", "c", "b"),
+                lambda _screen, extension: extension,
+                None,
+                lambda _evaluation: (("f", "e"), 0.05),
+            ),
+        )
+        worker.start()
+        try:
+            self.assertTrue(ready_recorded.wait(5))
+        finally:
+            monitor.stop()
+            worker.join(5)
+
+        self.assertFalse(worker.is_alive())
+        self.assertEqual(
+            [stage["phase"] for stage in recorded],
+            ["first_board", "full_screen", "refinement_150", "ready"],
+        )
+        self.assertEqual(
+            [stage["stage_candidate_rollout_work"] for stage in recorded],
+            [200, 400, 250, 0],
+        )
+        self.assertEqual(
+            [stage["cumulative_candidate_rollout_work"] for stage in recorded],
+            [200, 600, 850, 850],
+        )
+        self.assertEqual(
+            recorded[1]["survivor_candidate_ids"],
+            ["f", "e", "d", "c", "b"],
+        )
+        self.assertEqual(recorded[2]["refined_candidate_ids"], [
+            "f", "e", "d", "c", "b",
+        ])
+        self.assertEqual(
+            recorded[2]["evaluated_candidate_ids"],
+            ["a", "b", "c", "d", "e", "f"],
+        )
+        self.assertEqual(recorded[2]["rollout_count"], 150)
+        self.assertEqual(recorded[2]["survivor_candidate_ids"], ["f", "e"])
+        self.assertEqual(recorded[2]["stop_reason"], "bounded_practical_tie")
+
+        ready = recorded[-1]
+        self.assertEqual(ready["survivor_candidate_ids"], ["f", "e"])
+        self.assertEqual(ready["stop_reason"], "bounded_practical_tie")
+        self.assertEqual(ready["q_leader_candidate_id"], "f")
+        self.assertEqual(ready["displayed_headline_candidate_id"], "f")
+        self.assertEqual(ready["decision_status"], "practical_tie")
+        self.assertEqual(ready["practical_co_leader_candidate_ids"], ["f", "e"])
+        self.assertEqual(
+            [bound["candidate_id"] for bound in ready["paired_value_bounds_vs_q_leader"]],
+            ["f", "e", "d", "c", "b"],
+        )
+        self.assertEqual(ready["target_candidate_id"], "f")
+        self.assertEqual(ready["target_rollout_count"], 150)
+        self.assertEqual(ready["survival_branch_root_candidate_id"], "wait-f")
+        self.assertEqual(
+            ready["opportunity_evidence_branch_root_candidate_id"], "f"
+        )
+        self.assertEqual(ready["target_available_count"], 149)
+        self.assertEqual(ready["target_selected_when_available_count"], 148)
+        self.assertEqual(ready["run_signature"], "run-signature")
+
+        schema = set(recorded[0])
+        self.assertTrue(all(set(stage) == schema for stage in recorded))
+        self.assertTrue(
+            {"candidates", "screened_candidates", "continuations"}.isdisjoint(schema)
+        )
+        self.assertTrue(all(stage["schema_version"] == 1 for stage in recorded))
+        self.assertTrue(all(stage["stage_duration_seconds"] >= 0 for stage in recorded))
+        self.assertEqual(
+            [stage["cumulative_duration_seconds"] for stage in recorded],
+            sorted(stage["cumulative_duration_seconds"] for stage in recorded),
+        )
+        self.assertTrue(all(not stage["speculation_attempted"] for stage in recorded))
+        self.assertTrue(all(not stage["speculation_hit"] for stage in recorded))
+        self.assertTrue(all(not stage["speculation_miss"] for stage in recorded))
+
     def test_speculative_screen_is_reused_only_for_the_realized_state(self):
         prepared = SimpleNamespace(
             live_draft_id="mock", user_roster_id=2, player_details={}
         )
-        monitor = LiveDraftMonitor(prepared, 0, 100, 2)
+        stages = []
+
+        def record(_session_id, _draft_id, event_type, payload, **_metadata):
+            if event_type == "recommendation_stage" and payload["phase"] == "ready":
+                stages.append(payload)
+
+        monitor = LiveDraftMonitor(
+            prepared,
+            0,
+            100,
+            2,
+            telemetry=SimpleNamespace(record=record),
+        )
         waiting = draft_state()
         evaluated = []
 
@@ -887,10 +1062,7 @@ class ApiTest(unittest.TestCase):
             monitor.state_fingerprint = _state_fingerprint(realized)
         monitor.calculation_event.set()
         deadline = time.time() + 5
-        while (
-            monitor.snapshot()["recommendation_status"] != "ready"
-            and time.time() < deadline
-        ):
+        while not stages and time.time() < deadline:
             time.sleep(0.001)
         monitor.stop()
         worker.join(5)
@@ -899,12 +1071,27 @@ class ApiTest(unittest.TestCase):
         # The realized state matched the prediction exactly: nothing recomputed.
         self.assertEqual(len(evaluated), 2)
         self.assertIsNone(monitor.speculative)
+        self.assertTrue(stages[-1]["speculation_attempted"])
+        self.assertTrue(stages[-1]["speculation_hit"])
+        self.assertFalse(stages[-1]["speculation_miss"])
 
     def test_speculative_screen_is_discarded_when_the_prediction_missed(self):
         prepared = SimpleNamespace(
             live_draft_id="mock", user_roster_id=2, player_details={}
         )
-        monitor = LiveDraftMonitor(prepared, 0, 100, 2)
+        stages = []
+
+        def record(_session_id, _draft_id, event_type, payload, **_metadata):
+            if event_type == "recommendation_stage" and payload["phase"] == "ready":
+                stages.append(payload)
+
+        monitor = LiveDraftMonitor(
+            prepared,
+            0,
+            100,
+            2,
+            telemetry=SimpleNamespace(record=record),
+        )
         realized = draft_state().with_pick("p2")
         evaluated = []
 
@@ -932,10 +1119,7 @@ class ApiTest(unittest.TestCase):
         )
         worker.start()
         deadline = time.time() + 5
-        while (
-            monitor.snapshot()["recommendation_status"] != "ready"
-            and time.time() < deadline
-        ):
+        while not stages and time.time() < deadline:
             time.sleep(0.001)
         monitor.stop()
         worker.join(5)
@@ -943,6 +1127,9 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(monitor.recommendation_status, "ready")
         # A missed prediction is discarded and the screen recomputed fresh.
         self.assertEqual(evaluated, [("a", "b"), ("c",)])
+        self.assertTrue(stages[-1]["speculation_attempted"])
+        self.assertFalse(stages[-1]["speculation_hit"])
+        self.assertTrue(stages[-1]["speculation_miss"])
 
     def test_refinement_evaluates_the_injected_finalist_selection(self):
         prepared = SimpleNamespace(live_draft_id="mock", user_roster_id=1)

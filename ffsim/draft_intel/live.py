@@ -976,6 +976,23 @@ def live_recommendation_payload(prepared, state, evaluations, candidate_pool_cou
     )
     top_tier = set(recommendation["co_leader_candidate_ids"])
     ranked = rank_candidates(evaluation)
+    q_leader = ranked[0]
+    recommendation["q_leader_candidate_id"] = q_leader.candidate_id
+    recommendation["paired_value_bounds_vs_q_leader"] = [
+        {
+            "candidate_id": candidate.candidate_id,
+            "projected_value_delta": delta.projected_value_delta,
+            "lower_bound": delta.interval[0],
+            "upper_bound": delta.interval[1],
+        }
+        for candidate in ranked
+        for delta in (
+            evaluation.paired_value_delta(
+                candidate.candidate_id,
+                q_leader.candidate_id,
+            ),
+        )
+    ]
     # Projected value cannot order a statistical tie, so the tier leads with
     # the least-replaceable picks (highest value over the next alternative),
     # market-best first among genuine ties.
@@ -1027,6 +1044,18 @@ def live_recommendation_payload(prepared, state, evaluations, candidate_pool_cou
             ),
             "best_wait_candidate_id": (
                 best_wait.candidate_id if best_wait else None
+            ),
+            "survival_branch_root_candidate_id": (
+                best_wait.candidate_id if survival else None
+            ),
+            "opportunity_evidence_branch_root_candidate_id": (
+                candidate.candidate_id if opportunity else None
+            ),
+            "target_available_count": (
+                survival.available_count if survival else None
+            ),
+            "target_selected_when_available_count": (
+                survival.selected_when_available_count if survival else None
             ),
             "rollout_count": candidate.rollout_count,
             "current_marginal_value": (

@@ -1,9 +1,11 @@
+from dataclasses import replace
 import math
 import unittest
 
 from ffsim.draft_intel.rollout import (
     choice_probabilities,
     complete_drafts,
+    merge_survival_reports,
     stable_gumbel,
     summarize_survival,
 )
@@ -206,11 +208,35 @@ class DraftRolloutTest(unittest.TestCase):
         )
 
         p2 = dict((player.player_id, player) for player in report.players)["p2"]
-        expected_survival = sum(
+        expected_available = sum(
             not any(pick.player_id == "p2" and pick.pick_no < 6 for pick in completion.picks)
             for completion in completions
-        ) / len(completions)
-        self.assertEqual(p2.survives_to_next_pick, expected_survival)
+        )
+        self.assertEqual(
+            p2.survives_to_next_pick,
+            expected_available / len(completions),
+        )
+        self.assertEqual(p2.available_count, expected_available)
+        self.assertEqual(
+            p2.selected_when_available_count,
+            sum(
+                any(
+                    pick.player_id == "p2" and pick.pick_no == 6 and pick.user_pick
+                    for pick in completion.picks
+                )
+                for completion in completions
+            ),
+        )
+        self.assertLessEqual(p2.selected_when_available_count, p2.available_count)
+        invalid = replace(
+            report,
+            players=(
+                replace(p2, available_count=report.rollout_count + 1),
+                report.players[1],
+            ),
+        )
+        with self.assertRaisesRegex(ValueError, "selected <= available <= rollouts"):
+            merge_survival_reports((invalid,))
         self.assertLessEqual(sum(probability for _, probability in p2.pick_hazard), 1)
         if p2.threat_share:
             self.assertAlmostEqual(sum(probability for _, probability in p2.threat_share), 1)

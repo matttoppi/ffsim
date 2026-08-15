@@ -780,12 +780,12 @@ racing ladder matches its own flat refinement 12/12 on the new matrices.
 
 Each live monitor run has a unique session persisted in a dedicated local
 SQLite database. Append-only events retain synchronized draft states, observed
-picks, every published recommendation and league-equity stage, the exact
-post-draft simulation, stale-result discards, errors, and calculation durations.
-Recommendation payloads remain whole rather than being reduced to the winning
-player, preserving candidate metrics, reason codes, state/run signatures,
-seeds, sample counts, and model/world versions. A read-only API filters events
-by draft, session, type, and pick.
+picks, compact recommendation stages, full broad-screen and ready
+recommendations, league-equity stages, the exact post-draft simulation,
+stale-result discards, errors, and calculation durations. Full recommendation
+payloads preserve candidate metrics, reason codes, state/run signatures, seeds,
+sample counts, and model/world versions. A read-only API filters events by
+draft, session, type, and pick.
 
 ### Rationale
 
@@ -804,6 +804,23 @@ choice and needs no service or dependency.
   continuing with an incomplete audit trail.
 - The event store is separate from historical/model data so live writes do not
   change market or manager evidence.
+
+### Amendment (2026-08-15)
+
+The telemetry database uses SQLite write-ahead logging (WAL), and every
+connection has a five-second busy timeout. Concurrent readers therefore do not
+block normal event commits. A write that remains blocked after the timeout
+still fails visibly. Long post-batch audits use a native SQLite backup snapshot
+instead of holding a transaction open on the active database.
+
+Live and synthetic execution emit the same compact `recommendation_stage`
+schema for first-board, full-screen, refinement, and ready phases. Each event
+records timing, exact candidate-rollout work, leaders and paired bounds,
+post-gate survivors, stop reason, speculation outcome, and run identity. Full
+candidate boards remain only at the completed broad-screen and ready
+boundaries. Target evidence names its survival and opportunity branch roots and
+stores integer `selected_when_available <= available <= target_rollout_count`
+counts; no stage event stores continuation arrays.
 
 ---
 

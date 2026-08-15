@@ -182,15 +182,29 @@ class DecisionEvaluationTest(unittest.TestCase):
         flat = evaluate_candidates(
             draft_state(), candidates, rollout_ids=range(12), **kwargs
         )
-        merged = merge_rollout_ranges([
+        parts = [
             evaluate_candidates(
                 draft_state(), candidates, rollout_ids=range(5), **kwargs
             ),
             evaluate_candidates(
                 draft_state(), candidates, rollout_ids=range(5, 12), **kwargs
             ),
-        ])
+        ]
+        merged = merge_rollout_ranges(parts)
         self.assertEqual(merged, flat)
+        merged_p2 = merged.candidate("p1").survival.players[1]
+        part_p2s = tuple(
+            part.candidate("p1").survival.players[1] for part in parts
+        )
+        self.assertEqual(
+            (merged_p2.available_count, merged_p2.selected_when_available_count),
+            (
+                sum(player.available_count for player in part_p2s),
+                sum(
+                    player.selected_when_available_count for player in part_p2s
+                ),
+            ),
+        )
         self.assertEqual(
             recommendation_summary(merged),
             recommendation_summary(flat),

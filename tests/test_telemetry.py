@@ -1,3 +1,5 @@
+from contextlib import closing
+import sqlite3
 import tempfile
 import time
 import unittest
@@ -8,6 +10,7 @@ from unittest.mock import patch
 from fastapi import HTTPException
 
 from ffsim.api import LiveDraftMonitor, create_app
+from ffsim.draft_intel.telemetry import DraftTelemetry
 
 
 def endpoint(app, path, method):
@@ -20,6 +23,83 @@ def endpoint(app, path, method):
 
 
 class TelemetryTest(unittest.TestCase):
+    def test_initialization_uses_wal_busy_timeout_and_foreign_keys(self):
+        with tempfile.TemporaryDirectory() as directory:
+            telemetry = DraftTelemetry(Path(directory) / "telemetry.sqlite3")
+
+            with closing(telemetry._connect()) as database:
+                self.assertEqual(
+                    database.execute("PRAGMA journal_mode").fetchone()[0],
+                    "wal",
+                )
+                self.assertEqual(
+                    database.execute("PRAGMA busy_timeout").fetchone()[0],
+                    5_000,
+                )
+                self.assertEqual(
+                    database.execute("PRAGMA foreign_keys").fetchone()[0],
+                    1,
+                )
+
+    def test_initialization_migrates_an_existing_database_to_wal(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "telemetry.sqlite3"
+            with closing(sqlite3.connect(path)) as database, database:
+                self.assertEqual(
+                    database.execute("PRAGMA journal_mode = DELETE").fetchone()[0],
+                    "delete",
+                )
+                database.execute("CREATE TABLE legacy (value TEXT)")
+                database.execute("INSERT INTO legacy VALUES ('preserved')")
+
+            telemetry = DraftTelemetry(path)
+
+            with closing(telemetry._connect()) as database:
+                self.assertEqual(
+                    database.execute("PRAGMA journal_mode").fetchone()[0],
+                    "wal",
+                )
+                self.assertEqual(
+                    database.execute("SELECT value FROM legacy").fetchone()[0],
+                    "preserved",
+                )
+
+    def test_external_reader_does_not_block_event_commit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "telemetry.sqlite3"
+            telemetry = DraftTelemetry(path)
+            telemetry.start_session("session", "draft", {})
+
+            with closing(sqlite3.connect(path)) as reader:
+                reader.execute("BEGIN")
+                reader.execute("SELECT count(*) FROM live_draft_events").fetchone()
+
+                telemetry.record("session", "draft", "pick", {"player_id": "1"})
+                result = telemetry.query(session_id="session")
+
+                self.assertEqual(len(result["events"]), 1)
+                self.assertEqual(result["events"][0]["payload"], {"player_id": "1"})
+
+    def test_writer_timeout_remains_visible(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "telemetry.sqlite3"
+            telemetry = DraftTelemetry(path)
+            telemetry.start_session("session", "draft", {})
+
+            with closing(sqlite3.connect(path)) as writer:
+                writer.execute("BEGIN IMMEDIATE")
+                with patch(
+                    "ffsim.draft_intel.telemetry.TELEMETRY_BUSY_TIMEOUT_SECONDS",
+                    0.05,
+                ):
+                    started_at = time.monotonic()
+                    with self.assertRaisesRegex(sqlite3.OperationalError, "locked"):
+                        telemetry.record("session", "draft", "pick", {})
+                    elapsed = time.monotonic() - started_at
+
+                self.assertLess(elapsed, 1.0)
+            self.assertEqual(telemetry.query(session_id="session")["events"], [])
+
     def test_recommendations_survive_the_monitor_and_are_queryable(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "telemetry.sqlite3"

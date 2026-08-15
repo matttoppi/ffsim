@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import json
 import math
 import random
-from threading import Thread
+from threading import Event, Thread
 import time
 import traceback
 from uuid import uuid4
@@ -42,7 +42,7 @@ from ffsim.simulation.evaluator import LeagueEvaluator
 from ffsim.simulation.world_bank import build_season_world_bank, draftable_players
 
 
-ESTIMATED_TELEMETRY_KB_PER_DRAFT = 1700
+ESTIMATED_TELEMETRY_KB_PER_DRAFT = 2800
 SYNTHETIC_ROLLOUT_COUNT = 300
 SYNTHETIC_CANDIDATE_COUNT = 9
 SYNTHETIC_CANDIDATE_BREADTH = 40
@@ -56,13 +56,17 @@ class SyntheticTemplate:
 
 
 class _RecommendationTrace:
-    """Keep the full screen and final board; intermediate racing rows are redundant."""
+    """Keep compact stages and the full screen emitted by the live monitor."""
 
     def __init__(self):
         self.screen = None
+        self.stages = []
+        self.ready_stage = Event()
 
     def reset(self):
         self.screen = None
+        self.stages.clear()
+        self.ready_stage.clear()
 
     def record(
         self,
@@ -75,7 +79,12 @@ class _RecommendationTrace:
         stage=None,
         duration_seconds=None,
     ):
-        del session_id, draft_id, pick_no
+        del session_id, draft_id
+        if event_type == "recommendation_stage":
+            self.stages.append((payload, pick_no, stage, duration_seconds))
+            if payload.get("phase") == "ready":
+                self.ready_stage.set()
+            return
         if (
             event_type == "recommendation"
             and "screened_candidates" not in payload
@@ -191,7 +200,7 @@ def _run_one_draft(
         "policy": "recommended_candidate_id",
         "opponent_seed": batch_seed,
         "opponent_rollout_id": sample_rollout_ids[0],
-        "telemetry_profile": "screen_final_states_picks_outcome",
+        "telemetry_profile": "stages_screen_final_states_picks_outcome",
         "prepared": prepared.summary,
         "monitor": {
             "rollout_count": SYNTHETIC_ROLLOUT_COUNT,
@@ -265,8 +274,22 @@ def _run_one_draft(
             trace.reset()
             recommendation, duration = _recommend(monitor, calculation, state)
             recommendation_count += 1
+            if not trace.ready_stage.wait(5):
+                raise RuntimeError(
+                    "Synthetic recommendation did not retain its ready stage"
+                )
             if trace.screen is None:
                 raise RuntimeError("Synthetic recommendation did not retain its full screen")
+            for payload, pick_no, stage, stage_duration in trace.stages:
+                telemetry.record(
+                    session_id,
+                    state.draft_id,
+                    "recommendation_stage",
+                    payload,
+                    pick_no=pick_no,
+                    stage=stage,
+                    duration_seconds=stage_duration,
+                )
             screen, _, screen_duration = trace.screen
             telemetry.record(
                 session_id,

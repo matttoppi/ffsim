@@ -39,6 +39,8 @@ class PlayerSurvival:
     # Opponent eliminations backing threat_share; kept as an exact integer so
     # reports from disjoint rollout ranges can be merged without float drift.
     threat_total: int = 0
+    available_count: int = 0
+    selected_when_available_count: int = 0
 
 
 @dataclass(frozen=True)
@@ -137,12 +139,19 @@ def summarize_survival(completions, player_ids=(), tiers=None):
     hazards = {player_id: Counter() for player_id in player_ids}
     threats = {player_id: Counter() for player_id in player_ids}
     eliminated = Counter()
+    selected_when_available = Counter()
     selected_before = []
     for completion in completions:
         before = set()
         for pick in completion.picks:
             if pick.pick_no < horizon:
                 before.add(pick.player_id)
+            elif (
+                pick.pick_no == horizon
+                and pick.user_pick
+                and pick.player_id in tracked
+            ):
+                selected_when_available[pick.player_id] += 1
             if pick.player_id not in tracked:
                 continue
             hazards[pick.player_id][pick.pick_no] += 1
@@ -154,9 +163,15 @@ def summarize_survival(completions, player_ids=(), tiers=None):
     players = []
     for player_id in player_ids:
         threat_total = sum(threats[player_id].values())
+        available_count = count - eliminated[player_id]
+        selected_when_available_count = selected_when_available[player_id]
+        if not 0 <= selected_when_available_count <= available_count <= count:
+            raise ValueError(
+                "Survival counts must satisfy selected <= available <= rollouts"
+            )
         players.append(PlayerSurvival(
             player_id=player_id,
-            survives_to_next_pick=(count - eliminated[player_id]) / count,
+            survives_to_next_pick=available_count / count,
             pick_hazard=tuple(
                 (pick_no, occurrences / count)
                 for pick_no, occurrences in sorted(hazards[player_id].items())
@@ -166,6 +181,8 @@ def summarize_survival(completions, player_ids=(), tiers=None):
                 for roster_id, occurrences in sorted(threats[player_id].items())
             ),
             threat_total=threat_total,
+            available_count=available_count,
+            selected_when_available_count=selected_when_available_count,
         ))
 
     tier_results = []
@@ -213,10 +230,6 @@ def merge_survival_reports(reports):
         player_id = player_parts[0].player_id
         if any(part.player_id != player_id for part in player_parts):
             raise ValueError("Survival reports track different players")
-        eliminated = sum(
-            round((1 - part.survives_to_next_pick) * count)
-            for part, count in zip(player_parts, counts)
-        )
         hazards = Counter()
         threats = Counter()
         for part, count in zip(player_parts, counts):
@@ -225,9 +238,17 @@ def merge_survival_reports(reports):
             for roster_id, share in part.threat_share:
                 threats[roster_id] += round(share * part.threat_total)
         threat_total = sum(part.threat_total for part in player_parts)
+        available_count = sum(part.available_count for part in player_parts)
+        selected_when_available_count = sum(
+            part.selected_when_available_count for part in player_parts
+        )
+        if not 0 <= selected_when_available_count <= available_count <= total:
+            raise ValueError(
+                "Survival counts must satisfy selected <= available <= rollouts"
+            )
         players.append(PlayerSurvival(
             player_id=player_id,
-            survives_to_next_pick=(total - eliminated) / total,
+            survives_to_next_pick=available_count / total,
             pick_hazard=tuple(
                 (pick_no, occurrences / total)
                 for pick_no, occurrences in sorted(hazards.items())
@@ -237,6 +258,8 @@ def merge_survival_reports(reports):
                 for roster_id, occurrences in sorted(threats.items())
             ),
             threat_total=threat_total,
+            available_count=available_count,
+            selected_when_available_count=selected_when_available_count,
         ))
     tiers = []
     for tier_parts in zip(*(report.tiers for report in reports), strict=True):

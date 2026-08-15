@@ -58,6 +58,68 @@ def _state_fingerprint(state):
     )
 
 
+def _recommendation_stage_payload(
+    recommendation,
+    *,
+    phase,
+    cumulative_duration_seconds,
+    stage_duration_seconds,
+    evaluated_candidate_ids,
+    refined_candidate_ids,
+    survivor_candidate_ids,
+    stop_reason,
+    stage_candidate_rollout_work,
+    cumulative_candidate_rollout_work,
+    speculation_attempted,
+    speculation_hit,
+    speculation_miss,
+):
+    rows = {
+        str(row["player_id"]): row
+        for row in recommendation.get("candidates", ())
+    }
+    headline_id = recommendation.get("recommended_candidate_id")
+    headline = rows.get(str(headline_id), {})
+    return {
+        "schema_version": 1,
+        "phase": phase,
+        "cumulative_duration_seconds": cumulative_duration_seconds,
+        "stage_duration_seconds": stage_duration_seconds,
+        "rollout_count": recommendation.get("rollout_count"),
+        "evaluated_candidate_ids": list(evaluated_candidate_ids),
+        "refined_candidate_ids": list(refined_candidate_ids),
+        "q_leader_candidate_id": recommendation.get("q_leader_candidate_id"),
+        "displayed_headline_candidate_id": headline_id,
+        "decision_status": recommendation.get("decision_status"),
+        "practical_co_leader_candidate_ids": list(
+            recommendation.get("co_leader_candidate_ids", ())
+        ),
+        "paired_value_bounds_vs_q_leader": list(
+            recommendation.get("paired_value_bounds_vs_q_leader", ())
+        ),
+        "survivor_candidate_ids": list(survivor_candidate_ids),
+        "stop_reason": stop_reason,
+        "stage_candidate_rollout_work": stage_candidate_rollout_work,
+        "cumulative_candidate_rollout_work": cumulative_candidate_rollout_work,
+        "speculation_attempted": speculation_attempted,
+        "speculation_hit": speculation_hit,
+        "speculation_miss": speculation_miss,
+        "target_candidate_id": headline_id,
+        "survival_branch_root_candidate_id": headline.get(
+            "survival_branch_root_candidate_id"
+        ),
+        "opportunity_evidence_branch_root_candidate_id": headline.get(
+            "opportunity_evidence_branch_root_candidate_id"
+        ),
+        "target_available_count": headline.get("target_available_count"),
+        "target_selected_when_available_count": headline.get(
+            "target_selected_when_available_count"
+        ),
+        "target_rollout_count": headline.get("rollout_count"),
+        "run_signature": recommendation.get("run_signature"),
+    }
+
+
 class LeagueRequest(BaseModel):
     league_id: str = Field(min_length=1)
     draft_id: str = Field(min_length=1)
@@ -237,6 +299,7 @@ class LiveDraftMonitor:
     pending_state: object | None = field(default=None, repr=False)
     state_fingerprint: tuple | None = field(default=None, repr=False)
     speculative: dict | None = field(default=None, repr=False)
+    speculation_attempted: bool = field(default=False, repr=False)
 
     def snapshot(self):
         with self.lock:
@@ -297,6 +360,51 @@ class LiveDraftMonitor:
         with self.lock:
             return self.previous_finalists
 
+    def _record_recommendation_stage(
+        self,
+        recommendation,
+        pick_no,
+        phase,
+        calculation_started,
+        stage_started,
+        *,
+        evaluated_candidate_ids,
+        refined_candidate_ids=(),
+        survivor_candidate_ids=(),
+        stop_reason=None,
+        stage_candidate_rollout_work=0,
+        cumulative_candidate_rollout_work=0,
+        speculation_attempted=False,
+        speculation_hit=False,
+        speculation_miss=False,
+    ):
+        recorded_at = time.monotonic()
+        cumulative_duration = recorded_at - calculation_started
+        self._record(
+            "recommendation_stage",
+            _recommendation_stage_payload(
+                recommendation,
+                phase=phase,
+                cumulative_duration_seconds=cumulative_duration,
+                stage_duration_seconds=recorded_at - stage_started,
+                evaluated_candidate_ids=evaluated_candidate_ids,
+                refined_candidate_ids=refined_candidate_ids,
+                survivor_candidate_ids=survivor_candidate_ids,
+                stop_reason=stop_reason,
+                stage_candidate_rollout_work=stage_candidate_rollout_work,
+                cumulative_candidate_rollout_work=(
+                    cumulative_candidate_rollout_work
+                ),
+                speculation_attempted=speculation_attempted,
+                speculation_hit=speculation_hit,
+                speculation_miss=speculation_miss,
+            ),
+            pick_no=pick_no,
+            stage=phase,
+            duration_seconds=cumulative_duration,
+        )
+        return recorded_at
+
     def _publish_recommendation(
         self,
         fingerprint,
@@ -307,6 +415,7 @@ class LiveDraftMonitor:
         *,
         final=False,
         progress=None,
+        record_full=True,
     ):
         with self.lock:
             if self.state_fingerprint != fingerprint or self.stopped.is_set():
@@ -324,13 +433,14 @@ class LiveDraftMonitor:
                 self.calculation_count += int(final)
                 published = True
         duration = time.monotonic() - started_at
-        self._record(
-            "recommendation" if published else "recommendation_discarded",
-            recommendation,
-            pick_no=pick_no,
-            stage=status,
-            duration_seconds=duration,
-        )
+        if record_full:
+            self._record(
+                "recommendation" if published else "recommendation_discarded",
+                recommendation,
+                pick_no=pick_no,
+                stage=status,
+                duration_seconds=duration,
+            )
         return published
 
     def calculate(
@@ -365,6 +475,7 @@ class LiveDraftMonitor:
                     self.league_equity_status = "calculating"
                     self.league_equity_progress = None
             calculation_started = time.monotonic()
+            recommendation_stage_started = calculation_started
 
             def update_equity(rollout_count, final):
                 started_at = time.monotonic()
@@ -483,6 +594,7 @@ class LiveDraftMonitor:
                             "done": 0,
                             "total": recommendation_total,
                         }
+            attempted, self.speculation_attempted = self.speculation_attempted, False
             speculative, self.speculative = self.speculative, None
             speculated = (
                 tuple(speculative["evaluations"])
@@ -492,7 +604,15 @@ class LiveDraftMonitor:
                 and speculative["candidates"] == tuple(candidates)
                 else ()
             )
+            attempted = on_clock and (attempted or speculative is not None)
+            speculation = {
+                "speculation_attempted": attempted,
+                "speculation_hit": bool(speculated),
+                "speculation_miss": attempted and not speculated,
+            }
             screened_units = 0
+            full_screen_stage_work = 0
+            screened_candidate_ids = ()
             for batch_index, batch in enumerate(filter(None, (first, remainder))):
                 with self.lock:
                     if self.state_fingerprint != fingerprint or self.stopped.is_set():
@@ -544,12 +664,13 @@ class LiveDraftMonitor:
                         duration_seconds=time.monotonic() - calculation_started,
                     )
                     break
-                screened_units += len(batch) * screen_count
+                batch_work = len(batch) * screen_count
+                screened_units += batch_work
                 screen_complete = batch_index == int(bool(remainder))
                 refine = screen_complete and self.rollout_count > screen_count
                 final = screen_complete and not refine
                 status = "ready" if final else ("refining" if refine else "expanding")
-                if not self._publish_recommendation(
+                published = self._publish_recommendation(
                     fingerprint,
                     pick_no,
                     recommendation,
@@ -557,8 +678,73 @@ class LiveDraftMonitor:
                     calculation_started,
                     final=final,
                     progress={"done": screened_units, "total": recommendation_total},
-                ):
+                    record_full=screen_complete,
+                )
+                screened_candidate_ids = tuple(
+                    str(row["player_id"])
+                    for row in recommendation.get("candidates", ())
+                )
+                practical_ids = tuple(
+                    str(candidate_id)
+                    for candidate_id in recommendation.get(
+                        "co_leader_candidate_ids", ()
+                    )
+                )
+                if not published:
+                    recommendation_stage_started = self._record_recommendation_stage(
+                        recommendation,
+                        pick_no,
+                        "full_screen" if screen_complete else "first_board",
+                        calculation_started,
+                        recommendation_stage_started,
+                        evaluated_candidate_ids=screened_candidate_ids,
+                        survivor_candidate_ids=practical_ids,
+                        stop_reason="state_advanced",
+                        stage_candidate_rollout_work=batch_work,
+                        cumulative_candidate_rollout_work=screened_units,
+                        **speculation,
+                    )
                     break
+                if batch_index == 0:
+                    recommendation_stage_started = self._record_recommendation_stage(
+                        recommendation,
+                        pick_no,
+                        "first_board",
+                        calculation_started,
+                        recommendation_stage_started,
+                        evaluated_candidate_ids=screened_candidate_ids,
+                        survivor_candidate_ids=practical_ids,
+                        stage_candidate_rollout_work=batch_work,
+                        cumulative_candidate_rollout_work=screened_units,
+                        **speculation,
+                    )
+                if screen_complete:
+                    full_screen_stage_work = 0 if batch_index == 0 else batch_work
+                    if final:
+                        recommendation_stage_started = self._record_recommendation_stage(
+                            recommendation,
+                            pick_no,
+                            "full_screen",
+                            calculation_started,
+                            recommendation_stage_started,
+                            evaluated_candidate_ids=screened_candidate_ids,
+                            survivor_candidate_ids=practical_ids,
+                            stage_candidate_rollout_work=full_screen_stage_work,
+                            cumulative_candidate_rollout_work=screened_units,
+                            **speculation,
+                        )
+                        recommendation_stage_started = self._record_recommendation_stage(
+                            recommendation,
+                            pick_no,
+                            "ready",
+                            calculation_started,
+                            recommendation_stage_started,
+                            evaluated_candidate_ids=screened_candidate_ids,
+                            survivor_candidate_ids=practical_ids,
+                            stop_reason="max_budget",
+                            cumulative_candidate_rollout_work=screened_units,
+                            **speculation,
+                        )
 
             if (
                 recommendation is not None
@@ -589,6 +775,18 @@ class LiveDraftMonitor:
                                 for row in screened_candidates[:FINALIST_COUNT]
                             )
                         )
+                        recommendation_stage_started = self._record_recommendation_stage(
+                            recommendation,
+                            pick_no,
+                            "full_screen",
+                            calculation_started,
+                            recommendation_stage_started,
+                            evaluated_candidate_ids=screened_candidate_ids,
+                            survivor_candidate_ids=finalists,
+                            stage_candidate_rollout_work=full_screen_stage_work,
+                            cumulative_candidate_rollout_work=screened_units,
+                            **speculation,
+                        )
                         if merge_refinement is not None:
                             # The screen already evaluated rollout IDs
                             # 0..screen_count-1 for every finalist; extend in
@@ -602,6 +800,10 @@ class LiveDraftMonitor:
                             previous_evaluations = screen_evaluations
                             previous_count = screen_count
                             evaluation = None
+                            candidate_rollout_work = screened_units
+                            final_stop_reason = "max_budget"
+                            state_advanced = False
+                            ready_stage_work = 0
                             for stage in dict.fromkeys((
                                 *(
                                     count
@@ -615,6 +817,31 @@ class LiveDraftMonitor:
                                         self.state_fingerprint != fingerprint
                                         or self.stopped.is_set()
                                     ):
+                                        self.recommendation_discarded_pick_no = pick_no
+                                        phase = (
+                                            "ready"
+                                            if stage == self.rollout_count
+                                            else f"refinement_{stage}"
+                                        )
+                                        recommendation_stage_started = (
+                                            self._record_recommendation_stage(
+                                                recommendation,
+                                                pick_no,
+                                                phase,
+                                                calculation_started,
+                                                recommendation_stage_started,
+                                                evaluated_candidate_ids=(
+                                                    screened_candidate_ids
+                                                ),
+                                                survivor_candidate_ids=survivors,
+                                                stop_reason="state_advanced",
+                                                cumulative_candidate_rollout_work=(
+                                                    candidate_rollout_work
+                                                ),
+                                                **speculation,
+                                            )
+                                        )
+                                        state_advanced = True
                                         break
                                 extension = evaluate_candidates(
                                     self.prepared,
@@ -625,12 +852,27 @@ class LiveDraftMonitor:
                                     self.executor,
                                     survivors,
                                 )
+                                stage_work = len(survivors) * (stage - previous_count)
+                                candidate_rollout_work += stage_work
                                 evaluation = merge_refinement(
                                     previous_evaluations, extension
                                 )
                                 refined_ids = survivors
                                 previous_evaluations = [evaluation]
                                 previous_count = stage
+                                stage_survivors = survivors
+                                stage_stop_reason = None
+                                if (
+                                    refine_survivors is not None
+                                    and stage < self.rollout_count
+                                ):
+                                    stage_survivors, max_advantage = refine_survivors(
+                                        evaluation
+                                    )
+                                    if len(stage_survivors) == 1:
+                                        stage_stop_reason = "single_clear_survivor"
+                                    elif max_advantage < REFINEMENT_REGRET_STOP:
+                                        stage_stop_reason = "bounded_practical_tie"
                                 if stage < self.rollout_count:
                                     # Publish each intermediate stage so the
                                     # user sees the partially refined tier
@@ -655,32 +897,52 @@ class LiveDraftMonitor:
                                     interim["candidates_evaluated"] = len(
                                         screened_candidates
                                     )
-                                    if not self._publish_recommendation(
+                                    published = self._publish_recommendation(
                                         fingerprint,
                                         pick_no,
                                         interim,
                                         "refining",
                                         calculation_started,
                                         progress={
-                                            "done": screened_units
-                                            + (stage - screen_count)
-                                            * min(FINALIST_COUNT, len(candidates)),
+                                            "done": candidate_rollout_work,
                                             "total": recommendation_total,
                                         },
-                                    ):
-                                        break
-                                if (
-                                    refine_survivors is not None
-                                    and stage < self.rollout_count
-                                ):
-                                    survivors, max_advantage = refine_survivors(
-                                        evaluation
+                                        record_full=False,
                                     )
-                                    if max_advantage < REFINEMENT_REGRET_STOP:
+                                    recommendation_stage_started = (
+                                        self._record_recommendation_stage(
+                                            interim,
+                                            pick_no,
+                                            f"refinement_{stage}",
+                                            calculation_started,
+                                            recommendation_stage_started,
+                                            evaluated_candidate_ids=(
+                                                screened_candidate_ids
+                                            ),
+                                            refined_candidate_ids=refined_ids,
+                                            survivor_candidate_ids=stage_survivors,
+                                            stop_reason=(
+                                                stage_stop_reason
+                                                if published
+                                                else "state_advanced"
+                                            ),
+                                            stage_candidate_rollout_work=stage_work,
+                                            cumulative_candidate_rollout_work=(
+                                                candidate_rollout_work
+                                            ),
+                                            **speculation,
+                                        )
+                                    )
+                                    if not published:
+                                        state_advanced = True
                                         break
-                            if evaluation is None:
-                                with self.lock:
-                                    self.recommendation_discarded_pick_no = pick_no
+                                survivors = stage_survivors
+                                if stage_stop_reason is not None:
+                                    final_stop_reason = stage_stop_reason
+                                    break
+                                if stage == self.rollout_count:
+                                    ready_stage_work = stage_work
+                            if state_advanced:
                                 continue
                         else:
                             evaluation = evaluate_candidates(
@@ -692,6 +954,13 @@ class LiveDraftMonitor:
                                 self.executor,
                                 finalists,
                             )
+                            refined_ids = finalists
+                            candidate_rollout_work = (
+                                screened_units + len(finalists) * self.rollout_count
+                            )
+                            ready_stage_work = len(finalists) * self.rollout_count
+                            final_stop_reason = "max_budget"
+                            survivors = finalists
                         recommendation = recommendation_payload(
                             self.prepared, state, [evaluation], len(candidates)
                         )
@@ -728,7 +997,7 @@ class LiveDraftMonitor:
                             duration_seconds=time.monotonic() - calculation_started,
                         )
                     else:
-                        self._publish_recommendation(
+                        published = self._publish_recommendation(
                             fingerprint,
                             pick_no,
                             recommendation,
@@ -740,9 +1009,42 @@ class LiveDraftMonitor:
                                 "total": recommendation_total,
                             },
                         )
+                        self._record_recommendation_stage(
+                            recommendation,
+                            pick_no,
+                            "ready",
+                            calculation_started,
+                            recommendation_stage_started,
+                            evaluated_candidate_ids=screened_candidate_ids,
+                            refined_candidate_ids=refined_ids,
+                            survivor_candidate_ids=survivors,
+                            stop_reason=(
+                                final_stop_reason
+                                if published
+                                else "state_advanced"
+                            ),
+                            stage_candidate_rollout_work=ready_stage_work,
+                            cumulative_candidate_rollout_work=(
+                                candidate_rollout_work
+                            ),
+                            **speculation,
+                        )
                 else:
                     with self.lock:
                         self.recommendation_discarded_pick_no = pick_no
+                    self._record_recommendation_stage(
+                        recommendation,
+                        pick_no,
+                        "full_screen",
+                        calculation_started,
+                        recommendation_stage_started,
+                        evaluated_candidate_ids=screened_candidate_ids,
+                        survivor_candidate_ids=practical_ids,
+                        stop_reason="state_advanced",
+                        stage_candidate_rollout_work=full_screen_stage_work,
+                        cumulative_candidate_rollout_work=screened_units,
+                        **speculation,
+                    )
 
             if not equity_finalized:
                 with self.lock:
@@ -777,6 +1079,7 @@ class LiveDraftMonitor:
         evaluate_candidates,
         predict_next_state,
     ):
+        self.speculation_attempted = True
         try:
             hypothetical = predict_next_state(self.prepared, state, self.temperature)
         except Exception:

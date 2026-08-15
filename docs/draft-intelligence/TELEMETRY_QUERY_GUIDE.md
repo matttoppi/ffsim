@@ -4,11 +4,29 @@ Use this runbook to audit live or synthetic draft runs in
 `data/cache/draft_intel/telemetry.sqlite3`. Synthetic batches use the same
 session and event tables as live drafts.
 
-Open the database read-only:
+Telemetry uses SQLite write-ahead logging (WAL) with a five-second busy
+timeout. Short read-only checks can query the active database without blocking
+normal event commits:
 
 ```bash
 sqlite3 -readonly data/cache/draft_intel/telemetry.sqlite3
 ```
+
+For expensive joins or a full post-batch audit, first create a consistent
+snapshot with SQLite's native backup command, then query only that snapshot:
+
+```bash
+telemetry_snapshot="data/cache/draft_intel/telemetry-audit-$(date -u +%Y%m%dT%H%M%SZ).sqlite3"
+sqlite3 data/cache/draft_intel/telemetry.sqlite3 \
+  ".timeout 5000" \
+  ".backup '$telemetry_snapshot'"
+sqlite3 "file:${telemetry_snapshot}?mode=ro&immutable=1"
+```
+
+Use a new snapshot path for each audit. Do not keep an explicit transaction or
+long-running analysis open against the active writer database. A write that
+remains blocked beyond five seconds fails visibly; telemetry does not drop the
+event or fall back to memory.
 
 Useful SQLite shell settings:
 
@@ -28,12 +46,37 @@ Replace the example batch ID with the `batch_id` printed by
   synthetic `batch_id`, source, scenario, policy, seed, and model settings.
 - `live_draft_events` is the ordered event stream. Join it to sessions by
   `session_id`; `id` is the durable event order.
-- Synthetic drafts record `draft_state`, every `pick`, `recommendation` at
-  `screen` and `ready`, `synthetic_summary`, and
-  `completed_draft_simulation`. Failures record `synthetic_error`.
-- Recommendation `payload_json` contains the decision, uncertainty, reason
-  codes, versions, and full candidate board. `ready` is authoritative;
-  `screen` is retained to diagnose refinement changes.
+- Live and synthetic drafts use the same compact `recommendation_stage`
+  contract. Phases are `first_board`, `full_screen`, `refinement_150`,
+  `refinement_225`, and `ready` when reached.
+- A stage payload uses these field groups:
+  - identity: `schema_version`, `phase`, and `run_signature`;
+  - timing and work: `cumulative_duration_seconds`, `stage_duration_seconds`,
+    `rollout_count`, `stage_candidate_rollout_work`, and
+    `cumulative_candidate_rollout_work`;
+  - board state: `evaluated_candidate_ids`, `refined_candidate_ids`,
+    `q_leader_candidate_id`, `displayed_headline_candidate_id`,
+    `decision_status`, `practical_co_leader_candidate_ids`,
+    `paired_value_bounds_vs_q_leader`, and `survivor_candidate_ids`;
+  - outcome: `stop_reason`, `speculation_attempted`, `speculation_hit`, and
+    `speculation_miss`; and
+  - target evidence: `target_candidate_id`, `target_rollout_count`,
+    `survival_branch_root_candidate_id`,
+    `opportunity_evidence_branch_root_candidate_id`,
+    `target_available_count`, and `target_selected_when_available_count`.
+- `stop_reason` is `bounded_practical_tie`, `single_clear_survivor`,
+  `max_budget`, or `state_advanced` when the stage terminates work.
+- `target_available_count` and `target_selected_when_available_count` are
+  integers from the target branch. They satisfy
+  `selected_when_available <= available <= target_rollout_count`.
+- Full `recommendation` payloads are retained only for the completed broad
+  screen and the authoritative `ready` result. They contain the decision,
+  uncertainty, reason codes, versions, and full candidate board; compact stage
+  events do not duplicate `candidates`, `screened_candidates`, or continuation
+  arrays.
+- Synthetic drafts also record `draft_state`, every `pick`,
+  `synthetic_summary`, and `completed_draft_simulation`. Failures record
+  `synthetic_error`.
 
 The HTTP telemetry endpoint is convenient for one draft, but direct read-only
 SQLite queries are better for a batch because the endpoint is capped at 5,000
@@ -182,6 +225,71 @@ JOIN live_draft_sessions AS s USING (session_id)
 WHERE json_extract(s.config_json, '$.batch_id') = @batch
   AND screens.player_id != ready.player_id
 ORDER BY ready.draft_id, ready.pick_no;
+```
+
+Reconstruct the stage order and verify that each compact final stage agrees
+with its full `ready` payload. `final_agrees` is NULL before the `ready` stage
+and should be 1 on every `ready` row:
+
+```sql
+WITH stages AS (
+  SELECT
+    e.id AS event_id,
+    e.session_id,
+    e.draft_id,
+    e.pick_no,
+    row_number() OVER (
+      PARTITION BY e.session_id, e.pick_no ORDER BY e.id
+    ) AS phase_order,
+    json_extract(e.payload_json, '$.phase') AS phase,
+    json_extract(e.payload_json, '$.rollout_count') AS rollouts,
+    json_extract(e.payload_json, '$.survivor_candidate_ids') AS survivors,
+    json_extract(e.payload_json, '$.q_leader_candidate_id') AS q_leader,
+    json_extract(e.payload_json, '$.displayed_headline_candidate_id') AS headline,
+    json_extract(e.payload_json, '$.decision_status') AS decision_status,
+    json_extract(e.payload_json, '$.practical_co_leader_candidate_ids') AS co_leaders,
+    json_extract(e.payload_json, '$.stop_reason') AS stop_reason,
+    round(json_extract(e.payload_json, '$.cumulative_duration_seconds'), 3)
+      AS cumulative_seconds,
+    round(json_extract(e.payload_json, '$.stage_duration_seconds'), 3)
+      AS stage_seconds
+  FROM live_draft_events AS e
+  JOIN live_draft_sessions AS s USING (session_id)
+  WHERE json_extract(s.config_json, '$.batch_id') = @batch
+    AND e.event_type = 'recommendation_stage'
+), ready AS (
+  SELECT
+    session_id,
+    pick_no,
+    json_extract(payload_json, '$.q_leader_candidate_id') AS q_leader,
+    json_extract(payload_json, '$.recommended_candidate_id') AS headline,
+    json_extract(payload_json, '$.decision_status') AS decision_status,
+    json_extract(payload_json, '$.co_leader_candidate_ids') AS co_leaders
+  FROM live_draft_events
+  WHERE event_type = 'recommendation' AND stage = 'ready'
+)
+SELECT
+  stages.draft_id,
+  stages.pick_no,
+  stages.phase_order,
+  stages.phase,
+  stages.rollouts,
+  stages.survivors,
+  stages.q_leader,
+  stages.headline,
+  stages.decision_status,
+  stages.stop_reason,
+  stages.cumulative_seconds,
+  stages.stage_seconds,
+  CASE WHEN stages.phase = 'ready' THEN
+    stages.q_leader IS ready.q_leader
+    AND stages.headline IS ready.headline
+    AND stages.decision_status IS ready.decision_status
+    AND stages.co_leaders IS ready.co_leaders
+  END AS final_agrees
+FROM stages
+LEFT JOIN ready USING (session_id, pick_no)
+ORDER BY stages.draft_id, stages.pick_no, stages.event_id;
 ```
 
 Expand the final candidate boards for deeper analysis:

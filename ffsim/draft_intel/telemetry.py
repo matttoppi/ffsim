@@ -10,6 +10,8 @@ from threading import Lock
 from ffsim.paths import CACHE_DIR
 
 
+TELEMETRY_BUSY_TIMEOUT_SECONDS = 5.0
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS live_draft_sessions (
     session_id TEXT PRIMARY KEY,
@@ -45,11 +47,20 @@ class DraftTelemetry:
         self.path = Path(path or CACHE_DIR / "draft_intel" / "telemetry.sqlite3")
         self.lock = Lock()
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        with closing(self._connect()) as database, database:
-            database.executescript(SCHEMA)
+        with closing(self._connect()) as database:
+            journal_mode = database.execute("PRAGMA journal_mode = WAL").fetchone()[0]
+            if journal_mode.lower() != "wal":
+                raise sqlite3.OperationalError(
+                    f"Could not enable WAL for telemetry database: {journal_mode}"
+                )
+            with database:
+                database.executescript(SCHEMA)
 
     def _connect(self):
-        database = sqlite3.connect(self.path)
+        database = sqlite3.connect(
+            self.path,
+            timeout=TELEMETRY_BUSY_TIMEOUT_SECONDS,
+        )
         database.execute("PRAGMA foreign_keys = ON")
         return database
 

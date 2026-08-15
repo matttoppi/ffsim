@@ -1,3 +1,4 @@
+from threading import Timer
 from types import SimpleNamespace
 import unittest
 from unittest.mock import MagicMock, patch
@@ -117,8 +118,93 @@ class SyntheticDraftTest(unittest.TestCase):
         )
         self.assertEqual(trace.screen, (full, None, None))
 
-    def test_estimate_uses_1700_kb_per_draft(self):
-        self.assertEqual(estimated_telemetry_gb(250), 0.425)
+    def test_run_one_draft_waits_for_and_forwards_stages_before_boards(self):
+        prepared = SimpleNamespace(
+            summary={},
+            live_draft_id="synthetic-test",
+            user_roster_id=101,
+            evaluator=SimpleNamespace(_cache={}),
+        )
+        state = self.state(teams=1, rounds=1)
+        completed = state.with_pick("p1")
+        telemetry = MagicMock()
+        executor = MagicMock()
+        monitor = SimpleNamespace(calculate=lambda *args: None, stop=lambda: None)
+        captured = {}
+        screen = {"candidates_evaluated": 1, "candidate_pool": 1}
+        recommendation = {"recommended_candidate_id": "p1"}
+        first = {"schema_version": 1, "phase": "first_board"}
+        ready = {"schema_version": 1, "phase": "ready"}
+
+        def make_monitor(*args):
+            captured["trace"] = args[6]
+            return monitor
+
+        def recommend(*args):
+            trace = captured["trace"]
+            trace.record(
+                "session", state.draft_id, "recommendation", screen,
+                pick_no=1, stage="refining", duration_seconds=0.15,
+            )
+            trace.record(
+                "session", state.draft_id, "recommendation_stage", first,
+                pick_no=1, stage="first_board", duration_seconds=0.1,
+            )
+
+            def finish_trace():
+                trace.record(
+                    "session", state.draft_id, "recommendation_stage", ready,
+                    pick_no=1, stage="ready", duration_seconds=0.2,
+                )
+
+            Timer(0.02, finish_trace).start()
+            return recommendation, 0.25
+
+        with (
+            patch(
+                "ffsim.draft_intel.synthetic.LiveDraftMonitor",
+                side_effect=make_monitor,
+            ),
+            patch(
+                "ffsim.draft_intel.synthetic.create_live_executor",
+                return_value=executor,
+            ),
+            patch("ffsim.draft_intel.synthetic._recommend", side_effect=recommend),
+            patch(
+                "ffsim.draft_intel.synthetic._sample_to_next_user",
+                return_value=(completed, ()),
+            ),
+            patch(
+                "ffsim.draft_intel.synthetic.live_state_summary",
+                return_value={"recent_picks": []},
+            ),
+            patch(
+                "ffsim.draft_intel.synthetic.completed_league_simulation",
+                return_value={},
+            ),
+        ):
+            _run_one_draft(prepared, state, telemetry, {}, "test", 2026, 0)
+
+        recommendation_calls = [
+            call
+            for call in telemetry.record.call_args_list
+            if call.args[2] in {"recommendation_stage", "recommendation"}
+        ]
+        self.assertEqual(
+            [call.args[2] for call in recommendation_calls],
+            [
+                "recommendation_stage",
+                "recommendation_stage",
+                "recommendation",
+                "recommendation",
+            ],
+        )
+        self.assertIs(recommendation_calls[0].args[3], first)
+        self.assertIs(recommendation_calls[1].args[3], ready)
+        self.assertEqual(recommendation_calls[1].kwargs["stage"], "ready")
+
+    def test_estimate_uses_2800_kb_per_draft(self):
+        self.assertEqual(estimated_telemetry_gb(250), 0.7)
         with self.assertRaisesRegex(ValueError, "positive"):
             estimated_telemetry_gb(0)
 
@@ -134,7 +220,7 @@ class SyntheticDraftTest(unittest.TestCase):
             run_synthetic_drafts("config.json", 250, print_fn=output.append)
         self.assertEqual(
             output,
-            ["Estimated SQLite addition: 0.425000 GB (1700 KB x 250 drafts)"],
+            ["Estimated SQLite addition: 0.700000 GB (2800 KB x 250 drafts)"],
         )
 
     def test_failed_draft_records_the_exception(self):

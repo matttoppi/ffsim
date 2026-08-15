@@ -418,6 +418,15 @@ class LiveDraftTest(unittest.TestCase):
         self.assertAlmostEqual(row["adp"], 8)
         self.assertIsInstance(row["is_top_tier"], bool)
         self.assertEqual(row["best_wait_candidate_id"], "p1")
+        self.assertEqual(row["survival_branch_root_candidate_id"], "p1")
+        self.assertEqual(
+            row["opportunity_evidence_branch_root_candidate_id"],
+            "p8",
+        )
+        self.assertLessEqual(
+            row["target_selected_when_available_count"],
+            row["target_available_count"],
+        )
         self.assertEqual(row["rollout_count"], 20)
         self.assertEqual(row["next_turn_pick_no"], evaluation.next_user_pick_no)
         self.assertEqual(row["opportunity_sample_count"], 20)
@@ -436,6 +445,17 @@ class LiveDraftTest(unittest.TestCase):
         # pick, so the return chance is high but never certain.
         self.assertGreater(row["survives_to_next_pick"], 0.5)
         self.assertLess(row["survives_to_next_pick"], 1.0)
+        self.assertEqual(
+            payload["q_leader_candidate_id"],
+            max(
+                evaluation.candidates,
+                key=lambda candidate: candidate.projected_roster_value,
+            ).candidate_id,
+        )
+        self.assertEqual(
+            {bound["candidate_id"] for bound in payload["paired_value_bounds_vs_q_leader"]},
+            {"p1", "p8"},
+        )
 
     def test_future_user_policy_prefers_value_over_replacement_in_open_slots(self):
         bank = SimpleNamespace(
