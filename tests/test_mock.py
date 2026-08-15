@@ -48,8 +48,13 @@ class StandaloneMockTest(unittest.TestCase):
             )
             self.assertEqual(first["status"], "pre_draft")
             self.assertIsNone(first["user_roster_id"])
-            self.assertEqual(first["market_context"]["status"], "exact")
+            self.assertEqual(first["market_context"]["status"], "proxy")
             self.assertEqual(first["market_context"]["scoring"], "STD")
+            self.assertEqual(first["market_context"]["team_count"], 2)
+            self.assertEqual(
+                first["market_context"]["proxy_reason_codes"],
+                ["unknown_te_reception_premium"],
+            )
 
             responses["draft/mock"]["status"] = "drafting"
             responses["draft/mock"]["draft_order"] = {"user": 2}

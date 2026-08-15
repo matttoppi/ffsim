@@ -1,5 +1,6 @@
 from collections import Counter, defaultdict
 from dataclasses import dataclass, replace
+import math
 from urllib.error import HTTPError
 
 from ffsim.loaders.league import _fetch_json
@@ -21,6 +22,7 @@ class HistoricalLeague:
     max_keepers: int | None
     league_type: int | None
     roster_positions: tuple[str, ...]
+    scoring_settings: tuple[tuple[str, float], ...]
 
 
 @dataclass(frozen=True)
@@ -32,6 +34,7 @@ class HistoricalDraft:
     status: str
     draft_type: str
     scoring_type: str | None
+    draft_provenance: str
     teams: int | None
     rounds: int | None
     player_type: int | None
@@ -265,6 +268,7 @@ def _normalize_draft(draft, manager_ids):
         status=str(draft.get("status") or "unknown"),
         draft_type=str(draft.get("type") or "unknown"),
         scoring_type=_text(metadata.get("scoring_type")),
+        draft_provenance=_draft_provenance(draft),
         teams=_int(settings.get("teams")),
         rounds=_int(settings.get("rounds")),
         player_type=_int(settings.get("player_type")),
@@ -305,7 +309,39 @@ def _normalize_league(league):
         roster_positions=tuple(
             str(position) for position in league.get("roster_positions") or ()
         ),
+        scoring_settings=_canonical_scoring_settings(league.get("scoring_settings")),
     )
+
+
+def _canonical_scoring_settings(settings):
+    if settings is None:
+        return ()
+    if not isinstance(settings, dict):
+        raise ValueError("Sleeper league scoring_settings must be an object")
+
+    normalized = []
+    for key, raw_value in settings.items():
+        if isinstance(raw_value, bool):
+            raise ValueError(f"Sleeper scoring setting {key} must be numeric")
+        try:
+            value = float(raw_value)
+        except (TypeError, ValueError):
+            raise ValueError(f"Sleeper scoring setting {key} must be numeric") from None
+        if not math.isfinite(value):
+            raise ValueError(f"Sleeper scoring setting {key} must be finite")
+        normalized.append((str(key), 0.0 if value == 0 else value))
+    return tuple(sorted(normalized))
+
+
+def _draft_provenance(draft):
+    metadata_type = (_text((draft.get("metadata") or {}).get("type")) or "").casefold()
+    if metadata_type in {"mock", "league_mock"}:
+        return "mock"
+    if metadata_type in {"bot", "cpu", "cpu_bot"}:
+        return "cpu_bot"
+    if _text(draft.get("league_id")) is not None:
+        return "real_league"
+    return "unknown"
 
 
 def _normalize_pick(pick, canonical_player_ids):

@@ -5,10 +5,10 @@ This file is the current operational state of the project. Keep it short, factua
 ## Current status
 
 **Phase:** Phase 8 — offline coupled draft rollouts and nested evaluation
-**State:** Candidates are ranked by mean projected completed-roster value across paired continuations (ADR-026); with the future-user policy aligned to the terminal scorer (ADR-031) that ranking is exactly the take-vs-wait regret ordering, and the practical-tie gate is 0.1 points sized to the measured residual (ADR-032). RACE-01 aligns racing and final decisions on one leader-minus-candidate practical-tier predicate (ADR-033); implementation, focused tests, and the named replay gate pass, but the exact all-2,384-state corpus comparison is pending, so RACE-01 is not releasable. WHY-01 now makes War Room evidence branch-named and field-derived (ADR-034). Compact recommendation-stage telemetry is schema version 2, with no decision-engine, draft/VONA-model, roster-scorer, or cache-version bump. Decision engine v8.
+**State:** Candidates are ranked by mean projected completed-roster value across paired continuations (ADR-026); with the future-user policy aligned to the terminal scorer (ADR-031) that ranking is exactly the take-vs-wait regret ordering, and the practical-tie gate is 0.1 points sized to the measured residual (ADR-032). RACE-01 uses one final leader-minus-candidate practical-tier predicate (ADR-033), and decision engine v9 keeps every selected finalist through the 300-rollout maximum because intermediate stochastic confidence intervals are non-monotone (ADR-036). Focused tests and the corrected one-state smoke pass; the all-2,384-state run remains pending, so RACE-01 is not releasable. WHY-01 makes War Room evidence branch-named and field-derived (ADR-034). MKT-01 preserves canonical historical scoring/provenance and separates requested league context from the selected market board (ADR-035); implementation and validation are complete. Compact recommendation-stage telemetry is schema version 2. The opponent market model is `sleeper-adp-inverse-rank-v2`; no decision-engine, draft/VONA-model, roster-scorer, `SeasonWorldBank`, or cache version advances for MKT-01. Decision engine v9.
 **Branch:** `feat/draft-intelligence`
 **Implementation code changed:** Yes
-**Primary next action:** Build and run the exact all-2,384-state racing-versus-flat corpus comparison. MKT-01 context correction may proceed independently.
+**Primary next action:** Run the checkpointed all-2,384-state staged-versus-true-flat validator; refinement optimization belongs to PERF-01.
 
 ## Project entrypoints
 
@@ -37,11 +37,17 @@ Read in this order:
 
 - [x] TEL-01: use WAL, a bounded five-second writer wait, visible failures, and native SQLite snapshots for long audits.
 - [x] TEL-02: persist compact live/synthetic recommendation stages, exact work and conditional-selection counts, branch provenance, and only broad-screen/ready full boards.
-- [ ] RACE-01: make racing use the final 0.1-point practical gate through one shared predicate.
+- [ ] RACE-01: make staged refinement agree with true flat evaluation under the final 0.1-point practical gate.
   - [x] Implement the shared predicate and pass focused and full Python tests.
   - [x] Pass the named actual racing-versus-flat replay gate and six extra recorded mismatch-state checks.
-  - [ ] Pass the exact racing-versus-flat comparison across all 2,384 corpus states.
+  - [x] Add the checkpointed full-corpus validator; its one-state smoke found an unsafe elimination.
+  - [x] Replace intermediate elimination and early stopping with full-budget finalist refinement; 73/73 focused tests and the corrected one-state smoke pass.
+  - [ ] Pass the exact staged-versus-true-flat comparison across all 2,384 corpus states.
 - [x] WHY-01: make every War Room claim branch-named and field-derived; telemetry schema version 2 is the only version change.
+- [x] MKT-01: preserve canonical historical context and distinguish the target league from the selected market board (ADR-035).
+  - [x] Implement scoring/provenance persistence, detailed context hashing, exact-team-count board preference, explicit generic fallback, and session-config telemetry.
+  - [x] Pass final focused and full validation.
+- [ ] PERF-01: recover refinement efficiency without using intermediate stochastic confidence intervals as irreversible elimination or stop gates.
 
 ## Phase 1 completed
 
@@ -52,6 +58,7 @@ Read in this order:
 - [x] Content-addressed raw snapshots and idempotent normalized SQLite persistence.
 - [x] Persistent canonical players and one-to-one Sleeper external-ID mappings.
 - [x] Deduplicated historical league context with best-ball and missing-context exclusions.
+- [x] Preserve complete canonical numeric league scoring settings, including zero and unsupported keys, plus conservative draft provenance.
 
 ## Phase 2 local slice completed
 
@@ -63,7 +70,7 @@ Read in this order:
 - [x] Store consensus and returned ESPN/CBS/Yahoo/RTSports/Fantrax/Sleeper/FFPC boards from one request per format context.
 - [x] Refresh only missing or at-least-12-hour-old 1QB STD/HALF/PPR and half-PPR superflex contexts; no background loop.
 - [x] Map FantasyPros players through `sportsdata_id` to Sleeper `sportradar_id`, map DST by team, and report ambiguous/unmatched identities without guessing.
-- [x] Resolve raw Sleeper reception/QB settings to exact, explicit proxy, or unsupported market contexts without mislabeling FantasyPros coverage.
+- [x] Resolve separate target and base-board contexts, prefer exact team count, and label generic-team-count, tight-end-premium, reception, and format proxies explicitly.
 - [x] Select only snapshots both observed and retrieved before the evaluation time.
 - [x] Provide a versioned inverse-ADP Sleeper choice callback directly compatible with coupled draft rollouts.
 - [x] Add a read-only `market-backtest` command with log loss, reciprocal rank, top-K accuracy, coverage, context, snapshot, and skip reporting.
@@ -73,7 +80,7 @@ Read in this order:
 - [x] Reconstruct target-manager roster state and the observed available player pool before each eligible non-keeper pick.
 - [x] Seed keeper ownership before pick one regardless of the round containing the keeper row.
 - [x] Add transparent position counts, round timing, and first-position timing summaries.
-- [x] Add exact season/scoring/team-count context counts and a read-only `manager-audit` command.
+- [x] Add season, draft scoring-label, and team-count context counts plus a read-only `manager-audit` command.
 - [x] Add keeper-aware, context-weighted roster counts after every observed round.
 - [x] Add raw and weighted four-round zero/hero/heavy-RB and WR-heavy start evidence.
 - [x] Add raw and weighted QB/TE first-round timing, including drafts without the position.
@@ -278,9 +285,15 @@ Further bank persistence/memory mapping, confidence-bound early stopping, transp
 
 ## Handoff note
 
-Phase 1 is complete. Phase 2 now has append-only manual and official FantasyPros multi-platform market snapshots behind a 12-hour request-driven freshness gate, exact/proxy context resolution, and a versioned inverse-ADP Sleeper choice baseline. Its backtest rejects snapshots retrieved after a draft begins. Phase 3 has market-independent descriptive profiles for every member of the real attached league. Phase 4 has exact league and standalone-mock attachment, explicit compatibility, network-free replay, coupled complete redraft rollouts, and survival summaries. Phase 6 produces deterministic, content-versioned, full-pool player-week tensors independently of fantasy ownership. Phase 7 evaluates compact roster assignments with coupled schedules/streamers and immutable per-world results. Phase 8 joins many draft continuations to paired season worlds and emits versioned numeric recommendation summaries. The next product step is completing the attached mock's live replay followed by market-baseline calibration; do not calculate plausible-window passes, board adherence, calibrated personalization, or market-relative action labels without validated time-local evidence.
+Phase 1 is complete. Phase 2 now has append-only manual and official FantasyPros multi-platform market snapshots behind a 12-hour request-driven freshness gate, separate target/base context reporting, exact-team-count preference, an explicit unchanged generic fallback, and a versioned inverse-ADP Sleeper choice baseline. Its backtest rejects snapshots retrieved after a draft begins. Phase 3 has market-independent descriptive profiles for every member of the real attached league. Phase 4 has exact league and standalone-mock attachment, explicit compatibility, network-free replay, coupled complete redraft rollouts, and survival summaries. Phase 6 produces deterministic, content-versioned, full-pool player-week tensors independently of fantasy ownership. Phase 7 evaluates compact roster assignments with coupled schedules/streamers and immutable per-world results. Phase 8 joins many draft continuations to paired season worlds and emits versioned numeric recommendation summaries. The next product step is completing the attached mock's live replay followed by market-baseline calibration; do not calculate plausible-window passes, board adherence, calibrated personalization, or market-relative action labels without validated time-local evidence.
 
 ## Last updated
+
+2026-08-15 — Corrected RACE-01's unsafe intermediate elimination (ADR-036, decision engine v9). Intermediate stochastic confidence intervals are non-monotone, so every selected finalist now reaches the 300-rollout maximum; the 150- and 225-rollout stages still publish progress, and the final board applies the unchanged 0.1-point gate. Focused tests pass 73/73, and the full warning-strict Python suite passes 220/220. A fresh checkpoint-schema-3 staged-versus-true-flat smoke reused the frozen corpus input and passed with 5,000/5,000 candidate-rollouts, a 1.0 work ratio, zero outcome mismatches, zero unsafe mismatches, and player `9488` retained for its observed re-entry. Each record is bound to the snapshot hash, model/scorer/evaluator versions, seed, budgets, and runtime configuration; changed inputs and prior schemas fail closed on resume. The earlier failed smoke remains recorded below. The exact all-2,384-state run is pending, so RACE-01 is not complete or releasable. Exact next step: run that checkpointed corpus comparison; PERF-01 owns any later refinement optimization.
+
+2026-08-15 — Completed MKT-01 (ADR-035). Historical ingestion now preserves each league's complete canonical numeric scoring map, including zero-valued and currently unsupported keys, in `scoring_settings_json`; detailed scoring enters the draft context hash, and `draft_provenance` records `real_league`, `mock`, `cpu_bot`, or `unknown`. Market resolution records separate target and immutable base-board contexts, prefers an exact-team-count snapshot, and uses the unchanged null-team-count board only as an explicit generic fallback. A nonzero or unknown tight-end reception premium remains proxy because the snapshot schema has no premium dimension. Live and synthetic session configurations preserve base, target, proxy, calibration, and model metadata. Only the opponent market model advances to `sleeper-adp-inverse-rank-v2` because board selection can change; MKT-01 does not advance the decision engine, roster scorer, or `SeasonWorldBank`. Warning-strict focused tests and the full 220/220 Python suite pass. At `2026-08-14T18:00:00Z`, the 10-team PPR +0.5 TEP and 12-team PPR templates retain distinct targets while honestly sharing generic snapshot `6f9bbe…ba43`; the local 48-snapshot store has no team-count-specific board. RACE-01's exact all-2,384-state comparison remains pending.
+
+2026-08-15 — Added the checkpointed `tools/validate_racing_corpus.py` gate for RACE-01. It snapshots live SQLite telemetry, rebuilds recorded states by session, reruns independent racing and flat-300 passes, records exact outcome/work/timing comparisons as crash-safe JSONL, and exits nonzero on mismatches or errors. Pure mismatch, aggregation, and resume tests pass 3/3. A one-state `--limit 1` smoke on batch `20260815T043426-52dba2d4` found one unsafe elimination at session `4253a402-ea84-4465-ad9b-382245f26819`, pick 4: racing removed player `9488` at 150 rollouts, while flat evaluation restored that player to the practical tier at 225 and 300. The displayed headline and status still matched; racing used 4,550 candidate-rollouts versus flat's 5,000 (0.91 ratio). The full 2,384-state run has not started and RACE-01 is not releasable. Exact next step: remove unsafe candidate elimination as required by the remediation gate, then run the full checkpointed validator.
 
 2026-08-15 — Completed WHY-01 (ADR-034). The evidence contract separates named-root paired Q and higher/tied/lower shares, alternative-root availability and conditional-selection counts, and candidate-root local opportunity evidence. It defines projected roster value as best-legal-lineup points over replacement plus `BENCH_ASSET_FACTOR`-discounted positive bench value, keeps K/DEF effective urgency at zero while retaining raw VONA as diagnostic, names the urgency/market-ADP/engine-rank basis for practical toss-ups, and labels ADP as a market draft-position proxy rather than modeled trade value. Compact `recommendation_stage` telemetry advances to schema version 2 for additive `headline_tie_break_basis` and the correct survival-branch `target_rollout_count`; no decision-engine, draft/VONA-model, roster-scorer, or cache version changes. Warning-strict Python tests pass 210/210, frontend tests pass 46/46, and the production build passes. React Doctor reported only three pre-existing, out-of-scope component/state-structure warnings. RACE-01's exact all-2,384-state comparison remains pending. Exact next step: build and run that RACE-01 corpus gate; MKT-01 context correction may proceed independently.
 

@@ -108,7 +108,29 @@ class TelemetryTest(unittest.TestCase):
             prepared = SimpleNamespace(
                 live_draft_id="draft",
                 user_roster_id=1,
-                summary={"market_snapshot_id": "market", "world_bank": {"version": "world"}},
+                summary={
+                    "market_snapshot_id": "market",
+                    "market_context": {
+                        "status": "proxy",
+                        "target_context": {
+                            "team_count": 10,
+                            "reception_points": 1.0,
+                            "tight_end_reception_bonus": 0.5,
+                        },
+                        "base_board_context": {
+                            "snapshot_id": "market",
+                            "team_count": None,
+                        },
+                        "proxy_reason_codes": [
+                            "te_reception_premium_not_represented_by_board",
+                            "team_count_unavailable_uses_generic_board",
+                        ],
+                        "calibration_artifact": None,
+                        "model_status": "uncalibrated_sleeper_adp_baseline",
+                        "model_version": "sleeper-adp-inverse-rank-v2",
+                    },
+                    "world_bank": {"version": "world"},
+                },
             )
             monitor = LiveDraftMonitor(
                 prepared,
@@ -149,6 +171,10 @@ class TelemetryTest(unittest.TestCase):
             query = endpoint(app, "/api/draft-intel/telemetry", "GET")
             result = query(draft_id="draft", event_type="recommendation", pick_no=9)
             self.assertEqual(result["sessions"][0]["status"], "completed")
+            self.assertEqual(
+                result["sessions"][0]["config"]["prepared"]["market_context"],
+                prepared.summary["market_context"],
+            )
             self.assertEqual(result["events"][0]["payload"], recommendation)
             self.assertEqual(result["events"][0]["stage"], "ready")
             self.assertNotIn("payload_json", result["events"][0])

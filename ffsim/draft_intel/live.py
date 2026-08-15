@@ -678,10 +678,12 @@ def merge_screen_refinement(screen_evaluations, extension):
 
 
 def refinement_survivors(evaluation):
-    """Racing gate: the leader plus every statistically tied candidate.
+    """Return the legacy diagnostic practical tier for an evaluation.
 
-    Returns the surviving candidate IDs and whether any retained comparison
-    still straddles the practical boundary.
+    Production uses fixed-budget refinement and never eliminates a finalist
+    from an intermediate interval. This helper remains exported for audit
+    compatibility and reports whether any retained comparison straddles the
+    practical boundary.
     """
     ranked = rank_candidates(evaluation)
     leader = ranked[0]

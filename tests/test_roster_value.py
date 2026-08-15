@@ -433,14 +433,5 @@ class TakeVsWaitObjectiveTest(unittest.TestCase):
         )
         self.assertEqual(recommendation.decision_status, "toss_up")
 
-    def test_racing_stop_is_the_practical_tie_gate(self):
-        # The racing gate must race on the same quantity and threshold the
-        # final decision uses.
-        from ffsim.api import REFINEMENT_REGRET_STOP
-        from ffsim.draft_intel.decision import PRACTICAL_TIE_POINTS
-
-        self.assertEqual(REFINEMENT_REGRET_STOP, PRACTICAL_TIE_POINTS)
-
-
 if __name__ == "__main__":
     unittest.main()

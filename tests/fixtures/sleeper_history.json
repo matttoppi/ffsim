@@ -21,6 +21,7 @@
     "season": "2026",
     "status": "pre_draft",
     "settings": {"best_ball": 0, "max_keepers": 1, "type": 0},
+    "scoring_settings": {"rec": 1, "pass_td": "4", "bonus_rec_te": 0.5, "bonus_rec_rb": 0},
     "roster_positions": ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "BN"]
   },
   "league/lb": {
@@ -120,7 +121,7 @@
     "start_time": 1785027074223,
     "last_picked": 1785805867083,
     "settings": {"player_type": 0, "rounds": 16, "slots_qb": 1, "teams": 12},
-    "metadata": {"description": "", "name": "Auction", "scoring_type": "ppr"}
+    "metadata": {"description": "", "name": "Auction", "scoring_type": "ppr", "type": "league_mock"}
   },
   "draft/b/picks": [
     {
@@ -146,7 +147,7 @@
     "start_time": 1785027074224,
     "last_picked": 1785805867084,
     "settings": {"player_type": 1, "rounds": 4, "slots_super_flex": 1, "teams": 12},
-    "metadata": {"description": "", "name": "Rookie draft", "scoring_type": "dynasty_2qb"}
+    "metadata": {"description": "", "name": "Rookie draft", "scoring_type": "dynasty_2qb", "type": "bot"}
   },
   "draft/c/picks": [
     {
@@ -172,7 +173,7 @@
     "start_time": 1785027074225,
     "last_picked": 1785805867085,
     "settings": {"player_type": 2, "rounds": 25, "slots_super_flex": 1, "teams": 12},
-    "metadata": {"description": "", "name": "Dynasty startup", "scoring_type": "dynasty_2qb"}
+    "metadata": {"description": "", "name": "Dynasty startup", "scoring_type": "dynasty_2qb", "type": "mock"}
   },
   "draft/d/picks": [
     {
@@ -197,7 +198,7 @@
     "type": "snake",
     "start_time": null,
     "last_picked": null,
-    "settings": {"player_type": 0, "rounds": 16, "slots_qb": 1, "teams": 10},
+    "settings": {"cpu_autopick": 1, "player_type": 0, "rounds": 16, "slots_qb": 1, "teams": 10},
     "metadata": {"description": "", "name": "Upcoming", "scoring_type": "ppr"}
   },
   "draft/e/picks": []

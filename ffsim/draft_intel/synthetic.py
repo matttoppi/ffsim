@@ -28,7 +28,6 @@ from ffsim.draft_intel.live import (
     live_recommendation_payload,
     live_state_summary,
     merge_screen_refinement,
-    refinement_survivors,
     select_finalists,
 )
 from ffsim.draft_intel.market_model import load_league_market_snapshot
@@ -232,7 +231,6 @@ def _run_one_draft(
             select_finalists,
             merge_screen_refinement,
             None,
-            refinement_survivors,
         ),
         daemon=True,
     )

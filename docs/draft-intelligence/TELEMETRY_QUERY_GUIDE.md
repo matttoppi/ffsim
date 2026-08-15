@@ -44,6 +44,22 @@ Replace the example batch ID with the `batch_id` printed by
 
 - `live_draft_sessions` has one row per draft. `config_json` contains the
   synthetic `batch_id`, source, scenario, policy, seed, and model settings.
+  Live and synthetic sessions store market metadata at
+  `$.prepared.market_context`; synthetic sessions also store it at
+  `$.scenario.market_context`.
+- `market_context.target_context` records `league_format`, `scoring`, `position`,
+  `team_count`, `reception_points`, `tight_end_reception_bonus`, and
+  `roster_positions`. `base_board_context` identifies the selected immutable
+  snapshot through `snapshot_id`, `source`, `source_type`, `season`, `scoring`,
+  `league_format`, `team_count`, `observed_at`, `retrieved_at`, and
+  `raw_snapshot_hash`.
+- The same object records `status`, `proxy_reason_codes`,
+  `calibration_artifact = null`,
+  `model_status = uncalibrated_sleeper_adp_baseline`, and
+  `model_version = sleeper-adp-inverse-rank-v2`. An exact team-count board is
+  preferred; a null-team-count board is the unchanged generic fallback. A
+  nonzero or unknown tight-end reception premium remains a proxy because market
+  snapshots have no premium dimension.
 - `live_draft_events` is the ordered event stream. Join it to sessions by
   `session_id`; `id` is the durable event order.
 - Live and synthetic drafts use the same compact `recommendation_stage`

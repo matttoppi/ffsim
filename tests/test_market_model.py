@@ -12,6 +12,7 @@ from ffsim.draft_intel.market_model import (
     load_league_market_snapshot,
     mixture_choice_probabilities,
     position_caps,
+    resolve_draft_market_context,
     resolve_league_market_context,
     resolve_market_context,
     sleeper_adp_choice,
@@ -29,17 +30,34 @@ from ffsim.draft_intel.storage import SCHEMA
 class MarketModelTest(unittest.TestCase):
     def test_context_resolution_is_exact_or_explicitly_proxy(self):
         exact = resolve_league_market_context({
+            "total_rosters": 12,
             "roster_positions": ["QB", "RB", "WR", "FLEX"],
-            "scoring_settings": {"rec": 1},
+            "scoring_settings": {"rec": 1, "bonus_rec_te": 0},
         })
         superflex_proxy = resolve_league_market_context({
+            "total_rosters": 12,
             "roster_positions": ["QB", "SUPER_FLEX", "RB", "WR"],
-            "scoring_settings": {"rec": 1},
+            "scoring_settings": {"rec": 1, "bonus_rec_te": 0},
         })
         custom_proxy = resolve_league_market_context({
+            "total_rosters": 10,
             "roster_positions": ["QB", "RB", "WR"],
             "scoring_settings": {"rec": 0.25},
         })
+        tep_proxy = resolve_league_market_context({
+            "total_rosters": 10,
+            "roster_positions": ["QB", "RB", "WR", "TE"],
+            "scoring_settings": {"rec": 1, "bonus_rec_te": 0.5},
+        })
+        draft_only = resolve_draft_market_context({
+            "settings": {"teams": 10, "slots_qb": 1, "slots_rb": 2},
+            "metadata": {"scoring_type": "ppr"},
+        })
+        unresolved_team_count = resolve_market_context(
+            roster_positions=("QB", "RB"),
+            scoring_type="ppr",
+            tight_end_reception_bonus=0,
+        )
 
         self.assertEqual(
             (exact["status"], exact["league_format"], exact["scoring"]),
@@ -51,10 +69,129 @@ class MarketModelTest(unittest.TestCase):
         )
         self.assertEqual(custom_proxy["status"], "proxy")
         self.assertEqual(custom_proxy["scoring"], "STD")
+        self.assertEqual(custom_proxy["target_context"]["scoring"], "CUSTOM")
+        self.assertEqual(superflex_proxy["target_context"]["scoring"], "PPR")
+        self.assertEqual(superflex_proxy["scoring"], "HALF")
+        self.assertEqual(tep_proxy["status"], "proxy")
+        self.assertEqual(tep_proxy["team_count"], 10)
+        self.assertEqual(
+            tep_proxy["proxy_reason_codes"],
+            ["te_reception_premium_not_represented_by_board"],
+        )
+        self.assertEqual(
+            tep_proxy["target_context"]["tight_end_reception_bonus"], 0.5
+        )
+        self.assertEqual(
+            draft_only["proxy_reason_codes"], ["unknown_te_reception_premium"]
+        )
+        self.assertEqual(
+            unresolved_team_count["proxy_reason_codes"], ["unknown_team_count"]
+        )
         self.assertEqual(
             resolve_market_context(roster_positions=(), scoring_type="ppr")["status"],
             "unsupported",
         )
+
+    def test_team_specific_snapshot_wins_and_generic_fallback_is_explicit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database_path = Path(directory) / "history.sqlite3"
+            with closing(sqlite3.connect(database_path)) as database, database:
+                database.executescript(SCHEMA)
+                database.execute(
+                    "INSERT INTO canonical_players VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    ("sleeper:1", "Player 1", "player1", "WR", None, 1, "now"),
+                )
+                database.executemany(
+                    """
+                    INSERT INTO market_snapshots (
+                        snapshot_id, source, source_type, season, scoring,
+                        league_format, team_count, observed_at, retrieved_at,
+                        raw_snapshot_hash, raw_snapshot_path, observation_count
+                    ) VALUES (?, 'fantasypros:sleeper', 'manual_csv', 2026,
+                              'PPR', '1qb', ?, '2026-08-13T12:00:00+00:00',
+                              '2026-08-13T12:05:00+00:00', ?, ?, 1)
+                    """,
+                    (
+                        ("generic-a", None, "raw-generic-a", "generic-a.csv"),
+                        ("generic-b", None, "raw-generic-b", "generic-b.csv"),
+                        ("ten", 10, "raw-ten", "ten.csv"),
+                    ),
+                )
+                database.executemany(
+                    """
+                    INSERT INTO market_observations
+                    VALUES (?, 'sleeper:1', '1', ?, 1, NULL, NULL)
+                    """,
+                    (("generic-a", 21.0), ("generic-b", 20.0), ("ten", 10.0)),
+                )
+                before = database.execute(
+                    """
+                    SELECT snapshot_id, adp FROM market_observations
+                    ORDER BY snapshot_id
+                    """
+                ).fetchall()
+
+            def league(team_count):
+                return {
+                    "total_rosters": team_count,
+                    "roster_positions": ["QB", "RB", "WR", "TE"],
+                    "scoring_settings": {"rec": 1, "bonus_rec_te": 0},
+                }
+
+            at = datetime(2026, 8, 13, 14, tzinfo=timezone.utc)
+            exact = load_league_market_snapshot(
+                league(10), season=2026, at=at, storage_dir=directory
+            )
+            fallback = load_league_market_snapshot(
+                league(12), season=2026, at=at, storage_dir=directory
+            )
+            unknown_team = load_league_market_snapshot(
+                league(None), season=2026, at=at, storage_dir=directory
+            )
+            missing = load_league_market_snapshot(
+                league(14), season=2025, at=at, storage_dir=directory
+            )
+
+            self.assertEqual(exact["snapshot"]["snapshot_id"], "ten")
+            self.assertEqual(exact["context"]["status"], "exact")
+            self.assertEqual(exact["context"]["base_board_context"]["team_count"], 10)
+            self.assertEqual(fallback["snapshot"]["snapshot_id"], "generic-b")
+            self.assertEqual(fallback["context"]["status"], "proxy")
+            self.assertEqual(
+                fallback["context"]["proxy_reason_codes"],
+                ["team_count_unavailable_uses_generic_board"],
+            )
+            self.assertIsNone(
+                fallback["context"]["base_board_context"]["team_count"]
+            )
+            self.assertNotEqual(
+                exact["context"]["target_context"],
+                fallback["context"]["target_context"],
+            )
+            self.assertIsNone(fallback["context"]["calibration_artifact"])
+            self.assertEqual(
+                fallback["context"]["model_status"],
+                "uncalibrated_sleeper_adp_baseline",
+            )
+            self.assertEqual(unknown_team["snapshot"]["snapshot_id"], "generic-b")
+            self.assertEqual(
+                unknown_team["context"]["proxy_reason_codes"],
+                ["unknown_team_count_uses_generic_board"],
+            )
+            self.assertIsNone(missing["snapshot"])
+            self.assertEqual(
+                missing["context"]["proxy_reason_codes"],
+                ["compatible_market_snapshot_missing"],
+            )
+            self.assertIsNone(missing["context"]["base_board_context"])
+            with closing(sqlite3.connect(database_path)) as database:
+                after = database.execute(
+                    """
+                    SELECT snapshot_id, adp FROM market_observations
+                    ORDER BY snapshot_id
+                    """
+                ).fetchall()
+            self.assertEqual(after, before)
 
     def test_reach_mixture_thickens_the_tail_of_the_sharp_board_follower(self):
         utilities = {f"p{number}": -math.log(number) for number in range(1, 21)}
@@ -283,9 +420,34 @@ class MarketModelTest(unittest.TestCase):
                     )
                     """
                 )
+                database.execute(
+                    """
+                    INSERT INTO market_snapshots VALUES (
+                        'team-snapshot', 'fantasypros:sleeper', 'manual_csv', 2026,
+                        'PPR', '1qb', 2, '2026-08-13T12:00:00+00:00',
+                        '2026-08-13T13:00:00+00:00', 'team-raw', 'team-raw.csv', 3
+                    )
+                    """
+                )
                 database.executemany(
                     "INSERT INTO market_observations VALUES ('snapshot', ?, ?, ?, NULL, NULL, NULL)",
                     ((f"sleeper:{number}", str(number), float(number)) for number in range(1, 4)),
+                )
+                database.executemany(
+                    "INSERT INTO market_observations VALUES ('team-snapshot', ?, ?, ?, NULL, NULL, NULL)",
+                    ((f"sleeper:{number}", str(number), float(number)) for number in range(1, 4)),
+                )
+                database.execute(
+                    """
+                    INSERT INTO historical_leagues (
+                        league_id, status, name, roster_positions_json,
+                        scoring_settings_json, raw_snapshot_hash,
+                        raw_snapshot_path, observed_at
+                    ) VALUES (
+                        'league', 'complete', 'League', '["QB","RB","WR"]',
+                        '{}', 'history', 'history.json', 'now'
+                    )
+                    """
                 )
                 roster_slots = json.dumps([["qb", 1], ["rb", 2], ["wr", 2]])
                 for draft_id, started_at in (
@@ -296,11 +458,11 @@ class MarketModelTest(unittest.TestCase):
                     database.execute(
                         """
                         INSERT INTO historical_drafts (
-                            draft_id, season, status, draft_type, scoring_type,
+                            draft_id, league_id, season, status, draft_type, scoring_type,
                             team_count, roster_slots_json, start_time, context_hash,
                             included, exclusion_reasons_json, raw_snapshot_hash,
                             raw_snapshot_path, observed_at
-                        ) VALUES (?, 2026, 'complete', 'snake', 'ppr', 2, ?, ?,
+                        ) VALUES (?, 'league', 2026, 'complete', 'snake', 'ppr', 2, ?, ?,
                                   'context', 1, '[]', 'history', 'history.json', 'now')
                         """,
                         (draft_id, roster_slots, start_ms),
@@ -345,14 +507,15 @@ class MarketModelTest(unittest.TestCase):
             self.assertEqual(selected["snapshot"]["snapshot_id"], "snapshot")
             self.assertEqual(
                 sleeper_adp_model_version(selected["snapshot"]),
-                "sleeper-adp-inverse-rank-v1:snapshot",
+                "sleeper-adp-inverse-rank-v2:snapshot",
             )
             self.assertEqual(result["historical_drafts_considered"], 2)
             self.assertEqual(result["drafts_with_time_local_snapshot"], 1)
             self.assertEqual(result["scored_picks"], 2)
             self.assertEqual(result["top_1_accuracy"], 0.5)
             self.assertEqual(result["top_3_accuracy"], 1.0)
-            self.assertEqual(result["contexts"], {"exact/1qb/PPR": 1})
+            self.assertEqual(result["contexts"], {"proxy/1qb/PPR": 1})
+            self.assertEqual(result["snapshot_ids"], ["team-snapshot"])
             self.assertEqual(result["skipped_drafts"], {"no_time_local_snapshot": 1})
             self.assertFalse(result["model"]["decision_eligible"])
 

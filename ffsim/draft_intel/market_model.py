@@ -17,7 +17,8 @@ from ffsim.models.team import FLEX_ELIGIBILITY
 from ffsim.paths import CACHE_DIR
 
 
-MODEL_VERSION = "sleeper-adp-inverse-rank-v1"
+MODEL_VERSION = "sleeper-adp-inverse-rank-v2"
+MODEL_STATUS = "uncalibrated_sleeper_adp_baseline"
 # Reach component temperature: softmax(-log(adp)/0.3) concentrates most reach
 # mass within roughly the next ten board spots while keeping a real tail, the
 # shape of observed human reaches. The sharp component temperature stays a
@@ -32,9 +33,15 @@ SUPPORTED_CONTEXTS = frozenset(FANTASYPROS_CONTEXTS)
 
 def resolve_league_market_context(league):
     """Resolve raw Sleeper league settings without claiming custom-board support."""
+    scoring_settings = league.get("scoring_settings") or {}
+    team_count = league.get("total_rosters")
+    if team_count is None:
+        team_count = (league.get("settings") or {}).get("num_teams")
     return resolve_market_context(
-        reception_points=(league.get("scoring_settings") or {}).get("rec"),
+        reception_points=scoring_settings.get("rec"),
         roster_positions=league.get("roster_positions") or (),
+        team_count=team_count,
+        tight_end_reception_bonus=scoring_settings.get("bonus_rec_te", 0.0),
     )
 
 
@@ -49,6 +56,7 @@ def resolve_draft_market_context(draft):
     return resolve_market_context(
         scoring_type=(draft.get("metadata") or {}).get("scoring_type"),
         roster_positions=positions,
+        team_count=settings.get("teams"),
     )
 
 
@@ -63,12 +71,9 @@ def load_league_market_snapshot(
     context = resolve_league_market_context(league)
     if context["status"] == "unsupported":
         return {"context": context, "snapshot": None}
-    snapshot = load_market_snapshot_at(
-        source=SLEEPER_ADP_SOURCE,
+    context, snapshot = _load_context_market_snapshot(
+        context,
         season=season,
-        scoring=context["scoring"],
-        league_format=context["league_format"],
-        team_count=None,
         at=at or datetime.now(timezone.utc),
         max_age=max_age,
         storage_dir=storage_dir,
@@ -76,7 +81,14 @@ def load_league_market_snapshot(
     return {"context": context, "snapshot": snapshot}
 
 
-def resolve_market_context(*, roster_positions, scoring_type=None, reception_points=None):
+def resolve_market_context(
+    *,
+    roster_positions,
+    scoring_type=None,
+    reception_points=None,
+    team_count=None,
+    tight_end_reception_bonus=None,
+):
     positions = tuple(str(position).upper() for position in roster_positions)
     if not positions:
         return _unsupported("missing_roster_positions")
@@ -97,6 +109,30 @@ def resolve_market_context(*, roster_positions, scoring_type=None, reception_poi
         return _unsupported("invalid_reception_scoring")
     if not math.isfinite(reception_points) or reception_points < 0:
         return _unsupported("invalid_reception_scoring")
+
+    if team_count is None:
+        reasons.append("unknown_team_count")
+    else:
+        try:
+            if isinstance(team_count, bool):
+                raise ValueError
+            team_count = int(team_count)
+        except (TypeError, ValueError):
+            return _unsupported("invalid_team_count")
+        if team_count <= 0:
+            return _unsupported("invalid_team_count")
+
+    if tight_end_reception_bonus is None:
+        reasons.append("unknown_te_reception_premium")
+    else:
+        try:
+            tight_end_reception_bonus = float(tight_end_reception_bonus)
+        except (TypeError, ValueError):
+            return _unsupported("invalid_te_reception_premium")
+        if not math.isfinite(tight_end_reception_bonus):
+            return _unsupported("invalid_te_reception_premium")
+        if tight_end_reception_bonus != 0:
+            reasons.append("te_reception_premium_not_represented_by_board")
 
     qb_count = positions.count("QB")
     has_superflex = "SUPER_FLEX" in positions
@@ -122,13 +158,110 @@ def resolve_market_context(*, roster_positions, scoring_type=None, reception_poi
     context = (league_format, scoring, position)
     if context not in SUPPORTED_CONTEXTS:
         return _unsupported("market_context_unavailable")
+    target_scoring = next(
+        (name for name, points in SCORING_POINTS.items() if reception_points == points),
+        "CUSTOM",
+    )
+    target_context = {
+        "league_format": league_format,
+        "scoring": target_scoring,
+        "position": position,
+        "team_count": team_count,
+        "reception_points": reception_points,
+        "tight_end_reception_bonus": tight_end_reception_bonus,
+        "roster_positions": list(positions),
+    }
     return {
         "status": "proxy" if reasons else "exact",
         "league_format": league_format,
         "scoring": scoring,
         "position": position,
+        "team_count": team_count,
         "requested_reception_points": reception_points,
+        "requested_tight_end_reception_bonus": tight_end_reception_bonus,
         "reasons": reasons,
+        "proxy_reason_codes": reasons,
+        "target_context": target_context,
+        "base_board_context": None,
+        "calibration_artifact": None,
+        "model_status": MODEL_STATUS,
+        "model_version": MODEL_VERSION,
+    }
+
+
+def _load_context_market_snapshot(
+    context,
+    *,
+    season,
+    at,
+    max_age,
+    storage_dir,
+):
+    team_count = context["target_context"]["team_count"]
+    snapshot = load_market_snapshot_at(
+        source=SLEEPER_ADP_SOURCE,
+        season=season,
+        scoring=context["scoring"],
+        league_format=context["league_format"],
+        team_count=team_count,
+        at=at,
+        max_age=max_age,
+        storage_dir=storage_dir,
+    )
+    reasons = list(context["proxy_reason_codes"])
+    if snapshot is not None and team_count is None:
+        reasons = [
+            (
+                "unknown_team_count_uses_generic_board"
+                if reason == "unknown_team_count"
+                else reason
+            )
+            for reason in reasons
+        ]
+    if snapshot is None and team_count is not None:
+        snapshot = load_market_snapshot_at(
+            source=SLEEPER_ADP_SOURCE,
+            season=season,
+            scoring=context["scoring"],
+            league_format=context["league_format"],
+            team_count=None,
+            at=at,
+            max_age=max_age,
+            storage_dir=storage_dir,
+        )
+        if snapshot is not None:
+            reasons.append("team_count_unavailable_uses_generic_board")
+    if snapshot is None:
+        reasons.append("compatible_market_snapshot_missing")
+    return (
+        {
+            **context,
+            "status": "proxy" if reasons else "exact",
+            "reasons": reasons,
+            "proxy_reason_codes": reasons,
+            "base_board_context": _base_board_context(snapshot),
+        },
+        snapshot,
+    )
+
+
+def _base_board_context(snapshot):
+    if snapshot is None:
+        return None
+    return {
+        key: snapshot.get(key)
+        for key in (
+            "snapshot_id",
+            "source",
+            "source_type",
+            "season",
+            "scoring",
+            "league_format",
+            "team_count",
+            "observed_at",
+            "retrieved_at",
+            "raw_snapshot_hash",
+        )
     }
 
 
@@ -406,12 +539,24 @@ def backtest_sleeper_adp(
     connection = sqlite3.connect(database_path)
     connection.row_factory = sqlite3.Row
     try:
+        league_columns = {
+            row[1]
+            for row in connection.execute("PRAGMA table_info(historical_leagues)")
+        }
+        scoring_settings_column = (
+            "l.scoring_settings_json"
+            if "scoring_settings_json" in league_columns
+            else "NULL"
+        )
         rows = connection.execute(
-            """
-            SELECT d.draft_id, d.season, d.scoring_type, d.roster_slots_json,
-                   d.start_time, p.pick_no, p.canonical_player_id, p.is_keeper
+            f"""
+            SELECT d.draft_id, d.season, d.scoring_type, d.team_count,
+                   d.roster_slots_json, d.start_time,
+                   {scoring_settings_column} AS scoring_settings_json,
+                   p.pick_no, p.canonical_player_id, p.is_keeper
             FROM historical_drafts AS d
             JOIN historical_picks AS p USING (draft_id)
+            LEFT JOIN historical_leagues AS l USING (league_id)
             WHERE d.included = 1
             ORDER BY d.draft_id, p.pick_no
             """
@@ -439,9 +584,39 @@ def backtest_sleeper_adp(
             )
         except (TypeError, ValueError, json.JSONDecodeError):
             raise ValueError(f"Draft {first['draft_id']} has invalid roster slots") from None
+        raw_scoring_settings = first["scoring_settings_json"]
+        try:
+            scoring_settings = (
+                json.loads(raw_scoring_settings)
+                if raw_scoring_settings is not None
+                else None
+            )
+        except (TypeError, json.JSONDecodeError):
+            raise ValueError(
+                f"Draft {first['draft_id']} has invalid scoring settings"
+            ) from None
+        if scoring_settings is not None and not isinstance(scoring_settings, dict):
+            raise ValueError(
+                f"Draft {first['draft_id']} has invalid scoring settings"
+            )
+        if scoring_settings == {}:
+            # The explicit legacy-schema migration default means "not yet
+            # reingested", not a known zero tight-end premium.
+            scoring_settings = None
         context = resolve_market_context(
             scoring_type=first["scoring_type"],
+            reception_points=(
+                scoring_settings.get("rec")
+                if scoring_settings is not None
+                else None
+            ),
             roster_positions=roster_positions,
+            team_count=first["team_count"],
+            tight_end_reception_bonus=(
+                scoring_settings.get("bonus_rec_te", 0.0)
+                if scoring_settings is not None
+                else None
+            ),
         )
         if context["status"] == "unsupported":
             skipped_drafts[context["reasons"][0]] += 1
@@ -450,12 +625,9 @@ def backtest_sleeper_adp(
         if started_at is None:
             skipped_drafts["missing_start_time"] += 1
             continue
-        snapshot = load_market_snapshot_at(
-            source=SLEEPER_ADP_SOURCE,
+        context, snapshot = _load_context_market_snapshot(
+            context,
             season=first["season"],
-            scoring=context["scoring"],
-            league_format=context["league_format"],
-            team_count=None,
             at=started_at,
             max_age=max_age,
             storage_dir=storage_dir,
@@ -548,8 +720,16 @@ def _unsupported(reason):
         "league_format": None,
         "scoring": None,
         "position": None,
+        "team_count": None,
         "requested_reception_points": None,
+        "requested_tight_end_reception_bonus": None,
         "reasons": [reason],
+        "proxy_reason_codes": [reason],
+        "target_context": None,
+        "base_board_context": None,
+        "calibration_artifact": None,
+        "model_status": MODEL_STATUS,
+        "model_version": MODEL_VERSION,
     }
 
 

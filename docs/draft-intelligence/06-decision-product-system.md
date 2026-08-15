@@ -394,14 +394,18 @@ manager_external_identities
   external_id
   verified
 
-leagues
-  id PK
-  platform_league_id
+historical_leagues
+  league_id PK
   season
-  platform
+  status
   name
-  format_hash
+  best_ball
+  max_keepers
+  league_type
+  roster_positions_json
+  scoring_settings_json
   raw_snapshot_path/hash
+  observed_at
 
 league_managers
   league_id
@@ -414,8 +418,11 @@ historical_drafts
   league_id nullable
   season
   platform
+  season_type
+  status
   draft_type
   scoring_type
+  draft_provenance
   team_count
   rounds
   start_time
@@ -517,6 +524,18 @@ recommendations
   reasons_json
   created_at
 ```
+
+`scoring_settings_json` stores the complete canonical numeric Sleeper scoring
+map, including zero-valued and currently unsupported keys. The same map enters
+`historical_drafts.context_hash`. `draft_provenance` is one of `real_league`,
+`mock`, `cpu_bot`, or `unknown`; it records source provenance without asserting
+that an individual pick was human-made.
+
+Each live or synthetic session configuration also preserves the resolved market
+context. It records the requested `target_context`, the selected immutable
+`base_board_context`, proxy reason codes, `calibration_artifact`, `model_status`,
+and `model_version`. This metadata belongs to the session configuration rather
+than each recommendation event.
 
 ### 23.2 Raw payload storage
 

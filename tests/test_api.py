@@ -159,6 +159,7 @@ class ApiTest(unittest.TestCase):
             "league_id": "league",
             "name": "Custom",
             "status": "pre_draft",
+            "total_rosters": 8,
             "settings": {"type": 0, "custom": 1},
             "scoring_settings": {"rec": 0.25},
             "roster_positions": ["QB", "REC_FLEX", "BN"],
@@ -223,6 +224,13 @@ class ApiTest(unittest.TestCase):
             self.assertEqual(current["draft_id"], "draft")
             self.assertEqual(current["market_context"]["status"], "proxy")
             self.assertEqual(current["market_context"]["scoring"], "STD")
+            self.assertEqual(current["market_context"]["team_count"], 8)
+            self.assertEqual(
+                current["market_context"]["target_context"][
+                    "tight_end_reception_bonus"
+                ],
+                0.0,
+            )
 
             app.state.refresh["status"] = "idle"
             before = config_path.read_text()
@@ -760,7 +768,7 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(len(merged), 3)
         self.assertEqual(monitor.recommendation_status, "ready")
 
-    def test_racing_refinement_drops_dominated_candidates_and_stops_on_ties(self):
+    def test_staged_refinement_keeps_an_apparent_drop_eligible_to_reenter(self):
         prepared = SimpleNamespace(live_draft_id="mock", user_roster_id=1)
         state = SimpleNamespace(
             status="drafting",
@@ -770,6 +778,7 @@ class ApiTest(unittest.TestCase):
             pick_owners=(1,),
         )
         evaluated = []
+        practical_by_rollout = {}
 
         def evaluate(_prepared, _state, rollout_ids, batch, *_args):
             evaluated.append((rollout_ids, tuple(batch)))
@@ -782,74 +791,63 @@ class ApiTest(unittest.TestCase):
                     {
                         "player_id": candidate_id,
                         "rollout_count": rollout_count,
-                        "is_top_tier": True,
                     }
                     for candidate_id in batch
                 ],
             }
 
-        def run(survivors_result, needs_refinement):
-            monitor = LiveDraftMonitor(prepared, 0, 300, 5)
-            monitor.pending_state = state
-            monitor.state_fingerprint = ("drafting", 0, 1, (1,))
-            monitor.calculation_event.set()
-            worker = Thread(
-                target=monitor.calculate,
-                args=(
-                    lambda *_args, **_kwargs: ["a", "b", "c", "d", "e"],
-                    evaluate,
-                    lambda _prepared, _state, evaluations, _count: evaluations[-1],
-                    None,
-                    None,
-                    None,
-                    lambda _screen, extension: extension,
-                    None,
-                    lambda _evaluation: (survivors_result, needs_refinement),
-                ),
+        def payload(_prepared, _state, evaluations, _count):
+            result = evaluations[-1]
+            rollout_count = result["rollout_count"]
+            practical = (
+                ("a", "b") if rollout_count == 150 else ("a", "b", "c")
             )
-            worker.start()
-            deadline = time.time() + 5
-            while (
-                monitor.snapshot()["recommendation_status"] != "ready"
-                and time.time() < deadline
-            ):
-                time.sleep(0.001)
-            monitor.stop()
-            worker.join(5)
-            return monitor
+            practical_by_rollout[rollout_count] = practical
+            return {**result, "co_leader_candidate_ids": practical}
 
-        # Dominated candidates are dropped before the deeper extensions.
-        monitor = run(("a", "b"), True)
+        monitor = LiveDraftMonitor(prepared, 0, 300, 5)
+        monitor.pending_state = state
+        monitor.state_fingerprint = ("drafting", 0, 1, (1,))
+        monitor.calculation_event.set()
+        worker = Thread(
+            target=monitor.calculate,
+            args=(
+                lambda *_args, **_kwargs: ["a", "b", "c", "d", "e"],
+                evaluate,
+                payload,
+                None,
+                None,
+                None,
+                lambda _screen, extension: extension,
+            ),
+        )
+        worker.start()
+        deadline = time.time() + 5
+        while (
+            monitor.snapshot()["recommendation_status"] != "ready"
+            and time.time() < deadline
+        ):
+            time.sleep(0.001)
+        monitor.stop()
+        worker.join(5)
+
         self.assertEqual(evaluated, [
             (100, ("a", "b", "c", "d", "e")),
             (range(100, 150), ("a", "b", "c", "d", "e")),
-            (range(150, 225), ("a", "b")),
-            (range(225, 300), ("a", "b")),
+            (range(150, 225), ("a", "b", "c", "d", "e")),
+            (range(225, 300), ("a", "b", "c", "d", "e")),
         ])
+        self.assertNotIn("c", practical_by_rollout[150])
+        self.assertIn("c", practical_by_rollout[225])
+        self.assertIn("c", practical_by_rollout[300])
         self.assertEqual(
-            [row["player_id"] for row in monitor.recommendation["screened_candidates"]],
-            ["c", "d", "e"],
+            monitor.recommendation["co_leader_candidate_ids"],
+            ("a", "b", "c"),
         )
-        self.assertEqual(
-            [row["rollout_count"] for row in monitor.recommendation["screened_candidates"]],
-            [150, 150, 150],
-        )
-        self.assertTrue(all(
-            "is_top_tier" not in row
-            for row in monitor.recommendation["screened_candidates"]
-        ))
-
-        # A statistically bounded toss-up stops at the intermediate stage.
-        evaluated.clear()
-        monitor = run(("a", "b", "c", "d", "e"), False)
-        self.assertEqual(evaluated, [
-            (100, ("a", "b", "c", "d", "e")),
-            (range(100, 150), ("a", "b", "c", "d", "e")),
-        ])
         self.assertEqual(monitor.recommendation["screened_candidates"], [])
         self.assertEqual(monitor.recommendation_status, "ready")
 
-    def test_recommendation_stage_telemetry_is_compact_and_tracks_racing(self):
+    def test_recommendation_stage_telemetry_tracks_full_budget_refinement(self):
         prepared = SimpleNamespace(live_draft_id="mock", user_roster_id=1)
         recorded = []
         ready_recorded = Event()
@@ -940,7 +938,6 @@ class ApiTest(unittest.TestCase):
                 lambda *_args: ("f", "e", "d", "c", "b"),
                 lambda _screen, extension: extension,
                 None,
-                lambda _evaluation: (("f", "e"), False),
             ),
         )
         worker.start()
@@ -953,15 +950,21 @@ class ApiTest(unittest.TestCase):
         self.assertFalse(worker.is_alive())
         self.assertEqual(
             [stage["phase"] for stage in recorded],
-            ["first_board", "full_screen", "refinement_150", "ready"],
+            [
+                "first_board",
+                "full_screen",
+                "refinement_150",
+                "refinement_225",
+                "ready",
+            ],
         )
         self.assertEqual(
             [stage["stage_candidate_rollout_work"] for stage in recorded],
-            [200, 400, 250, 0],
+            [200, 400, 250, 375, 375],
         )
         self.assertEqual(
             [stage["cumulative_candidate_rollout_work"] for stage in recorded],
-            [200, 600, 850, 850],
+            [200, 600, 850, 1225, 1600],
         )
         self.assertEqual(
             recorded[1]["survivor_candidate_ids"],
@@ -975,12 +978,19 @@ class ApiTest(unittest.TestCase):
             ["a", "b", "c", "d", "e", "f"],
         )
         self.assertEqual(recorded[2]["rollout_count"], 150)
-        self.assertEqual(recorded[2]["survivor_candidate_ids"], ["f", "e"])
-        self.assertEqual(recorded[2]["stop_reason"], "bounded_practical_tie")
+        self.assertEqual(
+            recorded[2]["survivor_candidate_ids"],
+            ["f", "e", "d", "c", "b"],
+        )
+        self.assertIsNone(recorded[2]["stop_reason"])
+        self.assertEqual(recorded[3]["rollout_count"], 225)
 
         ready = recorded[-1]
-        self.assertEqual(ready["survivor_candidate_ids"], ["f", "e"])
-        self.assertEqual(ready["stop_reason"], "bounded_practical_tie")
+        self.assertEqual(
+            ready["survivor_candidate_ids"],
+            ["f", "e", "d", "c", "b"],
+        )
+        self.assertEqual(ready["stop_reason"], "max_budget")
         self.assertEqual(ready["q_leader_candidate_id"], "f")
         self.assertEqual(ready["displayed_headline_candidate_id"], "f")
         self.assertEqual(ready["decision_status"], "practical_tie")
@@ -990,14 +1000,14 @@ class ApiTest(unittest.TestCase):
             ["f", "e", "d", "c", "b"],
         )
         self.assertEqual(ready["target_candidate_id"], "f")
-        self.assertEqual(ready["target_rollout_count"], 157)
+        self.assertEqual(ready["target_rollout_count"], 307)
         self.assertEqual(ready["headline_tie_break_basis"], "market_adp")
         self.assertEqual(ready["survival_branch_root_candidate_id"], "wait-f")
         self.assertEqual(
             ready["opportunity_evidence_branch_root_candidate_id"], "f"
         )
-        self.assertEqual(ready["target_available_count"], 149)
-        self.assertEqual(ready["target_selected_when_available_count"], 148)
+        self.assertEqual(ready["target_available_count"], 299)
+        self.assertEqual(ready["target_selected_when_available_count"], 298)
         self.assertEqual(ready["run_signature"], "run-signature")
 
         schema = set(recorded[0])

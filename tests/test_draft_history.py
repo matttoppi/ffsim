@@ -3,12 +3,17 @@ import sqlite3
 import tempfile
 import unittest
 from contextlib import closing
+from dataclasses import replace
 from pathlib import Path
 from urllib.error import HTTPError
 
-from ffsim.draft_intel.history import load_history, summarize_history
+from ffsim.draft_intel.history import _normalize_draft, load_history, summarize_history
 from ffsim.draft_intel.identity import canonical_players_from_cache
-from ffsim.draft_intel.storage import load_sleeper_identity_map, store_history
+from ffsim.draft_intel.storage import (
+    _context_hash,
+    load_sleeper_identity_map,
+    store_history,
+)
 
 
 class DraftHistoryTest(unittest.TestCase):
@@ -80,8 +85,54 @@ class DraftHistoryTest(unittest.TestCase):
         self.assertEqual(history.drafts[0].slot_to_roster_id, ((1, 2), (2, 3)))
         self.assertEqual(history.leagues[0].max_keepers, 1)
         self.assertFalse(history.leagues[0].best_ball)
+        self.assertEqual(history.leagues[0].scoring_settings, (
+            ("bonus_rec_rb", 0.0),
+            ("bonus_rec_te", 0.5),
+            ("pass_td", 4.0),
+            ("rec", 1.0),
+        ))
+        self.assertEqual(
+            [draft.draft_provenance for draft in history.drafts],
+            ["real_league", "mock", "cpu_bot", "mock", "real_league"],
+        )
+        self.assertEqual(
+            _normalize_draft(
+                {**responses["draft/e"], "league_id": None},
+                (),
+            ).draft_provenance,
+            "unknown",
+        )
         self.assertTrue(history.drafts[0].included)
         self.assertEqual(history.drafts[1].exclusion_reasons, ("auction", "best_ball"))
+
+    def test_context_hash_covers_scoring_team_and_roster_context(self):
+        fixture = Path(__file__).parent / "fixtures" / "sleeper_history.json"
+        responses = json.loads(fixture.read_text())
+        history = load_history("target", (2026, 2025), responses.__getitem__)
+        draft = history.drafts[0]
+        league = history.leagues[0]
+        baseline = _context_hash(draft, league)
+
+        variants = (
+            _context_hash(
+                draft,
+                replace(league, scoring_settings=(("rec", 0.5),)),
+            ),
+            _context_hash(replace(draft, teams=12), league),
+            _context_hash(
+                replace(draft, roster_slots=tuple(
+                    (position, count + 1 if position == "wr" else count)
+                    for position, count in draft.roster_slots
+                )),
+                league,
+            ),
+            _context_hash(
+                draft,
+                replace(league, roster_positions=(*league.roster_positions, "WR")),
+            ),
+        )
+        self.assertTrue(all(value != baseline for value in variants))
+        self.assertEqual(len(set(variants)), len(variants))
 
     def test_persistence_is_idempotent_and_preserves_raw_source_ids(self):
         fixture = Path(__file__).parent / "fixtures" / "sleeper_history.json"
@@ -130,6 +181,7 @@ class DraftHistoryTest(unittest.TestCase):
                     "INSERT INTO historical_draft_managers VALUES (?, ?, ?, ?)",
                     ("a", "other-target", 3, 4),
                 )
+            raw_before = Path(first["raw_snapshot_path"]).read_bytes()
             second = store_history(
                 history,
                 captured,
@@ -139,10 +191,20 @@ class DraftHistoryTest(unittest.TestCase):
             )
 
             self.assertEqual(first["raw_snapshot_hash"], second["raw_snapshot_hash"])
+            self.assertEqual(Path(first["raw_snapshot_path"]).read_bytes(), raw_before)
             raw = json.loads(Path(first["raw_snapshot_path"]).read_text())
             self.assertEqual(
                 raw["responses"]["draft/a/picks"][1]["player_id"],
                 "retired-player",
+            )
+            self.assertEqual(
+                raw["responses"]["league/la"]["scoring_settings"],
+                {
+                    "rec": 1,
+                    "pass_td": "4",
+                    "bonus_rec_te": 0.5,
+                    "bonus_rec_rb": 0,
+                },
             )
             with closing(sqlite3.connect(first["database_path"])) as database:
                 self.assertEqual(
@@ -207,10 +269,123 @@ class DraftHistoryTest(unittest.TestCase):
                     ).fetchone(),
                     (0, 1),
                 )
+                self.assertEqual(
+                    database.execute(
+                        "SELECT scoring_settings_json FROM historical_leagues WHERE league_id = 'la'"
+                    ).fetchone()[0],
+                    '{"bonus_rec_rb":0.0,"bonus_rec_te":0.5,"pass_td":4.0,"rec":1.0}',
+                )
+                self.assertEqual(
+                    database.execute(
+                        "SELECT draft_provenance FROM historical_drafts ORDER BY draft_id"
+                    ).fetchall(),
+                    [
+                        ("real_league",),
+                        ("mock",),
+                        ("cpu_bot",),
+                        ("mock",),
+                        ("real_league",),
+                    ],
+                )
             self.assertEqual(
                 load_sleeper_identity_map(directory),
                 {"9509": "sleeper:9509", "6803": "sleeper:6803"},
             )
+
+    def test_legacy_history_schema_migrates_and_reingestion_replaces_defaults(self):
+        fixture = Path(__file__).parent / "fixtures" / "sleeper_history.json"
+        responses = json.loads(fixture.read_text())
+        captured = {}
+        history = load_history(
+            "target",
+            (2026, 2025),
+            responses.__getitem__,
+            raw_responses=captured,
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            database_path = Path(directory) / "history.sqlite3"
+            with closing(sqlite3.connect(database_path)) as database, database:
+                database.executescript(
+                    """
+                    CREATE TABLE historical_leagues (
+                        league_id TEXT PRIMARY KEY,
+                        season INTEGER,
+                        status TEXT NOT NULL,
+                        name TEXT NOT NULL,
+                        best_ball INTEGER,
+                        max_keepers INTEGER,
+                        league_type INTEGER,
+                        roster_positions_json TEXT NOT NULL,
+                        raw_snapshot_hash TEXT NOT NULL,
+                        raw_snapshot_path TEXT NOT NULL,
+                        observed_at TEXT NOT NULL
+                    );
+                    CREATE TABLE historical_drafts (
+                        draft_id TEXT PRIMARY KEY,
+                        league_id TEXT,
+                        season INTEGER NOT NULL,
+                        season_type TEXT,
+                        status TEXT NOT NULL,
+                        draft_type TEXT NOT NULL,
+                        scoring_type TEXT,
+                        team_count INTEGER,
+                        rounds INTEGER,
+                        player_type INTEGER,
+                        roster_slots_json TEXT NOT NULL,
+                        created_at INTEGER,
+                        start_time INTEGER,
+                        last_picked_at INTEGER,
+                        context_hash TEXT NOT NULL,
+                        included INTEGER NOT NULL,
+                        exclusion_reasons_json TEXT NOT NULL,
+                        raw_snapshot_hash TEXT NOT NULL,
+                        raw_snapshot_path TEXT NOT NULL,
+                        observed_at TEXT NOT NULL
+                    );
+                    INSERT INTO historical_leagues (
+                        league_id, status, name, roster_positions_json,
+                        raw_snapshot_hash, raw_snapshot_path, observed_at
+                    ) VALUES ('la', 'old', 'Old', '[]', 'old', 'old', 'old');
+                    INSERT INTO historical_drafts (
+                        draft_id, season, status, draft_type, roster_slots_json,
+                        context_hash, included, exclusion_reasons_json,
+                        raw_snapshot_hash, raw_snapshot_path, observed_at
+                    ) VALUES (
+                        'a', 2025, 'old', 'snake', '[]', 'legacy', 0, '[]',
+                        'old', 'old', 'old'
+                    );
+                    """
+                )
+
+            store_history(
+                history,
+                captured,
+                (),
+                storage_dir=directory,
+                observed_at="2026-08-12T12:00:00+00:00",
+            )
+
+            with closing(sqlite3.connect(database_path)) as database:
+                league_columns = {
+                    row[1] for row in database.execute("PRAGMA table_info(historical_leagues)")
+                }
+                draft_columns = {
+                    row[1] for row in database.execute("PRAGMA table_info(historical_drafts)")
+                }
+                self.assertIn("scoring_settings_json", league_columns)
+                self.assertIn("draft_provenance", draft_columns)
+                self.assertEqual(
+                    database.execute(
+                        "SELECT scoring_settings_json FROM historical_leagues WHERE league_id = 'la'"
+                    ).fetchone()[0],
+                    '{"bonus_rec_rb":0.0,"bonus_rec_te":0.5,"pass_td":4.0,"rec":1.0}',
+                )
+                provenance, context_hash = database.execute(
+                    "SELECT draft_provenance, context_hash FROM historical_drafts WHERE draft_id = 'a'"
+                ).fetchone()
+                self.assertEqual(provenance, "real_league")
+                self.assertNotEqual(context_hash, "legacy")
 
     def test_conflicting_cached_player_ids_fail_closed(self):
         with self.assertRaisesRegex(ValueError, "Conflicting cached players"):

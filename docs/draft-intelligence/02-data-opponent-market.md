@@ -31,6 +31,16 @@ For each current league mate:
 
 This explicitly solves the common case where several current league mates are also in another league with the user. That shared draft is one draft environment, not multiple independent datasets.
 
+Normalize each fetched league's complete Sleeper `scoring_settings` object as a
+canonical numeric map. Preserve zero-valued keys and keys the current scorer does
+not support. Persist `HistoricalLeague.scoring_settings` as
+`scoring_settings_json`, and include the canonical map in the draft context hash.
+
+Classify `HistoricalDraft.draft_provenance` as `real_league`, `mock`, `cpu_bot`,
+or `unknown`. Explicit mock or bot metadata takes precedence; otherwise, a linked
+league identifies `real_league`, and an unlinked draft remains `unknown`. This
+classification describes the draft source, not whether each pick was human-made.
+
 ### 6.3 Historical draft inclusion filters
 
 Every historical draft must be classified before it influences the model:
@@ -39,9 +49,11 @@ Every historical draft must be classified before it influences the model:
 - snake vs linear vs auction
 - normal managed league vs best ball if detectable
 - 1QB vs superflex
-- scoring format
+- base reception scoring
+- tight-end reception premium
 - team count
 - roster depth
+- draft provenance
 - season
 - platform
 - draft date
@@ -328,7 +340,8 @@ Every historical draft receives a relevance weight. Initial heuristic dimensions
 
 - current season vs previous seasons
 - same platform
-- same scoring type
+- same base reception scoring
+- same tight-end reception premium
 - same 1QB/superflex configuration
 - similar team count
 - similar roster depth
@@ -437,6 +450,45 @@ internal_value_rank
 internal_value_minus_target_rank
 market_median_minus_target_rank
 ```
+
+Keep the requested league context separate from the immutable board that supplies
+the observations:
+
+```text
+target_context
+  league_format
+  scoring
+  position
+  team_count
+  reception_points
+  tight_end_reception_bonus
+  roster_positions
+
+base_board_context
+  snapshot_id
+  source
+  source_type
+  season
+  scoring
+  league_format
+  team_count
+  observed_at
+  retrieved_at
+  raw_snapshot_hash
+```
+
+Prefer a board with the exact target team count. If none exists, use the same
+source, season, scoring, and format board whose `team_count` is null; do not
+rewrite its ranks or ADP. Record `team_count_unavailable_uses_generic_board` for
+that fallback, or `unknown_team_count_uses_generic_board` when the target team
+count is unknown.
+
+The market-snapshot schema has no tight-end-premium dimension. Record
+`unknown_te_reception_premium` when the target premium is unavailable and
+`te_reception_premium_not_represented_by_board` when it is nonzero. Either case
+is a proxy even when the board matches the target team count. Retain the existing
+format and reception-scoring proxy reasons instead of calling a nearest board
+exact.
 
 ### 10.3 Distribution, not point estimate
 

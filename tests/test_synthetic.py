@@ -119,8 +119,9 @@ class SyntheticDraftTest(unittest.TestCase):
         self.assertEqual(trace.screen, (full, None, None))
 
     def test_run_one_draft_waits_for_and_forwards_stages_before_boards(self):
+        market_context = {"target_context": {"team_count": 10}}
         prepared = SimpleNamespace(
-            summary={},
+            summary={"market_context": market_context},
             live_draft_id="synthetic-test",
             user_roster_id=101,
             evaluator=SimpleNamespace(_cache={}),
@@ -202,6 +203,10 @@ class SyntheticDraftTest(unittest.TestCase):
         self.assertIs(recommendation_calls[0].args[3], first)
         self.assertIs(recommendation_calls[1].args[3], ready)
         self.assertEqual(recommendation_calls[1].kwargs["stage"], "ready")
+        self.assertEqual(
+            telemetry.start_session.call_args.args[2]["prepared"]["market_context"],
+            market_context,
+        )
 
     def test_estimate_uses_2800_kb_per_draft(self):
         self.assertEqual(estimated_telemetry_gb(250), 0.7)

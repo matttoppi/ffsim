@@ -1371,6 +1371,8 @@ candidates per state), reproduced 2026-08-14 under the ADR-031 policy.
 
 Accepted (2026-08-15). Implementation and the named replay gate pass; the
 exact all-2,384-state corpus comparison remains pending.
+ADR-036 supersedes v8's intermediate elimination and early-stop behavior; the
+shared final practical-tier predicate remains.
 
 ### Decision
 
@@ -1418,6 +1420,12 @@ the common decision boundary.
   the 0.1-point boundary.
 - A bounded stop can preserve multiple honest co-leaders; a clear stop leaves
   only the leader.
+- `tools/validate_racing_corpus.py` checkpoints exact racing-versus-flat
+  comparisons from a native telemetry snapshot. Its one-state corpus smoke
+  found an unsafe elimination at pick 4; this is enough to keep RACE-01 from
+  release, but it is not the required full-corpus result.
+- ADR-036 supersedes the intermediate-elimination and early-stop consequences
+  above. This failed smoke remains the evidence for that correction.
 - The exact racing-versus-flat comparison across all 2,384 corpus states
   remains required before RACE-01 is complete or releasable.
 
@@ -1488,3 +1496,134 @@ reconstructable from recorded evidence without changing the underlying model.
 - Practical-toss-up copy states the actual ordering key and makes no trade or
   statistical-equality claim.
 - Recommendation math and versioned model/cache identities remain unchanged.
+
+## ADR-035 — Keep target league context separate from the selected market board
+
+### Status
+
+Accepted and implemented (2026-08-15).
+
+### Decision
+
+Historical ingestion preserves each league's complete canonical numeric Sleeper
+scoring map in `HistoricalLeague.scoring_settings` and
+`historical_leagues.scoring_settings_json`. Zero-valued and currently unsupported
+keys remain present, and the scoring map enters the draft context hash. Each
+`HistoricalDraft` also records `draft_provenance` as `real_league`, `mock`,
+`cpu_bot`, or `unknown`; this is source provenance, not a claim that every pick
+was human-made.
+
+Market resolution keeps two contexts:
+
+- `target_context` records `league_format`, the target league's normalized
+  `scoring`, `position`, `team_count`, `reception_points`,
+  `tight_end_reception_bonus`, and `roster_positions`. Custom reception scoring
+  remains `CUSTOM` here even when the selected board uses a nearest standard
+  scoring label.
+- `base_board_context` records the selected snapshot's `snapshot_id`, `source`,
+  `source_type`, `season`, `scoring`, `league_format`, `team_count`,
+  `observed_at`, `retrieved_at`, and `raw_snapshot_hash`.
+
+The resolver prefers an exact-team-count board. If it is unavailable, the
+resolver uses the unchanged board with `team_count = NULL` for the same source,
+season, scoring, and format. `proxy_reason_codes` distinguishes
+`team_count_unavailable_uses_generic_board` from
+`unknown_team_count_uses_generic_board`. It also records
+`unknown_te_reception_premium` or
+`te_reception_premium_not_represented_by_board`, plus the existing format and
+reception-scoring proxy reasons. A nonzero or unknown tight-end reception premium
+is always proxy because the market-snapshot schema has no premium dimension.
+The `*_uses_generic_board` reasons are emitted only after that board is selected;
+`compatible_market_snapshot_missing` describes a failed exact-and-generic lookup.
+
+The resolved context keeps `calibration_artifact = null`,
+`model_status = uncalibrated_sleeper_adp_baseline`, and
+`model_version = sleeper-adp-inverse-rank-v2`. Live and synthetic telemetry store
+this contract under the prepared session configuration; synthetic scenarios also
+carry it directly.
+
+### Rationale
+
+The prior resolver could label a detailed league context as exact while loading a
+generic board and could erase a tight-end premium by reducing scoring to generic
+PPR. Separate requested and observed contexts make every approximation auditable
+without changing provider observations.
+
+### Consequences
+
+- Exact-first selection is capable of changing live opponent behavior, so the
+  opponent market artifact advances from `sleeper-adp-inverse-rank-v1` to v2.
+  That artifact is part of the draft-model/cache identity, which invalidates
+  affected evaluations even when a generic fallback happens to select the old
+  snapshot.
+- The generic fallback keeps its original observations and utilities.
+- Existing history tables migrate with unknown defaults. The next normal
+  history persistence pass reingests canonical scoring, provenance, and context
+  hashes; read-only backtests treat an unrefreshed empty scoring map as unknown.
+- MKT-01 does not change the decision algorithm, roster scorer, or
+  `SeasonWorldBank`; their independent versions do not advance for this change.
+- The baseline remains uncalibrated until leakage-safe historical validation is
+  available.
+
+### Validation
+
+- Warning-strict focused history, market, mock, telemetry, API, and synthetic
+  tests pass. The full warning-strict Python suite passes 220/220.
+- A time-local read of the two cached league templates keeps distinct 10-team
+  PPR +0.5 TEP and 12-team PPR targets while selecting the same immutable
+  generic snapshot. The 10-team context records both TEP and team-count proxy
+  reasons; the 12-team context records only the team-count fallback.
+- The local store contains 48 market snapshots and no team-count-specific
+  snapshot, so this validation exercises the honest fallback rather than
+  claiming local exact-board coverage.
+
+## ADR-036 — Keep every finalist through the maximum refinement budget
+
+### Status
+
+Accepted and implemented (2026-08-15). The exact all-2,384-state validation run
+remains pending.
+
+### Decision
+
+Intermediate confidence intervals from cumulative stochastic samples are not
+monotone. Decision engine v9 therefore keeps every candidate selected for
+refinement through the configured maximum budget, which is 300 rollouts in the
+current live path. It publishes the 150- and 225-rollout stages as progress, but
+neither stage eliminates a finalist or stops refinement. The final board applies
+the unchanged 0.1-point practical-tier predicate at the maximum budget.
+
+ADR-036 supersedes ADR-033's intermediate elimination and early-stop behavior.
+ADR-033's shared leader-minus-candidate predicate remains the final decision
+rule. Any attempt to recover refinement work belongs to PERF-01 and must preserve
+the final result without assuming that an intermediate interval cannot reverse.
+
+### Rationale
+
+The frozen pick-4 checkpoint exposed the invalid monotonicity assumption. Player
+`9488` fell outside the practical tier at 150 rollouts, then re-entered at 225
+and remained in the tier at 300 under true flat evaluation. Irreversible removal
+at 150 therefore changed the set available to the final decision even though the
+intermediate calculation was internally correct.
+
+### Validation
+
+- Focused tests pass 73/73. The full warning-strict Python suite passes 220/220.
+- A fresh one-state staged-versus-true-flat smoke reused the frozen checkpoint.
+  Both paths performed 5,000 candidate-rollouts, for a 1.0 work ratio, with zero
+  outcome mismatches and zero unsafe mismatches. Player `9488` remained eligible
+  to re-enter.
+- Checkpoint schema 3 binds every record to the frozen snapshot hash, model and
+  scorer versions, evaluator version, seed, statistical budgets, and runtime
+  configuration. Resume rejects changed inputs and prior checkpoint schemas.
+- The exact staged-versus-true-flat comparison across all 2,384 corpus states is
+  still required before RACE-01 is complete or releasable.
+
+### Consequences
+
+- Intermediate stages are progress telemetry, not irreversible statistical
+  gates.
+- The safe correction intentionally removes v8's finalist-refinement savings;
+  the validated one-state work ratio is 1.0.
+- Decision engine v9 is the only version change for this correction.
+- PERF-01 owns any later refinement optimization.

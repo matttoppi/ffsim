@@ -30,19 +30,11 @@ PRELIMINARY_ROLLOUT_COUNT = 12
 SCREEN_ROLLOUT_COUNT = 100
 FINALIST_COUNT = 5
 LEAGUE_EQUITY_ROLLOUT_COUNT = 50
-# Racing refinement: extend finalists in stages, eliminating candidates whose
-# paired leader edge clears the practical-tie gate, and stop early when every
-# surviving comparison is bounded within that gate. Validated by
-# offline seed-stability simulation on cached picks 24/48/120 (see ledger).
-# Stages recalibrated for the 300-continuation x 14-world allocation: the
-# (150, 225, 300) ladder matched its flat refinement 12/12 at 0.54-0.72x the
-# extension work on the m=14 observation matrices.
+# Fixed-budget refinement publishes intermediate stages while keeping every
+# finalist through the configured rollout budget.
 REFINEMENT_STAGE_ROLLOUT_COUNTS = (150, 225)
-# Regret bound in projected-roster-value points (the primary objective's
-# unit). Racing must race on the same quantity and threshold the final
-# decision uses (ADR-032): sampling stops exactly when no survivor's
-# plausible advantage could still clear the practical-tie gate, so the
-# refined board and the tie gate can never disagree about decisiveness.
+# Legacy diagnostic threshold retained for audit-tool compatibility. Production
+# does not eliminate or stop on an intermediate confidence interval.
 REFINEMENT_REGRET_STOP = PRACTICAL_TIE_POINTS
 # Stages announced by prepare_draft via its progress callback; the world-bank
 # stage is skipped when blockers exist, so a blocked run tops out at 5/6.
@@ -59,7 +51,7 @@ def _state_fingerprint(state):
 
 
 def _watchlist_candidate(row):
-    """Drop stage-local tier membership from an eliminated candidate."""
+    """Drop stage-local tier membership from a screen-only candidate."""
     return {key: value for key, value in row.items() if key != "is_top_tier"}
 
 
@@ -461,7 +453,6 @@ class LiveDraftMonitor:
         select_finalists=None,
         merge_refinement=None,
         predict_next_state=None,
-        refine_survivors=None,
     ):
         while not self.stopped.is_set():
             self.calculation_event.wait()
@@ -591,7 +582,6 @@ class LiveDraftMonitor:
             screen_count = min(self.rollout_count, SCREEN_ROLLOUT_COUNT)
             # Progress in candidate-rollout units: every candidate screened at
             # screen depth, then the finalists extended to the full depth.
-            # Early refinement stops simply jump the bar to complete.
             recommendation_total = len(candidates) * screen_count + max(
                 self.rollout_count - screen_count, 0
             ) * min(FINALIST_COUNT, len(candidates))
@@ -783,6 +773,15 @@ class LiveDraftMonitor:
                                 for row in screened_candidates[:FINALIST_COUNT]
                             )
                         )
+                        recommendation_total = screened_units + len(finalists) * max(
+                            self.rollout_count - screen_count, 0
+                        )
+                        with self.lock:
+                            if self.state_fingerprint == fingerprint:
+                                self.recommendation_progress = {
+                                    "done": screened_units,
+                                    "total": recommendation_total,
+                                }
                         recommendation_stage_started = self._record_recommendation_stage(
                             recommendation,
                             pick_no,
@@ -798,11 +797,9 @@ class LiveDraftMonitor:
                         if merge_refinement is not None:
                             # The screen already evaluated rollout IDs
                             # 0..screen_count-1 for every finalist; extend in
-                            # racing stages, dropping candidates whose leader
-                            # edge clears the practical margin and stopping
-                            # early when the surviving tier is bounded within
-                            # the practical-tie gate.
-                            survivors = finalists
+                            # fixed stages. Every finalist reaches the full
+                            # budget because an intermediate stochastic
+                            # interval can reverse at a later stage.
                             refined_ids = finalists
                             previous_evaluations = screen_evaluations
                             previous_count = screen_count
@@ -840,7 +837,7 @@ class LiveDraftMonitor:
                                                 evaluated_candidate_ids=(
                                                     screened_candidate_ids
                                                 ),
-                                                survivor_candidate_ids=survivors,
+                                                survivor_candidate_ids=finalists,
                                                 stop_reason="state_advanced",
                                                 cumulative_candidate_rollout_work=(
                                                     candidate_rollout_work
@@ -854,30 +851,18 @@ class LiveDraftMonitor:
                                     self.prepared,
                                     state,
                                     range(previous_count, stage),
-                                    survivors,
+                                    finalists,
                                     self.temperature,
                                     self.executor,
-                                    survivors,
+                                    finalists,
                                 )
-                                stage_work = len(survivors) * (stage - previous_count)
+                                stage_work = len(finalists) * (stage - previous_count)
                                 candidate_rollout_work += stage_work
                                 evaluation = merge_refinement(
                                     previous_evaluations, extension
                                 )
-                                refined_ids = survivors
                                 previous_evaluations = [evaluation]
                                 previous_count = stage
-                                stage_survivors = survivors
-                                stage_stop_reason = None
-                                if refine_survivors is not None:
-                                    stage_survivors, needs_refinement = refine_survivors(
-                                        evaluation
-                                    )
-                                    if stage < self.rollout_count:
-                                        if len(stage_survivors) == 1:
-                                            stage_stop_reason = "single_clear_survivor"
-                                        elif not needs_refinement:
-                                            stage_stop_reason = "bounded_practical_tie"
                                 if stage < self.rollout_count:
                                     # Publish each intermediate stage so the
                                     # user sees the partially refined tier
@@ -927,11 +912,9 @@ class LiveDraftMonitor:
                                                 screened_candidate_ids
                                             ),
                                             refined_candidate_ids=refined_ids,
-                                            survivor_candidate_ids=stage_survivors,
+                                            survivor_candidate_ids=finalists,
                                             stop_reason=(
-                                                stage_stop_reason
-                                                if published
-                                                else "state_advanced"
+                                                None if published else "state_advanced"
                                             ),
                                             stage_candidate_rollout_work=stage_work,
                                             cumulative_candidate_rollout_work=(
@@ -943,10 +926,6 @@ class LiveDraftMonitor:
                                     if not published:
                                         state_advanced = True
                                         break
-                                survivors = stage_survivors
-                                if stage_stop_reason is not None:
-                                    final_stop_reason = stage_stop_reason
-                                    break
                                 if stage == self.rollout_count:
                                     ready_stage_work = stage_work
                             if state_advanced:
@@ -967,7 +946,6 @@ class LiveDraftMonitor:
                             )
                             ready_stage_work = len(finalists) * self.rollout_count
                             final_stop_reason = "max_budget"
-                            survivors = finalists
                         recommendation = recommendation_payload(
                             self.prepared, state, [evaluation], len(candidates)
                         )
@@ -1026,7 +1004,7 @@ class LiveDraftMonitor:
                             recommendation_stage_started,
                             evaluated_candidate_ids=screened_candidate_ids,
                             refined_candidate_ids=refined_ids,
-                            survivor_candidate_ids=survivors,
+                            survivor_candidate_ids=finalists,
                             stop_reason=(
                                 final_stop_reason
                                 if published
@@ -1165,7 +1143,6 @@ class LiveDraftMonitor:
             live_state_summary,
             merge_screen_refinement,
             predicted_next_state,
-            refinement_survivors,
             select_finalists,
             sync_prepared_draft,
         )
@@ -1215,7 +1192,6 @@ class LiveDraftMonitor:
                 select_finalists if equity_available else None,
                 merge_screen_refinement,
                 predicted_next_state if equity_available else None,
-                refinement_survivors,
             ),
             daemon=True,
         ).start()

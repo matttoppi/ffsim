@@ -15,7 +15,7 @@ from ffsim.draft_intel.rollout import (
 )
 
 
-DECISION_ENGINE_VERSION = 8
+DECISION_ENGINE_VERSION = 9
 # Paired projected-value edges below this are practical ties, not decisions.
 # The 0.5 gate existed to absorb the pre-ADR-031 policy/scorer gap (a +0.4
 # phantom edge headlined a 99%-survival TE). With the future-user policy
@@ -25,8 +25,8 @@ DECISION_ENGINE_VERSION = 8
 # Pierce +0.001), while a genuine +0.225 edge (Hunter Henry, lb 0.132) was
 # being flattened into a tie. 0.1 covers the measured residual with margin
 # and lets genuine sub-half-point urgency edges decide (ADR-032). Remaining
-# ties fall through to urgency (VONA) and market ordering. Must match the
-# racing regret stop: racing and the decision use the same quantity.
+# ties fall through to urgency (VONA) and market ordering. Production
+# refinement keeps every finalist through the maximum budget (ADR-036).
 PRACTICAL_TIE_POINTS = 0.1
 
 

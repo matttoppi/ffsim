@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS historical_leagues (
     max_keepers INTEGER,
     league_type INTEGER,
     roster_positions_json TEXT NOT NULL,
+    scoring_settings_json TEXT NOT NULL DEFAULT '{}',
     raw_snapshot_hash TEXT NOT NULL,
     raw_snapshot_path TEXT NOT NULL,
     observed_at TEXT NOT NULL
@@ -61,6 +62,8 @@ CREATE TABLE IF NOT EXISTS historical_drafts (
     status TEXT NOT NULL,
     draft_type TEXT NOT NULL,
     scoring_type TEXT,
+    draft_provenance TEXT NOT NULL DEFAULT 'unknown'
+        CHECK (draft_provenance IN ('real_league', 'mock', 'cpu_bot', 'unknown')),
     team_count INTEGER,
     rounds INTEGER,
     player_type INTEGER,
@@ -157,7 +160,7 @@ def store_history(
     connection = sqlite3.connect(database_path)
     connection.execute("PRAGMA foreign_keys = ON")
     try:
-        connection.executescript(SCHEMA)
+        _ensure_history_schema(connection)
         _store_normalized(
             connection,
             history,
@@ -288,9 +291,9 @@ def _store_normalized(
             """
             INSERT INTO historical_leagues (
                 league_id, season, status, name, best_ball, max_keepers,
-                league_type, roster_positions_json, raw_snapshot_hash,
-                raw_snapshot_path, observed_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                league_type, roster_positions_json, scoring_settings_json,
+                raw_snapshot_hash, raw_snapshot_path, observed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(league_id) DO UPDATE SET
                 season = excluded.season,
                 status = excluded.status,
@@ -299,6 +302,7 @@ def _store_normalized(
                 max_keepers = excluded.max_keepers,
                 league_type = excluded.league_type,
                 roster_positions_json = excluded.roster_positions_json,
+                scoring_settings_json = excluded.scoring_settings_json,
                 raw_snapshot_hash = excluded.raw_snapshot_hash,
                 raw_snapshot_path = excluded.raw_snapshot_path,
                 observed_at = excluded.observed_at
@@ -313,6 +317,11 @@ def _store_normalized(
                     league.max_keepers,
                     league.league_type,
                     json.dumps(league.roster_positions),
+                    json.dumps(
+                        dict(league.scoring_settings),
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ),
                     snapshot_hash,
                     snapshot_path,
                     observed_at,
@@ -326,10 +335,11 @@ def _store_normalized(
                 """
                 INSERT INTO historical_drafts (
                     draft_id, league_id, season, season_type, status, draft_type,
-                    scoring_type, team_count, rounds, player_type, roster_slots_json,
-                    created_at, start_time, last_picked_at, context_hash, included,
-                    exclusion_reasons_json, raw_snapshot_hash, raw_snapshot_path, observed_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    scoring_type, draft_provenance, team_count, rounds, player_type,
+                    roster_slots_json, created_at, start_time, last_picked_at,
+                    context_hash, included, exclusion_reasons_json, raw_snapshot_hash,
+                    raw_snapshot_path, observed_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(draft_id) DO UPDATE SET
                     league_id = excluded.league_id,
                     season = excluded.season,
@@ -337,6 +347,7 @@ def _store_normalized(
                     status = excluded.status,
                     draft_type = excluded.draft_type,
                     scoring_type = excluded.scoring_type,
+                    draft_provenance = excluded.draft_provenance,
                     team_count = excluded.team_count,
                     rounds = excluded.rounds,
                     player_type = excluded.player_type,
@@ -359,6 +370,7 @@ def _store_normalized(
                     draft.status,
                     draft.draft_type,
                     draft.scoring_type,
+                    draft.draft_provenance,
                     draft.teams,
                     draft.rounds,
                     draft.player_type,
@@ -445,7 +457,31 @@ def _context_hash(draft, league):
         "max_keepers": league.max_keepers if league else None,
         "league_type": league.league_type if league else None,
         "league_roster_positions": league.roster_positions if league else None,
+        "league_scoring_settings": league.scoring_settings if league else None,
     })).hexdigest()
+
+
+def _ensure_history_schema(connection):
+    connection.executescript(SCHEMA)
+    league_columns = {
+        row[1] for row in connection.execute("PRAGMA table_info(historical_leagues)")
+    }
+    draft_columns = {
+        row[1] for row in connection.execute("PRAGMA table_info(historical_drafts)")
+    }
+    with connection:
+        if "scoring_settings_json" not in league_columns:
+            connection.execute(
+                "ALTER TABLE historical_leagues ADD COLUMN "
+                "scoring_settings_json TEXT NOT NULL DEFAULT '{}'"
+            )
+        if "draft_provenance" not in draft_columns:
+            connection.execute(
+                "ALTER TABLE historical_drafts ADD COLUMN "
+                "draft_provenance TEXT NOT NULL DEFAULT 'unknown' "
+                "CHECK (draft_provenance IN "
+                "('real_league', 'mock', 'cpu_bot', 'unknown'))"
+            )
 
 
 def _json_bytes(value):

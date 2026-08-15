@@ -170,7 +170,7 @@ def load_market_snapshot_at(
             WHERE source = ? AND season = ? AND UPPER(scoring) = ?
               AND league_format = ? AND team_count IS ?
               AND observed_at <= ? AND retrieved_at <= ?
-            ORDER BY observed_at DESC, retrieved_at DESC
+            ORDER BY observed_at DESC, retrieved_at DESC, snapshot_id DESC
             LIMIT 1
             """,
             (source, season, scoring, league_format, team_count, at, at),
