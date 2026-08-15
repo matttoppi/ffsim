@@ -210,34 +210,52 @@ class LiveDraftTest(unittest.TestCase):
                 places=10,
             )
 
-    def test_refinement_survivors_match_the_recommendation_tier(self):
-        from ffsim.draft_intel.decision import recommendation_summary
+    def test_refinement_survivors_use_the_practical_tie_boundary(self):
         from ffsim.draft_intel.live import refinement_survivors
 
-        state = draft_state()
-        prepared = PreparedDraft(
-            summary={},
-            live_draft_id="draft",
-            league_id=None,
-            standalone=True,
-            user_roster_id=1,
-            market_snapshot={
-                "source": SLEEPER_ADP_SOURCE,
-                "snapshot_id": "snap",
-                "observations": [
-                    {"canonical_player_id": f"p{index}", "adp": float(index)}
-                    for index in range(1, 13)
-                ],
-            },
-            evaluator=evaluator(),
-            player_details={},
+        leader = SimpleNamespace(
+            candidate_id="leader",
+            projected_roster_value=1.0,
+            championship_probability=0.0,
+            playoff_probability=0.0,
+            expected_wins=0.0,
+            expected_points=0.0,
         )
-        evaluation = evaluate_live_candidates(prepared, state, 8, ("p1", "p2", "p3"))
-        survivors, max_advantage = refinement_survivors(evaluation)
-        summary = recommendation_summary(evaluation)
-        # The racing gate keeps exactly the statistically tied tier.
-        self.assertEqual(set(survivors), set(summary.co_leader_candidate_ids))
-        self.assertGreaterEqual(max_advantage, 0.0)
+        rival = SimpleNamespace(
+            candidate_id="rival",
+            projected_roster_value=0.0,
+            championship_probability=0.0,
+            playoff_probability=0.0,
+            expected_wins=0.0,
+            expected_points=0.0,
+        )
+        cases = (
+            # Candidate-minus-leader upper bound is -0.05: still within the
+            # 0.1-point practical tier, but already bounded.
+            ("boundary_survives", (0.05, 0.05), ("leader", "rival"), False),
+            ("bounded_practical_tie", (0.02, 0.09), ("leader", "rival"), False),
+            ("wide_boundary", (0.04, 4.10), ("leader", "rival"), True),
+            ("exact_upper_boundary", (0.02, 0.10), ("leader", "rival"), False),
+            ("dominated", (0.100001, 4.10), ("leader",), False),
+        )
+        for name, interval, expected_survivors, expected_refinement in cases:
+            with self.subTest(name=name):
+                def paired_value_delta(candidate_id, baseline_candidate_id):
+                    self.assertEqual(
+                        (candidate_id, baseline_candidate_id),
+                        ("leader", "rival"),
+                    )
+                    return SimpleNamespace(interval=interval)
+
+                evaluation = SimpleNamespace(
+                    candidates=(leader, rival),
+                    paired_value_delta=paired_value_delta,
+                )
+
+                survivors, needs_refinement = refinement_survivors(evaluation)
+
+                self.assertEqual(survivors, expected_survivors)
+                self.assertEqual(needs_refinement, expected_refinement)
 
     def test_predicted_next_state_applies_the_model_argmax_pick(self):
         state = draft_state()

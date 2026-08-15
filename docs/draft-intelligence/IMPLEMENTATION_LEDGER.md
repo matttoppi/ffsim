@@ -5,10 +5,10 @@ This file is the current operational state of the project. Keep it short, factua
 ## Current status
 
 **Phase:** Phase 8 — offline coupled draft rollouts and nested evaluation
-**State:** Candidates are ranked by mean projected completed-roster value across paired continuations (ADR-026); with the future-user policy aligned to the terminal scorer (ADR-031) that ranking is exactly the take-vs-wait regret ordering, and the practical-tie gate is 0.1 points sized to the measured residual (ADR-032). TEL-01 and TEL-02 add writer-safe SQLite telemetry and compact recommendation-stage evidence without an engine-version change. Decision engine v7.
+**State:** Candidates are ranked by mean projected completed-roster value across paired continuations (ADR-026); with the future-user policy aligned to the terminal scorer (ADR-031) that ranking is exactly the take-vs-wait regret ordering, and the practical-tie gate is 0.1 points sized to the measured residual (ADR-032). RACE-01 aligns racing and final decisions on one leader-minus-candidate practical-tier predicate (ADR-033); implementation, focused tests, and the named replay gate pass, but the exact all-2,384-state corpus comparison is pending, so RACE-01 is not releasable. TEL-01 and TEL-02 add writer-safe SQLite telemetry and compact recommendation-stage evidence. Decision engine v8.
 **Branch:** `feat/draft-intelligence`
 **Implementation code changed:** Yes
-**Primary next action:** Implement RACE-01 with one shared practical-tier predicate so racing and the final 0.1-point gate cannot diverge. Then run its preregistered flat-versus-racing corpus before performance work.
+**Primary next action:** Build and run the exact all-2,384-state racing-versus-flat corpus comparison. WHY-01 may proceed independently.
 
 ## Project entrypoints
 
@@ -38,6 +38,9 @@ Read in this order:
 - [x] TEL-01: use WAL, a bounded five-second writer wait, visible failures, and native SQLite snapshots for long audits.
 - [x] TEL-02: persist compact live/synthetic recommendation stages, exact work and conditional-selection counts, branch provenance, and only broad-screen/ready full boards.
 - [ ] RACE-01: make racing use the final 0.1-point practical gate through one shared predicate.
+  - [x] Implement the shared predicate and pass focused and full Python tests.
+  - [x] Pass the named actual racing-versus-flat replay gate and six extra recorded mismatch-state checks.
+  - [ ] Pass the exact racing-versus-flat comparison across all 2,384 corpus states.
 
 ## Phase 1 completed
 
@@ -277,6 +280,8 @@ Further bank persistence/memory mapping, confidence-bound early stopping, transp
 Phase 1 is complete. Phase 2 now has append-only manual and official FantasyPros multi-platform market snapshots behind a 12-hour request-driven freshness gate, exact/proxy context resolution, and a versioned inverse-ADP Sleeper choice baseline. Its backtest rejects snapshots retrieved after a draft begins. Phase 3 has market-independent descriptive profiles for every member of the real attached league. Phase 4 has exact league and standalone-mock attachment, explicit compatibility, network-free replay, coupled complete redraft rollouts, and survival summaries. Phase 6 produces deterministic, content-versioned, full-pool player-week tensors independently of fantasy ownership. Phase 7 evaluates compact roster assignments with coupled schedules/streamers and immutable per-world results. Phase 8 joins many draft continuations to paired season worlds and emits versioned numeric recommendation summaries. The next product step is completing the attached mock's live replay followed by market-baseline calibration; do not calculate plausible-window passes, board adherence, calibrated personalization, or market-relative action labels without validated time-local evidence.
 
 ## Last updated
+
+2026-08-15 — Implemented RACE-01 (ADR-033, decision engine v8) and passed its named gate. Final recommendations and racing use one leader-minus-candidate predicate: retain a candidate when the paired lower bound is at most 0.1 points, continue only while that interval straddles 0.1, and stop with a bounded practical tie when every retained upper bound is at most 0.1. Intermediate and final watchlists omit stale screen-time `is_top_tier` markers. Warning-strict focused decision/live/API tests pass 52/52; the full warning-strict Python suite passes 207/207 in 25.937 seconds. Named actual racing-versus-flat replays agree for `b053` pick 30 (Breece singleton at 225), `597` pick 40 (Skattebo singleton at 225), and `99dfa` pick 35 (Skattebo/Loveland/Jacobs practical tier at 300), with `outside_survivors` empty at every evaluated stage. Flat checks on six extra known recorded mismatch states also keep `outside_survivors` empty at every stage. The exact all-2,384-state corpus comparison remains pending, so RACE-01 is not complete or releasable. Exact next step: build and run that comparison; WHY-01 may proceed independently.
 
 2026-08-15 — Completed TEL-01 and TEL-02 without changing decision engine v7. Telemetry now uses WAL with a five-second busy timeout, remains fail-visible after that bound, and documents native backup snapshots for long reads. Live and synthetic runs share compact `recommendation_stage` events with phase timing, exact candidate-rollout work, leaders, paired bounds, post-gate survivors, stop reasons, speculation results, branch roots, and integer conditional availability/selection counts; full boards remain at broad-screen and ready boundaries. Validation passes: all 207 Python tests, including the 72-test remediation suite and six focused telemetry checks, with `ResourceWarning` promoted to an error. An isolated 10-team, 17-round full draft (`20260815T155054-77e350f7`) completed in 158.8 seconds with 17/17 compact ready stages agreeing with the full ready boards. Its 71 stage events held 287,553 serialized payload bytes (7,280-byte maximum); after `VACUUM`, they added 380,928 bytes (+16.8%) to the same 2,273,280-byte database without stage rows, for a 2,654,208-byte total. The printed storage estimate is therefore raised from 1,700 to 2,800 KB per draft, 5.5% above this measured full draft. Exact next step: implement RACE-01 with one shared practical-tier predicate and verify zero racing-versus-flat mismatches on the preregistered v7 corpus.
 

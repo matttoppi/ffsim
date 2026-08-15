@@ -11,10 +11,12 @@ from urllib.parse import quote, urlparse
 
 from ffsim.config import AppConfig, save_league_attachment
 from ffsim.draft_intel.decision import (
+    PRACTICAL_TIE_POINTS,
     candidate_urgency,
     evaluate_candidates,
     evaluate_completed_league,
     evaluate_league_equity,
+    is_practical_co_leader,
     merge_evaluations,
     merge_rollout_ranges,
     rank_candidates,
@@ -678,22 +680,21 @@ def merge_screen_refinement(screen_evaluations, extension):
 def refinement_survivors(evaluation):
     """Racing gate: the leader plus every statistically tied candidate.
 
-    Returns the surviving candidate IDs and the largest paired upper-bound
-    advantage any survivor still holds over the leader. A small bound means
-    no further sampling can change the decision materially.
+    Returns the surviving candidate IDs and whether any retained comparison
+    still straddles the practical boundary.
     """
     ranked = rank_candidates(evaluation)
     leader = ranked[0]
     survivors = [leader.candidate_id]
-    max_advantage = 0.0
+    needs_refinement = False
     for candidate in ranked[1:]:
         delta = evaluation.paired_value_delta(
-            candidate.candidate_id, leader.candidate_id
+            leader.candidate_id, candidate.candidate_id
         )
-        if delta.interval[1] >= 0:
+        if is_practical_co_leader(delta):
             survivors.append(candidate.candidate_id)
-            max_advantage = max(max_advantage, delta.interval[1])
-    return tuple(survivors), max_advantage
+            needs_refinement |= delta.interval[1] > PRACTICAL_TIE_POINTS
+    return tuple(survivors), needs_refinement
 
 
 def predicted_next_state(prepared, state, temperature=None):

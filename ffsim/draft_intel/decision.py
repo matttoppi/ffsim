@@ -15,7 +15,7 @@ from ffsim.draft_intel.rollout import (
 )
 
 
-DECISION_ENGINE_VERSION = 7
+DECISION_ENGINE_VERSION = 8
 # Paired projected-value edges below this are practical ties, not decisions.
 # The 0.5 gate existed to absorb the pre-ADR-031 policy/scorer gap (a +0.4
 # phantom edge headlined a 99%-survival TE). With the future-user policy
@@ -28,6 +28,11 @@ DECISION_ENGINE_VERSION = 7
 # ties fall through to urgency (VONA) and market ordering. Must match the
 # racing regret stop: racing and the decision use the same quantity.
 PRACTICAL_TIE_POINTS = 0.1
+
+
+def is_practical_co_leader(paired_value_delta):
+    """Whether a leader-minus-candidate interval passes the practical gate."""
+    return paired_value_delta.interval[0] <= PRACTICAL_TIE_POINTS
 
 
 @dataclass(frozen=True)
@@ -851,9 +856,11 @@ def recommendation_summary(evaluation, tier_key=None):
     co_leaders = tuple(
         candidate for candidate in ranked
         if candidate is leader
-        or evaluation.paired_value_delta(
-            leader.candidate_id, candidate.candidate_id
-        ).interval[0] <= PRACTICAL_TIE_POINTS
+        or is_practical_co_leader(
+            evaluation.paired_value_delta(
+                leader.candidate_id, candidate.candidate_id
+            )
+        )
     )
     decision_status = "clear_leader" if len(co_leaders) == 1 else "toss_up"
     # Projected value cannot separate a statistical tie, but urgency can:

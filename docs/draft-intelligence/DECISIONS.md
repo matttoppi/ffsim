@@ -1295,10 +1295,10 @@ itself, not just tie-breaking. The answer, measured on recorded states: it
 already does, through the rollout measure. `rank_candidates` keeps ranking
 by `Q` (mean paired completed-roster value); no urgency term is added.
 `PRACTICAL_TIE_POINTS` shrinks from 0.5 to 0.1, and the racing regret stop
-is defined as `PRACTICAL_TIE_POINTS` itself, so refinement races on exactly
-the quantity and threshold the final decision uses: sampling stops only when
-no survivor's plausible advantage could still clear the tie gate. Decision
-engine v7. The Why panel explains the headline delta as the take-vs-wait
+is defined as `PRACTICAL_TIE_POINTS` itself. Refinement must use the same
+leader-minus-candidate quantity and threshold as the final decision. Decision
+engine v7 did not implement that requirement correctly; ADR-033 records the
+v8 correction. The Why panel explains the headline delta as the take-vs-wait
 edge, with wait-plan language driven by next-pick survival.
 
 ### Rationale
@@ -1352,10 +1352,66 @@ candidates per state), reproduced 2026-08-14 under the ADR-031 policy.
   tie at 0.5). Residual-scale edges stay honest toss-ups: the pick-78 state
   is a labeled 4-way tie headlined by the scarce 15%-survival WR while the
   94-97%-survival co-leaders are deferred.
-- The tighter racing stop can extend refinement on genuine near-ties; that
-  is sampling effort spent exactly where the decision is close, and the
-  racing gate can never disagree with the tie gate about decisiveness.
+- The tighter racing stop can extend refinement on genuine near-ties. ADR-033
+  makes the racing and final gates use the same predicate after v7 could
+  disagree about practical co-leadership.
 - The remaining known approximation under the gate is bench bye-coverage
   overpricing (ADR-031 consequences), which largely cancels in paired
   deltas; revisit the 0.1 sizing only with new measured residuals, not
   intuition.
+
+## ADR-033 — Racing and final decisions share one practical-tier predicate
+
+### Status
+
+Accepted (2026-08-15). Implementation and the named replay gate pass; the
+exact all-2,384-state corpus comparison remains pending.
+
+### Decision
+
+The decision engine defines practical co-leadership once from the
+leader-minus-candidate paired projected-value delta. A candidate remains in
+the practical tier when its lower bound is at most `PRACTICAL_TIE_POINTS`
+(0.1). Both `recommendation_summary` and racing use this predicate.
+
+For each retained comparison, racing continues only while
+`lower <= 0.1 < upper`. It reports a bounded practical tie when every retained
+upper bound is at most 0.1; it reports a single clear survivor when only the
+leader remains. Decision engine v8.
+
+Intermediate and final watchlists omit `is_top_tier`. That value described
+the earlier screening board and became stale after refinement; the evaluated
+candidate rows retain the tier state computed for their current board.
+
+### Rationale
+
+ADR-032 correctly set the practical threshold but falsely claimed that v7
+applied one decision rule. The final gate used a leader-minus-candidate lower
+bound at 0.1, while racing reversed the comparison and retained only intervals
+that crossed zero. Racing could therefore eliminate a candidate whose lower
+bound was above zero but still within the practical tier. Its separate stop
+calculation also did not test whether the leader-minus-candidate interval
+straddled the practical boundary. One shared predicate fixes the mismatch at
+the common decision boundary.
+
+### Validation
+
+- Warning-strict focused decision, live, and API tests pass 52/52. The full
+  warning-strict Python suite passes 207/207 in 25.937 seconds.
+- Named actual racing-versus-flat replays agree for `b053` pick 30 (Breece
+  singleton at 225), `597` pick 40 (Skattebo singleton at 225), and `99dfa`
+  pick 35 (Skattebo/Loveland/Jacobs practical tier at 300).
+- `outside_survivors` is empty at every evaluated stage in the named replays.
+  Flat checks on six extra known recorded mismatch states also keep it empty
+  at every stage.
+
+### Consequences
+
+- Racing retains every practical co-leader and retires a candidate only when
+  the leader's lower-bound edge exceeds 0.1 points.
+- Racing spends more samples only when a retained interval can still cross
+  the 0.1-point boundary.
+- A bounded stop can preserve multiple honest co-leaders; a clear stop leaves
+  only the leader.
+- The exact racing-versus-flat comparison across all 2,384 corpus states
+  remains required before RACE-01 is complete or releasable.

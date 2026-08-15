@@ -31,8 +31,8 @@ SCREEN_ROLLOUT_COUNT = 100
 FINALIST_COUNT = 5
 LEAGUE_EQUITY_ROLLOUT_COUNT = 50
 # Racing refinement: extend finalists in stages, eliminating candidates whose
-# paired interval falls below the leader, and stop early when no survivor's
-# plausible advantage over the leader exceeds the regret bound. Validated by
+# paired leader edge clears the practical-tie gate, and stop early when every
+# surviving comparison is bounded within that gate. Validated by
 # offline seed-stability simulation on cached picks 24/48/120 (see ledger).
 # Stages recalibrated for the 300-continuation x 14-world allocation: the
 # (150, 225, 300) ladder matched its flat refinement 12/12 at 0.54-0.72x the
@@ -56,6 +56,11 @@ def _state_fingerprint(state):
         state.current_roster_id,
         tuple(state.pick_owners),
     )
+
+
+def _watchlist_candidate(row):
+    """Drop stage-local tier membership from an eliminated candidate."""
+    return {key: value for key, value in row.items() if key != "is_top_tier"}
 
 
 def _recommendation_stage_payload(
@@ -790,11 +795,10 @@ class LiveDraftMonitor:
                         if merge_refinement is not None:
                             # The screen already evaluated rollout IDs
                             # 0..screen_count-1 for every finalist; extend in
-                            # racing stages, dropping candidates whose paired
-                            # interval falls below the leader and stopping
-                            # early when the surviving tier is a statistically
-                            # bounded toss-up (max plausible regret below
-                            # REFINEMENT_REGRET_STOP).
+                            # racing stages, dropping candidates whose leader
+                            # edge clears the practical margin and stopping
+                            # early when the surviving tier is bounded within
+                            # the practical-tie gate.
                             survivors = finalists
                             refined_ids = finalists
                             previous_evaluations = screen_evaluations
@@ -862,17 +866,15 @@ class LiveDraftMonitor:
                                 previous_count = stage
                                 stage_survivors = survivors
                                 stage_stop_reason = None
-                                if (
-                                    refine_survivors is not None
-                                    and stage < self.rollout_count
-                                ):
-                                    stage_survivors, max_advantage = refine_survivors(
+                                if refine_survivors is not None:
+                                    stage_survivors, needs_refinement = refine_survivors(
                                         evaluation
                                     )
-                                    if len(stage_survivors) == 1:
-                                        stage_stop_reason = "single_clear_survivor"
-                                    elif max_advantage < REFINEMENT_REGRET_STOP:
-                                        stage_stop_reason = "bounded_practical_tie"
+                                    if stage < self.rollout_count:
+                                        if len(stage_survivors) == 1:
+                                            stage_stop_reason = "single_clear_survivor"
+                                        elif not needs_refinement:
+                                            stage_stop_reason = "bounded_practical_tie"
                                 if stage < self.rollout_count:
                                     # Publish each intermediate stage so the
                                     # user sees the partially refined tier
@@ -889,7 +891,9 @@ class LiveDraftMonitor:
                                     )
                                     interim_ids = set(refined_ids)
                                     interim["screened_candidates"] = [
-                                        deepest_candidates[row["player_id"]]
+                                        _watchlist_candidate(
+                                            deepest_candidates[row["player_id"]]
+                                        )
                                         for row in screened_candidates
                                         if row["player_id"] not in interim_ids
                                     ]
@@ -972,7 +976,9 @@ class LiveDraftMonitor:
                             refined_ids if merge_refinement is not None else finalists
                         )
                         recommendation["screened_candidates"] = [
-                            deepest_candidates[row["player_id"]]
+                            _watchlist_candidate(
+                                deepest_candidates[row["player_id"]]
+                            )
                             for row in screened_candidates
                             if row["player_id"] not in finalist_ids
                         ]

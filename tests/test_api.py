@@ -779,12 +779,16 @@ class ApiTest(unittest.TestCase):
             return {
                 "rollout_count": rollout_count,
                 "candidates": [
-                    {"player_id": candidate_id, "rollout_count": rollout_count}
+                    {
+                        "player_id": candidate_id,
+                        "rollout_count": rollout_count,
+                        "is_top_tier": True,
+                    }
                     for candidate_id in batch
                 ],
             }
 
-        def run(survivors_result, advantage):
+        def run(survivors_result, needs_refinement):
             monitor = LiveDraftMonitor(prepared, 0, 300, 5)
             monitor.pending_state = state
             monitor.state_fingerprint = ("drafting", 0, 1, (1,))
@@ -800,7 +804,7 @@ class ApiTest(unittest.TestCase):
                     None,
                     lambda _screen, extension: extension,
                     None,
-                    lambda _evaluation: (survivors_result, advantage),
+                    lambda _evaluation: (survivors_result, needs_refinement),
                 ),
             )
             worker.start()
@@ -815,7 +819,7 @@ class ApiTest(unittest.TestCase):
             return monitor
 
         # Dominated candidates are dropped before the deeper extensions.
-        monitor = run(("a", "b"), 5.0)
+        monitor = run(("a", "b"), True)
         self.assertEqual(evaluated, [
             (100, ("a", "b", "c", "d", "e")),
             (range(100, 150), ("a", "b", "c", "d", "e")),
@@ -830,10 +834,14 @@ class ApiTest(unittest.TestCase):
             [row["rollout_count"] for row in monitor.recommendation["screened_candidates"]],
             [150, 150, 150],
         )
+        self.assertTrue(all(
+            "is_top_tier" not in row
+            for row in monitor.recommendation["screened_candidates"]
+        ))
 
         # A statistically bounded toss-up stops at the intermediate stage.
         evaluated.clear()
-        monitor = run(("a", "b", "c", "d", "e"), 0.05)
+        monitor = run(("a", "b", "c", "d", "e"), False)
         self.assertEqual(evaluated, [
             (100, ("a", "b", "c", "d", "e")),
             (range(100, 150), ("a", "b", "c", "d", "e")),
@@ -930,7 +938,7 @@ class ApiTest(unittest.TestCase):
                 lambda *_args: ("f", "e", "d", "c", "b"),
                 lambda _screen, extension: extension,
                 None,
-                lambda _evaluation: (("f", "e"), 0.05),
+                lambda _evaluation: (("f", "e"), False),
             ),
         )
         worker.start()
