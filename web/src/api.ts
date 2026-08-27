@@ -248,6 +248,16 @@ export type DraftRecommendationMode = 'simulation' | 'projection'
 export interface DraftProjectionBoard {
   model_status: 'deterministic_projection_lookahead'
   model_version: number
+  route_model_status: 'approximate_adp_opponent_choice_lookahead'
+  worp_calibration: {
+    status: string
+    team_count: number
+    scoring_format: string | null
+    model_version?: string
+    training_games?: number
+    validation_games?: number
+    decision_reference?: string
+  }
   pick_no: number
   next_user_pick_no: number | null
   recommended_player_id: string | null
@@ -258,6 +268,7 @@ export interface DraftProjectionBoard {
     name: string
     projected_points: number
     value_over_replacement: number
+    wins_over_replacement: number | null
     current_roster_value: number
     later_value: number
     route_value: number
@@ -272,6 +283,7 @@ export interface DraftProjectionBoard {
     projected_points: number
     replacement_points: number
     value_over_replacement: number
+    wins_over_replacement: number | null
     current_roster_value: number
     adp: number | null
   }>

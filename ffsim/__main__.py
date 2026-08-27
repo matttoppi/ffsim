@@ -14,7 +14,7 @@ def parse_args():
         choices=(
             "setup", "simulate", "refresh", "serve", "draft-audit", "market-import",
             "market-refresh", "market-backtest", "mock-attach", "mock-refresh",
-            "manager-audit", "synthetic-drafts",
+            "manager-audit", "synthetic-drafts", "worp-calibrate", "worp-approve",
         ),
         nargs="?",
         default="simulate",
@@ -33,6 +33,10 @@ def parse_args():
         help="parallel worker processes (default: up to 4 CPUs)",
     )
     parser.add_argument("--output")
+    parser.add_argument("--database")
+    parser.add_argument("--worp-team-count", type=int)
+    parser.add_argument("--worp-scoring")
+    parser.add_argument("--decision-reference")
     parser.add_argument("--scenario")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8000)
@@ -111,6 +115,73 @@ def setup_league(config_path, username=None, season=2026, input_fn=input, print_
 
 def main():
     args = parse_args()
+    if args.command == "worp-calibrate":
+        from ffsim.draft_intel.worp import WORP_ARTIFACT_PATH, fit_worp_calibration
+
+        if not args.database:
+            raise SystemExit("worp-calibrate requires --database")
+        try:
+            artifact = fit_worp_calibration(
+                args.database,
+                output_path=args.output or WORP_ARTIFACT_PATH,
+            )
+        except (OSError, ValueError) as error:
+            raise SystemExit(str(error)) from error
+        print(json.dumps({
+            "status": artifact["status"],
+            "model_version": artifact["model_version"],
+            "source": artifact["source"],
+            "contexts": [
+                {
+                    key: row[key]
+                    for key in (
+                        "team_count",
+                        "scoring_format",
+                        "status",
+                        "training_games",
+                        "validation_games",
+                        "validation",
+                    )
+                }
+                for row in artifact["contexts"]
+            ],
+            "output": str(args.output or WORP_ARTIFACT_PATH),
+        }, indent=2))
+        return
+
+    if args.command == "worp-approve":
+        from ffsim.draft_intel.worp import WORP_ARTIFACT_PATH, approve_worp_context
+
+        missing = [
+            name
+            for name, value in (
+                ("--worp-team-count", args.worp_team_count),
+                ("--worp-scoring", args.worp_scoring),
+                ("--decision-reference", args.decision_reference),
+            )
+            if value is None
+        ]
+        if missing:
+            raise SystemExit("worp-approve requires " + ", ".join(missing))
+        path = args.output or WORP_ARTIFACT_PATH
+        try:
+            artifact = approve_worp_context(
+                path,
+                args.worp_team_count,
+                args.worp_scoring,
+                args.decision_reference,
+            )
+        except (OSError, ValueError) as error:
+            raise SystemExit(str(error)) from error
+        print(json.dumps({
+            "status": artifact["status"],
+            "team_count": args.worp_team_count,
+            "scoring_format": args.worp_scoring.upper(),
+            "decision_reference": args.decision_reference,
+            "output": str(path),
+        }, indent=2))
+        return
+
     if args.command == "synthetic-drafts":
         if args.drafts is None or args.drafts < 1:
             raise SystemExit("synthetic-drafts requires --drafts with a positive integer")

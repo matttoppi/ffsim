@@ -1692,3 +1692,78 @@ second roster-value convention while keeping the simulation algorithm intact.
 - Browser verification shows the live projection route, positional tables,
   VORP, roster value, ADP, and position filtering. Projection mode removes the
   league-equity sidebar.
+
+## ADR-039 — Gate WORP behind exact-context holdout validation and approval
+
+### Status
+
+Accepted for candidate fitting (2026-08-27). No live context is validated.
+
+### Decision
+
+The WORP pipeline keeps replacement value and points-to-win calibration as two
+separate stages:
+
+1. Projection board VORP supplies season points above the league-wide starter
+   replacement cutline.
+2. An empirical points-to-win curve maps weekly VORP to expected weekly
+   head-to-head win gain. Multiplying that gain by regular-season weeks produces
+   projected WORP.
+
+`worp-calibrate` reads the isolated historical Sleeper SQLite store after
+collection or from a native snapshot. It uses regular-season matchup score
+margins from candidate leagues without error-level league-season quality flags.
+Each curve is exact to `(team_count, scoring_format)`. The fitter symmetrizes
+each matchup margin, then measures how often an added point margin changes loss,
+tie, or win credit.
+
+The leakage boundary is league-season. SHA-256 partition remainder zero supplies
+the holdout set; all other league-seasons train the curve. The default candidate
+gates are at least 1,000 training games, at least 250 holdout games, and
+pointwise holdout error no greater than the larger of 0.02 wins or the 95%
+binomial sampling bound. The artifact records the source hash, split, thresholds,
+sample counts, curve, and holdout metrics.
+
+Passing these gates produces `candidate`, never `validated`. `worp-approve`
+requires an exact context and a nonempty architecture-decision reference before
+it promotes that context. The live loader rejects missing, candidate,
+failed, malformed, unapproved, and context-mismatched curves. It never falls
+back across league formats.
+
+Projection board version 2 reports calibration status. It reports numerical
+WORP only for an approved exact context. Route value is separately labeled
+`approximate_adp_opponent_choice_lookahead`; it remains an approximate policy
+lookahead, not a full expected-value distribution.
+
+### Rationale
+
+Historical score margins can calibrate the expected win value of added fantasy
+points without claiming that observed teams are replacement rosters. The
+existing projection model supplies the replacement delta. Separating the two
+prevents the calibration dataset from redefining player value and prevents an
+unreviewed fit from entering live recommendations.
+
+### Consequences
+
+- The current live board shows WORP as pending while data collection continues.
+- A candidate artifact is useful for coverage and holdout review but cannot
+  activate WORP.
+- Custom scoring and unmatched team counts remain unavailable until their own
+  exact context passes and receives approval.
+- WORP is a regular-season expected-win estimate. It is not playoff probability,
+  championship equity, paired Q, or roster-aware marginal value.
+- Run fitting after collection completes or against a SQLite snapshot. Do not
+  scan the active crawler database as an analytical workload.
+
+### Validation
+
+- Synthetic margin fixtures cover candidate fitting, exact-context loading,
+  explicit approval, interpolation, VORP conversion, insufficient data,
+  context mismatch, invalid databases, and both CLI commands.
+- Focused warning-strict WORP and live tests pass 27/27. The full warning-strict
+  Python suite passes 227/227.
+- Draft Intelligence frontend tests pass 19/19. The full frontend suite passes
+  49/49, and the production build passes.
+- Browser verification confirms candidate WORP stays absent, shows its pending
+  exact context, and labels route value as approximate.
+- Historical holdout validation remains pending the owner's data download.

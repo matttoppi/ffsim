@@ -119,6 +119,29 @@ Player value depends on roster context:
 
 A third RB has a different marginal value on a roster with two elite RBs than on a roster with none.
 
+### 20.2.1 Projected wins over replacement
+
+Wins Over Replacement Player (WORP) converts a player's league-wide VORP into
+expected regular-season head-to-head wins. Keep the two stages separate:
+
+1. VORP supplies projected points above the league-wide starter replacement
+   cutline.
+2. A context-specific points-to-win curve converts the weekly point advantage
+   into expected win gain.
+
+Fit each curve from regular-season Sleeper matchup score margins for one exact
+`(team_count, scoring_format)` context. Split by league-season before fitting so
+no league contributes to both training and validation. Exclude candidate
+leagues with error-level quality flags. Do not fall back across team counts or
+scoring formats.
+
+The offline fitter can produce a candidate artifact while historical collection
+continues. A candidate must meet the documented sample and holdout-error gates,
+then receive explicit approval with a decision reference before the live board
+can load it. Until then, live WORP remains unavailable. The current route value
+also remains an approximate ADP opponent-choice lookahead; it is not a full
+expected-value distribution or WORP.
+
 ### 20.3 VONA
 
 Define value over next availability:

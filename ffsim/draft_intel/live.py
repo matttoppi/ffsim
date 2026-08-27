@@ -41,6 +41,7 @@ from ffsim.draft_intel.opportunity import (
     next_user_turn_pick_no as _next_user_turn_pick_no,
     season_value_over_replacement as _value_over_replacement,
 )
+from ffsim.draft_intel.worp import load_worp_curve, projected_worp
 from ffsim.draft_intel.storage import load_sleeper_identity_map, store_history
 from ffsim.loaders.league import _fetch_json, league_and_drafts, refresh_league
 from ffsim.loaders.players import PlayerLoader
@@ -841,7 +842,7 @@ def completed_league_simulation(prepared, state):
     }
 
 
-PROJECTION_BOARD_VERSION = 1
+PROJECTION_BOARD_VERSION = 2
 PROJECTION_POSITIONS = ("QB", "RB", "WR", "TE", "K", "DEF")
 
 
@@ -871,11 +872,45 @@ def projection_value_board(prepared, state, temperature=None):
     projection, position_of, replacement = _value_over_replacement(
         prepared.evaluator
     )
+    vorp = {
+        player_id: points - replacement.get(position_of[player_id], 0.0)
+        for player_id, points in projection.items()
+    }
     adp = {
         player_id: exp(-utility)
         for player_id, utility in sleeper_adp_utilities(
             prepared.market_snapshot
         ).items()
+    }
+    market_context = getattr(prepared, "summary", {}).get("market_context") or {}
+    target_context = market_context.get("target_context") or {}
+    team_count = target_context.get("team_count") or len(prepared.evaluator.roster_ids)
+    scoring_format = target_context.get("scoring")
+    if scoring_format:
+        worp_curve, worp_status = load_worp_curve(team_count, scoring_format)
+    else:
+        worp_curve = None
+        worp_status = {
+            "status": "context_unknown",
+            "team_count": team_count,
+            "scoring_format": None,
+        }
+    projection_weeks = len(prepared.evaluator.bank.weeks)
+    regular_season_weeks = getattr(
+        prepared.evaluator, "regular_season_weeks", projection_weeks
+    )
+    worp = {
+        player_id: (
+            projected_worp(
+                value,
+                projection_weeks,
+                regular_season_weeks,
+                worp_curve,
+            )
+            if worp_curve
+            else None
+        )
+        for player_id, value in vorp.items()
     }
     position_order = {
         position: rank for rank, position in enumerate(PROJECTION_POSITIONS)
@@ -904,9 +939,8 @@ def projection_value_board(prepared, state, temperature=None):
             "position_rank": position_ranks[position],
             "projected_points": projection[player_id],
             "replacement_points": replacement.get(position, 0.0),
-            "value_over_replacement": (
-                projection[player_id] - replacement.get(position, 0.0)
-            ),
+            "value_over_replacement": vorp[player_id],
+            "wins_over_replacement": worp[player_id],
             "current_roster_value": current_values[player_id],
             "adp": adp.get(player_id),
         })
@@ -928,9 +962,8 @@ def projection_value_board(prepared, state, temperature=None):
                     "name", player_id
                 ),
                 "projected_points": projection[player_id],
-                "value_over_replacement": (
-                    projection[player_id] - replacement.get(position, 0.0)
-                ),
+                "value_over_replacement": vorp[player_id],
+                "wins_over_replacement": worp[player_id],
                 "current_roster_value": current_values[player_id],
                 "later_value": max(
                     0.0, route_values[player_id] - current_values[player_id]
@@ -954,6 +987,8 @@ def projection_value_board(prepared, state, temperature=None):
     return {
         "model_status": "deterministic_projection_lookahead",
         "model_version": PROJECTION_BOARD_VERSION,
+        "route_model_status": "approximate_adp_opponent_choice_lookahead",
+        "worp_calibration": worp_status,
         "pick_no": state.current_pick_no,
         "next_user_pick_no": next_turn,
         "recommended_player_id": plans[0]["player_id"] if plans else None,

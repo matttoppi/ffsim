@@ -22,6 +22,8 @@ export function ProjectionBoard({
   const recommendation = board.plans.find(
     (plan) => plan.player_id === board.recommended_player_id,
   )
+  const worpReady = board.worp_calibration.status === 'validated'
+  const worpStatus = board.worp_calibration.status.replaceAll('_', ' ')
 
   return (
     <div className="projection-board">
@@ -38,11 +40,11 @@ export function ProjectionBoard({
               {recommendation.current_roster_value.toFixed(1)} roster value now
               {board.next_user_pick_no != null && (
                 <>
-                  {' '}+ {recommendation.later_value.toFixed(1)} expected through pick{' '}
-                  {board.next_user_pick_no}
+                  {' '}+ {recommendation.later_value.toFixed(1)} approximate later value through{' '}
+                  pick {board.next_user_pick_no}
                 </>
               )}
-              {' '}= {recommendation.route_value.toFixed(1)} route value.
+              {' '}= {recommendation.route_value.toFixed(1)} approximate route value.
             </p>
           )}
         </div>
@@ -62,7 +64,7 @@ export function ProjectionBoard({
               <strong>{plan.name}</strong>
               <small>
                 {plan.current_roster_value.toFixed(1)} now ·{' '}
-                {plan.later_value.toFixed(1)} later
+                {plan.later_value.toFixed(1)} approx later
               </small>
               <span>{plan.route_value.toFixed(1)}</span>
             </button>
@@ -111,6 +113,7 @@ export function ProjectionBoard({
                       <th scope="col">Player</th>
                       <th scope="col">Projected</th>
                       <th scope="col">VORP</th>
+                      {worpReady && <th scope="col">WORP</th>}
                       <th scope="col">Roster value</th>
                       <th scope="col">ADP</th>
                     </tr>
@@ -125,6 +128,13 @@ export function ProjectionBoard({
                         </th>
                         <td>{player.projected_points.toFixed(1)}</td>
                         <td>{signed(player.value_over_replacement)}</td>
+                        {worpReady && (
+                          <td>
+                            {player.wins_over_replacement == null
+                              ? '—'
+                              : signed(player.wins_over_replacement)}
+                          </td>
+                        )}
                         <td>{player.current_roster_value.toFixed(1)}</td>
                         <td>{player.adp == null ? '—' : player.adp.toFixed(1)}</td>
                       </tr>
@@ -139,9 +149,14 @@ export function ProjectionBoard({
 
       <p className="board-footnote">
         Prepared projections scored with this league&apos;s Sleeper settings. VORP is projected
-        points above the league-wide starter replacement cutline. Route value uses
-        the current roster and deterministic ADP lookahead; it does not run rest-of-draft or
-        season simulations.
+        points above the league-wide starter replacement cutline. Approximate route value uses
+        the current roster and ADP opponent-choice lookahead. It is not a full expected-value
+        distribution and does not run rest-of-draft or season simulations.
+      </p>
+      <p className="board-footnote" role="status">
+        {worpReady
+          ? `Wins Over Replacement Player (WORP) uses the approved ${board.worp_calibration.model_version} curve for ${board.worp_calibration.team_count}-team ${board.worp_calibration.scoring_format}.`
+          : `WORP pending for ${board.worp_calibration.team_count}-team ${board.worp_calibration.scoring_format ?? 'unknown scoring'}: ${worpStatus}. The live board will not estimate wins until this exact context passes holdout checks and receives explicit approval.`}
       </p>
     </div>
   )

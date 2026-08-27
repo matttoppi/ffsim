@@ -27,6 +27,7 @@ from ffsim.draft_intel.live import (
 )
 from ffsim.draft_intel.market_model import SLEEPER_ADP_SOURCE
 from ffsim.draft_intel.state import DraftPick
+from ffsim.draft_intel.worp import WORPCurve
 from tests.test_decision import draft_state, evaluator
 
 
@@ -95,9 +96,15 @@ class LiveDraftTest(unittest.TestCase):
             ),
             roster_ids=(1, 2),
             slot_counts={"QB": 1, "RB": 1, "WR": 1},
+            regular_season_weeks=3,
         )
         prepared = SimpleNamespace(
             user_roster_id=1,
+            summary={
+                "market_context": {
+                    "target_context": {"team_count": 2, "scoring": "PPR"}
+                }
+            },
             evaluator=league_evaluator,
             market_snapshot={
                 "source": SLEEPER_ADP_SOURCE,
@@ -120,9 +127,22 @@ class LiveDraftTest(unittest.TestCase):
             available_player_ids=frozenset(player_ids),
         )
 
-        board = projection_value_board(prepared, state)
+        with patch(
+            "ffsim.draft_intel.live.load_worp_curve",
+            return_value=(
+                WORPCurve(2, "PPR", (0.0, 10.0), (0.0, 0.2)),
+                {"status": "validated", "team_count": 2, "scoring_format": "PPR"},
+            ),
+        ):
+            board = projection_value_board(prepared, state)
 
         self.assertEqual(board["pick_no"], 1)
+        self.assertEqual(board["model_version"], 2)
+        self.assertEqual(
+            board["route_model_status"],
+            "approximate_adp_opponent_choice_lookahead",
+        )
+        self.assertEqual(board["worp_calibration"]["status"], "validated")
         self.assertEqual(board["next_user_pick_no"], 3)
         self.assertEqual(
             [plan["position"] for plan in board["plans"]],
@@ -143,6 +163,7 @@ class LiveDraftTest(unittest.TestCase):
         )
         self.assertEqual(qb_rows[0]["replacement_points"], 30.0)
         self.assertEqual(qb_rows[0]["value_over_replacement"], 60.0)
+        self.assertAlmostEqual(qb_rows[0]["wins_over_replacement"], 0.6)
         self.assertEqual(
             board["recommended_player_id"],
             board["plans"][0]["player_id"],
