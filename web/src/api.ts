@@ -242,10 +242,47 @@ export interface DraftLeagueSimulation {
   }>
 }
 
+export type DraftRecommendationMode = 'simulation' | 'projection'
+
+
+export interface DraftProjectionBoard {
+  model_status: 'deterministic_projection_lookahead'
+  model_version: number
+  pick_no: number
+  next_user_pick_no: number | null
+  recommended_player_id: string | null
+  recommended_position: string | null
+  plans: Array<{
+    position: string
+    player_id: string
+    name: string
+    projected_points: number
+    value_over_replacement: number
+    current_roster_value: number
+    later_value: number
+    route_value: number
+    adp: number | null
+  }>
+  players: Array<{
+    player_id: string
+    name: string
+    position: string
+    team: string | null
+    position_rank: number
+    projected_points: number
+    replacement_points: number
+    value_over_replacement: number
+    current_roster_value: number
+    adp: number | null
+  }>
+}
+
+
 export interface DraftMonitor {
   status: 'idle' | 'starting' | 'running' | 'completed' | 'stopped' | 'failed'
   draft_id?: string
   poll_seconds?: number
+  recommendation_mode?: DraftRecommendationMode
   sync_count?: number
   calculation_count?: number
   last_sync_at?: number | null
@@ -259,6 +296,8 @@ export interface DraftMonitor {
   league_equity_pick_no?: number | null
   league_equity_error?: string | null
   league_equity_calculation_count?: number
+  projection_board?: DraftProjectionBoard | null
+  projection_board_error?: string | null
   error?: string | null
   state?: {
     draft_status: string
@@ -380,11 +419,11 @@ export const prepareDraft = (params: {
 export const getDraftPreparation = () =>
   request<DraftPreparation>('/api/draft-intel/prepare')
 
-export const startDraftMonitor = () =>
+export const startDraftMonitor = (recommendationMode: DraftRecommendationMode = 'simulation') =>
   request<DraftMonitor>('/api/draft-intel/monitor', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: '{}',
+    body: JSON.stringify({ recommendation_mode: recommendationMode }),
   })
 
 export const getDraftMonitor = () =>

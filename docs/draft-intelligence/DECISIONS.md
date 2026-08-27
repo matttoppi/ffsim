@@ -1627,3 +1627,68 @@ intermediate calculation was internally correct.
   the validated one-state work ratio is 1.0.
 - Decision engine v9 is the only version change for this correction.
 - PERF-01 owns any later refinement optimization.
+
+## ADR-037 — Keep projection lookahead separate from full simulation
+
+### Status
+
+Accepted and implemented (2026-08-27).
+
+### Decision
+
+The live monitor accepts `recommendation_mode = simulation | projection`.
+Simulation mode keeps the existing coupled draft and season calculations
+unchanged. It also publishes the projection board so the user can compare both
+views. Projection mode publishes only the projection board and does not start
+the candidate executor, draft rollouts, or league-equity calculations.
+
+Projection board version 1 uses the prepared `SeasonWorldBank.expected_scores`.
+Those scores already contain the league-specific Sleeper scoring conversion.
+The board:
+
+- ranks every eligible available player within position by projected season
+  points;
+- reports the league-wide starter replacement cutline and value over replacement
+  player (VORP);
+- reports the player's roster-aware terminal marginal value from ADR-031; and
+- compares the best current option at each position by current value plus
+  deterministic ADP-based lookahead through the next non-adjacent user pick.
+
+The lookahead reuses the rollout future-user policy's roster feasibility, caps,
+replacement values, and marginal opponent-choice probabilities. It does not
+sample a rest-of-draft completion or a season outcome.
+
+The projection board does not report wins over replacement player (WORP).
+Prepared player points do not define a points-to-head-to-head-wins conversion.
+Full simulation remains the source of expected wins, playoff probability, and
+championship probability.
+
+### Rationale
+
+The full model answers the correct final question but can take tens of seconds.
+The projection board gives an immediate, league-scored view for testing a
+lower-cost draft policy. Reusing the ADR-031 value and lookahead logic avoids a
+second roster-value convention while keeping the simulation algorithm intact.
+
+### Consequences
+
+- Projection mode updates on each synchronized user turn and does no Monte Carlo
+  recommendation work.
+- Route value is a deterministic lookahead heuristic. It is not paired Q,
+  survival probability, expected wins, or championship equity.
+- VORP is static league-wide value above the starter cutline. Roster value is a
+  separate roster-aware marginal.
+- `PROJECTION_BOARD_VERSION` starts at 1. No decision engine, roster scorer,
+  draft model, or world-bank version changes.
+- Add WORP only after the project accepts and validates a league-specific
+  points-to-wins model.
+
+### Validation
+
+- Focused Python decision, live, API, and roster-value tests pass 71/71. The
+  full warning-strict Python suite passes 223/223.
+- Draft Intelligence frontend tests pass 19/19. The full frontend suite passes
+  49/49, and the production build passes.
+- Browser verification shows the live projection route, positional tables,
+  VORP, roster value, ADP, and position filtering. Projection mode removes the
+  league-equity sidebar.

@@ -118,21 +118,25 @@ def next_turn_user_policy(evaluator, state, opponent_choice):
     board_ids = opponent_choice.board_player_ids
     board_index = {player_id: index for index, player_id in enumerate(board_ids)}
 
-    def policy(roster_id, pick_no, rosters, available):
-        current_values = _roster_feasible_values(
+    def current_values(roster_id, rosters, available):
+        return _roster_feasible_values(
             roster_id, rosters, available, value_model, slots, caps,
             roster_sizes,
         )
+
+
+    def policy(roster_id, pick_no, rosters, available):
+        current_values_by_player = current_values(roster_id, rosters, available)
         next_turn = next_user_turn_pick_no(state.pick_owners, pick_no, roster_id)
         if next_turn is None:
-            return current_values
+            return current_values_by_player
 
         candidates = {}
-        for player_id, value in current_values.items():
+        for player_id, value in current_values_by_player.items():
             position = position_of[player_id]
             incumbent = candidates.get(position)
             if incumbent is None or (-value, player_id) < (
-                -current_values[incumbent], incumbent
+                -current_values_by_player[incumbent], incumbent
             ):
                 candidates[position] = player_id
 
@@ -153,7 +157,7 @@ def next_turn_user_policy(evaluator, state, opponent_choice):
             future_available.remove(candidate_id)
             if candidate_id in board_index:
                 future_mask[board_index[candidate_id]] = False
-            total = current_values[candidate_id]
+            total = current_values_by_player[candidate_id]
 
             future_pick_no = pick_no + 1
             while (
@@ -299,6 +303,7 @@ def next_turn_user_policy(evaluator, state, opponent_choice):
         )
 
     policy.opportunity_evidence = opportunity_evidence
+    policy.current_values = current_values
     return policy
 
 

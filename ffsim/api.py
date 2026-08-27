@@ -10,6 +10,7 @@ from pathlib import Path
 from threading import Condition, Event, Lock, Thread
 import time
 from uuid import uuid4
+from typing import Literal
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -164,6 +165,7 @@ class DraftMonitorRequest(BaseModel):
     candidate_count: int = Field(default=9, ge=2, le=12)
     candidate_breadth: int = Field(default=40, ge=2, le=100)
     temperature: float | None = Field(default=None, gt=0, le=5)
+    recommendation_mode: Literal["simulation", "projection"] = "simulation"
 
 
 @dataclass
@@ -271,10 +273,13 @@ class LiveDraftMonitor:
     candidate_count: int
     candidate_breadth: int = 40
     temperature: float | None = None
+    recommendation_mode: str = "simulation"
     telemetry: DraftTelemetry | None = field(default=None, repr=False)
     session_id: str = field(default_factory=lambda: str(uuid4()))
     status: str = "starting"
     state: dict | None = None
+    projection_board: dict | None = None
+    projection_board_error: str | None = None
     recommendation: dict | None = None
     recommendation_status: str = "idle"
     recommendation_pick_no: int | None = None
@@ -310,8 +315,11 @@ class LiveDraftMonitor:
                 "poll_seconds": self.poll_seconds,
                 "sync_count": self.sync_count,
                 "calculation_count": self.calculation_count,
+                "recommendation_mode": self.recommendation_mode,
                 "last_sync_at": self.last_sync_at,
                 "state": self.state,
+                "projection_board": self.projection_board,
+                "projection_board_error": self.projection_board_error,
                 "recommendation": self.recommendation,
                 "recommendation_status": self.recommendation_status,
                 "recommendation_pick_no": self.recommendation_pick_no,
@@ -1143,14 +1151,16 @@ class LiveDraftMonitor:
             live_state_summary,
             merge_screen_refinement,
             predicted_next_state,
+            projection_value_board,
             select_finalists,
             sync_prepared_draft,
         )
 
-        equity_available = getattr(self.prepared, "evaluator", None) is not None
+        inputs_available = getattr(self.prepared, "evaluator", None) is not None
+        simulation_enabled = self.recommendation_mode == "simulation"
         telemetry_started = False
         try:
-            if equity_available:
+            if simulation_enabled and inputs_available:
                 self.executor = create_live_executor(self.prepared)
         except Exception:
             LOGGER.exception("Falling back to sequential candidate evaluation")
@@ -1165,7 +1175,7 @@ class LiveDraftMonitor:
                         "monitor": {
                             "poll_seconds": self.poll_seconds,
                             "rollout_count": self.rollout_count,
-                            "candidate_count": self.candidate_count,
+                            "recommendation_mode": self.recommendation_mode,
                             "candidate_breadth": self.candidate_breadth,
                             "temperature": self.temperature,
                         },
@@ -1181,20 +1191,21 @@ class LiveDraftMonitor:
                 if self.executor is not None:
                     self.executor.shutdown(wait=False, cancel_futures=True)
                 return
-        Thread(
-            target=self.calculate,
-            args=(
-                live_candidate_pool,
-                evaluate_live_candidates,
-                live_recommendation_payload,
-                evaluate_live_league_equity if equity_available else None,
-                live_league_equity_payload if equity_available else None,
-                select_finalists if equity_available else None,
-                merge_screen_refinement,
-                predicted_next_state if equity_available else None,
-            ),
-            daemon=True,
-        ).start()
+        if simulation_enabled:
+            Thread(
+                target=self.calculate,
+                args=(
+                    live_candidate_pool,
+                    evaluate_live_candidates,
+                    live_recommendation_payload,
+                    evaluate_live_league_equity if inputs_available else None,
+                    live_league_equity_payload if inputs_available else None,
+                    select_finalists if inputs_available else None,
+                    merge_screen_refinement,
+                    predicted_next_state if inputs_available else None,
+                ),
+                daemon=True,
+            ).start()
         try:
             with self.lock:
                 self.status = "running"
@@ -1241,14 +1252,26 @@ class LiveDraftMonitor:
                         self.recommendation_pick_no = None
                         self.recommendation_error = None
                         self.recommendation_discarded_pick_no = None
-                        self.pending_state = state
-                        self.league_equity_status = "pending" if equity_available else "failed"
+                        self.projection_board = None
+                        self.projection_board_error = None
+                        self.pending_state = state if simulation_enabled else None
+                        self.league_equity_status = (
+                            "pending"
+                            if simulation_enabled and inputs_available
+                            else "failed"
+                            if simulation_enabled
+                            else "idle"
+                        )
                         self.league_equity_pick_no = state.current_pick_no
                         self.league_equity_error = None
-                        if state.current_roster_id == self.prepared.user_roster_id:
+                        if (
+                            simulation_enabled
+                            and state.current_roster_id == self.prepared.user_roster_id
+                        ):
                             self.recommendation_status = "pending"
                             self.recommendation_pick_no = state.current_pick_no
-                        self.calculation_event.set()
+                        if simulation_enabled:
+                            self.calculation_event.set()
                     # A full pick sheet ends the draft even while the cached
                     # metadata payload still reports a stale "drafting" status.
                     complete = state.status == "complete" or state.current_pick_no is None
@@ -1274,7 +1297,33 @@ class LiveDraftMonitor:
                             else "watching"
                         ),
                     )
+                    if (
+                        inputs_available
+                        and state.current_roster_id == self.prepared.user_roster_id
+                    ):
+                        try:
+                            board = projection_value_board(
+                                self.prepared,
+                                state,
+                                self.temperature,
+                            )
+                            board_error = None
+                        except Exception as error:
+                            LOGGER.exception(
+                                "Live projection board failed for %s",
+                                self.prepared.live_draft_id,
+                            )
+                            board = None
+                            board_error = str(error)
+                        with self.lock:
+                            if self.state_fingerprint == current:
+                                self.projection_board = board
+                                self.projection_board_error = board_error
                 if complete:
+                    if not simulation_enabled:
+                        with self.lock:
+                            self.status = "completed"
+                        return
                     while not self.stopped.is_set():
                         with self.lock:
                             if self.league_equity_status in {"ready", "failed"}:
@@ -1595,6 +1644,7 @@ def create_app(config_path="config.json", telemetry_path=None):
             request.candidate_count,
             request.candidate_breadth,
             request.temperature,
+            request.recommendation_mode,
             app.state.draft_telemetry,
         )
         app.state.live_monitor = monitor

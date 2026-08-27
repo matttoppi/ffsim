@@ -841,6 +841,128 @@ def completed_league_simulation(prepared, state):
     }
 
 
+PROJECTION_BOARD_VERSION = 1
+PROJECTION_POSITIONS = ("QB", "RB", "WR", "TE", "K", "DEF")
+
+
+def projection_value_board(prepared, state, temperature=None):
+    """Fast league-scored rankings with deterministic next-turn lookahead."""
+    if state.current_roster_id != prepared.user_roster_id:
+        return None
+    if prepared.market_snapshot is None or prepared.evaluator is None:
+        raise ValueError("Prepared draft is missing market or season inputs")
+
+    temperature = LIVE_TEMPERATURE if temperature is None else float(temperature)
+    snapshot = _bank_market_snapshot(prepared)
+    choose = _live_opponent_choice(snapshot, prepared.evaluator, state, temperature)
+    policy = _projection_user_policy(prepared.evaluator, state, choose)
+    current_values = policy.current_values(
+        prepared.user_roster_id,
+        state.rosters,
+        state.available_player_ids,
+    )
+    route_values = policy(
+        prepared.user_roster_id,
+        state.current_pick_no,
+        state.rosters,
+        state.available_player_ids,
+    )
+
+    projection, position_of, replacement = _value_over_replacement(
+        prepared.evaluator
+    )
+    adp = {
+        player_id: exp(-utility)
+        for player_id, utility in sleeper_adp_utilities(
+            prepared.market_snapshot
+        ).items()
+    }
+    position_order = {
+        position: rank for rank, position in enumerate(PROJECTION_POSITIONS)
+    }
+    eligible = current_values.keys() & projection.keys()
+    ranked = sorted(
+        eligible,
+        key=lambda player_id: (
+            position_order.get(position_of.get(player_id), len(position_order)),
+            -projection[player_id],
+            adp.get(player_id, float("inf")),
+            player_id,
+        ),
+    )
+    position_ranks = Counter()
+    players = []
+    for player_id in ranked:
+        position = position_of[player_id]
+        position_ranks[position] += 1
+        details = prepared.player_details.get(player_id, {})
+        players.append({
+            "player_id": player_id,
+            "name": details.get("name", player_id),
+            "position": position,
+            "team": details.get("team"),
+            "position_rank": position_ranks[position],
+            "projected_points": projection[player_id],
+            "replacement_points": replacement.get(position, 0.0),
+            "value_over_replacement": (
+                projection[player_id] - replacement.get(position, 0.0)
+            ),
+            "current_roster_value": current_values[player_id],
+            "adp": adp.get(player_id),
+        })
+
+    best_route_by_position = {}
+    for player_id, value in route_values.items():
+        position = position_of[player_id]
+        incumbent = best_route_by_position.get(position)
+        if incumbent is None or (-value, player_id) < (
+            -route_values[incumbent], incumbent
+        ):
+            best_route_by_position[position] = player_id
+    plans = sorted(
+        (
+            {
+                "position": position,
+                "player_id": player_id,
+                "name": prepared.player_details.get(player_id, {}).get(
+                    "name", player_id
+                ),
+                "projected_points": projection[player_id],
+                "value_over_replacement": (
+                    projection[player_id] - replacement.get(position, 0.0)
+                ),
+                "current_roster_value": current_values[player_id],
+                "later_value": max(
+                    0.0, route_values[player_id] - current_values[player_id]
+                ),
+                "route_value": route_values[player_id],
+                "adp": adp.get(player_id),
+            }
+            for position, player_id in best_route_by_position.items()
+        ),
+        key=lambda row: (
+            -row["route_value"],
+            -row["current_roster_value"],
+            row["player_id"],
+        ),
+    )
+    next_turn = _next_user_turn_pick_no(
+        state.pick_owners,
+        state.current_pick_no,
+        prepared.user_roster_id,
+    )
+    return {
+        "model_status": "deterministic_projection_lookahead",
+        "model_version": PROJECTION_BOARD_VERSION,
+        "pick_no": state.current_pick_no,
+        "next_user_pick_no": next_turn,
+        "recommended_player_id": plans[0]["player_id"] if plans else None,
+        "recommended_position": plans[0]["position"] if plans else None,
+        "plans": plans,
+        "players": players,
+    }
+
+
 def position_timing_outlook(prepared, state, positions=("QB", "TE")):
     """Projected positional value at the user's next three non-adjacent turns."""
     if prepared.market_snapshot is None or prepared.evaluator is None:

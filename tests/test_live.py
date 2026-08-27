@@ -21,6 +21,7 @@ from ffsim.draft_intel.live import (
     merge_screen_refinement,
     mock_mismatch_reasons,
     position_timing_outlook,
+    projection_value_board,
     predicted_next_state,
     select_finalists,
 )
@@ -76,6 +77,80 @@ class LiveDraftTest(unittest.TestCase):
         (urgent_qb,) = position_timing_outlook(prepared, state, positions=("QB",))
         self.assertEqual(urgent_qb["target_pick_no"], 24)
         self.assertEqual(urgent_qb["recommendation"], "TAKE_NOW")
+
+    def test_projection_value_board_ranks_league_points_and_wait_routes(self):
+        player_ids = (
+            "qb1", "qb2", "qb3",
+            "rb1", "rb2", "rb3",
+            "wr1", "wr2", "wr3",
+        )
+        positions = ("QB",) * 3 + ("RB",) * 3 + ("WR",) * 3
+        expected_scores = (30, 20, 10, 24, 16, 8, 22, 15, 7)
+        league_evaluator = SimpleNamespace(
+            bank=SimpleNamespace(
+                player_ids=player_ids,
+                player_positions=positions,
+                expected_scores=expected_scores,
+                weeks=(1, 2, 3),
+            ),
+            roster_ids=(1, 2),
+            slot_counts={"QB": 1, "RB": 1, "WR": 1},
+        )
+        prepared = SimpleNamespace(
+            user_roster_id=1,
+            evaluator=league_evaluator,
+            market_snapshot={
+                "source": SLEEPER_ADP_SOURCE,
+                "snapshot_id": "projection-board",
+                "observations": [
+                    {"canonical_player_id": player_id, "adp": index * 4}
+                    for index, player_id in enumerate(player_ids, 1)
+                ],
+            },
+            player_details={
+                player_id: {"name": player_id.upper(), "team": "TST"}
+                for player_id in player_ids
+            },
+        )
+        state = SimpleNamespace(
+            current_pick_no=1,
+            current_roster_id=1,
+            pick_owners=(1, 2, 1, 2, 1, 2, 1, 2),
+            rosters=((1, ()), (2, ())),
+            available_player_ids=frozenset(player_ids),
+        )
+
+        board = projection_value_board(prepared, state)
+
+        self.assertEqual(board["pick_no"], 1)
+        self.assertEqual(board["next_user_pick_no"], 3)
+        self.assertEqual(
+            [plan["position"] for plan in board["plans"]],
+            [
+                plan["position"]
+                for plan in sorted(
+                    board["plans"],
+                    key=lambda plan: -plan["route_value"],
+                )
+            ],
+        )
+        qb_rows = [
+            player for player in board["players"] if player["position"] == "QB"
+        ]
+        self.assertEqual(
+            [(player["player_id"], player["projected_points"]) for player in qb_rows],
+            [("qb1", 90.0), ("qb2", 60.0), ("qb3", 30.0)],
+        )
+        self.assertEqual(qb_rows[0]["replacement_points"], 30.0)
+        self.assertEqual(qb_rows[0]["value_over_replacement"], 60.0)
+        self.assertEqual(
+            board["recommended_player_id"],
+            board["plans"][0]["player_id"],
+        )
+        self.assertGreaterEqual(
+            board["plans"][0]["route_value"],
+            board["plans"][-1]["route_value"],
+        )
 
     def test_live_league_equity_payload_names_and_ranks_every_roster(self):
         prepared = PreparedDraft(
@@ -721,6 +796,16 @@ class LiveDraftTest(unittest.TestCase):
             frozenset(bank.player_ids) - set(two_qbs[0][1]),
         )
         self.assertNotIn("qb3", utilities)
+
+        # The final user pick returns current values without lookahead.
+        final_pick_values = policy(
+            1,
+            13,
+            empty,
+            frozenset(bank.player_ids),
+        )
+        self.assertIn("qb1", final_pick_values)
+        self.assertIsInstance(final_pick_values["qb1"], float)
 
     def test_live_rollouts_finish_with_complete_sane_rosters(self):
         from collections import Counter

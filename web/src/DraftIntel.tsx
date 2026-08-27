@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { ProjectionBoard } from './ProjectionBoard'
 import {
   getDraftMonitor,
   getDraftPreparation,
@@ -7,6 +8,7 @@ import {
   startDraftMonitor,
   stopDraftMonitor,
   type DraftLeagueSimulation,
+  type DraftRecommendationMode,
   type DraftMonitor,
   type DraftPreparation,
   type DraftRecommendationCandidate,
@@ -172,6 +174,7 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
   const [username, setUsername] = useState('')
   const [preparation, setPreparation] = useState<DraftPreparation>({ status: 'idle' })
   const [monitor, setMonitor] = useState<DraftMonitor>({ status: 'idle' })
+  const [decisionMode, setDecisionMode] = useState<DraftRecommendationMode>('simulation')
   const [error, setError] = useState<string | null>(null)
   const [positionFilter, setPositionFilter] = useState<string | null>(null)
   const [simulation, setSimulation] = useState<DraftLeagueSimulation | null>(null)
@@ -183,7 +186,10 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
 
   useEffect(() => {
     void getDraftPreparation().then(setPreparation, () => {})
-    void getDraftMonitor().then(setMonitor, () => {})
+    void getDraftMonitor().then((value) => {
+      setMonitor(value)
+      if (value.recommendation_mode) setDecisionMode(value.recommendation_mode)
+    }, () => {})
   }, [])
 
   useEffect(() => {
@@ -234,10 +240,15 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
     }
   }
 
+  const chooseMode = (mode: DraftRecommendationMode) => {
+    setDecisionMode(mode)
+    setPositionFilter(null)
+  }
+
   const start = async () => {
     setError(null)
     try {
-      setMonitor(await startDraftMonitor())
+      setMonitor(await startDraftMonitor(decisionMode))
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not start monitoring')
     }
@@ -307,6 +318,10 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
   const positionTiming = recommendationCurrent
     ? (monitor.recommendation?.position_timing ?? [])
     : []
+  const projectionCurrent =
+    monitor.projection_board?.pick_no != null &&
+    monitor.projection_board.pick_no === currentPickNo
+  const projectionBoard = projectionCurrent ? monitor.projection_board : null
   const leaderEdge =
     monitor.recommendation?.paired_value_delta_vs_runner_up?.projected_value_delta
   const tossUp = monitor.recommendation?.decision_status === 'toss_up'
@@ -454,6 +469,35 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
             {preparation.mock_compatibility?.status === 'exact' && (
               <p className="mock-verified">✓ League mock verified against the real draft settings.</p>
             )}
+            <div className="decision-mode">
+              <div>
+                <p className="eyebrow">Recommendation engine</p>
+                <div role="group" aria-label="Recommendation engine">
+                  <button
+                    type="button"
+                    className={decisionMode === 'simulation' ? 'is-active' : ''}
+                    disabled={
+                      monitoring && monitor.recommendation_mode === 'projection'
+                    }
+                    onClick={() => chooseMode('simulation')}
+                  >
+                    Full simulation
+                  </button>
+                  <button
+                    type="button"
+                    className={decisionMode === 'projection' ? 'is-active' : ''}
+                    onClick={() => chooseMode('projection')}
+                  >
+                    Projection lookahead
+                  </button>
+                </div>
+              </div>
+              <small>
+                {decisionMode === 'simulation'
+                  ? 'Coupled rest-of-draft evaluation with season equity.'
+                  : 'Immediate points, VORP, roster value, and next-turn lookahead. No simulation.'}
+              </small>
+            </div>
             <div className="draft-actions">
               <button
                 type="button"
@@ -518,9 +562,31 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
               </button>
             )}
           </div>
-          <div className="draft-live-body">
+          <div className={`draft-live-body${
+            decisionMode === 'projection' && !simulation ? ' is-projection' : ''
+          }`}>
             <div className="draft-live-main">
-          {monitoring && monitor.state && (
+          {decisionMode === 'projection' && onClock && projectionBoard && (
+            <ProjectionBoard
+              board={projectionBoard}
+              positionFilter={positionFilter}
+              onPositionFilterChange={setPositionFilter}
+            />
+          )}
+          {decisionMode === 'projection' && onClock && monitor.projection_board_error && (
+            <p className="form-error" role="alert">
+              Projection board failed: {monitor.projection_board_error}
+            </p>
+          )}
+          {decisionMode === 'projection' &&
+            onClock &&
+            !projectionBoard &&
+            !monitor.projection_board_error && (
+              <p className="controls-hint" role="status">
+                Preparing the projection board for pick {currentPickNo}…
+              </p>
+            )}
+          {decisionMode === 'simulation' && monitoring && monitor.state && (
             recStatus === 'failed' ? (
               <p className="form-error" role="alert">
                 Calculation failed for pick {monitor.recommendation_pick_no}:{' '}
@@ -580,7 +646,7 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
               <p className="controls-hint">Recommendations appear when you are on the clock.</p>
             ) : null
           )}
-          {monitoring &&
+          {decisionMode === 'simulation' && monitoring &&
             monitor.recommendation_discarded_pick_no != null &&
             !recommendationCurrent && (
               <p className="controls-hint" role="status">
@@ -588,7 +654,7 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
                 advanced.
               </p>
             )}
-          {candidates.length > 0 && (
+          {decisionMode === 'simulation' && candidates.length > 0 && (
             <>
               {screenedCandidates.length > 0 && (
                 <p className="controls-hint">
@@ -888,6 +954,7 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
             </div>
           )}
             </div>
+            {(decisionMode === 'simulation' || simulation) && (
             <aside
               className="league-equity"
               aria-label="League championship odds"
@@ -963,6 +1030,7 @@ export function DraftIntel({ currentDraftId }: { currentDraftId: string | null }
                 </p>
               )}
             </aside>
+            )}
           </div>
         </section>
       )}

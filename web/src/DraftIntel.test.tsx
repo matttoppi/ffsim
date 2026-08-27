@@ -78,6 +78,48 @@ describe('DraftIntel', () => {
     )
   }
 
+  it('starts projection monitoring without requesting simulation work', async () => {
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      if (String(url).endsWith('/api/draft-intel/prepare')) {
+        return Promise.resolve(response({
+          status: 'ready',
+          monitor_ready: true,
+          league_name: 'Test League',
+          teams: 12,
+          rounds: 16,
+          user_slot: 1,
+          market_players: 200,
+          history: { managers_with_eligible_history: 4, managers: 6 },
+          world_bank: { worlds: 300 },
+        }))
+      }
+      if (String(url).endsWith('/api/draft-intel/monitor')) {
+        return Promise.resolve(response(
+          init?.method === 'POST'
+            ? { status: 'starting', recommendation_mode: 'projection' }
+            : { status: 'idle' },
+        ))
+      }
+      return Promise.resolve(response({ status: 'idle' }))
+    })
+
+    await act(async () => {
+      render(<DraftIntel currentDraftId="real" />)
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Projection lookahead' }))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Start monitoring' }))
+    })
+
+    const request = fetchMock.mock.calls.find(
+      ([url, init]) =>
+        String(url).endsWith('/api/draft-intel/monitor') && init?.method === 'POST',
+    )
+    expect(JSON.parse(String(request?.[1]?.body))).toEqual({
+      recommendation_mode: 'projection',
+    })
+  })
+
   it('shows every synced pick exactly once and updates across polls without duplicates', async () => {
     vi.useFakeTimers()
     try {
@@ -372,6 +414,86 @@ describe('DraftIntel', () => {
     expect(screen.getByText('Take now')).toBeTruthy()
     expect(screen.getByText(/Patient Quarterback · 319 pts/)).toBeTruthy()
     expect(screen.getByText('−31 vs now')).toBeTruthy()
+  })
+
+  it('shows the projection-only position lists and next-turn route values', async () => {
+    mockMonitor({
+      status: 'running',
+      recommendation_mode: 'projection',
+      projection_board: {
+        model_status: 'deterministic_projection_lookahead',
+        model_version: 1,
+        pick_no: 6,
+        next_user_pick_no: 9,
+        recommended_player_id: 'rb1',
+        recommended_position: 'RB',
+        plans: [
+          {
+            position: 'RB',
+            player_id: 'rb1',
+            name: 'Value Runner',
+            projected_points: 284,
+            value_over_replacement: 74,
+            current_roster_value: 82,
+            later_value: 61,
+            route_value: 143,
+            adp: 8,
+          },
+          {
+            position: 'QB',
+            player_id: 'qb1',
+            name: 'Patient Quarterback',
+            projected_points: 390,
+            value_over_replacement: 62,
+            current_roster_value: 68,
+            later_value: 70,
+            route_value: 138,
+            adp: 7,
+          },
+        ],
+        players: [
+          {
+            player_id: 'qb1',
+            name: 'Patient Quarterback',
+            position: 'QB',
+            team: 'BUF',
+            position_rank: 1,
+            projected_points: 390,
+            replacement_points: 328,
+            value_over_replacement: 62,
+            current_roster_value: 68,
+            adp: 7,
+          },
+          {
+            player_id: 'rb1',
+            name: 'Value Runner',
+            position: 'RB',
+            team: 'ATL',
+            position_rank: 1,
+            projected_points: 284,
+            replacement_points: 210,
+            value_over_replacement: 74,
+            current_roster_value: 82,
+            adp: 8,
+          },
+        ],
+      },
+      state: { ...monitorState([pick(1, 'Alpha One')], 6), user_on_clock: true },
+    })
+
+    await act(async () => {
+      render(<DraftIntel currentDraftId="real" />)
+    })
+
+    expect(screen.getByText('Fast projection route')).toBeTruthy()
+    expect(screen.getByText('Value Runner leads the current-turn plan')).toBeTruthy()
+    expect(screen.getByText('Replacement: 328.0 pts')).toBeTruthy()
+    expect(screen.getByText('Replacement: 210.0 pts')).toBeTruthy()
+    expect(screen.getAllByText('VORP')).toHaveLength(2)
+    expect(screen.getByText(/82.0 roster value now.*61.0 expected through pick 9.*143.0 route value/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'RB' }))
+    expect(screen.queryByText('Replacement: 328.0 pts')).toBeNull()
+    expect(screen.getByText('Replacement: 210.0 pts')).toBeTruthy()
   })
 
   it('labels an in-progress board as a first look with pipeline steps', async () => {

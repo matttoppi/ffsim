@@ -112,6 +112,12 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(prepare.model_dump()["mock_draft_id"], "mock")
         self.assertEqual(prepare.world_count, 300)
         self.assertEqual(DraftMonitorRequest().rollout_count, 300)
+        self.assertEqual(
+            DraftMonitorRequest(recommendation_mode="projection").recommendation_mode,
+            "projection",
+        )
+        with self.assertRaises(ValidationError):
+            DraftMonitorRequest(recommendation_mode="invalid")
         with self.assertRaises(ValidationError):
             DraftMonitorRequest(rollout_count=1)
 
@@ -388,6 +394,72 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(monitor.status, "completed")
         self.assertEqual(monitor.sync_count, 1)
         self.assertIsNone(monitor.error)
+
+    def test_projection_monitor_polls_without_starting_simulation_work(self):
+        prepared = SimpleNamespace(
+            live_draft_id="mock",
+            user_roster_id=1,
+            evaluator=object(),
+        )
+        states = [
+            SimpleNamespace(
+                status="drafting",
+                completed_picks=(),
+                current_pick_no=1,
+                current_roster_id=1,
+                pick_owners=(1, 2),
+            ),
+            SimpleNamespace(
+                status="drafting",
+                completed_picks=(object(),),
+                current_pick_no=2,
+                current_roster_id=2,
+                pick_owners=(1, 2),
+            ),
+            SimpleNamespace(
+                status="complete",
+                completed_picks=(object(), object()),
+                current_pick_no=None,
+                current_roster_id=None,
+                pick_owners=(1, 2),
+            ),
+        ]
+        monitor = LiveDraftMonitor(
+            prepared,
+            0,
+            2,
+            2,
+            recommendation_mode="projection",
+        )
+
+        def publish_board(_prepared, _state, _temperature):
+            self.assertEqual(monitor.state, {"status": "drafting"})
+            return {"pick_no": 1, "players": [], "plans": []}
+
+        with (
+            patch(
+                "ffsim.draft_intel.live.sync_prepared_draft",
+                side_effect=[SimpleNamespace(state=state) for state in states],
+            ),
+            patch(
+                "ffsim.draft_intel.live.live_state_summary",
+                side_effect=lambda _prepared, state: {"status": state.status},
+            ),
+            patch(
+                "ffsim.draft_intel.live.projection_value_board",
+                side_effect=publish_board,
+            ) as projection_board,
+            patch("ffsim.draft_intel.live.create_live_executor") as executor,
+            patch("ffsim.draft_intel.live.evaluate_live_candidates") as evaluate,
+        ):
+            monitor.run()
+
+        self.assertEqual(monitor.status, "completed")
+        self.assertEqual(monitor.sync_count, 3)
+        projection_board.assert_called_once_with(prepared, states[0], None)
+        executor.assert_not_called()
+        evaluate.assert_not_called()
+        self.assertEqual(monitor.calculation_count, 0)
 
     def test_live_monitor_syncs_while_a_stale_recommendation_is_calculating(self):
         prepared = SimpleNamespace(live_draft_id="mock", user_roster_id=1)
