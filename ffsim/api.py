@@ -134,6 +134,11 @@ class LeagueRequest(BaseModel):
         return value
 
 
+class PersonalRankRequest(BaseModel):
+    player_id: str = Field(min_length=1)
+    offset: int
+
+
 class SimulationRequest(BaseModel):
     simulations: int | None = Field(default=None, ge=1, le=10_000)
     seed: int | None = None
@@ -147,6 +152,7 @@ class DraftPrepareRequest(BaseModel):
     mock_draft_id: str | None = None
     season: int = Field(default=2026, ge=2020, le=2100)
     world_count: int = Field(default=300, ge=2, le=500)
+    force_refresh: bool = False
 
     @field_validator("draft_id", "username", "mock_draft_id")
     @classmethod
@@ -275,6 +281,7 @@ class LiveDraftMonitor:
     temperature: float | None = None
     recommendation_mode: str = "simulation"
     telemetry: DraftTelemetry | None = field(default=None, repr=False)
+    alpha_shadow_collector: object | None = field(default=None, repr=False)
     session_id: str = field(default_factory=lambda: str(uuid4()))
     status: str = "starting"
     state: dict | None = None
@@ -292,6 +299,12 @@ class LiveDraftMonitor:
     league_equity_progress: dict | None = None
     league_equity_pick_no: int | None = None
     league_equity_error: str | None = None
+    alpha_shadow: dict | None = None
+    alpha_shadow_status: str = "disabled"
+    alpha_shadow_pick_no: int | None = None
+    alpha_shadow_error: str | None = None
+    alpha_shadow_duration_seconds: float | None = None
+    alpha_shadow_calculation_count: int = 0
     error: str | None = None
     sync_count: int = 0
     calculation_count: int = 0
@@ -300,6 +313,8 @@ class LiveDraftMonitor:
     lock: Lock = field(default_factory=Lock, repr=False)
     stopped: Event = field(default_factory=Event, repr=False)
     calculation_event: Event = field(default_factory=Event, repr=False)
+    alpha_shadow_thread: Thread | None = field(default=None, repr=False)
+    alpha_shadow_pending: tuple | None = field(default=None, repr=False)
     executor: object | None = field(default=None, repr=False)
     pending_state: object | None = field(default=None, repr=False)
     state_fingerprint: tuple | None = field(default=None, repr=False)
@@ -332,6 +347,16 @@ class LiveDraftMonitor:
                 "league_equity_pick_no": self.league_equity_pick_no,
                 "league_equity_error": self.league_equity_error,
                 "league_equity_calculation_count": self.league_equity_calculation_count,
+                "alpha_shadow": self.alpha_shadow,
+                "alpha_shadow_status": self.alpha_shadow_status,
+                "alpha_shadow_pick_no": self.alpha_shadow_pick_no,
+                "alpha_shadow_error": self.alpha_shadow_error,
+                "alpha_shadow_duration_seconds": (
+                    self.alpha_shadow_duration_seconds
+                ),
+                "alpha_shadow_calculation_count": (
+                    self.alpha_shadow_calculation_count
+                ),
                 "error": self.error,
             }
 
@@ -362,6 +387,142 @@ class LiveDraftMonitor:
                 self.error = f"Telemetry failed: {error}"
             self.stopped.set()
             raise
+
+    def _record_alpha_shadow(
+        self,
+        event_type,
+        payload,
+        *,
+        pick_no,
+        duration_seconds,
+    ):
+        if self.telemetry is None:
+            return
+        try:
+            self.telemetry.record(
+                self.session_id,
+                self.prepared.live_draft_id,
+                event_type,
+                payload,
+                pick_no=pick_no,
+                stage="shadow",
+                duration_seconds=duration_seconds,
+            )
+        except Exception:
+            LOGGER.exception(
+                "Alpha shadow telemetry failed for %s",
+                self.prepared.live_draft_id,
+            )
+
+    def _queue_alpha_shadow(
+        self,
+        fingerprint,
+        pick_no,
+        state,
+        recommendation,
+    ):
+        if self.alpha_shadow_collector is None:
+            return
+        worker = None
+        with self.lock:
+            if (
+                self.state_fingerprint != fingerprint
+                or self.stopped.is_set()
+                or (
+                    self.alpha_shadow_pick_no == pick_no
+                    and self.alpha_shadow_status in {"pending", "ready"}
+                )
+            ):
+                return
+            self.alpha_shadow = None
+            self.alpha_shadow_status = "pending"
+            self.alpha_shadow_pick_no = pick_no
+            self.alpha_shadow_error = None
+            self.alpha_shadow_duration_seconds = None
+            self.alpha_shadow_pending = (
+                fingerprint,
+                pick_no,
+                state,
+                recommendation,
+            )
+            if (
+                self.alpha_shadow_thread is None
+                or not self.alpha_shadow_thread.is_alive()
+            ):
+                worker = Thread(
+                    target=self._drain_alpha_shadow,
+                    daemon=True,
+                )
+                self.alpha_shadow_thread = worker
+        if worker is not None:
+            worker.start()
+
+    def _drain_alpha_shadow(self):
+        while True:
+            with self.lock:
+                pending = self.alpha_shadow_pending
+                self.alpha_shadow_pending = None
+                if pending is None:
+                    self.alpha_shadow_thread = None
+                    return
+            self._collect_alpha_shadow(*pending)
+
+    def _collect_alpha_shadow(
+        self,
+        fingerprint,
+        pick_no,
+        state,
+        recommendation,
+    ):
+        started_at = time.monotonic()
+        try:
+            payload = self.alpha_shadow_collector.collect(
+                self.prepared,
+                state,
+                recommendation,
+            )
+        except Exception as error:
+            duration = time.monotonic() - started_at
+            LOGGER.exception(
+                "Alpha shadow calculation failed for %s",
+                self.prepared.live_draft_id,
+            )
+            with self.lock:
+                current = (
+                    self.state_fingerprint == fingerprint
+                    and not self.stopped.is_set()
+                )
+                if current:
+                    self.alpha_shadow = None
+                    self.alpha_shadow_status = "failed"
+                    self.alpha_shadow_error = str(error)
+                    self.alpha_shadow_duration_seconds = duration
+            self._record_alpha_shadow(
+                "alpha_shadow_error" if current else "alpha_shadow_discarded",
+                {"error": str(error)},
+                pick_no=pick_no,
+                duration_seconds=duration,
+            )
+            return
+        duration = time.monotonic() - started_at
+        payload = {**payload, "duration_seconds": duration}
+        with self.lock:
+            current = (
+                self.state_fingerprint == fingerprint
+                and not self.stopped.is_set()
+            )
+            if current:
+                self.alpha_shadow = payload
+                self.alpha_shadow_status = "ready"
+                self.alpha_shadow_error = None
+                self.alpha_shadow_duration_seconds = duration
+                self.alpha_shadow_calculation_count += 1
+        self._record_alpha_shadow(
+            "alpha_shadow" if current else "alpha_shadow_discarded",
+            payload,
+            pick_no=pick_no,
+            duration_seconds=duration,
+        )
 
     def _sticky_finalists(self):
         """Previous pick's finalists, carried into the next candidate window."""
@@ -432,6 +593,7 @@ class LiveDraftMonitor:
             else:
                 self.recommendation = recommendation
                 self.recommendation_status = status
+                self.recommendation_pick_no = pick_no
                 self.previous_finalists = tuple(
                     str(row["player_id"])
                     for row in recommendation.get("candidates", ())[:FINALIST_COUNT]
@@ -478,6 +640,12 @@ class LiveDraftMonitor:
                 self.recommendation_status = "calculating" if on_clock else "idle"
                 self.recommendation_discarded_pick_no = None
                 self.recommendation_progress = None
+                if (
+                    self.alpha_shadow_pick_no is not None
+                    and self.alpha_shadow_pick_no != pick_no
+                    and self.alpha_shadow_status in {"pending", "ready"}
+                ):
+                    self.alpha_shadow_status = "stale"
                 if evaluate_equity is not None and equity_payload is not None:
                     self.league_equity_status = "calculating"
                     self.league_equity_progress = None
@@ -1040,6 +1208,21 @@ class LiveDraftMonitor:
                         cumulative_candidate_rollout_work=screened_units,
                         **speculation,
                     )
+            if on_clock and recommendation is not None:
+                with self.lock:
+                    shadow_ready = (
+                        self.state_fingerprint == fingerprint
+                        and not self.stopped.is_set()
+                        and self.recommendation_status == "ready"
+                        and self.recommendation_pick_no == pick_no
+                    )
+                if shadow_ready:
+                    self._queue_alpha_shadow(
+                        fingerprint,
+                        pick_no,
+                        state,
+                        recommendation,
+                    )
 
             if not equity_finalized:
                 with self.lock:
@@ -1252,8 +1435,9 @@ class LiveDraftMonitor:
                         self.recommendation_pick_no = None
                         self.recommendation_error = None
                         self.recommendation_discarded_pick_no = None
-                        self.projection_board = None
-                        self.projection_board_error = None
+                        # Keep the last projection board visible while the
+                        # replacement computes (~10 ms later this iteration);
+                        # the UI shows a stale-pick chip instead of a blank.
                         self.pending_state = state if simulation_enabled else None
                         self.league_equity_status = (
                             "pending"
@@ -1297,10 +1481,7 @@ class LiveDraftMonitor:
                             else "watching"
                         ),
                     )
-                    if (
-                        inputs_available
-                        and state.current_roster_id == self.prepared.user_roster_id
-                    ):
+                    if inputs_available:
                         try:
                             board = projection_value_board(
                                 self.prepared,
@@ -1429,6 +1610,7 @@ def _run_draft_preparation(state, config_path, request):
             season=request.season,
             world_count=request.world_count,
             progress=progress,
+            force_refresh=request.force_refresh,
         )
         with state.prepare_lock:
             state.prepared_draft = prepared
@@ -1498,12 +1680,22 @@ def create_app(config_path="config.json", telemetry_path=None):
         name = None
         draft = None
         market_context = None
+        recent_trades = []
         if league_id:
             cache = CACHE_DIR / f"league_{league_id}.json"
             if cache.exists():
                 snapshot = json.loads(cache.read_text())
                 league = snapshot.get("league", {})
                 name = league.get("name")
+                players_path = CACHE_DIR / "sleeper_players.json"
+                players = (
+                    json.loads(players_path.read_text())
+                    if players_path.exists()
+                    else {}
+                )
+                from ffsim.loaders.league import recent_trade_summaries
+
+                recent_trades = recent_trade_summaries(snapshot, players)
                 from ffsim.draft_intel.market_model import resolve_league_market_context
 
                 market_context = resolve_league_market_context(league)
@@ -1514,9 +1706,119 @@ def create_app(config_path="config.json", telemetry_path=None):
             "draft_id": draft_id,
             "name": name,
             "draft": draft,
+            "recent_trades": recent_trades,
             "market_context": market_context,
             "ready": name is not None and (draft_id is None or draft is not None),
             "refresh": dict(app.state.refresh),
+        }
+
+    @app.get("/api/personal-ranks")
+    def personal_ranks_board():
+        from ffsim.draft_intel.live import _live_market_snapshot, _player_details
+        from ffsim.draft_intel.market_model import load_league_market_snapshot
+        from ffsim.draft_intel.personal_ranks import ALLOWED_OFFSETS, load_offsets
+
+        try:
+            league_id = AppConfig.from_file(app.state.config_path).league_id
+        except ValueError:
+            league_id = None
+        if not league_id:
+            raise HTTPException(
+                status_code=409,
+                detail="Select a league before setting personal ranks",
+            )
+        cache = CACHE_DIR / f"league_{league_id}.json"
+        if not cache.exists():
+            raise HTTPException(
+                status_code=409,
+                detail="League cache is missing; select the league again",
+            )
+        league = json.loads(cache.read_text()).get("league") or {}
+        season = int(league.get("season") or 2026)
+        market = load_league_market_snapshot(league, season=season, max_age=None)
+        snapshot = _live_market_snapshot(market["snapshot"])
+        if snapshot is None or not snapshot.get("observations"):
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "No cached ADP board for this league yet; "
+                    "refresh the league or prepare a draft once"
+                ),
+            )
+        players_path = CACHE_DIR / "sleeper_players.json"
+        details = _player_details(players_path) if players_path.exists() else {}
+        offsets = load_offsets()
+        adp_by_player = {}
+        for observation in snapshot["observations"]:
+            player_id = str(observation.get("canonical_player_id") or "")
+            try:
+                adp = float(observation.get("adp"))
+            except (TypeError, ValueError):
+                continue
+            if player_id and adp > 0:
+                adp_by_player[player_id] = adp
+        players = [
+            {
+                "player_id": player_id,
+                "name": details.get(player_id, {}).get("name", player_id),
+                "position": details.get(player_id, {}).get("position"),
+                "team": details.get(player_id, {}).get("team"),
+                "adp": adp_by_player.get(player_id),
+                "offset": offsets.get(player_id, 0),
+            }
+            for player_id in adp_by_player.keys() | offsets.keys()
+        ]
+        players.sort(
+            key=lambda row: (
+                row["adp"] is None,
+                row["adp"] if row["adp"] is not None else 0.0,
+                row["player_id"],
+            )
+        )
+        return {
+            "allowed_offsets": list(ALLOWED_OFFSETS),
+            "count": len(offsets),
+            "players": players,
+        }
+
+    @app.post("/api/personal-ranks")
+    def set_personal_rank(request: PersonalRankRequest):
+        from ffsim.draft_intel.personal_ranks import offsets_hash, save_offset
+
+        try:
+            offsets = save_offset(request.player_id, request.offset)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error))
+        # An idle prepared draft swaps to the new board atomically. A running
+        # monitor keeps its immutable snapshot — hot-swapping mid-cycle could
+        # mix boards inside one payload — so edits made during monitoring
+        # apply at the next prepare.
+        applied = "next_prepare"
+        monitor = app.state.live_monitor
+        monitor_active = monitor is not None and monitor.snapshot()["status"] in {
+            "starting", "running"
+        }
+        if not monitor_active:
+            with app.state.prepare_lock:
+                prepared = app.state.prepared_draft
+                if prepared is not None:
+                    app.state.prepared_draft = replace(
+                        prepared,
+                        summary={
+                            **prepared.summary,
+                            "personal_ranks": {
+                                "players": len(offsets),
+                                "hash": offsets_hash(offsets),
+                            },
+                        },
+                        personal_ranks=offsets,
+                    )
+                    applied = "live"
+        return {
+            "player_id": request.player_id.strip(),
+            "offset": offsets.get(request.player_id.strip(), 0),
+            "count": len(offsets),
+            "applied": applied,
         }
 
     @app.get("/api/leagues")
@@ -1637,6 +1939,11 @@ def create_app(config_path="config.json", telemetry_path=None):
         existing = app.state.live_monitor
         if existing and existing.snapshot()["status"] in {"starting", "running"}:
             raise HTTPException(status_code=409, detail="Live monitoring is already running")
+        from ffsim.draft_intel.alpha_shadow import (
+            load_default_alpha_shadow_collector,
+        )
+
+        alpha_collector, alpha_error = load_default_alpha_shadow_collector()
         monitor = LiveDraftMonitor(
             prepared,
             request.poll_seconds,
@@ -1646,6 +1953,11 @@ def create_app(config_path="config.json", telemetry_path=None):
             request.temperature,
             request.recommendation_mode,
             app.state.draft_telemetry,
+            alpha_shadow_collector=alpha_collector,
+            alpha_shadow_status=(
+                "idle" if alpha_collector is not None else "disabled"
+            ),
+            alpha_shadow_error=alpha_error,
         )
         app.state.live_monitor = monitor
         Thread(target=monitor.run, daemon=True).start()
@@ -1655,6 +1967,130 @@ def create_app(config_path="config.json", telemetry_path=None):
     def draft_monitor_status():
         monitor = app.state.live_monitor
         return monitor.snapshot() if monitor else {"status": "idle"}
+
+    @app.get("/api/draft-intel/alpha-shadow")
+    def draft_alpha_shadow():
+        monitor = app.state.live_monitor
+        if monitor is None:
+            return {
+                "status": "disabled",
+                "pick_no": None,
+                "evidence": None,
+                "error": None,
+                "duration_seconds": None,
+            }
+        snapshot = monitor.snapshot()
+        return {
+            "status": snapshot["alpha_shadow_status"],
+            "pick_no": snapshot["alpha_shadow_pick_no"],
+            "evidence": snapshot["alpha_shadow"],
+            "error": snapshot["alpha_shadow_error"],
+            "duration_seconds": snapshot[
+                "alpha_shadow_duration_seconds"
+            ],
+            "calculation_count": snapshot[
+                "alpha_shadow_calculation_count"
+            ],
+        }
+
+    @app.get("/api/draft-intel/alpha-shadow/audit")
+    def draft_alpha_shadow_audit(
+        draft_id: str | None = None,
+        session_id: str | None = None,
+    ):
+        from ffsim.draft_intel.alpha_audit import (
+            build_alpha_shadow_audit,
+        )
+
+        try:
+            return build_alpha_shadow_audit(
+                app.state.draft_telemetry.path,
+                draft_id=draft_id,
+                session_id=session_id,
+            )
+        except (FileNotFoundError, OSError, ValueError) as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
+
+    @app.get("/api/draft-intel/managers")
+    def draft_manager_profiles():
+        from ffsim.draft_intel.profiles import (
+            MANAGER_PROFILE_MODEL_STATUS,
+            load_pick_observations,
+            load_target_context,
+            summarize_manager_profiles,
+        )
+
+        config = AppConfig.from_file(app.state.config_path)
+        if not config.league_id or not config.draft_id:
+            raise HTTPException(
+                status_code=409, detail="Attach a league and draft first"
+            )
+        cache_key = (config.league_id, config.draft_id)
+        cached = getattr(app.state, "manager_profiles", None)
+        if cached and cached.get("key") == cache_key:
+            return cached["payload"]
+        snapshot_path = Path(CACHE_DIR) / f"league_{config.league_id}.json"
+        try:
+            snapshot = json.loads(snapshot_path.read_text())
+            season = int((snapshot.get("draft") or {}).get("season") or 0)
+            observations = load_pick_observations()
+            target_context = load_target_context(app.state.config_path, season)
+        except (FileNotFoundError, OSError, ValueError) as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        profiles = summarize_manager_profiles(
+            observations,
+            target_season=target_context["season"],
+            target_scoring_type=target_context["scoring_type"],
+            target_team_count=target_context["team_count"],
+        )
+        users = {
+            str(user.get("user_id")): user
+            for user in snapshot.get("users") or []
+        }
+        draft_order = (snapshot.get("draft") or {}).get("draft_order") or {}
+        managers = []
+        for roster in snapshot.get("rosters") or []:
+            owner_id = (
+                str(roster["owner_id"])
+                if roster.get("owner_id") is not None
+                else None
+            )
+            user = users.get(owner_id, {})
+            profile = profiles.get(owner_id)
+            managers.append({
+                "user_id": owner_id,
+                "roster_id": roster.get("roster_id"),
+                "display_name": (
+                    user.get("display_name")
+                    or (profile or {}).get("display_name")
+                    or f"Roster {roster.get('roster_id')}"
+                ),
+                "team_name": (user.get("metadata") or {}).get("team_name"),
+                "draft_slot": draft_order.get(owner_id),
+                "history": {
+                    "draft_count": profile["draft_count"],
+                    "pick_count": profile["pick_count"],
+                    "weighted_draft_count": profile["context"][
+                        "weighted_draft_count"
+                    ],
+                    "qb_te_timing": profile["qb_te_timing"],
+                    "four_round_starts": profile["four_round_starts"],
+                    "position_picks": profile["position_picks"],
+                }
+                if profile
+                else None,
+            })
+        managers.sort(
+            key=lambda row: (row["draft_slot"] is None, row["draft_slot"] or 0)
+        )
+        payload = {
+            "model_status": MANAGER_PROFILE_MODEL_STATUS,
+            "target_context": target_context,
+            "observation_count": len(observations),
+            "managers": managers,
+        }
+        app.state.manager_profiles = {"key": cache_key, "payload": payload}
+        return payload
 
     @app.get("/api/draft-intel/telemetry")
     def draft_telemetry(

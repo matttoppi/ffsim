@@ -1,0 +1,219 @@
+{
+  "experiment": "manager residual impact on exact player survival",
+  "gate": {
+    "brier_improvement": 0.0003384463890246936,
+    "false_safe_improvement": -9.48387647343174e-05,
+    "paired_brier_difference": {
+      "drafts": 2320,
+      "estimate": -0.0003384463890231665,
+      "high": -0.00021102105814964752,
+      "low": -0.0004870105230368468,
+      "samples": 200,
+      "seed": 20260828
+    },
+    "passes": false,
+    "safe_coverage_loss": 0.00041736640054945706
+  },
+  "limitations": [
+    "2024 is a seen downstream diagnostic year",
+    "conditional hazards follow the observed board-removal path",
+    "marginal player hazards do not model joint tier survival",
+    "2025 was not queried for this experiment",
+    "no live opponent callback, VONA, WORP, rollout, API, or UI integration"
+  ],
+  "locked_test_loaded": false,
+  "status": "rejected",
+  "train_seasons": [
+    2021,
+    2022,
+    2023
+  ],
+  "training_counts": {
+    "drafts": 3834,
+    "eligible_managers": 7362,
+    "managers": 21748,
+    "missing_board_picks": 2987,
+    "missing_manager_picks": 12804,
+    "picks": 657321
+  },
+  "validation": {
+    "counts": {
+      "drafts": 2320,
+      "samples": 3435830,
+      "states": 343583
+    },
+    "label_audit": {
+      "definition": "not selected after current pick and before next same-roster pick",
+      "matches_canonical_iterator": true,
+      "samples": 3435830,
+      "survival_rate": 0.8370318089078913,
+      "survivals": 2875899
+    },
+    "personalized": {
+      "brier": 0.1965034777760855,
+      "calibration": [
+        {
+          "count": 7579,
+          "lower": 0.0,
+          "mean_prediction": 0.05651159730722008,
+          "observed_rate": 0.9997361129436602,
+          "upper": 0.1
+        },
+        {
+          "count": 17427,
+          "lower": 0.1,
+          "mean_prediction": 0.15701414544919898,
+          "observed_rate": 0.9995983244390888,
+          "upper": 0.2
+        },
+        {
+          "count": 34040,
+          "lower": 0.2,
+          "mean_prediction": 0.25482811971401553,
+          "observed_rate": 0.9993243243243243,
+          "upper": 0.3
+        },
+        {
+          "count": 59555,
+          "lower": 0.3,
+          "mean_prediction": 0.35445550658899555,
+          "observed_rate": 0.9990596927210141,
+          "upper": 0.4
+        },
+        {
+          "count": 89070,
+          "lower": 0.4,
+          "mean_prediction": 0.45241111262335626,
+          "observed_rate": 0.998955877399798,
+          "upper": 0.5
+        },
+        {
+          "count": 134554,
+          "lower": 0.5,
+          "mean_prediction": 0.555748206134193,
+          "observed_rate": 0.9978150036416606,
+          "upper": 0.6
+        },
+        {
+          "count": 268421,
+          "lower": 0.6,
+          "mean_prediction": 0.6555290046038651,
+          "observed_rate": 0.9934356849873892,
+          "upper": 0.7
+        },
+        {
+          "count": 448626,
+          "lower": 0.7,
+          "mean_prediction": 0.7535200928186359,
+          "observed_rate": 0.9560123577322759,
+          "upper": 0.8
+        },
+        {
+          "count": 794397,
+          "lower": 0.8,
+          "mean_prediction": 0.8553895484191019,
+          "observed_rate": 0.8413425529049078,
+          "upper": 0.9
+        },
+        {
+          "count": 1582161,
+          "lower": 0.9,
+          "mean_prediction": 0.9552240570620218,
+          "observed_rate": 0.7396453331866985,
+          "upper": 1.0
+        }
+      ],
+      "count": 3435830,
+      "false_safe_rate": 0.19740094804444597,
+      "false_urgent_rate": 0.9994580496562002,
+      "log_loss": 0.6869172370060684,
+      "safe_coverage": 0.8222711833821813,
+      "urgent_coverage": 0.017185367145638755
+    },
+    "population": {
+      "brier": 0.1968419241651102,
+      "calibration": [
+        {
+          "count": 8050,
+          "lower": 0.0,
+          "mean_prediction": 0.054605466765999186,
+          "observed_rate": 0.999751552795031,
+          "upper": 0.1
+        },
+        {
+          "count": 17574,
+          "lower": 0.1,
+          "mean_prediction": 0.15743750693246847,
+          "observed_rate": 0.9996016843063616,
+          "upper": 0.2
+        },
+        {
+          "count": 34567,
+          "lower": 0.2,
+          "mean_prediction": 0.2546630312765876,
+          "observed_rate": 0.9993346255098794,
+          "upper": 0.3
+        },
+        {
+          "count": 59541,
+          "lower": 0.3,
+          "mean_prediction": 0.35431134652133145,
+          "observed_rate": 0.9991098570732773,
+          "upper": 0.4
+        },
+        {
+          "count": 89503,
+          "lower": 0.4,
+          "mean_prediction": 0.45230791241044793,
+          "observed_rate": 0.9989162374445549,
+          "upper": 0.5
+        },
+        {
+          "count": 133039,
+          "lower": 0.5,
+          "mean_prediction": 0.5558287238104963,
+          "observed_rate": 0.9977299889506085,
+          "upper": 0.6
+        },
+        {
+          "count": 266938,
+          "lower": 0.6,
+          "mean_prediction": 0.6557233074640134,
+          "observed_rate": 0.9934891248155002,
+          "upper": 0.7
+        },
+        {
+          "count": 449878,
+          "lower": 0.7,
+          "mean_prediction": 0.7535114615279782,
+          "observed_rate": 0.9568127358972877,
+          "upper": 0.8
+        },
+        {
+          "count": 803303,
+          "lower": 0.8,
+          "mean_prediction": 0.8554812279201177,
+          "observed_rate": 0.8438932756382087,
+          "upper": 0.9
+        },
+        {
+          "count": 1573437,
+          "lower": 0.9,
+          "mean_prediction": 0.9547830942251139,
+          "observed_rate": 0.737594196653568,
+          "upper": 1.0
+        }
+      ],
+      "count": 3435830,
+      "false_safe_rate": 0.19730610927971165,
+      "false_urgent_rate": 0.9994683590570019,
+      "log_loss": 0.689112749802282,
+      "safe_coverage": 0.8226885497827308,
+      "urgent_coverage": 0.017518619955003596
+    }
+  },
+  "validation_2024_seen_diagnostic": true,
+  "validation_seasons": [
+    2024
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "additive_survival": {
+    "elite_rb_gap18_prediction": 0.266311094217711,
+    "elite_rb_gap18_support": 2006,
+    "rolling_fold_gates": {
+      "train-2021-2022_validate-2023": {
+        "brier_improvement": 0.004942583146414423,
+        "false_safe_improvement": 0.023562289753521065,
+        "passes": true,
+        "safe_coverage_loss": 0.05664070275075972
+      },
+      "train-2021_validate-2022": {
+        "brier_improvement": 0.019284183401194727,
+        "false_safe_improvement": 0.03177861215829657,
+        "passes": true,
+        "safe_coverage_loss": 0.028429859165666094
+      }
+    },
+    "status": "rejected"
+  },
+  "completed_draft_neural": {
+    "points_mae": 27.240223606989176,
+    "required_mae": 27.08046,
+    "status": "rejected"
+  },
+  "exact_empirical_survival": {
+    "elite_cells": {
+      "ppr_10": {
+        "count": 696,
+        "interval_95": [
+          0.003072280769103395,
+          0.01670590903841876
+        ],
+        "probability": 0.008595988538681949,
+        "raw_rate": 0.007183908045977011,
+        "successes": 5
+      },
+      "ppr_12": {
+        "count": 1101,
+        "interval_95": [
+          0.0004982891604973553,
+          0.006599198841402644
+        ],
+        "probability": 0.0027198549410698096,
+        "raw_rate": 0.0018165304268846503,
+        "successes": 2
+      }
+    },
+    "rolling_fold_gates": {
+      "train-2021-2022_validate-2023": {
+        "brier": 0.06513521661826274,
+        "coverage": 0.2832280622603203,
+        "expected_calibration_error": 0.043743405484031085,
+        "passes": true
+      },
+      "train-2021_validate-2022": {
+        "brier": 0.006562713522986487,
+        "coverage": 0.10068797286223391,
+        "expected_calibration_error": 0.00027957559685406314,
+        "passes": true
+      }
+    },
+    "status": "research"
+  },
+  "locked_2025_loaded": false
+}

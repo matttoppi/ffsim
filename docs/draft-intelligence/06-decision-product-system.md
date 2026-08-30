@@ -1,5 +1,10 @@
 ## 19. Decision Objective and Recommendation Logic
 
+For the short ownership map across projected completed-roster value, VONA,
+WORP, and HDVN, use
+[`VALUE_MODEL_BOUNDARIES.md`](VALUE_MODEL_BOUNDARIES.md). This chapter remains
+the canonical product specification for the live objective, VONA, and WORP.
+
 ### 19.1 Primary objective
 
 For root candidate `p` (ADR-026):

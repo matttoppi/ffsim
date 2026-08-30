@@ -1,0 +1,50 @@
+{
+  "accepted_for_training": false,
+  "historical_access_authorized": false,
+  "official_access_note": "Personal keys cover current rankings and projections; the official API page assigns historical data and bulk access to Commercial.",
+  "reason": "Historical rows require an authoritative preseason observation timestamp and authorized historical access. A season parameter alone does not establish point-in-time provenance.",
+  "seasons": {
+    "2024": {
+      "http_status": 200,
+      "positions": "QB,RB,WR,TE",
+      "response_keys": [
+        "count",
+        "experts",
+        "players",
+        "positions",
+        "public_api_limited",
+        "scoring",
+        "season",
+        "tier",
+        "week"
+      ],
+      "rows": 598,
+      "season": "2024",
+      "sha256": "86f55a901ba519585c9d8f0ed2b7b908ecc9643e1e65b464548c83ea040c2e7b",
+      "timestamp_fields": {},
+      "week": "0"
+    },
+    "2025": {
+      "http_status": 200,
+      "positions": "QB,RB,WR,TE",
+      "response_keys": [
+        "count",
+        "experts",
+        "players",
+        "positions",
+        "public_api_limited",
+        "scoring",
+        "season",
+        "tier",
+        "week"
+      ],
+      "rows": 729,
+      "season": "2025",
+      "sha256": "9c21d0ec855a450af64880a342af2747ddef7253c8a1f0836a1c438838da1c3a",
+      "timestamp_fields": {},
+      "week": "0"
+    }
+  },
+  "source": "FantasyPros personal API",
+  "status": "rejected_for_point_in_time"
+}

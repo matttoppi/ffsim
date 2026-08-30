@@ -13,6 +13,7 @@ from ffsim.draft_intel.decision import (
     evaluate_league_equity,
     merge_evaluations,
     merge_rollout_ranges,
+    rank_candidates,
     recommendation_summary,
 )
 from ffsim.draft_intel.state import replay_sleeper_draft
@@ -164,6 +165,110 @@ class DecisionEvaluationTest(unittest.TestCase):
             ])
         with self.assertRaisesRegex(ValueError, "duplicate candidates"):
             merge_evaluations([combined, combined])
+
+    def test_personal_offsets_shift_the_preference_utility_only(self):
+        kwargs = dict(
+            user_roster_id=1,
+            rollout_ids=range(8),
+            opponent_choice=market_utility,
+            user_policy=market_utility,
+            league_evaluator=evaluator(),
+            draft_model_version="manual-test-v1",
+            seed=19,
+        )
+        raw = evaluate_candidates(draft_state(), ("p1", "p2"), **kwargs)
+        adjusted = evaluate_candidates(
+            draft_state(), ("p1", "p2"), personal_values={"p2": 50}, **kwargs
+        )
+
+        # Raw leader is the projection leader; +50 season points on p2
+        # flips the preference-adjusted ranking and the recommendation.
+        self.assertEqual(rank_candidates(raw)[0].candidate_id, "p1")
+        self.assertEqual(rank_candidates(adjusted)[0].candidate_id, "p2")
+        self.assertEqual(
+            recommendation_summary(adjusted).recommended_candidate_id, "p2"
+        )
+
+        # The offset counts exactly once per completed roster: p2 is on the
+        # user roster in every p2-branch continuation and never in the
+        # p1 branch, so the utility shifts by exactly the offset.
+        p2 = adjusted.candidate("p2")
+        self.assertAlmostEqual(
+            p2.preference_adjusted_value, p2.projected_roster_value + 50.0
+        )
+        self.assertAlmostEqual(
+            adjusted.candidate("p1").preference_adjusted_value,
+            adjusted.candidate("p1").projected_roster_value,
+        )
+        self.assertAlmostEqual(
+            adjusted.paired_preference_delta("p2", "p1").projected_value_delta,
+            adjusted.paired_value_delta("p2", "p1").projected_value_delta + 50.0,
+        )
+
+        # Raw metrics are untouched by offsets; without offsets the
+        # preference fields stay unset.
+        self.assertEqual(
+            raw.candidate("p1").projected_roster_value,
+            adjusted.candidate("p1").projected_roster_value,
+        )
+        self.assertEqual(
+            raw.candidate("p2").continuation_roster_values,
+            adjusted.candidate("p2").continuation_roster_values,
+        )
+        self.assertIsNone(raw.candidate("p2").preference_adjusted_value)
+        self.assertEqual(
+            recommendation_summary(raw).recommended_candidate_id, "p1"
+        )
+
+        # Disjoint rollout ranges merge to the exact full-range preference
+        # evaluation.
+        merged = merge_rollout_ranges([
+            evaluate_candidates(
+                draft_state(), ("p1", "p2"),
+                **{**kwargs, "rollout_ids": range(4)},
+                personal_values={"p2": 50},
+            ),
+            evaluate_candidates(
+                draft_state(), ("p1", "p2"),
+                **{**kwargs, "rollout_ids": range(4, 8)},
+                personal_values={"p2": 50},
+            ),
+        ])
+        self.assertEqual(merged, adjusted)
+
+    def test_bench_offsets_pass_through_the_lineup_scorer(self):
+        kwargs = dict(
+            user_roster_id=1,
+            rollout_ids=range(4),
+            opponent_choice=market_utility,
+            user_policy=market_utility,
+            league_evaluator=evaluator(),
+            draft_model_version="manual-test-v1",
+            seed=19,
+        )
+        # p8 lands on the user's bench in every continuation, below the
+        # WR cutline. +40 cannot lift him above it, so the lineup scorer
+        # passes through nothing — exactly like the future-user policy's
+        # floored values (no more full-credit sum).
+        below = evaluate_candidates(
+            draft_state(), ("p1", "p2"), personal_values={"p8": 40}, **kwargs
+        )
+        self.assertAlmostEqual(
+            below.candidate("p1").preference_adjusted_value,
+            below.candidate("p1").projected_roster_value,
+            places=6,
+        )
+        # A boost large enough to clear the cutline earns only the
+        # discounted bench-asset fraction, never the full offset.
+        big = evaluate_candidates(
+            draft_state(), ("p1", "p2"), personal_values={"p8": 400}, **kwargs
+        )
+        shift = (
+            big.candidate("p1").preference_adjusted_value
+            - big.candidate("p1").projected_roster_value
+        )
+        self.assertGreater(shift, 0.0)
+        self.assertLess(shift, 400.0)
 
     def test_merged_rollout_ranges_equal_one_full_range_evaluation(self):
         league_evaluator = evaluator()

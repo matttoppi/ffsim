@@ -1,0 +1,129 @@
+{
+  "conclusion": "Use hierarchical survival as explanation-only shadow evidence. Do not rank candidates by one-turn route value.",
+  "experiment": "terminal-first hierarchical timing overlay",
+  "gate": {
+    "complete_top_ten_capture": true,
+    "decision_active": false,
+    "outside_top_ten_unscored": true,
+    "passes": true,
+    "recommendation_unchanged": true
+  },
+  "recommendation": "7523",
+  "recommendation_changed_by_survival": false,
+  "recommendation_source": "300-rollout completed-roster value",
+  "recommended_player_market_rank": 25,
+  "recommended_player_return_probability": null,
+  "shadow_alternatives": [
+    {
+      "eligible_next_turn": false,
+      "interval_95": [
+        0.9225895926139328,
+        0.9703511984564192
+      ],
+      "market_rank": 1,
+      "player_id": "10859",
+      "return_probability": 0.9491109709560487,
+      "timing_label": "safe_to_wait"
+    },
+    {
+      "eligible_next_turn": true,
+      "interval_95": [
+        0.7355371802778152,
+        0.8284329071022385
+      ],
+      "market_rank": 2,
+      "player_id": "8167",
+      "return_probability": 0.7837764144512611,
+      "timing_label": "safe_to_wait"
+    },
+    {
+      "eligible_next_turn": true,
+      "interval_95": [
+        0.9550474859673278,
+        0.9748076748741777
+      ],
+      "market_rank": 3,
+      "player_id": "11560",
+      "return_probability": 0.9656045609087865,
+      "timing_label": "safe_to_wait"
+    },
+    {
+      "eligible_next_turn": true,
+      "interval_95": [
+        0.8139340597499412,
+        0.8718134888468966
+      ],
+      "market_rank": 4,
+      "player_id": "5846",
+      "return_probability": 0.8439557303874611,
+      "timing_label": "safe_to_wait"
+    },
+    {
+      "eligible_next_turn": true,
+      "interval_95": [
+        0.6221930991694682,
+        0.7055092689417974
+      ],
+      "market_rank": 5,
+      "player_id": "8228",
+      "return_probability": 0.664484512943289,
+      "timing_label": "uncertain"
+    },
+    {
+      "eligible_next_turn": true,
+      "interval_95": [
+        0.43439347597429323,
+        0.5330288882783203
+      ],
+      "market_rank": 6,
+      "player_id": "11628",
+      "return_probability": 0.4836322764951061,
+      "timing_label": "uncertain"
+    },
+    {
+      "eligible_next_turn": true,
+      "interval_95": [
+        0.7176813836942695,
+        0.781640579239692
+      ],
+      "market_rank": 7,
+      "player_id": "7594",
+      "return_probability": 0.7503364619929037,
+      "timing_label": "safe_to_wait"
+    },
+    {
+      "eligible_next_turn": true,
+      "interval_95": [
+        0.6837807556460345,
+        0.7490214739007218
+      ],
+      "market_rank": 8,
+      "player_id": "12489",
+      "return_probability": 0.7169633440478489,
+      "timing_label": "safe_to_wait"
+    },
+    {
+      "eligible_next_turn": true,
+      "interval_95": [
+        0.9160714097333394,
+        0.9483661134908362
+      ],
+      "market_rank": 9,
+      "player_id": "12508",
+      "return_probability": 0.9331136532090265,
+      "timing_label": "safe_to_wait"
+    },
+    {
+      "eligible_next_turn": true,
+      "interval_95": [
+        0.35112839252299477,
+        0.4361273033518591
+      ],
+      "market_rank": 10,
+      "player_id": "13294",
+      "return_probability": 0.39322809314807183,
+      "timing_label": "uncertain"
+    }
+  ],
+  "status": "research"
+}

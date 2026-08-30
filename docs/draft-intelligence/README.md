@@ -1,42 +1,104 @@
-# FFSIM Draft Intelligence
+# FFSIM Draft Intelligence Documentation
 
-Implementation and research plan for the live fantasy-football draft decision engine.
+This directory contains the live draft engine specification, current project
+state, durable decisions, research plans, and historical audit artifacts.
 
-The full specification is split into chapter files to keep the repository version easy for coding agents and reviewers to navigate. The source specification was developed against `ffsim` `main` at commit `efd2d3c`; audit the local repository before implementation because local commits may be newer.
+## Start here
 
-## Agent entrypoint
+Read only what the task needs:
 
-A coding agent should **not** begin by reading all specification chapters sequentially and immediately changing code.
+1. [`/AGENTS.md`](../../AGENTS.md) — operating rules and correctness invariants.
+2. [`IMPLEMENTATION_LEDGER.md`](IMPLEMENTATION_LEDGER.md) — current operational
+   state, blockers, and next work.
+3. [`VALUE_MODEL_BOUNDARIES.md`](VALUE_MODEL_BOUNDARIES.md) — short map of
+   projected roster value, VONA, WORP, and HDVN.
+4. [`DECISIONS.md`](DECISIONS.md) — durable architecture decisions.
+5. The relevant specification, research, or operations document below.
 
-Start in this order:
+Git and tests describe what is implemented. The specification describes the
+destination. A research plan does not imply implementation or live eligibility.
 
-1. [`/AGENTS.md`](../../AGENTS.md) — operating rules, correctness invariants, sequencing, research discipline, and stop conditions.
-2. [`IMPLEMENTATION_LEDGER.md`](IMPLEMENTATION_LEDGER.md) — current phase, completed work, validation state, blockers, and exact next tasks.
-3. [`DECISIONS.md`](DECISIONS.md) — durable architectural decisions already accepted.
-4. The relevant specification chapters below for the active phase.
+## Documentation map
 
-For a fresh Codex session, [`CODEX_HANDOFF_PROMPT.md`](CODEX_HANDOFF_PROMPT.md) contains the ready-to-paste autonomous handoff prompt.
+### Current project control
 
-For live or synthetic SQLite analysis, use
-[`TELEMETRY_QUERY_GUIDE.md`](TELEMETRY_QUERY_GUIDE.md).
+| Document | Owns |
+|---|---|
+| [`IMPLEMENTATION_LEDGER.md`](IMPLEMENTATION_LEDGER.md) | Current project state and handoff |
+| [`DECISIONS.md`](DECISIONS.md) | Accepted durable architecture decisions |
+| [`VALUE_MODEL_BOUNDARIES.md`](VALUE_MODEL_BOUNDARIES.md) | Ownership of projected value, VONA, WORP, and HDVN |
+| [`CODEX_HANDOFF_PROMPT.md`](CODEX_HANDOFF_PROMPT.md) | Fresh-session autonomous handoff |
 
-The specification describes the destination. The implementation ledger describes where the project is now. Git and tests describe what is actually implemented.
+### Stable product specification
 
-## Specification
+1. [`01-product-architecture.md`](01-product-architecture.md) — product,
+   architecture, baseline, and domain model.
+2. [`02-data-opponent-market.md`](02-data-opponent-market.md) — data,
+   identity, historical normalization, opponent behavior, and market inputs.
+3. [`03-live-draft-rollouts.md`](03-live-draft-rollouts.md) — live state,
+   survival, wait/reach, continuations, coupling, and `SeasonWorldBank`.
+4. [`04-nested-monte-carlo.md`](04-nested-monte-carlo.md) — draft and season
+   uncertainty.
+5. [`05-caching-memoization.md`](05-caching-memoization.md) — cache identity,
+   invalidation, and transposition reuse.
+6. [`06-decision-product-system.md`](06-decision-product-system.md) — terminal
+   objective, player value, VONA, WORP, UX, APIs, and backtesting.
+7. [`07-implementation-validation.md`](07-implementation-validation.md) —
+   tests, failure modes, security, phases, and release gates.
+8. [`08-algorithms-reference.md`](08-algorithms-reference.md) — algorithms,
+   schemas, end-to-end flow, and source registry.
 
-1. [Product definition, goals, current ffsim baseline, architecture, and domain model](01-product-architecture.md)
-2. [Data acquisition, player identity, historical draft normalization, opponent and market modeling](02-data-opponent-market.md)
-3. [Live draft state, survival/wait/reach logic, draft completion, coupled randomness, and SeasonWorldBank](03-live-draft-rollouts.md)
-4. [Nested Monte Carlo semantics and draft-vs-season uncertainty](04-nested-monte-carlo.md)
-5. [Caching, memoization, state hashing, invalidation, and transposition reuse](05-caching-memoization.md)
-6. [Decision objective, league-specific value, War Room UX, storage, APIs, performance, confidence, calibration, and backtesting](06-decision-product-system.md)
-7. [Testing, failure modes, security/source discipline, phased implementation, release gates, guardrails, and research tasks](07-implementation-validation.md)
-8. [Algorithms, recommendation schema, end-to-end flow, future extensions, source registry, and final product definition](08-algorithms-reference.md)
+### Active research projects
 
-## Core invariant
+| Project | Specification | Work ledger | Live status |
+|---|---|---|---|
+| Historical Draft Value Network (HDVN) | [`HISTORICAL_DRAFT_VALUE_NETWORK.md`](HISTORICAL_DRAFT_VALUE_NETWORK.md) | [`HDVN_IMPLEMENTATION_LEDGER.md`](HDVN_IMPLEMENTATION_LEDGER.md) | Pre-crawl tooling; none live |
+| WORP calibration | ADR-039 and chapter 06 §20.2.1 | Main implementation ledger | Candidate fitting only |
 
-A root candidate must never be evaluated from a single sampled rest-of-draft completion. For each serious current-pick option, the system must integrate over many probabilistically generated future draft continuations, with the existing/refactored `ffsim` engine's lineup and replacement rules supplying the terminal projected roster value (ADR-026) and its season simulation supplying secondary championship telemetry.
+The neural-network plan has its own specification and ticket ledger. It remains
+separate from live recommendations under ADR-040.
 
-## Starting point for implementation
+### Operations and analysis
 
-Begin with the repository/data audit and foundational domain/data layers. Do not attempt the entire specification in one coding-agent pass. Preserve existing `ffsim` behavior and tests while introducing the architectural seams required for historical draft intelligence, live draft state, draft rollouts, and the later `SeasonWorldBank` refactor.
+| Document | Use |
+|---|---|
+| [`TELEMETRY_QUERY_GUIDE.md`](TELEMETRY_QUERY_GUIDE.md) | Query live and synthetic SQLite telemetry |
+| [`SYNTHETIC_AUDIT_LOOP_PROMPT.md`](SYNTHETIC_AUDIT_LOOP_PROMPT.md) | Run the bounded synthetic audit workflow |
+| [`ffsim/historical_sleeper/README.md`](../../ffsim/historical_sleeper/README.md) | Operate the historical Sleeper collector |
+| [`ffsim/historical_sleeper/DATA_DICTIONARY.md`](../../ffsim/historical_sleeper/DATA_DICTIONARY.md) | Historical database schema and fields |
+
+### Historical and resolved artifacts
+
+These files preserve evidence. They are not current architecture sources:
+
+- [`archive/research/research-positional-opportunity-cost.md`](archive/research/research-positional-opportunity-cost.md)
+  — resolved positional-opportunity investigation.
+- [`archive/research/hdvn-market-source-audit-2026-08-27.md`](archive/research/hdvn-market-source-audit-2026-08-27.md)
+  — accepted historical market-source and licensing audit for HDVN V1.
+- [`archive/audits/AUDIT_20260815T043426-52dba2d4.md`](archive/audits/AUDIT_20260815T043426-52dba2d4.md)
+  — historical audit report.
+- [`archive/audits/AUDIT_REMEDIATION_LEDGER_20260815T043426-52dba2d4.md`](archive/audits/AUDIT_REMEDIATION_LEDGER_20260815T043426-52dba2d4.md)
+  — historical remediation evidence.
+
+## Core invariants
+
+- Never evaluate a serious root candidate from one rest-of-draft completion.
+- Integrate over many modeled draft continuations.
+- Use common/coupled randomness for candidate comparisons.
+- Keep player value separate from opponent choice and availability.
+- Keep live projected value separate from historical outcome labels.
+- VONA is next-turn opportunity evidence, not the root objective.
+- WORP is approved exact-context regular-season win telemetry, not championship
+  probability.
+- HDVN is offline research until locked validation and a later architecture
+  decision.
+- Keep cached and uncached evaluation mathematically equivalent.
+
+## Documentation maintenance
+
+- Update one canonical owner; link from other documents instead of copying full
+  definitions.
+- Put durable decisions in `DECISIONS.md`, not daily notes.
+- Keep current status in the relevant implementation ledger.
+- Mark resolved research and audits as historical evidence.
+- Do not describe a planned model as implemented, validated, or live.

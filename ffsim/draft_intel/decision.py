@@ -69,6 +69,25 @@ class CandidateEvaluation:
     continuation_championship_probabilities: tuple[float, ...]
     survival: SurvivalReport | None
     opportunity_cost: DraftOpportunityCost | None = None
+    # Preference-adjusted utility: raw roster value plus the owner's personal
+    # season-point offsets summed once over the user's completed roster
+    # (ADR-046). None when no offsets are stored; raw metrics stay raw.
+    continuation_preference_values: tuple[float, ...] | None = None
+    preference_adjusted_value: float | None = None
+    preference_adjusted_value_standard_error: float | None = None
+
+    @property
+    def preference_value(self):
+        """Ranking utility: preference-adjusted value, raw when unset."""
+        if self.preference_adjusted_value is None:
+            return self.projected_roster_value
+        return self.preference_adjusted_value
+
+    @property
+    def preference_values(self):
+        if self.continuation_preference_values is None:
+            return self.continuation_roster_values
+        return self.continuation_preference_values
 
     @property
     def sample_count(self):
@@ -187,13 +206,28 @@ class DecisionEvaluation:
 
     def paired_value_delta(self, candidate_id, baseline_candidate_id):
         """Paired projected-roster-value delta; one deterministic value per continuation."""
+        return self._paired_delta_of(
+            candidate_id,
+            baseline_candidate_id,
+            lambda candidate: candidate.continuation_roster_values,
+        )
+
+    def paired_preference_delta(self, candidate_id, baseline_candidate_id):
+        """Paired preference-adjusted delta; equals the raw delta without offsets."""
+        return self._paired_delta_of(
+            candidate_id,
+            baseline_candidate_id,
+            lambda candidate: candidate.preference_values,
+        )
+
+    def _paired_delta_of(self, candidate_id, baseline_candidate_id, values_of):
         candidate = self.candidate(candidate_id)
         baseline = self.candidate(baseline_candidate_id)
         differences = tuple(
             left - right
             for left, right in zip(
-                candidate.continuation_roster_values,
-                baseline.continuation_roster_values,
+                values_of(candidate),
+                values_of(baseline),
                 strict=True,
             )
         )
@@ -248,6 +282,7 @@ class RecommendationSummary:
     world_bank_version: str
     league_evaluator_version: str
     reason_codes: tuple[str, ...]
+    preference_adjusted_value: float | None = None
 
 
 def evaluate_candidates(
@@ -266,9 +301,15 @@ def evaluate_candidates(
     survival_player_ids=(),
     tiers=None,
     use_cache=True,
+    personal_values=None,
 ):
     """Evaluate root candidates on paired draft continuations and season worlds."""
     candidate_ids = _canonical_ids(candidate_ids, "candidate_ids")
+    personal_values = {
+        str(player_id): float(value)
+        for player_id, value in (personal_values or {}).items()
+        if float(value)
+    }
     if not candidate_ids:
         raise ValueError("candidate_ids must not be empty")
     rollout_ids = tuple(normalize_rollout_id(value) for value in rollout_ids)
@@ -329,6 +370,7 @@ def evaluate_candidates(
         log_probabilities = []
         continuation_probabilities = []
         roster_values = []
+        preference_values = []
         for completion, completion_worlds in zip(completions, world_indices):
             try:
                 assignment = {
@@ -339,9 +381,20 @@ def evaluate_candidates(
                 raise ValueError(
                     f"Completed draft player {error.args[0]} is missing from SeasonWorldBank"
                 ) from None
-            roster_values.append(
-                league_evaluator.projected_roster_value(assignment, user_roster_id)
+            roster_value = league_evaluator.projected_roster_value(
+                assignment, user_roster_id
             )
+            roster_values.append(roster_value)
+            if personal_values:
+                # Preference utility: the SAME lineup scorer under adjusted
+                # projections (ADR-046) — flooring, seating, and bench rules
+                # treat an offset exactly as the lineup carries it, keeping
+                # this consistent with the future-user policy's values.
+                preference_values.append(
+                    league_evaluator.projected_roster_value(
+                        assignment, user_roster_id, personal_values
+                    )
+                )
             result = league_evaluator.evaluate(
                 assignment,
                 world_indices=completion_worlds,
@@ -363,6 +416,10 @@ def evaluate_candidates(
             continuation_probabilities
         )
         roster_value, roster_value_error = _mean_and_error(roster_values)
+        if personal_values:
+            preference_value, preference_error = _mean_and_error(preference_values)
+        else:
+            preference_value = preference_error = None
         evaluations.append(CandidateEvaluation(
             candidate_id=candidate_id,
             projected_roster_value=roster_value,
@@ -396,6 +453,11 @@ def evaluate_candidates(
                 if hasattr(user_policy, "opportunity_evidence")
                 else None
             ),
+            continuation_preference_values=(
+                tuple(preference_values) if personal_values else None
+            ),
+            preference_adjusted_value=preference_value,
+            preference_adjusted_value_standard_error=preference_error,
         ))
 
     return DecisionEvaluation(
@@ -669,6 +731,22 @@ def merge_rollout_ranges(evaluations):
             value for part in parts for value in part.continuation_roster_values
         )
         roster_value, roster_value_error = _mean_and_error(roster_values)
+        preference_parts = tuple(
+            part.continuation_preference_values for part in parts
+        )
+        if any(
+            (part is None) != (preference_parts[0] is None)
+            for part in preference_parts
+        ):
+            raise ValueError("Cannot merge partially tracked preference values")
+        if preference_parts[0] is None:
+            preference_values = None
+            preference_value = preference_error = None
+        else:
+            preference_values = tuple(
+                value for part in preference_parts for value in part
+            )
+            preference_value, preference_error = _mean_and_error(preference_values)
         survivals = tuple(part.survival for part in parts)
         if any((survival is None) != (survivals[0] is None) for survival in survivals):
             raise ValueError("Cannot merge partially tracked survival reports")
@@ -698,6 +776,9 @@ def merge_rollout_ranges(evaluations):
                 for part in parts
                 for value in part.continuation_log_probabilities
             ),
+            continuation_preference_values=preference_values,
+            preference_adjusted_value=preference_value,
+            preference_adjusted_value_standard_error=preference_error,
             continuation_championship_probabilities=continuation_probabilities,
             survival=(
                 merge_survival_reports(survivals)
@@ -796,12 +877,20 @@ def rank_candidates(evaluation):
     the ranking through the rollout measure itself; adding a separate VONA
     term here would double-count wait value (measured: paired deltas already
     carry ~46% of VONA differences, and composite scores only flip leaders
-    toward streamable-position artifacts).
+    toward streamable-position artifacts). Personal season-point offsets
+    enter through the preference-adjusted utility (ADR-046), which equals
+    the raw value when no offsets are stored.
     """
+    def preference_value(candidate):
+        # Bare test doubles carry only raw fields.
+        value = getattr(candidate, "preference_adjusted_value", None)
+        return candidate.projected_roster_value if value is None else value
+
     return tuple(
         sorted(
             evaluation.candidates,
             key=lambda candidate: (
+                -preference_value(candidate),
                 -candidate.projected_roster_value,
                 -candidate.championship_probability,
                 -candidate.playoff_probability,
@@ -856,13 +945,17 @@ def recommendation_summary(evaluation, tier_key=None):
     """Rank candidates without inventing market-dependent reach/wait labels."""
     ranked = rank_candidates(evaluation)
     leader = ranked[0]
+    # Leader and tie status both use the preference-adjusted utility so a
+    # personal offset cannot produce a leader the tie test disagrees with;
+    # without offsets this is exactly the raw paired value delta.
+    paired_preference = getattr(
+        evaluation, "paired_preference_delta", evaluation.paired_value_delta
+    )
     co_leaders = tuple(
         candidate for candidate in ranked
         if candidate is leader
         or is_practical_co_leader(
-            evaluation.paired_value_delta(
-                leader.candidate_id, candidate.candidate_id
-            )
+            paired_preference(leader.candidate_id, candidate.candidate_id)
         )
     )
     decision_status = "clear_leader" if len(co_leaders) == 1 else "toss_up"
@@ -949,6 +1042,9 @@ def recommendation_summary(evaluation, tier_key=None):
         world_bank_version=evaluation.world_bank_version,
         league_evaluator_version=evaluation.league_evaluator_version,
         reason_codes=tuple(reasons),
+        preference_adjusted_value=getattr(
+            best, "preference_adjusted_value", None
+        ),
     )
 
 

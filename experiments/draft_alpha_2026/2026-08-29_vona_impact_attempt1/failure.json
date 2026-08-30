@@ -1,0 +1,8 @@
+{
+  "status": "failed",
+  "stage": "result serialization after completed 300-rollout evaluation",
+  "error_type": "AttributeError",
+  "error": "PairedValueDelta has no projected_value_standard_error field; the correct field is standard_error",
+  "elapsed_seconds": 135.01,
+  "result_created": false
+}

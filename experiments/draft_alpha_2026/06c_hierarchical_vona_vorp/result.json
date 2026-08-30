@@ -1,0 +1,1152 @@
+{
+  "counts": {
+    "complete_top_ten_states": 5,
+    "stable_static_vorp_states": 6,
+    "stable_terminal_marginal_states": 6,
+    "states": 6,
+    "top_ten_candidates": 59
+  },
+  "diagnostic_sha256": "8d47c215c06a932be589f8d1ae85253f135aaede77d934c3ef2ad2f62c5d5d0a",
+  "experiment": "hierarchical survival with current 2026 VONA and static VORP",
+  "gate": {
+    "passes": false,
+    "required_coverage": 1.0,
+    "top_ten_coverage": 0.9833333333333333
+  },
+  "limitations": [
+    "current 2026 states are a coverage and sensitivity audit, not an outcome backtest",
+    "historical point-in-time projections are unavailable",
+    "expected-best values assume independent player survival",
+    "static VORP and roster-specific terminal marginal value remain separate",
+    "no live VONA, WORP, rollout, API, or UI integration"
+  ],
+  "model_sha256": "fe4e513a0a25ddcde877968dc9f927d261a72a28178bfc142748d3246b15dea4",
+  "skipped_files": [
+    {
+      "reason": "not_timing_report",
+      "source": "tmp/timing-config-12.json"
+    }
+  ],
+  "states": [
+    {
+      "candidate_count": 10,
+      "draft_id": "1393628519644286976",
+      "gap": 18,
+      "pick_no": 1,
+      "players": [
+        {
+          "direct_count": 2725,
+          "direct_successes": 170,
+          "market_rank": 1,
+          "name": "Jahmyr Gibbs",
+          "player_id": "9221",
+          "pooled_count": 3801,
+          "pooled_successes": 287,
+          "position": "RB",
+          "probability": 0.06285768803855363,
+          "probability_high": 0.07209482693337148,
+          "probability_low": 0.054206619314398144,
+          "static_vorp": 202.9255362982247,
+          "terminal_marginal_value": 132.75193520462597
+        },
+        {
+          "direct_count": 2006,
+          "direct_successes": 7,
+          "market_rank": 2,
+          "name": "Bijan Robinson",
+          "player_id": "9509",
+          "pooled_count": 3801,
+          "pooled_successes": 230,
+          "position": "RB",
+          "probability": 0.006208049375724019,
+          "probability_high": 0.00998152253758828,
+          "probability_low": 0.003317980801835509,
+          "static_vorp": 200.51744740933583,
+          "terminal_marginal_value": 182.16487145606354
+        },
+        {
+          "direct_count": 1595,
+          "direct_successes": 226,
+          "market_rank": 3,
+          "name": "Ja'Marr Chase",
+          "player_id": "7564",
+          "pooled_count": 3801,
+          "pooled_successes": 252,
+          "position": "WR",
+          "probability": 0.13725819625400534,
+          "probability_high": 0.15403512279459394,
+          "probability_low": 0.12129193354736027,
+          "static_vorp": 162.34655630133105,
+          "terminal_marginal_value": 137.48581824044487
+        },
+        {
+          "direct_count": 1619,
+          "direct_successes": 342,
+          "market_rank": 4,
+          "name": "Puka Nacua",
+          "player_id": "9493",
+          "pooled_count": 3801,
+          "pooled_successes": 885,
+          "position": "WR",
+          "probability": 0.21250575729610607,
+          "probability_high": 0.2321509570966486,
+          "probability_low": 0.1934941530418259,
+          "static_vorp": 165.762941971113,
+          "terminal_marginal_value": 92.45924293109776
+        },
+        {
+          "direct_count": 1414,
+          "direct_successes": 7,
+          "market_rank": 5,
+          "name": "Christian McCaffrey",
+          "player_id": "4034",
+          "pooled_count": 3801,
+          "pooled_successes": 673,
+          "position": "RB",
+          "probability": 0.016329491665309073,
+          "probability_high": 0.023292685542348226,
+          "probability_low": 0.010573271897445063,
+          "static_vorp": 162.69949185378027,
+          "terminal_marginal_value": 113.24974807552292
+        },
+        {
+          "direct_count": 1329,
+          "direct_successes": 16,
+          "market_rank": 6,
+          "name": "Jaxon Smith-Njigba",
+          "player_id": "9488",
+          "pooled_count": 3801,
+          "pooled_successes": 335,
+          "position": "WR",
+          "probability": 0.017379377299090053,
+          "probability_high": 0.024767050603514255,
+          "probability_low": 0.011267726528337631,
+          "static_vorp": 150.1757260832625,
+          "terminal_marginal_value": 124.75051046252199
+        },
+        {
+          "direct_count": 1740,
+          "direct_successes": 34,
+          "market_rank": 7,
+          "name": "Jonathan Taylor",
+          "player_id": "6813",
+          "pooled_count": 3801,
+          "pooled_successes": 307,
+          "position": "RB",
+          "probability": 0.022879820279184625,
+          "probability_high": 0.03018628744795143,
+          "probability_low": 0.016554209160797573,
+          "static_vorp": 141.5701585204469,
+          "terminal_marginal_value": 144.62263592655307
+        },
+        {
+          "direct_count": 1323,
+          "direct_successes": 26,
+          "market_rank": 8,
+          "name": "Amon-Ra St. Brown",
+          "player_id": "7547",
+          "pooled_count": 3801,
+          "pooled_successes": 582,
+          "position": "WR",
+          "probability": 0.029044274511245975,
+          "probability_high": 0.03837426150825417,
+          "probability_low": 0.02096620292524404,
+          "static_vorp": 148.19585443217218,
+          "terminal_marginal_value": 103.4572438681811
+        },
+        {
+          "direct_count": 1124,
+          "direct_successes": 89,
+          "market_rank": 9,
+          "name": "CeeDee Lamb",
+          "player_id": "6786",
+          "pooled_count": 3801,
+          "pooled_successes": 1669,
+          "position": "WR",
+          "probability": 0.10858880759771697,
+          "probability_high": 0.12660603225650524,
+          "probability_low": 0.09178271145735842,
+          "static_vorp": 97.75788371566122,
+          "terminal_marginal_value": 31.77265403184686
+        },
+        {
+          "direct_count": 1170,
+          "direct_successes": 261,
+          "market_rank": 10,
+          "name": "James Cook",
+          "player_id": "8138",
+          "pooled_count": 3801,
+          "pooled_successes": 2107,
+          "position": "RB",
+          "probability": 0.24915742027119078,
+          "probability_high": 0.27330402993205183,
+          "probability_low": 0.22575909091176344,
+          "static_vorp": 99.47298074266917,
+          "terminal_marginal_value": 79.69964686023403
+        }
+      ],
+      "round": 1,
+      "scoring_format": "PPR",
+      "source": "tmp/timing-1393628519644286976.json",
+      "source_sha256": "bcfd0aacabd3a316e3b3f7ac9295086cab73a695243aee11d70b7290eb7c6457",
+      "static_vorp_vona": {
+        "best_current": 202.9255362982247,
+        "expected_best_later": {
+          "high": 98.65464737838838,
+          "low": 81.134626746758,
+          "mid": 89.93937083719752
+        },
+        "stable_sign": true,
+        "value_over_next_alternative_interval": [
+          104.27088891983632,
+          121.7909095514667
+        ]
+      },
+      "team_count": 10,
+      "terminal_marginal_vona": {
+        "best_current": 182.16487145606354,
+        "expected_best_later": {
+          "high": 69.27887027041764,
+          "low": 56.072669770220585,
+          "mid": 62.646751692731854
+        },
+        "stable_sign": true,
+        "value_over_next_alternative_interval": [
+          112.8860011856459,
+          126.09220168584295
+        ]
+      }
+    },
+    {
+      "candidate_count": 10,
+      "draft_id": "1393634461312106496",
+      "gap": 23,
+      "pick_no": 24,
+      "players": [
+        {
+          "direct_count": 3,
+          "direct_successes": 1,
+          "market_rank": 1,
+          "name": "Kenneth Walker",
+          "player_id": "8151",
+          "pooled_count": 21,
+          "pooled_successes": 15,
+          "position": "RB",
+          "probability": 0.6850991979738286,
+          "probability_high": 0.7707290801329747,
+          "probability_low": 0.5926606723862802,
+          "static_vorp": 64.91565375854213,
+          "terminal_marginal_value": 64.90899211441005
+        },
+        {
+          "direct_count": 2,
+          "direct_successes": 0,
+          "market_rank": 2,
+          "name": "Derrick Henry",
+          "player_id": "3198",
+          "pooled_count": 21,
+          "pooled_successes": 16,
+          "position": "RB",
+          "probability": 0.7246376811594202,
+          "probability_high": 0.8064780102508076,
+          "probability_low": 0.6344556323509358,
+          "static_vorp": 82.14405375854216,
+          "terminal_marginal_value": 49.233908834147336
+        },
+        {
+          "direct_count": 9,
+          "direct_successes": 9,
+          "market_rank": 3,
+          "name": "Josh Allen",
+          "player_id": "4984",
+          "pooled_count": 21,
+          "pooled_successes": 16,
+          "position": "QB",
+          "probability": 0.7606701236537694,
+          "probability_high": 0.8356264583433887,
+          "probability_low": 0.6766584620350099,
+          "static_vorp": 76.00939999999997,
+          "terminal_marginal_value": 51.26596525881564
+        },
+        {
+          "direct_count": 10,
+          "direct_successes": 5,
+          "market_rank": 4,
+          "name": "Nico Collins",
+          "player_id": "7569",
+          "pooled_count": 21,
+          "pooled_successes": 12,
+          "position": "WR",
+          "probability": 0.5592885375494071,
+          "probability_high": 0.6504422421158729,
+          "probability_low": 0.46609195387584973,
+          "static_vorp": 64.594,
+          "terminal_marginal_value": 34.026237603770646
+        },
+        {
+          "direct_count": 7,
+          "direct_successes": 0,
+          "market_rank": 5,
+          "name": "Rashee Rice",
+          "player_id": "10229",
+          "pooled_count": 21,
+          "pooled_successes": 8,
+          "position": "WR",
+          "probability": 0.3657049979683056,
+          "probability_high": 0.4587118254957171,
+          "probability_low": 0.2774544609019595,
+          "static_vorp": 89.30959999999999,
+          "terminal_marginal_value": 75.19404615337795
+        },
+        {
+          "direct_count": 4,
+          "direct_successes": 0,
+          "market_rank": 6,
+          "name": "Kyren Williams",
+          "player_id": "8150",
+          "pooled_count": 21,
+          "pooled_successes": 7,
+          "position": "RB",
+          "probability": 0.33444816053511706,
+          "probability_high": 0.427482766988097,
+          "probability_low": 0.24744523945811567,
+          "static_vorp": 49.29359999999997,
+          "terminal_marginal_value": 29.545717811355566
+        },
+        {
+          "direct_count": 5,
+          "direct_successes": 0,
+          "market_rank": 7,
+          "name": "Chris Olave",
+          "player_id": "8144",
+          "pooled_count": 21,
+          "pooled_successes": 7,
+          "position": "WR",
+          "probability": 0.33126293995859213,
+          "probability_high": 0.4236866393892629,
+          "probability_low": 0.24492832999256803,
+          "static_vorp": 74.22899999999998,
+          "terminal_marginal_value": 45.6045735181082
+        },
+        {
+          "direct_count": 8,
+          "direct_successes": 1,
+          "market_rank": 8,
+          "name": "Josh Jacobs",
+          "player_id": "5850",
+          "pooled_count": 21,
+          "pooled_successes": 8,
+          "position": "RB",
+          "probability": 0.3715780998389694,
+          "probability_high": 0.46434674202768106,
+          "probability_low": 0.2833157092495394,
+          "static_vorp": 56.706453758542125,
+          "terminal_marginal_value": 40.06119159507909
+        },
+        {
+          "direct_count": 5,
+          "direct_successes": 0,
+          "market_rank": 9,
+          "name": "Breece Hall",
+          "player_id": "8155",
+          "pooled_count": 21,
+          "pooled_successes": 5,
+          "position": "RB",
+          "probability": 0.24844720496894412,
+          "probability_high": 0.33498437294388284,
+          "probability_low": 0.1709821993481441,
+          "static_vorp": 62.95685375854214,
+          "terminal_marginal_value": 36.60128172684927
+        },
+        {
+          "direct_count": 3,
+          "direct_successes": 2,
+          "market_rank": 10,
+          "name": "Lamar Jackson",
+          "player_id": "4881",
+          "pooled_count": 21,
+          "pooled_successes": 5,
+          "position": "QB",
+          "probability": 0.272688898269312,
+          "probability_high": 0.3622057757805265,
+          "probability_low": 0.19153090745659504,
+          "static_vorp": 30.31740000000002,
+          "terminal_marginal_value": 3.2365340000000007e-07
+        }
+      ],
+      "round": 2,
+      "scoring_format": "PPR",
+      "source": "tmp/timing-1393634461312106496.json",
+      "source_sha256": "4a6ad843112d3ce2d5625a41effc5d6ad8c92bb4caeadb51ba07e064d18fd97a",
+      "static_vorp_vona": {
+        "best_current": 89.30959999999999,
+        "expected_best_later": {
+          "high": 84.65163594033237,
+          "low": 81.32071913051935,
+          "mid": 83.26725489234309
+        },
+        "stable_sign": true,
+        "value_over_next_alternative_interval": [
+          4.65796405966762,
+          7.988880869480639
+        ]
+      },
+      "team_count": 12,
+      "terminal_marginal_vona": {
+        "best_current": 75.19404615337795,
+        "expected_best_later": {
+          "high": 67.85299039082513,
+          "low": 62.95402414803224,
+          "mid": 65.67743300468683
+        },
+        "stable_sign": true,
+        "value_over_next_alternative_interval": [
+          7.341055762552827,
+          12.240022005345715
+        ]
+      }
+    },
+    {
+      "candidate_count": 9,
+      "draft_id": "1393656492011315200",
+      "gap": 22,
+      "pick_no": 73,
+      "players": [
+        {
+          "direct_count": 200,
+          "direct_successes": 140,
+          "market_rank": 2,
+          "name": "Christian Watson",
+          "player_id": "8167",
+          "pooled_count": 2443,
+          "pooled_successes": 2325,
+          "position": "WR",
+          "probability": 0.7837764144512611,
+          "probability_high": 0.8284329071022385,
+          "probability_low": 0.7355371802778152,
+          "static_vorp": 11.157599999999974,
+          "terminal_marginal_value": 3.4403431865872265
+        },
+        {
+          "direct_count": 1201,
+          "direct_successes": 1163,
+          "market_rank": 3,
+          "name": "Caleb Williams",
+          "player_id": "11560",
+          "pooled_count": 2443,
+          "pooled_successes": 2279,
+          "position": "QB",
+          "probability": 0.9656045609087865,
+          "probability_high": 0.9748076748741777,
+          "probability_low": 0.9550474859673278,
+          "static_vorp": 6.7391999999999825,
+          "terminal_marginal_value": 3.0007520000000003e-07
+        },
+        {
+          "direct_count": 502,
+          "direct_successes": 418,
+          "market_rank": 4,
+          "name": "DK Metcalf",
+          "player_id": "5846",
+          "pooled_count": 2443,
+          "pooled_successes": 2201,
+          "position": "WR",
+          "probability": 0.8439557303874611,
+          "probability_high": 0.8718134888468966,
+          "probability_low": 0.8139340597499412,
+          "static_vorp": 10.613399999999984,
+          "terminal_marginal_value": 0.4767634775422813
+        },
+        {
+          "direct_count": 392,
+          "direct_successes": 243,
+          "market_rank": 5,
+          "name": "Jaylen Warren",
+          "player_id": "8228",
+          "pooled_count": 2443,
+          "pooled_successes": 2051,
+          "position": "RB",
+          "probability": 0.664484512943289,
+          "probability_high": 0.7055092689417974,
+          "probability_low": 0.6221930991694682,
+          "static_vorp": 6.287799999999976,
+          "terminal_marginal_value": 2.918254934975014
+        },
+        {
+          "direct_count": 293,
+          "direct_successes": 107,
+          "market_rank": 6,
+          "name": "Marvin Harrison",
+          "player_id": "11628",
+          "pooled_count": 2443,
+          "pooled_successes": 2030,
+          "position": "WR",
+          "probability": 0.4836322764951061,
+          "probability_high": 0.5330288882783203,
+          "probability_low": 0.43439347597429323,
+          "static_vorp": 13.743999999999971,
+          "terminal_marginal_value": 1.97933e-07
+        },
+        {
+          "direct_count": 602,
+          "direct_successes": 446,
+          "market_rank": 7,
+          "name": "Chuba Hubbard",
+          "player_id": "7594",
+          "pooled_count": 2443,
+          "pooled_successes": 1973,
+          "position": "RB",
+          "probability": 0.7503364619929037,
+          "probability_high": 0.781640579239692,
+          "probability_low": 0.7176813836942695,
+          "static_vorp": -12.294399999999996,
+          "terminal_marginal_value": 1.784975462414579e-07
+        },
+        {
+          "direct_count": 631,
+          "direct_successes": 445,
+          "market_rank": 8,
+          "name": "RJ Harvey",
+          "player_id": "12489",
+          "pooled_count": 2443,
+          "pooled_successes": 1933,
+          "position": "RB",
+          "probability": 0.7169633440478489,
+          "probability_high": 0.7490214739007218,
+          "probability_low": 0.6837807556460345,
+          "static_vorp": -18.293715610827235,
+          "terminal_marginal_value": 1.7249823063063067e-07
+        },
+        {
+          "direct_count": 816,
+          "direct_successes": 776,
+          "market_rank": 9,
+          "name": "Jaxson Dart",
+          "player_id": "12508",
+          "pooled_count": 2443,
+          "pooled_successes": 1924,
+          "position": "QB",
+          "probability": 0.9331136532090265,
+          "probability_high": 0.9483661134908362,
+          "probability_low": 0.9160714097333394,
+          "static_vorp": 11.628199999999993,
+          "terminal_marginal_value": 3.0496420000000004e-07
+        },
+        {
+          "direct_count": 406,
+          "direct_successes": 122,
+          "market_rank": 10,
+          "name": "Makai Lemon",
+          "player_id": "13294",
+          "pooled_count": 2443,
+          "pooled_successes": 1881,
+          "position": "WR",
+          "probability": 0.39322809314807183,
+          "probability_high": 0.4361273033518591,
+          "probability_low": 0.35112839252299477,
+          "static_vorp": -30.221000000000004,
+          "terminal_marginal_value": 1.5396800000000002e-07
+        }
+      ],
+      "round": 7,
+      "scoring_format": "PPR",
+      "source": "tmp/timing-1393656492011315200.json",
+      "source_sha256": "c556c49a25dde263b299a1781a68c1aaffa0c937bf64f566e0a3004cf22aa116",
+      "static_vorp_vona": {
+        "best_current": 13.743999999999971,
+        "expected_best_later": {
+          "high": 12.740246840949661,
+          "low": 12.50824373096216,
+          "mid": 12.626354823504087
+        },
+        "stable_sign": true,
+        "value_over_next_alternative_interval": [
+          1.0037531590503104,
+          1.235756269037811
+        ]
+      },
+      "team_count": 12,
+      "terminal_marginal_vona": {
+        "best_current": 3.4403431865872265,
+        "expected_best_later": {
+          "high": 3.2243260552562583,
+          "low": 3.049463015650455,
+          "mid": 3.1449368998824734
+        },
+        "stable_sign": true,
+        "value_over_next_alternative_interval": [
+          0.21601713133096823,
+          0.3908801709367715
+        ]
+      }
+    },
+    {
+      "candidate_count": 10,
+      "draft_id": "1393721396240080896",
+      "gap": 18,
+      "pick_no": 1,
+      "players": [
+        {
+          "direct_count": 2725,
+          "direct_successes": 170,
+          "market_rank": 1,
+          "name": "Jahmyr Gibbs",
+          "player_id": "9221",
+          "pooled_count": 3801,
+          "pooled_successes": 287,
+          "position": "RB",
+          "probability": 0.06285768803855363,
+          "probability_high": 0.07209482693337148,
+          "probability_low": 0.054206619314398144,
+          "static_vorp": 202.9255362982247,
+          "terminal_marginal_value": 132.75193520462597
+        },
+        {
+          "direct_count": 2006,
+          "direct_successes": 7,
+          "market_rank": 2,
+          "name": "Bijan Robinson",
+          "player_id": "9509",
+          "pooled_count": 3801,
+          "pooled_successes": 230,
+          "position": "RB",
+          "probability": 0.006208049375724019,
+          "probability_high": 0.00998152253758828,
+          "probability_low": 0.003317980801835509,
+          "static_vorp": 200.51744740933583,
+          "terminal_marginal_value": 182.16487145606354
+        },
+        {
+          "direct_count": 1595,
+          "direct_successes": 226,
+          "market_rank": 3,
+          "name": "Ja'Marr Chase",
+          "player_id": "7564",
+          "pooled_count": 3801,
+          "pooled_successes": 252,
+          "position": "WR",
+          "probability": 0.13725819625400534,
+          "probability_high": 0.15403512279459394,
+          "probability_low": 0.12129193354736027,
+          "static_vorp": 162.34655630133105,
+          "terminal_marginal_value": 137.48581824044487
+        },
+        {
+          "direct_count": 1619,
+          "direct_successes": 342,
+          "market_rank": 4,
+          "name": "Puka Nacua",
+          "player_id": "9493",
+          "pooled_count": 3801,
+          "pooled_successes": 885,
+          "position": "WR",
+          "probability": 0.21250575729610607,
+          "probability_high": 0.2321509570966486,
+          "probability_low": 0.1934941530418259,
+          "static_vorp": 165.762941971113,
+          "terminal_marginal_value": 92.45924293109776
+        },
+        {
+          "direct_count": 1414,
+          "direct_successes": 7,
+          "market_rank": 5,
+          "name": "Christian McCaffrey",
+          "player_id": "4034",
+          "pooled_count": 3801,
+          "pooled_successes": 673,
+          "position": "RB",
+          "probability": 0.016329491665309073,
+          "probability_high": 0.023292685542348226,
+          "probability_low": 0.010573271897445063,
+          "static_vorp": 162.69949185378027,
+          "terminal_marginal_value": 113.24974807552292
+        },
+        {
+          "direct_count": 1329,
+          "direct_successes": 16,
+          "market_rank": 6,
+          "name": "Jaxon Smith-Njigba",
+          "player_id": "9488",
+          "pooled_count": 3801,
+          "pooled_successes": 335,
+          "position": "WR",
+          "probability": 0.017379377299090053,
+          "probability_high": 0.024767050603514255,
+          "probability_low": 0.011267726528337631,
+          "static_vorp": 150.1757260832625,
+          "terminal_marginal_value": 124.75051046252199
+        },
+        {
+          "direct_count": 1740,
+          "direct_successes": 34,
+          "market_rank": 7,
+          "name": "Jonathan Taylor",
+          "player_id": "6813",
+          "pooled_count": 3801,
+          "pooled_successes": 307,
+          "position": "RB",
+          "probability": 0.022879820279184625,
+          "probability_high": 0.03018628744795143,
+          "probability_low": 0.016554209160797573,
+          "static_vorp": 141.5701585204469,
+          "terminal_marginal_value": 144.62263592655307
+        },
+        {
+          "direct_count": 1323,
+          "direct_successes": 26,
+          "market_rank": 8,
+          "name": "Amon-Ra St. Brown",
+          "player_id": "7547",
+          "pooled_count": 3801,
+          "pooled_successes": 582,
+          "position": "WR",
+          "probability": 0.029044274511245975,
+          "probability_high": 0.03837426150825417,
+          "probability_low": 0.02096620292524404,
+          "static_vorp": 148.19585443217218,
+          "terminal_marginal_value": 103.4572438681811
+        },
+        {
+          "direct_count": 1124,
+          "direct_successes": 89,
+          "market_rank": 9,
+          "name": "CeeDee Lamb",
+          "player_id": "6786",
+          "pooled_count": 3801,
+          "pooled_successes": 1669,
+          "position": "WR",
+          "probability": 0.10858880759771697,
+          "probability_high": 0.12660603225650524,
+          "probability_low": 0.09178271145735842,
+          "static_vorp": 97.75788371566122,
+          "terminal_marginal_value": 31.77265403184686
+        },
+        {
+          "direct_count": 1170,
+          "direct_successes": 261,
+          "market_rank": 10,
+          "name": "James Cook",
+          "player_id": "8138",
+          "pooled_count": 3801,
+          "pooled_successes": 2107,
+          "position": "RB",
+          "probability": 0.24915742027119078,
+          "probability_high": 0.27330402993205183,
+          "probability_low": 0.22575909091176344,
+          "static_vorp": 99.47298074266917,
+          "terminal_marginal_value": 79.69964686023403
+        }
+      ],
+      "round": 1,
+      "scoring_format": "PPR",
+      "source": "tmp/timing-1393721396240080896.json",
+      "source_sha256": "8bbd475ec4926994522e3214d249657caf292ce09308d835c46a9cc2ef61893b",
+      "static_vorp_vona": {
+        "best_current": 202.9255362982247,
+        "expected_best_later": {
+          "high": 98.65464737838838,
+          "low": 81.134626746758,
+          "mid": 89.93937083719752
+        },
+        "stable_sign": true,
+        "value_over_next_alternative_interval": [
+          104.27088891983632,
+          121.7909095514667
+        ]
+      },
+      "team_count": 10,
+      "terminal_marginal_vona": {
+        "best_current": 182.16487145606354,
+        "expected_best_later": {
+          "high": 69.27887027041764,
+          "low": 56.072669770220585,
+          "mid": 62.646751692731854
+        },
+        "stable_sign": true,
+        "value_over_next_alternative_interval": [
+          112.8860011856459,
+          126.09220168584295
+        ]
+      }
+    },
+    {
+      "candidate_count": 10,
+      "draft_id": "1393746402558881792",
+      "gap": 8,
+      "pick_no": 16,
+      "players": [
+        {
+          "direct_count": 720,
+          "direct_successes": 481,
+          "market_rank": 1,
+          "name": "Omarion Hampton",
+          "player_id": "12507",
+          "pooled_count": 3775,
+          "pooled_successes": 3227,
+          "position": "RB",
+          "probability": 0.6908105542532789,
+          "probability_high": 0.7219725097489484,
+          "probability_low": 0.6587669956417417,
+          "static_vorp": 82.0554585204469,
+          "terminal_marginal_value": 12.774750013613705
+        },
+        {
+          "direct_count": 280,
+          "direct_successes": 73,
+          "market_rank": 2,
+          "name": "Chase Brown",
+          "player_id": "9224",
+          "pooled_count": 3775,
+          "pooled_successes": 3159,
+          "position": "RB",
+          "probability": 0.4122744311135265,
+          "probability_high": 0.46211003988893407,
+          "probability_low": 0.3633135577820461,
+          "static_vorp": 106.6721362982247,
+          "terminal_marginal_value": 94.36729777007692
+        },
+        {
+          "direct_count": 662,
+          "direct_successes": 165,
+          "market_rank": 3,
+          "name": "A.J. Brown",
+          "player_id": "5859",
+          "pooled_count": 3775,
+          "pooled_successes": 2649,
+          "position": "WR",
+          "probability": 0.30861089742654285,
+          "probability_high": 0.34185078513875705,
+          "probability_low": 0.27632259320045494,
+          "static_vorp": 80.96233979042765,
+          "terminal_marginal_value": 32.99101220838922
+        },
+        {
+          "direct_count": 399,
+          "direct_successes": 330,
+          "market_rank": 4,
+          "name": "Trey McBride",
+          "player_id": "8130",
+          "pooled_count": 3775,
+          "pooled_successes": 2572,
+          "position": "TE",
+          "probability": 0.7978413804044414,
+          "probability_high": 0.8318844992404534,
+          "probability_low": 0.761537392686911,
+          "static_vorp": 186.3327856798858,
+          "terminal_marginal_value": 117.28145903319728
+        },
+        {
+          "direct_count": 1058,
+          "direct_successes": 397,
+          "market_rank": 5,
+          "name": "Kenneth Walker",
+          "player_id": "8151",
+          "pooled_count": 3775,
+          "pooled_successes": 2291,
+          "position": "RB",
+          "probability": 0.3952358219438351,
+          "probability_high": 0.42354839639525443,
+          "probability_low": 0.36726601617438265,
+          "static_vorp": 84.49482518711358,
+          "terminal_marginal_value": 81.59213385487055
+        },
+        {
+          "direct_count": 317,
+          "direct_successes": 197,
+          "market_rank": 6,
+          "name": "Brock Bowers",
+          "player_id": "11604",
+          "pooled_count": 3775,
+          "pooled_successes": 2077,
+          "position": "TE",
+          "probability": 0.6043578163680334,
+          "probability_high": 0.6507349738302771,
+          "probability_low": 0.5570324275488103,
+          "static_vorp": 164.81011404315925,
+          "terminal_marginal_value": 106.02397165799215
+        },
+        {
+          "direct_count": 986,
+          "direct_successes": 354,
+          "market_rank": 7,
+          "name": "Derrick Henry",
+          "player_id": "3198",
+          "pooled_count": 3775,
+          "pooled_successes": 1913,
+          "position": "RB",
+          "probability": 0.3726290414357327,
+          "probability_high": 0.40158811681927076,
+          "probability_low": 0.3441143269736985,
+          "static_vorp": 103.12544740933583,
+          "terminal_marginal_value": 68.76705051640546
+        },
+        {
+          "direct_count": 1175,
+          "direct_successes": 966,
+          "market_rank": 8,
+          "name": "Josh Allen",
+          "player_id": "4984",
+          "pooled_count": 3775,
+          "pooled_successes": 1935,
+          "position": "QB",
+          "probability": 0.7978491073421691,
+          "probability_high": 0.8194350481952499,
+          "probability_low": 0.7753781895921003,
+          "static_vorp": 69.71727324263043,
+          "terminal_marginal_value": 42.64345746647644
+        },
+        {
+          "direct_count": 1390,
+          "direct_successes": 531,
+          "market_rank": 9,
+          "name": "George Pickens",
+          "player_id": "8137",
+          "pooled_count": 3775,
+          "pooled_successes": 1899,
+          "position": "WR",
+          "probability": 0.39013723117491417,
+          "probability_high": 0.4150321654331628,
+          "probability_low": 0.36552165231133693,
+          "static_vorp": 78.53901891815352,
+          "terminal_marginal_value": 73.21296354163447
+        },
+        {
+          "direct_count": 1477,
+          "direct_successes": 792,
+          "market_rank": 10,
+          "name": "Jeremiyah Love",
+          "player_id": "13287",
+          "pooled_count": 3775,
+          "pooled_successes": 2205,
+          "position": "RB",
+          "probability": 0.5392556388339194,
+          "probability_high": 0.5637987550196262,
+          "probability_low": 0.5146182108576389,
+          "static_vorp": 82.36549047619047,
+          "terminal_marginal_value": 35.96255346638573
+        }
+      ],
+      "round": 2,
+      "scoring_format": "PPR",
+      "source": "tmp/timing-1393746402558881792.json",
+      "source_sha256": "de08ce6f73d592db3aca077fde815c4260d7c88e81854f0f1f3ce6123914dc7d",
+      "static_vorp_vona": {
+        "best_current": 186.3327856798858,
+        "expected_best_later": {
+          "high": 178.79756610603005,
+          "low": 173.870150916619,
+          "mid": 176.54350080807833
+        },
+        "stable_sign": true,
+        "value_over_next_alternative_interval": [
+          7.5352195738557555,
+          12.462634763266806
+        ]
+      },
+      "team_count": 10,
+      "terminal_marginal_vona": {
+        "best_current": 117.28145903319728,
+        "expected_best_later": {
+          "high": 113.91755454002288,
+          "low": 111.5006156893013,
+          "mid": 112.83873471869597
+        },
+        "stable_sign": true,
+        "value_over_next_alternative_interval": [
+          3.3639044931744024,
+          5.780843343895981
+        ]
+      }
+    },
+    {
+      "candidate_count": 10,
+      "draft_id": "1394035775644913664",
+      "gap": 2,
+      "pick_no": 49,
+      "players": [
+        {
+          "direct_count": 1920,
+          "direct_successes": 1904,
+          "market_rank": 1,
+          "name": "Drake Maye",
+          "player_id": "11564",
+          "pooled_count": 3824,
+          "pooled_successes": 3755,
+          "position": "QB",
+          "probability": 0.9911734717643224,
+          "probability_high": 0.9947728537720414,
+          "probability_low": 0.9866565368884207,
+          "static_vorp": 22.872834467120185,
+          "terminal_marginal_value": 3.5751981179138324e-07
+        },
+        {
+          "direct_count": 592,
+          "direct_successes": 562,
+          "market_rank": 2,
+          "name": "Luther Burden",
+          "player_id": "12519",
+          "pooled_count": 3824,
+          "pooled_successes": 3738,
+          "position": "WR",
+          "probability": 0.9533613940516514,
+          "probability_high": 0.9677807715945593,
+          "probability_low": 0.9364645526859848,
+          "static_vorp": 32.17262857547436,
+          "terminal_marginal_value": 2.6592664761976748
+        },
+        {
+          "direct_count": 300,
+          "direct_successes": 259,
+          "market_rank": 3,
+          "name": "Davante Adams",
+          "player_id": "2133",
+          "pooled_count": 3824,
+          "pooled_successes": 3737,
+          "position": "WR",
+          "probability": 0.8917498693152117,
+          "probability_high": 0.9202480305441703,
+          "probability_low": 0.8595450148942467,
+          "static_vorp": 48.84968636363635,
+          "terminal_marginal_value": 23.562556740046883
+        },
+        {
+          "direct_count": 706,
+          "direct_successes": 677,
+          "market_rank": 4,
+          "name": "TreVeyon Henderson",
+          "player_id": "12529",
+          "pooled_count": 3824,
+          "pooled_successes": 3735,
+          "position": "RB",
+          "probability": 0.9611013322714248,
+          "probability_high": 0.9733237522026486,
+          "probability_low": 0.9467158072583454,
+          "static_vorp": 19.628504761904793,
+          "terminal_marginal_value": 15.349639963201414
+        },
+        {
+          "direct_count": 643,
+          "direct_successes": 593,
+          "market_rank": 5,
+          "name": "David Montgomery",
+          "player_id": "5892",
+          "pooled_count": 3824,
+          "pooled_successes": 3640,
+          "position": "RB",
+          "probability": 0.9261973927769128,
+          "probability_high": 0.9438696912491071,
+          "probability_low": 0.9063539711991142,
+          "static_vorp": 22.784899999999993,
+          "terminal_marginal_value": 1.9776350814621976e-07
+        },
+        {
+          "direct_count": 1356,
+          "direct_successes": 1343,
+          "market_rank": 6,
+          "name": "Joe Burrow",
+          "player_id": "6770",
+          "pooled_count": 3824,
+          "pooled_successes": 3682,
+          "position": "QB",
+          "probability": 0.988504405944291,
+          "probability_high": 0.9933169879315499,
+          "probability_low": 0.9824260464320187,
+          "static_vorp": 7.331340871889665,
+          "terminal_marginal_value": 3.4197831819615275e-07
+        },
+        {
+          "direct_count": 749,
+          "direct_successes": 658,
+          "market_rank": 7,
+          "name": "Terry McLaurin",
+          "player_id": "5927",
+          "pooled_count": 3824,
+          "pooled_successes": 3642,
+          "position": "WR",
+          "probability": 0.8871813153693315,
+          "probability_high": 0.9075678335161139,
+          "probability_low": 0.8650677886492776,
+          "static_vorp": 35.39312386363636,
+          "terminal_marginal_value": 34.30026890410816
+        },
+        {
+          "direct_count": 784,
+          "direct_successes": 694,
+          "market_rank": 8,
+          "name": "Jameson Williams",
+          "player_id": "8148",
+          "pooled_count": 3824,
+          "pooled_successes": 3615,
+          "position": "WR",
+          "probability": 0.8919810394703541,
+          "probability_high": 0.9115741915377451,
+          "probability_low": 0.8707087182312212,
+          "static_vorp": 41.59621477272728,
+          "terminal_marginal_value": 28.445980197538688
+        },
+        {
+          "direct_count": 890,
+          "direct_successes": 810,
+          "market_rank": 9,
+          "name": "D'Andre Swift",
+          "player_id": "6790",
+          "pooled_count": 3824,
+          "pooled_successes": 3609,
+          "position": "RB",
+          "probability": 0.9134893102483275,
+          "probability_high": 0.930183887617331,
+          "probability_low": 0.8952132672924008,
+          "static_vorp": 50.654228571428604,
+          "terminal_marginal_value": 42.678414338310056
+        },
+        {
+          "direct_count": 586,
+          "direct_successes": 510,
+          "market_rank": 10,
+          "name": "DJ Moore",
+          "player_id": "4983",
+          "pooled_count": 3824,
+          "pooled_successes": 3648,
+          "position": "WR",
+          "probability": 0.8824690357062845,
+          "probability_high": 0.9054708965116172,
+          "probability_low": 0.8573559730422162,
+          "static_vorp": 33.37490795454542,
+          "terminal_marginal_value": 2.1174050001261852e-07
+        }
+      ],
+      "round": 5,
+      "scoring_format": "PPR",
+      "source": "tmp/timing-1394035775644913664.json",
+      "source_sha256": "ae93c9f0f38d2f83bc9266fa36fd2c1cde7565e17874b5e613adecff7d3225bd",
+      "static_vorp_vona": {
+        "best_current": 50.654228571428604,
+        "expected_best_later": {
+          "high": 50.48470290391993,
+          "low": 50.34599354798162,
+          "mid": 50.42366194957134
+        },
+        "stable_sign": true,
+        "value_over_next_alternative_interval": [
+          0.16952566750867248,
+          0.30823502344698284
+        ]
+      },
+      "team_count": 10,
+      "terminal_marginal_vona": {
+        "best_current": 42.678414338310056,
+        "expected_best_later": {
+          "high": 42.05252965773612,
+          "low": 41.706509554625185,
+          "mid": 41.89033459300699
+        },
+        "stable_sign": true,
+        "value_over_next_alternative_interval": [
+          0.6258846805739324,
+          0.9719047836848702
+        ]
+      }
+    }
+  ],
+  "status": "rejected"
+}

@@ -1,0 +1,106 @@
+{
+  "experiment": "six-state integrated alpha shadow telemetry collection",
+  "gate": {
+    "passes": true
+  },
+  "states": [
+    {
+      "alpha_shadow_duration_seconds": 6.171402791049331,
+      "draft_id": "1393628519644286976",
+      "manager_shadow_practical": true,
+      "manager_shadow_status": "ready",
+      "manager_support": {
+        "population_fallback_rosters": 1,
+        "supported_rosters": 8,
+        "total_opponent_rosters": 9
+      },
+      "pick_no": 1,
+      "recommendation_unchanged": true,
+      "session_id": "375966c4-1171-4400-adde-0b99ed5ef1dc",
+      "top_ten_capture_complete": true,
+      "worker_stopped": true
+    },
+    {
+      "alpha_shadow_duration_seconds": 6.7075612500775605,
+      "draft_id": "1393634461312106496",
+      "manager_shadow_practical": true,
+      "manager_shadow_status": "ready",
+      "manager_support": {
+        "population_fallback_rosters": 3,
+        "supported_rosters": 8,
+        "total_opponent_rosters": 11
+      },
+      "pick_no": 24,
+      "recommendation_unchanged": true,
+      "session_id": "028bbcbb-3dfe-44d8-9d98-284720eb513d",
+      "top_ten_capture_complete": true,
+      "worker_stopped": true
+    },
+    {
+      "alpha_shadow_duration_seconds": 2.738332459004596,
+      "draft_id": "1393656492011315200",
+      "manager_shadow_practical": true,
+      "manager_shadow_status": "ready",
+      "manager_support": {
+        "population_fallback_rosters": 3,
+        "supported_rosters": 8,
+        "total_opponent_rosters": 11
+      },
+      "pick_no": 73,
+      "recommendation_unchanged": true,
+      "session_id": "cdc27229-4e24-4a65-b496-15c432a2866a",
+      "top_ten_capture_complete": true,
+      "worker_stopped": true
+    },
+    {
+      "alpha_shadow_duration_seconds": 6.701654999982566,
+      "draft_id": "1393721396240080896",
+      "manager_shadow_practical": true,
+      "manager_shadow_status": "ready",
+      "manager_support": {
+        "population_fallback_rosters": 1,
+        "supported_rosters": 8,
+        "total_opponent_rosters": 9
+      },
+      "pick_no": 1,
+      "recommendation_unchanged": true,
+      "session_id": "c3ba02d2-b97c-40a9-a9d8-02203402a1c9",
+      "top_ten_capture_complete": true,
+      "worker_stopped": true
+    },
+    {
+      "alpha_shadow_duration_seconds": 4.139805082930252,
+      "draft_id": "1393746402558881792",
+      "manager_shadow_practical": true,
+      "manager_shadow_status": "ready",
+      "manager_support": {
+        "population_fallback_rosters": 1,
+        "supported_rosters": 8,
+        "total_opponent_rosters": 9
+      },
+      "pick_no": 16,
+      "recommendation_unchanged": true,
+      "session_id": "ed7c4d49-76ec-4d97-83e4-72600ac740aa",
+      "top_ten_capture_complete": true,
+      "worker_stopped": true
+    },
+    {
+      "alpha_shadow_duration_seconds": 3.433706667041406,
+      "draft_id": "1394035775644913664",
+      "manager_shadow_practical": true,
+      "manager_shadow_status": "ready",
+      "manager_support": {
+        "population_fallback_rosters": 1,
+        "supported_rosters": 8,
+        "total_opponent_rosters": 9
+      },
+      "pick_no": 49,
+      "recommendation_unchanged": true,
+      "session_id": "575f3b6c-5388-4972-842b-f1b8c282bd10",
+      "top_ten_capture_complete": true,
+      "worker_stopped": true
+    }
+  ],
+  "status": "research",
+  "telemetry_path": "experiments/draft_alpha_2026/2026-08-29_alpha_shadow_latency_attempt1/telemetry.sqlite3"
+}

@@ -108,6 +108,98 @@ def draft_summary(league, draft, picks=()):
     }
 
 
+def _recent_trades(league, fetch, limit=30):
+    state = fetch("state/nfl")
+    if not isinstance(state, dict):
+        raise ValueError("Sleeper returned invalid NFL state")
+    league_season = int(league["season"])
+    current_season = int(state.get("league_season") or state["season"])
+    latest_week = (
+        max(1, int(state.get("leg") or 1))
+        if league_season == current_season
+        else (18 if league_season < current_season else 1)
+    )
+    trades = []
+    for week in range(latest_week, 0, -1):
+        transactions = fetch(f"league/{league['league_id']}/transactions/{week}")
+        if not isinstance(transactions, list) or not all(
+            isinstance(transaction, dict) for transaction in transactions
+        ):
+            raise ValueError(f"Sleeper returned invalid transactions for week {week}")
+        trades.extend(
+            transaction
+            for transaction in transactions
+            if transaction.get("type") == "trade"
+            and transaction.get("status") == "complete"
+        )
+        if len(trades) >= limit:
+            break
+    return sorted(
+        trades,
+        key=lambda transaction: (
+            transaction.get("status_updated") or transaction.get("created") or 0
+        ),
+        reverse=True,
+    )[:limit]
+
+
+def recent_trade_summaries(snapshot, players):
+    users = {str(user["user_id"]): user for user in snapshot.get("users", ())}
+    roster_names = {}
+    for roster in snapshot.get("rosters", ()):
+        user = users.get(str(roster.get("owner_id")), {})
+        metadata = user.get("metadata") or {}
+        roster_names[str(roster["roster_id"])] = (
+            metadata.get("team_name")
+            or user.get("display_name")
+            or user.get("username")
+            or f"Roster {roster['roster_id']}"
+        )
+
+    summaries = []
+    for trade in snapshot.get("recent_trades", ()):
+        sides = {}
+
+        def side(roster_id):
+            key = str(roster_id)
+            return sides.setdefault(
+                key,
+                {
+                    "roster_id": roster_id,
+                    "name": roster_names.get(key, f"Roster {roster_id}"),
+                    "players": [],
+                    "draft_picks": [],
+                    "faab": 0,
+                },
+            )
+
+        for roster_id in trade.get("roster_ids") or ():
+            side(roster_id)
+
+        for player_id, roster_id in (trade.get("adds") or {}).items():
+            player = players.get(str(player_id), {})
+            side(roster_id)["players"].append({
+                "player_id": str(player_id),
+                "name": player.get("full_name") or str(player_id),
+                "position": player.get("position"),
+                "team": player.get("team"),
+            })
+        for pick in trade.get("draft_picks") or ():
+            side(pick["owner_id"])["draft_picks"].append({
+                "season": str(pick["season"]),
+                "round": int(pick["round"]),
+            })
+        for transfer in trade.get("waiver_budget") or ():
+            side(transfer["receiver"])["faab"] += int(transfer["amount"])
+
+        summaries.append({
+            "transaction_id": str(trade["transaction_id"]),
+            "completed_at": trade.get("status_updated") or trade.get("created"),
+            "sides": list(sides.values()),
+        })
+    return summaries
+
+
 def refresh_league(league_id, draft_id=None, fetch_json=None, cache_dir=None):
     fetch = fetch_json or _fetch_json
     league, drafts = league_and_drafts(league_id, fetch)
@@ -146,6 +238,7 @@ def refresh_league(league_id, draft_id=None, fetch_json=None, cache_dir=None):
         "rosters": fetch(f"league/{league_id}/rosters"),
         "users": fetch(f"league/{league_id}/users"),
         "winners_bracket": fetch(f"league/{league_id}/winners_bracket"),
+        "recent_trades": _recent_trades(league, fetch),
     }
     cache_dir = Path(cache_dir or CACHE_DIR)
     cache_dir.mkdir(parents=True, exist_ok=True)

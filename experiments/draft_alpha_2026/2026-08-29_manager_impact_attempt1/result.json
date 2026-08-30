@@ -1,0 +1,202 @@
+{
+  "counts": {
+    "drafts": 2320,
+    "samples": 3435830,
+    "states": 343583,
+    "survival_rate": 0.8370318089078913
+  },
+  "experiment": "position-count manager impact on next-turn survival",
+  "gate": {
+    "brier_improvement": -0.0005414096224350684,
+    "false_safe_improvement": -0.00025960719114556663,
+    "paired_roster_minus_static_brier": {
+      "drafts": 2320,
+      "estimate": 0.0005414096224437783,
+      "high": 0.000634484317807373,
+      "low": 0.0004351452743984332,
+      "samples": 200,
+      "seed": 20260828
+    },
+    "passes": false,
+    "safe_coverage_loss": 0.0005675484526300734
+  },
+  "limitations": [
+    "conditional hazards follow the observed board-removal path",
+    "2024 is a seen diagnostic",
+    "2025 was not queried",
+    "offline research only"
+  ],
+  "locked_test_loaded": false,
+  "roster": {
+    "brier": 0.19704488739852058,
+    "calibration": [
+      {
+        "count": 8441,
+        "lower": 0.0,
+        "mean_prediction": 0.05987831904889465,
+        "observed_rate": 0.9997630612486672,
+        "upper": 0.1
+      },
+      {
+        "count": 18774,
+        "lower": 0.1,
+        "mean_prediction": 0.1551431319586523,
+        "observed_rate": 0.9996271439224459,
+        "upper": 0.2
+      },
+      {
+        "count": 35201,
+        "lower": 0.2,
+        "mean_prediction": 0.25500226786171526,
+        "observed_rate": 0.9995170591744553,
+        "upper": 0.3
+      },
+      {
+        "count": 57874,
+        "lower": 0.3,
+        "mean_prediction": 0.3529486524520621,
+        "observed_rate": 0.9991706120192142,
+        "upper": 0.4
+      },
+      {
+        "count": 83818,
+        "lower": 0.4,
+        "mean_prediction": 0.4537416151443535,
+        "observed_rate": 0.998878522513064,
+        "upper": 0.5
+      },
+      {
+        "count": 145427,
+        "lower": 0.5,
+        "mean_prediction": 0.554864453181641,
+        "observed_rate": 0.9981777799170718,
+        "upper": 0.6
+      },
+      {
+        "count": 263061,
+        "lower": 0.6,
+        "mean_prediction": 0.6548294211426635,
+        "observed_rate": 0.9944651620726752,
+        "upper": 0.7
+      },
+      {
+        "count": 426813,
+        "lower": 0.7,
+        "mean_prediction": 0.753621377377424,
+        "observed_rate": 0.9591085557375244,
+        "upper": 0.8
+      },
+      {
+        "count": 781124,
+        "lower": 0.8,
+        "mean_prediction": 0.8559470449137015,
+        "observed_rate": 0.8437136741413656,
+        "upper": 0.9
+      },
+      {
+        "count": 1615297,
+        "lower": 0.9,
+        "mean_prediction": 0.9557803559677025,
+        "observed_rate": 0.7409083283136166,
+        "upper": 1.0
+      }
+    ],
+    "count": 3435830,
+    "false_safe_rate": 0.19766055523559153,
+    "false_urgent_rate": 0.9995834401435529,
+    "log_loss": 0.6871942654717089,
+    "safe_coverage": 0.8217036349295512,
+    "urgent_coverage": 0.01816620729197894
+  },
+  "static": {
+    "brier": 0.1965034777760855,
+    "calibration": [
+      {
+        "count": 7579,
+        "lower": 0.0,
+        "mean_prediction": 0.05651159730722008,
+        "observed_rate": 0.9997361129436602,
+        "upper": 0.1
+      },
+      {
+        "count": 17427,
+        "lower": 0.1,
+        "mean_prediction": 0.15701414544919898,
+        "observed_rate": 0.9995983244390888,
+        "upper": 0.2
+      },
+      {
+        "count": 34040,
+        "lower": 0.2,
+        "mean_prediction": 0.25482811971401553,
+        "observed_rate": 0.9993243243243243,
+        "upper": 0.3
+      },
+      {
+        "count": 59555,
+        "lower": 0.3,
+        "mean_prediction": 0.35445550658899555,
+        "observed_rate": 0.9990596927210141,
+        "upper": 0.4
+      },
+      {
+        "count": 89070,
+        "lower": 0.4,
+        "mean_prediction": 0.45241111262335626,
+        "observed_rate": 0.998955877399798,
+        "upper": 0.5
+      },
+      {
+        "count": 134554,
+        "lower": 0.5,
+        "mean_prediction": 0.555748206134193,
+        "observed_rate": 0.9978150036416606,
+        "upper": 0.6
+      },
+      {
+        "count": 268421,
+        "lower": 0.6,
+        "mean_prediction": 0.6555290046038651,
+        "observed_rate": 0.9934356849873892,
+        "upper": 0.7
+      },
+      {
+        "count": 448626,
+        "lower": 0.7,
+        "mean_prediction": 0.7535200928186359,
+        "observed_rate": 0.9560123577322759,
+        "upper": 0.8
+      },
+      {
+        "count": 794397,
+        "lower": 0.8,
+        "mean_prediction": 0.8553895484191019,
+        "observed_rate": 0.8413425529049078,
+        "upper": 0.9
+      },
+      {
+        "count": 1582161,
+        "lower": 0.9,
+        "mean_prediction": 0.9552240570620218,
+        "observed_rate": 0.7396453331866985,
+        "upper": 1.0
+      }
+    ],
+    "count": 3435830,
+    "false_safe_rate": 0.19740094804444597,
+    "false_urgent_rate": 0.9994580496562002,
+    "log_loss": 0.6869172370060684,
+    "safe_coverage": 0.8222711833821813,
+    "urgent_coverage": 0.017185367145638755
+  },
+  "status": "rejected",
+  "train_seasons": [
+    2021,
+    2022,
+    2023
+  ],
+  "validation_2024_seen_diagnostic": true,
+  "validation_seasons": [
+    2024
+  ]
+}

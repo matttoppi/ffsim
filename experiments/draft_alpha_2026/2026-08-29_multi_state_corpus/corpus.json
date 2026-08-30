@@ -1,0 +1,134 @@
+{
+  "corpus_version": "alpha-multi-state-v1",
+  "gate": {
+    "early_middle_later": true,
+    "passes": true,
+    "short_medium_full_turn_gaps": true,
+    "six_states": true,
+    "team_counts_10_and_12": true
+  },
+  "limitations": [
+    "cached mock states only",
+    "no realized draft outcome labels",
+    "current projection and market caches are frozen by hash"
+  ],
+  "sha256": "7ee9267de2531b61293a03fb1435c32d136508349ab0530b555f3b499742d52f",
+  "states": [
+    {
+      "config": "experiments/draft_alpha_2026/2026-08-29_multi_state_corpus/config-10.json",
+      "draft_cache": "data/cache/mock_draft_1393628519644286976.json",
+      "draft_id": "1393628519644286976",
+      "gap": 18,
+      "hashes": {
+        "config": "da0bef9b31dda0cb53dc8d0011782fd5d5663abe19aad1e57c54b3c15e6ad236",
+        "draft_cache": "cc83a4fab89160e94c223a53cda759af31732d3a5c669b8dd22fe0331f21d4d4",
+        "league_cache": "8519b57fa254f7543edcd99fb1ce7c19341034ed4088e4f44ddf52abcdb065fb",
+        "original_timing_report": "bcfd0aacabd3a316e3b3f7ac9295086cab73a695243aee11d70b7290eb7c6457"
+      },
+      "league_cache": "data/cache/league_1312074476493484032.json",
+      "league_id": "1312074476493484032",
+      "original_timing_report": "tmp/timing-1393628519644286976.json",
+      "pick_no": 1,
+      "roster_id": 1,
+      "round": 1,
+      "teams": 10
+    },
+    {
+      "config": "experiments/draft_alpha_2026/2026-08-29_multi_state_corpus/config-12.json",
+      "draft_cache": "data/cache/mock_draft_1393634461312106496.json",
+      "draft_id": "1393634461312106496",
+      "gap": 23,
+      "hashes": {
+        "config": "27a1fc4c3bafc9930072de2cdeb462732a318045bc18d6cd2a9a633c59184680",
+        "draft_cache": "d5399434c63dbb02fdaa2313ee7b8b549277a8cdf4b597fd83d9b227b5121dd7",
+        "league_cache": "5e36e7b8e4afacede31083184baf77a5d65de92fc84f57f29036760db3c6fd96",
+        "original_timing_report": "4a6ad843112d3ce2d5625a41effc5d6ad8c92bb4caeadb51ba07e064d18fd97a"
+      },
+      "league_cache": "data/cache/league_1389391547115511808.json",
+      "league_id": "1389391547115511808",
+      "original_timing_report": "tmp/timing-1393634461312106496.json",
+      "pick_no": 24,
+      "roster_id": 1,
+      "round": 2,
+      "teams": 12
+    },
+    {
+      "config": "experiments/draft_alpha_2026/2026-08-29_multi_state_corpus/config-12.json",
+      "draft_cache": "data/cache/mock_draft_1393656492011315200.json",
+      "draft_id": "1393656492011315200",
+      "gap": 22,
+      "hashes": {
+        "config": "27a1fc4c3bafc9930072de2cdeb462732a318045bc18d6cd2a9a633c59184680",
+        "draft_cache": "745f1de8b77fd6d6bc39829c4b54a8476908a029fa1adc33553dbcfb58f3282d",
+        "league_cache": "5e36e7b8e4afacede31083184baf77a5d65de92fc84f57f29036760db3c6fd96",
+        "original_timing_report": "c556c49a25dde263b299a1781a68c1aaffa0c937bf64f566e0a3004cf22aa116"
+      },
+      "league_cache": "data/cache/league_1389391547115511808.json",
+      "league_id": "1389391547115511808",
+      "original_timing_report": "tmp/timing-1393656492011315200.json",
+      "pick_no": 73,
+      "roster_id": 1,
+      "round": 7,
+      "teams": 12
+    },
+    {
+      "config": "experiments/draft_alpha_2026/2026-08-29_multi_state_corpus/config-10.json",
+      "draft_cache": "data/cache/mock_draft_1393721396240080896.json",
+      "draft_id": "1393721396240080896",
+      "gap": 18,
+      "hashes": {
+        "config": "da0bef9b31dda0cb53dc8d0011782fd5d5663abe19aad1e57c54b3c15e6ad236",
+        "draft_cache": "5c8997f029f57d85a5b2bda8f8f6bd0812dab5c00827cd236ca0e647528a912c",
+        "league_cache": "8519b57fa254f7543edcd99fb1ce7c19341034ed4088e4f44ddf52abcdb065fb",
+        "original_timing_report": "8bbd475ec4926994522e3214d249657caf292ce09308d835c46a9cc2ef61893b"
+      },
+      "league_cache": "data/cache/league_1312074476493484032.json",
+      "league_id": "1312074476493484032",
+      "original_timing_report": "tmp/timing-1393721396240080896.json",
+      "pick_no": 1,
+      "roster_id": 1,
+      "round": 1,
+      "teams": 10
+    },
+    {
+      "config": "experiments/draft_alpha_2026/2026-08-29_multi_state_corpus/config-10.json",
+      "draft_cache": "data/cache/mock_draft_1393746402558881792.json",
+      "draft_id": "1393746402558881792",
+      "gap": 8,
+      "hashes": {
+        "config": "da0bef9b31dda0cb53dc8d0011782fd5d5663abe19aad1e57c54b3c15e6ad236",
+        "draft_cache": "2677122130e200085e2c9f819878711313bd9ebad3425df2cb0e4481e81f79fd",
+        "league_cache": "8519b57fa254f7543edcd99fb1ce7c19341034ed4088e4f44ddf52abcdb065fb",
+        "original_timing_report": "de08ce6f73d592db3aca077fde815c4260d7c88e81854f0f1f3ce6123914dc7d"
+      },
+      "league_cache": "data/cache/league_1312074476493484032.json",
+      "league_id": "1312074476493484032",
+      "original_timing_report": "tmp/timing-1393746402558881792.json",
+      "pick_no": 16,
+      "roster_id": 5,
+      "round": 2,
+      "teams": 10
+    },
+    {
+      "config": "experiments/draft_alpha_2026/2026-08-29_multi_state_corpus/config-10.json",
+      "draft_cache": "data/cache/mock_draft_1394035775644913664.json",
+      "draft_id": "1394035775644913664",
+      "gap": 2,
+      "hashes": {
+        "config": "da0bef9b31dda0cb53dc8d0011782fd5d5663abe19aad1e57c54b3c15e6ad236",
+        "draft_cache": "4ef6e74621b83f4bc20bf5de6b2924d83f65a4edbc446261ce2ff362f5879040",
+        "league_cache": "8519b57fa254f7543edcd99fb1ce7c19341034ed4088e4f44ddf52abcdb065fb",
+        "original_timing_report": "ae93c9f0f38d2f83bc9266fa36fd2c1cde7565e17874b5e613adecff7d3225bd"
+      },
+      "league_cache": "data/cache/league_1312074476493484032.json",
+      "league_id": "1312074476493484032",
+      "original_timing_report": "tmp/timing-1394035775644913664.json",
+      "pick_no": 49,
+      "roster_id": 9,
+      "round": 5,
+      "teams": 10
+    }
+  ],
+  "status": "research",
+  "world_count": 20
+}

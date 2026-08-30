@@ -12,6 +12,7 @@ from ffsim.loaders.league import (
     draft_summary,
     league_and_drafts,
     league_id_for_username,
+    recent_trade_summaries,
     refresh_league,
 )
 from ffsim.models.league import League
@@ -130,6 +131,20 @@ class SimulationTest(unittest.TestCase):
             "league/league/rosters": [],
             "league/league/users": [],
             "league/league/winners_bracket": [],
+            "state/nfl": {"league_season": "2026", "leg": 1},
+            "league/league/transactions/1": [
+                {"type": "waiver", "status": "complete"},
+                {"type": "trade", "status": "pending"},
+                *(
+                    {
+                        "transaction_id": f"trade-{index}",
+                        "type": "trade",
+                        "status": "complete",
+                        "status_updated": index,
+                    }
+                    for index in range(31)
+                ),
+            ],
         }
 
         with tempfile.TemporaryDirectory() as directory:
@@ -146,6 +161,9 @@ class SimulationTest(unittest.TestCase):
         self.assertEqual(snapshot["draft"]["settings"], draft["settings"])
         self.assertEqual(snapshot["draft_summary"]["draft_type"], "auction")
         self.assertTrue(snapshot["draft_summary"]["redraft_eligible"])
+        self.assertEqual(len(snapshot["recent_trades"]), 30)
+        self.assertEqual(snapshot["recent_trades"][0]["transaction_id"], "trade-30")
+        self.assertEqual(snapshot["recent_trades"][-1]["transaction_id"], "trade-1")
         self.assertEqual(
             draft_summary(league, draft, [{"is_keeper": True}])[
                 "redraft_ineligibility_reasons"
@@ -157,8 +175,45 @@ class SimulationTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "belongs to league other"):
             league_and_drafts(
                 "league",
-                {"league/league": league, "league/league/drafts": [wrong_draft]}.__getitem__,
+                {
+                    "league/league": league,
+                    "league/league/drafts": [wrong_draft],
+                }.__getitem__,
             )
+
+    def test_recent_trades_are_named_and_grouped_by_recipient(self):
+        snapshot = {
+            "users": [
+                {"user_id": "u1", "display_name": "Alpha"},
+                {"user_id": "u2", "metadata": {"team_name": "Beta Team"}},
+            ],
+            "rosters": [
+                {"roster_id": 1, "owner_id": "u1"},
+                {"roster_id": 2, "owner_id": "u2"},
+            ],
+            "recent_trades": [{
+                "transaction_id": "trade-1",
+                "status_updated": 1_786_921_200_000,
+                "roster_ids": [1, 2],
+                "adds": {"p1": 1, "p2": 2},
+                "draft_picks": [{"season": "2027", "round": 2, "owner_id": 2}],
+                "waiver_budget": [{"sender": 2, "receiver": 1, "amount": 7}],
+            }],
+        }
+
+        trade = recent_trade_summaries(snapshot, {
+            "p1": {"full_name": "One Player", "position": "WR", "team": "BUF"},
+            "p2": {"full_name": "Two Player", "position": "RB", "team": "SEA"},
+        })[0]
+
+        self.assertEqual(trade["sides"][0]["name"], "Alpha")
+        self.assertEqual(trade["sides"][0]["players"][0]["name"], "One Player")
+        self.assertEqual(trade["sides"][0]["faab"], 7)
+        self.assertEqual(trade["sides"][1]["name"], "Beta Team")
+        self.assertEqual(
+            trade["sides"][1]["draft_picks"],
+            [{"season": "2027", "round": 2}],
+        )
 
     def test_unsupported_attached_league_fails_before_loading_players(self):
         league = {

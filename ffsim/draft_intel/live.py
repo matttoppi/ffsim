@@ -41,11 +41,17 @@ from ffsim.draft_intel.opportunity import (
     next_user_turn_pick_no as _next_user_turn_pick_no,
     season_value_over_replacement as _value_over_replacement,
 )
+from ffsim.draft_intel.personal_ranks import (
+    adjusted_projection,
+    load_offsets as load_personal_offsets,
+    offsets_hash as personal_offsets_hash,
+)
 from ffsim.draft_intel.worp import load_worp_curve, projected_worp
 from ffsim.draft_intel.storage import load_sleeper_identity_map, store_history
 from ffsim.loaders.league import _fetch_json, league_and_drafts, refresh_league
 from ffsim.loaders.players import PlayerLoader
 from ffsim.models.league import League
+from ffsim.models.team import FLEX_ELIGIBILITY
 from ffsim.paths import CACHE_DIR
 from ffsim.simulation.evaluator import BENCH_ASSET_FACTOR, LeagueEvaluator
 from ffsim.simulation.season import refresh_matchups
@@ -63,6 +69,7 @@ class PreparedDraft:
     evaluator: LeagueEvaluator | None
     player_details: dict
     roster_details: dict = field(default_factory=dict)
+    personal_ranks: dict = field(default_factory=dict)
 
 
 def prepare_draft(
@@ -74,6 +81,7 @@ def prepare_draft(
     season=2026,
     world_count=300,
     progress=None,
+    force_refresh=False,
 ):
     """Refresh every input needed by one live draft session."""
     progress = progress or (lambda stage: None)
@@ -102,10 +110,15 @@ def prepare_draft(
         raise ValueError(f"Sleeper user {username} is not a member of league {league_id}")
     config = save_league_attachment(config_path, league_id, draft_id)
 
-    progress("Refreshing league, draft, stale players, and schedule")
+    progress(
+        "Refreshing league, draft, players, and schedule"
+        + (" (forced FantasyPros refresh)" if force_refresh else "")
+    )
     refresh_league(league_id, draft_id)
     player_loader = PlayerLoader()
-    projection_refresh = player_loader.refresh_if_stale(season=season)
+    projection_refresh = player_loader.refresh_if_stale(
+        season=season, force=force_refresh
+    )
     refresh_matchups(league_id, config.regular_season_weeks + 3)
 
     progress("Crawling and deduplicating league-mate history")
@@ -115,6 +128,7 @@ def prepare_draft(
     market_refresh = refresh_fantasypros_adp(
         season=season,
         sleeper_players_path=player_loader.sleeper_players_file,
+        force=force_refresh,
     )
 
     progress("Validating live draft source")
@@ -238,6 +252,7 @@ def prepare_draft(
         blockers.append("season_worlds_unavailable")
     blockers = list(dict.fromkeys(blockers))
     player_details = _player_details(player_loader.sleeper_players_file)
+    personal_offsets = load_personal_offsets()
     relevant_managers = [
         manager
         for manager in history_summary["managers"]
@@ -288,6 +303,10 @@ def prepare_draft(
             "worlds": bank.world_count if bank else 0,
             "players": len(bank.player_ids) if bank else 0,
         },
+        "personal_ranks": {
+            "players": len(personal_offsets),
+            "hash": personal_offsets_hash(personal_offsets),
+        },
         "monitor_ready": not blockers,
         "blockers": blockers,
     }
@@ -302,7 +321,13 @@ def prepare_draft(
         evaluator=evaluator,
         player_details=player_details,
         roster_details=roster_details,
+        personal_ranks=personal_offsets,
     )
+
+
+def _personal_board(prepared):
+    """Stored season-point offsets; tolerates bare test doubles without the field."""
+    return getattr(prepared, "personal_ranks", None) or {}
 
 
 def sync_prepared_draft(prepared, *, refresh_metadata=True):
@@ -351,8 +376,10 @@ def live_candidate_pool(prepared, state, breadth, sticky=()):
     """Order candidates best-player-available by market ADP.
 
     The head is the best remaining players (fallers first), and the expanding
-    window walks deeper down the board. Position caps always apply; only the
-    must-fill draft tail narrows further to open starter positions.
+    window walks deeper down the board. Personal season-point offsets never
+    move this market head; they enter through the value entrants below.
+    Position caps always apply; only the must-fill draft tail narrows
+    further to open starter positions.
 
     ``sticky`` players (the previous pick's finalists) lead the window when
     still eligible, and the top value-over-replacement players always enter
@@ -401,6 +428,7 @@ def live_candidate_pool(prepared, state, breadth, sticky=()):
         pool, key=lambda player_id: (-board[player_id], player_id)
     )[:breadth]
     projection, _, replacement = _value_over_replacement(prepared.evaluator)
+    personal = _personal_board(prepared)
     valued = sorted(
         (
             player_id for player_id in pool
@@ -410,7 +438,11 @@ def live_candidate_pool(prepared, state, breadth, sticky=()):
             and position_of[player_id] not in ("K", "DEF")
         ),
         key=lambda player_id: (
-            replacement.get(position_of[player_id], 0.0) - projection[player_id],
+            replacement.get(position_of[player_id], 0.0)
+            - projection[player_id]
+            # Owner season-point offsets (ADR-046) shift subjective value,
+            # so liked players enter the evaluated window sooner.
+            - personal.get(player_id, 0.0),
             player_id,
         ),
     )[:VALUE_POOL_COUNT]
@@ -467,15 +499,20 @@ def _bank_market_snapshot(prepared):
     }
 
 
-def _live_model_version(snapshot, temperature):
+def _live_model_version(snapshot, temperature, personal_values=None):
     # VONA compares feasible current value plus a coupled distribution of
     # next-turn alternatives. Roster caps and must-fill starter needs remain.
     # vona5: policy values mirror the terminal roster scorer (floored at the
     # cutline, flex-aware seats, discounted bench assets) per ADR-031.
-    return (
+    version = (
         f"{sleeper_adp_model_version(snapshot)}"
         f":t{temperature}:reach{LIVE_REACH_RATE}:needs:vona5:hazard1"
     )
+    if personal_values:
+        # Owner offsets change simulated user choices and the preference
+        # utility, so they are part of evaluation identity (ADR-046).
+        version += f":ranks{personal_offsets_hash(personal_values)[:8]}"
+    return version
 
 
 def _live_opponent_choice(snapshot, evaluator, state, temperature):
@@ -503,9 +540,10 @@ def _evaluate_candidate_batch(
     rollout_ids,
     temperature,
     seed=2026,
+    personal_values=None,
 ):
     choose = _live_opponent_choice(snapshot, evaluator, state, temperature)
-    user_policy = _projection_user_policy(evaluator, state, choose)
+    user_policy = _projection_user_policy(evaluator, state, choose, personal_values)
     return evaluate_candidates(
         state,
         candidate_ids,
@@ -514,7 +552,9 @@ def _evaluate_candidate_batch(
         choose,
         user_policy,
         evaluator,
-        draft_model_version=_live_model_version(snapshot, temperature),
+        draft_model_version=_live_model_version(
+            snapshot, temperature, personal_values
+        ),
         survival_player_ids=survival_ids,
         seed=seed,
         # The opponent callback returns final log-probabilities with the
@@ -524,13 +564,15 @@ def _evaluate_candidate_batch(
         season_worlds_per_rollout=min(
             LIVE_SEASON_WORLDS_PER_ROLLOUT, evaluator.bank.world_count
         ),
+        personal_values=personal_values,
     )
 
 
-def _init_candidate_worker(snapshot, evaluator, user_roster_id):
+def _init_candidate_worker(snapshot, evaluator, user_roster_id, personal_values):
     _WORKER["snapshot"] = snapshot
     _WORKER["evaluator"] = evaluator
     _WORKER["user_roster_id"] = user_roster_id
+    _WORKER["personal_values"] = personal_values
 
 
 def _rollout_ids(rollout_ids):
@@ -562,6 +604,7 @@ def _evaluate_candidate_task(
         rollout_ids,
         temperature,
         seed,
+        personal_values=_WORKER["personal_values"],
     )
 
 
@@ -574,6 +617,7 @@ def create_live_executor(prepared, workers=LIVE_EVALUATION_WORKERS):
             _bank_market_snapshot(prepared),
             prepared.evaluator,
             prepared.user_roster_id,
+            _personal_board(prepared),
         ),
     )
 
@@ -612,6 +656,7 @@ def evaluate_live_candidates(
             rollout_ids,
             temperature,
             seed,
+            personal_values=_personal_board(prepared),
         )
     # Candidate evaluations are independent under coupled randomness, and so
     # are disjoint rollout ranges, so a chunked fan-out merged afterwards is
@@ -847,31 +892,66 @@ PROJECTION_POSITIONS = ("QB", "RB", "WR", "TE", "K", "DEF")
 
 
 def projection_value_board(prepared, state, temperature=None):
-    """Fast league-scored rankings with deterministic next-turn lookahead."""
-    if state.current_roster_id != prepared.user_roster_id:
-        return None
+    """Fast league-scored rankings with deterministic next-turn lookahead.
+
+    The remaining-pool tables update after every synchronized pick. The
+    current-turn plan and route values anchor on the user's own pick, so they
+    are published only while the user is on the clock.
+    """
     if prepared.market_snapshot is None or prepared.evaluator is None:
         raise ValueError("Prepared draft is missing market or season inputs")
+    if state.current_pick_no is None:
+        return None
+    user_on_clock = state.current_roster_id == prepared.user_roster_id
 
     temperature = LIVE_TEMPERATURE if temperature is None else float(temperature)
     snapshot = _bank_market_snapshot(prepared)
     choose = _live_opponent_choice(snapshot, prepared.evaluator, state, temperature)
-    policy = _projection_user_policy(prepared.evaluator, state, choose)
+    my_board = _personal_board(prepared)
+    # Personal policy prices players at base projection + offset (ADR-046):
+    # it drives the board's current/route values. The falloff diagnostic
+    # below uses a separate raw-projection policy so cost-of-waiting stays
+    # a market/scarcity signal.
+    policy = _projection_user_policy(
+        prepared.evaluator, state, choose, my_board
+    )
+    raw_policy = (
+        _projection_user_policy(prepared.evaluator, state, choose)
+        if my_board
+        else policy
+    )
     current_values = policy.current_values(
         prepared.user_roster_id,
         state.rosters,
         state.available_player_ids,
     )
-    route_values = policy(
-        prepared.user_roster_id,
-        state.current_pick_no,
-        state.rosters,
-        state.available_player_ids,
+    raw_current_values = (
+        raw_policy.current_values(
+            prepared.user_roster_id,
+            state.rosters,
+            state.available_player_ids,
+        )
+        if my_board
+        else current_values
+    )
+    route_values = (
+        policy(
+            prepared.user_roster_id,
+            state.current_pick_no,
+            state.rosters,
+            state.available_player_ids,
+        )
+        if user_on_clock
+        else {}
     )
 
     projection, position_of, replacement = _value_over_replacement(
         prepared.evaluator
     )
+    # Displayed points are the owner's projections: base + offset.
+    # Replacement stays raw — offsets are player opinions, not a new
+    # league-wide cutline — so VORP/WORP become personal surpluses.
+    projection = adjusted_projection(projection, my_board)
     vorp = {
         player_id: points - replacement.get(position_of[player_id], 0.0)
         for player_id, points in projection.items()
@@ -943,6 +1023,38 @@ def projection_value_board(prepared, state, temperature=None):
             "wins_over_replacement": worp[player_id],
             "current_roster_value": current_values[player_id],
             "adp": adp.get(player_id),
+            "personal_offset": my_board.get(player_id, 0),
+        })
+
+    points_position_ranks = Counter()
+    points_players = []
+    remaining_ranked = sorted(
+        state.available_player_ids & projection.keys() & position_of.keys(),
+        key=lambda player_id: (
+            position_order.get(
+                position_of.get(player_id), len(position_order)
+            ),
+            -projection[player_id],
+            adp.get(player_id, float("inf")),
+            player_id,
+        ),
+    )
+    for player_id in remaining_ranked:
+        position = position_of[player_id]
+        if position not in position_order:
+            continue
+        if points_position_ranks[position] >= 10:
+            continue
+        points_position_ranks[position] += 1
+        details = prepared.player_details.get(player_id, {})
+        points_players.append({
+            "player_id": player_id,
+            "name": details.get("name", player_id),
+            "position": position,
+            "team": details.get("team"),
+            "position_rank": points_position_ranks[position],
+            "projected_points": projection[player_id],
+            "personal_offset": my_board.get(player_id, 0),
         })
 
     best_route_by_position = {}
@@ -979,11 +1091,157 @@ def projection_value_board(prepared, state, temperature=None):
             row["player_id"],
         ),
     )
+    # The helper treats the anchor pick as the user's own turn. Off the
+    # clock the current opponent pick is itself the intervening opponent,
+    # so anchor one pick earlier to report the user's actual next turn.
+    turn_anchor = (
+        state.current_pick_no if user_on_clock else state.current_pick_no - 1
+    )
     next_turn = _next_user_turn_pick_no(
         state.pick_owners,
-        state.current_pick_no,
+        turn_anchor,
         prepared.user_roster_id,
     )
+
+    # Positional falloff: for every position, the marginal roster value of
+    # the best player now versus the deterministically selected best
+    # remaining player (ADP-threshold, not probability-weighted) at each
+    # of the user's future turns, under deterministic ADP-order availability
+    # with the live reach cushion (ADR-019) and the current roster. No
+    # survival model, no simulation, and no encoded strategy; the terminal
+    # simulation ranking stays authoritative.
+    future_turns = []
+    anchor = turn_anchor
+    while True:
+        turn_pick_no = _next_user_turn_pick_no(
+            state.pick_owners, anchor, prepared.user_roster_id
+        )
+        if turn_pick_no is None:
+            break
+        future_turns.append(turn_pick_no)
+        anchor = turn_pick_no
+    user_roster_players = next(
+        (
+            roster_players
+            for roster_id, roster_players in state.rosters
+            if roster_id == prepared.user_roster_id
+        ),
+        (),
+    )
+    user_position_counts = Counter(
+        position_of[player_id]
+        for player_id in user_roster_players
+        if player_id in position_of
+    )
+    # Flex-aware open seats: dedicated seats first, then surplus starters
+    # consume flex seats in ascending-eligibility order. Open flex seats are
+    # SHARED across every eligible position, so per-position totals overlap
+    # and must not be summed across positions.
+    dedicated_open = {}
+    position_surplus = {}
+    for position in position_order:
+        seats = prepared.evaluator.slot_counts.get(position, 0)
+        have = user_position_counts.get(position, 0)
+        dedicated_open[position] = max(0, seats - have)
+        position_surplus[position] = max(0, have - seats)
+    open_flex_by_position = dict.fromkeys(position_order, 0)
+    flex_slots = sorted(
+        (
+            (slot, count)
+            for slot, count in prepared.evaluator.slot_counts.items()
+            if slot in FLEX_ELIGIBILITY
+        ),
+        key=lambda item: (len(FLEX_ELIGIBILITY[item[0]]), item[0]),
+    )
+    for slot, seat_count in flex_slots:
+        eligible = sorted(FLEX_ELIGIBILITY[slot])
+        for position in eligible:
+            while seat_count and position_surplus.get(position, 0):
+                position_surplus[position] -= 1
+                seat_count -= 1
+        for position in eligible:
+            if position in open_flex_by_position:
+                open_flex_by_position[position] += seat_count
+    by_position = {}
+    for row in players:
+        if row["position"] in position_order:
+            by_position.setdefault(row["position"], []).append(row)
+    outlook_rows = []
+    for position, rows in by_position.items():
+        # Falloff selects and prices by RAW marginal value AND raw points:
+        # cost of waiting is a market/scarcity diagnostic, so a personal
+        # boost cannot make a deep dart throw the positional target and a
+        # fade cannot hide the market's best (ADR-046). Each row still
+        # carries personal_offset so the UI can flag boosted/faded names.
+        raw_value = lambda row: raw_current_values.get(row["player_id"], 0.0)
+        raw_points = lambda row: row["projected_points"] - row["personal_offset"]
+        rows = sorted(
+            rows,
+            key=lambda row: (
+                -raw_value(row),
+                row["adp"] if row["adp"] is not None else float("inf"),
+                row["player_id"],
+            ),
+        )
+        best_now = rows[0]
+        turns = []
+        for turn_pick_no in future_turns:
+            cushion = LIVE_REACH_RATE * (turn_pick_no - state.current_pick_no)
+            expected = [
+                row
+                for row in rows
+                if row["adp"] is not None
+                and row["adp"] >= turn_pick_no + cushion
+            ]
+            top = (
+                max(
+                    expected,
+                    key=lambda row: (raw_value(row), row["player_id"]),
+                )
+                if expected
+                else None
+            )
+            turns.append({
+                "pick_no": turn_pick_no,
+                "player_id": top["player_id"] if top else None,
+                "name": top["name"] if top else None,
+                "marginal_value": raw_value(top) if top else 0.0,
+                "projected_points": raw_points(top) if top else None,
+                "personal_offset": top["personal_offset"] if top else 0,
+                "adp": top["adp"] if top else None,
+                "drop_from_now": raw_value(best_now)
+                - (raw_value(top) if top else 0.0),
+            })
+        next_turn_value = turns[0]["marginal_value"] if turns else 0.0
+        outlook_rows.append({
+            "position": position,
+            "open_dedicated_slots": dedicated_open.get(position, 0),
+            "eligible_open_flex_slots": open_flex_by_position.get(position, 0),
+            "remaining_starting_opportunities": dedicated_open.get(position, 0)
+            + open_flex_by_position.get(position, 0),
+            "best_now_player_id": best_now["player_id"],
+            "best_now_name": best_now["name"],
+            "best_now_marginal_value": raw_value(best_now),
+            "best_now_points": raw_points(best_now),
+            "best_now_personal_offset": best_now["personal_offset"],
+            "best_now_adp": best_now["adp"],
+            "take_now_edge": raw_value(best_now) - next_turn_value,
+            "turns": turns,
+            "top_players": [
+                {
+                    "player_id": row["player_id"],
+                    "name": row["name"],
+                    "position_rank": row["position_rank"],
+                    "marginal_value": raw_value(row),
+                    "projected_points": raw_points(row),
+                    "personal_offset": row["personal_offset"],
+                    "adp": row["adp"],
+                    "edge_vs_next_turn": raw_value(row) - next_turn_value,
+                }
+                for row in rows[:5]
+            ],
+        })
+    outlook_rows.sort(key=lambda row: -row["take_now_edge"])
     return {
         "model_status": "deterministic_projection_lookahead",
         "model_version": PROJECTION_BOARD_VERSION,
@@ -994,7 +1252,25 @@ def projection_value_board(prepared, state, temperature=None):
         "recommended_player_id": plans[0]["player_id"] if plans else None,
         "recommended_position": plans[0]["position"] if plans else None,
         "plans": plans,
+        "points_source": "fantasypros_primary_offense",
+        "special_teams_points_source": "pff",
+        "points_players": points_players,
         "players": players,
+        "position_outlook": {
+            "availability_model": "adp_order_with_reach_cushion",
+            "roster_assumption": "current_roster_marginal_value",
+            # Raw projections on purpose: personal offsets never move the
+            # falloff targets, only the simulation recommendation and the
+            # personal board values.
+            "value_basis": "raw_projection",
+            # Every edge and turn value scores only the FIRST marginal seat
+            # at that position under the flex- and bench-aware roster scorer;
+            # nothing is multiplied by slot counts.
+            "edge_basis": "first_marginal_seat",
+            "reach_rate": LIVE_REACH_RATE,
+            "future_turn_pick_nos": future_turns,
+            "positions": outlook_rows,
+        },
     }
 
 
@@ -1120,6 +1396,7 @@ def live_recommendation_payload(prepared, state, evaluations, candidate_pool_cou
             prepared.market_snapshot
         ).items()
     }
+    my_board = _personal_board(prepared)
 
     def effective_tie_break_urgency(candidate):
         # Streamable K/DEF are never urgent — their positive VONA is an
@@ -1138,6 +1415,10 @@ def live_recommendation_payload(prepared, state, evaluations, candidate_pool_cou
     recommendation = asdict(
         recommendation_summary(evaluation, tier_key=market_tier_key)
     )
+    recommendation["personal_ranks"] = {
+        "players": len(my_board),
+        "hash": personal_offsets_hash(my_board),
+    }
     top_tier = set(recommendation["co_leader_candidate_ids"])
     ranked = rank_candidates(evaluation)
     co_leaders = tuple(
@@ -1158,8 +1439,9 @@ def live_recommendation_payload(prepared, state, evaluations, candidate_pool_cou
                 for candidate in max_urgency_candidates
                 if isfinite(adp.get(candidate.candidate_id, float("inf")))
             )
+            board_basis = "market_adp"
             tie_break_basis = (
-                "market_adp"
+                board_basis
                 if finite_adps and finite_adps.count(min(finite_adps)) == 1
                 else "engine_rank"
             )
@@ -1236,6 +1518,11 @@ def live_recommendation_payload(prepared, state, evaluations, candidate_pool_cou
             "playoff_probability": candidate.playoff_probability,
             "expected_wins": candidate.expected_wins,
             "adp": adp.get(candidate.candidate_id),
+            "personal_offset": my_board.get(candidate.candidate_id, 0),
+            "preference_adjusted_value": candidate.preference_adjusted_value,
+            "preference_adjusted_value_standard_error": (
+                candidate.preference_adjusted_value_standard_error
+            ),
             "survives_to_next_pick": (
                 survival.survives_to_next_pick if survival else None
             ),
@@ -1430,6 +1717,7 @@ def _roster_details(live_by_slot, real_by_slot, rosters, users, user_roster_id):
         )
         details[live_roster_id] = {
             "name": str(name),
+            "manager_id": str(owner_id) if owner_id is not None else None,
             "draft_slot": slot,
             "is_user": live_roster_id == user_roster_id,
         }

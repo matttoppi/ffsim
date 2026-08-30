@@ -1,0 +1,52 @@
+{
+  "baseline_rollouts": 20,
+  "candidate_count": 16,
+  "draft_id": "1393656492011315200",
+  "duration_seconds": 5.2247109999880195,
+  "experiment": "cached live alpha shadow integration smoke",
+  "gate": {
+    "passes": true
+  },
+  "limitations": [
+    "cached mock state",
+    "20-rollout live collector budget",
+    "shadow output does not alter the recommendation"
+  ],
+  "manager_shadow": {
+    "callback_calls": {
+      "personalized": 74384,
+      "population": 27894
+    },
+    "probability_blend": 0.1,
+    "ranking": [
+      "7523",
+      "8167",
+      "8228",
+      "11628",
+      "6819",
+      "8142",
+      "5846",
+      "6797",
+      "13294",
+      "12489"
+    ],
+    "rollouts": 20,
+    "shadow_leader_candidate_id": "7523",
+    "shadow_leader_in_terminal_practical_tier": true,
+    "status": "ready",
+    "terminal_leader_candidate_id": "8167"
+  },
+  "manager_support": {
+    "population_fallback_rosters": 3,
+    "supported_rosters": 8,
+    "total_opponent_rosters": 11
+  },
+  "next_turn_count": 10,
+  "pick_no": 73,
+  "recommendation_hash_after": "487dcd1eb6f98f0a5faeb05b91c2376be38f2cfbd82eb0f165cc6953ad5430a2",
+  "recommendation_hash_before": "487dcd1eb6f98f0a5faeb05b91c2376be38f2cfbd82eb0f165cc6953ad5430a2",
+  "recommendation_unchanged": true,
+  "status": "research",
+  "terminal_recommendation_id": "8167",
+  "top_ten_capture_complete": true
+}

@@ -81,9 +81,9 @@ class PlayerLoader:
         print(f"Projection match report: {self.projection_report_file}")
         return self.projection_status(season=season, now=retrieved_at)
 
-    def refresh_if_stale(self, season=2026, now=None):
+    def refresh_if_stale(self, season=2026, now=None, force=False):
         status = self.projection_status(season=season, now=now)
-        if status["fresh"]:
+        if status["fresh"] and not force:
             return {**status, "refreshed": False}
         return {**self.refresh(season=season, retrieved_at=now), "refreshed": True}
 

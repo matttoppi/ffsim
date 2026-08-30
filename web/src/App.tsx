@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { getLeagueInfo, type LeagueInfo } from './api'
+import { getLeagueInfo, type LeagueInfo, type RecentTrade } from './api'
+import { ManagerScouting } from './ManagerScouting'
 import { DraftIntel } from './DraftIntel'
+import { PersonalRanks } from './PersonalRanks'
 import { LeaguePicker } from './LeaguePicker'
 import { RaceBoard } from './RaceBoard'
 import { Standings } from './Standings'
@@ -73,9 +75,62 @@ function Ticker({
   )
 }
 
+const tradeDate = new Intl.DateTimeFormat(undefined, {
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric',
+})
+
+function RecentTrades({ trades }: { trades: RecentTrade[] }) {
+  return (
+    <section className="panel trades" aria-label="Recent trades">
+      <header className="race-header">
+        <h2 className="panel-title">Recent trades</h2>
+        <p className="standings-meta">Latest 30 completed league deals</p>
+      </header>
+      {trades.length === 0 ? (
+        <p className="detail-empty">No completed trades yet.</p>
+      ) : (
+        <ol className="trade-list">
+          {trades.map((trade) => (
+            <li key={trade.transaction_id}>
+              <time
+                dateTime={
+                  trade.completed_at ? new Date(trade.completed_at).toISOString() : undefined
+                }
+              >
+                {trade.completed_at ? tradeDate.format(trade.completed_at) : 'Date unavailable'}
+              </time>
+              <div className="trade-sides">
+                {trade.sides.map((side) => {
+                  const assets = [
+                    ...side.players.map((player) =>
+                      `${player.name}${player.position ? ` · ${player.position}` : ''}${
+                        player.team ? ` ${player.team}` : ''
+                      }`,
+                    ),
+                    ...side.draft_picks.map((pick) => `${pick.season} round ${pick.round}`),
+                    ...(side.faab ? [`$${side.faab} FAAB`] : []),
+                  ]
+                  return (
+                    <p key={side.roster_id}>
+                      <strong>{side.name}</strong>
+                      <span>{assets.length ? assets.join(', ') : 'No incoming assets listed'}</span>
+                    </p>
+                  )
+                })}
+              </div>
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
+  )
+}
+
 export default function App() {
   const { live, results, startError, connection, start, busy } = useSimulation()
-  const [activeTab, setActiveTab] = useState<'draft' | 'season'>('draft')
+  const [activeTab, setActiveTab] = useState<'draft' | 'ranks' | 'scouting' | 'season'>('draft')
   const [serverUp, setServerUp] = useState<boolean | null>(null)
   const [league, setLeague] = useState<LeagueInfo | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -137,11 +192,60 @@ export default function App() {
 
   return (
     <div className="shell">
-      <header className="masthead">
-        <div>
-          <p className="eyebrow">FFSim · Live Sim Center · 2026</p>
-          <h1 className="wordmark">{league?.name ?? 'Pick a league'}</h1>
+      <header className="appbar">
+        <div className="appbar-brand">
+          <p className="wordmark">FFSim</p>
+          <div className="appbar-league">
+            <span className="appbar-league-name">{league?.name ?? 'Pick a league'}</span>
+            <span className="appbar-league-meta">Live Sim Center · 2026</span>
+          </div>
         </div>
+        <nav className="app-tabs" aria-label="FFSim tools" role="tablist">
+          <button
+            id="draft-intelligence-tab"
+            type="button"
+            className="app-tab"
+            role="tab"
+            aria-controls="draft-intelligence-panel"
+            aria-selected={activeTab === 'draft'}
+            onClick={() => setActiveTab('draft')}
+          >
+            Draft intelligence
+          </button>
+          <button
+            id="league-scouting-tab"
+            type="button"
+            className="app-tab"
+            role="tab"
+            aria-controls="league-scouting-panel"
+            aria-selected={activeTab === 'scouting'}
+            onClick={() => setActiveTab('scouting')}
+          >
+            League scouting
+          </button>
+          <button
+            id="my-ranks-tab"
+            type="button"
+            className="app-tab"
+            role="tab"
+            aria-controls="my-ranks-panel"
+            aria-selected={activeTab === 'ranks'}
+            onClick={() => setActiveTab('ranks')}
+          >
+            My ranks
+          </button>
+          <button
+            id="season-simulator-tab"
+            type="button"
+            className="app-tab"
+            role="tab"
+            aria-controls="season-simulator-panel"
+            aria-selected={activeTab === 'season'}
+            onClick={() => setActiveTab('season')}
+          >
+            Season simulator
+          </button>
+        </nav>
         <div className="masthead-actions">
           {activeTab === 'season' && (
             <p className={`status-chip status-${live.phase}`} role="status">
@@ -164,31 +268,6 @@ export default function App() {
           )}
         </div>
       </header>
-
-      <nav className="app-tabs" aria-label="FFSim tools" role="tablist">
-        <button
-          id="draft-intelligence-tab"
-          type="button"
-          className="app-tab"
-          role="tab"
-          aria-controls="draft-intelligence-panel"
-          aria-selected={activeTab === 'draft'}
-          onClick={() => setActiveTab('draft')}
-        >
-          Draft intelligence
-        </button>
-        <button
-          id="season-simulator-tab"
-          type="button"
-          className="app-tab"
-          role="tab"
-          aria-controls="season-simulator-panel"
-          aria-selected={activeTab === 'season'}
-          onClick={() => setActiveTab('season')}
-        >
-          Season simulator
-        </button>
-      </nav>
 
       {serverUp === false && (
         <div className="banner banner-error" role="alert">
@@ -219,7 +298,32 @@ export default function App() {
         aria-labelledby="draft-intelligence-tab"
         hidden={activeTab !== 'draft'}
       >
-        <DraftIntel currentDraftId={league?.draft_id ?? null} />
+        <DraftIntel
+          currentDraftId={league?.draft_id ?? null}
+          onOpenRanks={() => setActiveTab('ranks')}
+        />
+      </div>
+
+      <div
+        id="league-scouting-panel"
+        role="tabpanel"
+        aria-labelledby="league-scouting-tab"
+        hidden={activeTab !== 'scouting'}
+      >
+        {league?.ready && activeTab === 'scouting' ? (
+          <ManagerScouting />
+        ) : (
+          <p className="controls-hint">Pick a league to load manager history.</p>
+        )}
+      </div>
+
+      <div
+        id="my-ranks-panel"
+        role="tabpanel"
+        aria-labelledby="my-ranks-tab"
+        hidden={activeTab !== 'ranks'}
+      >
+        {activeTab === 'ranks' && <PersonalRanks />}
       </div>
 
       <div
@@ -322,6 +426,7 @@ export default function App() {
               lastResult={live.lastResult}
               completed={live.phase === 'completed'}
             />
+            {league?.ready && <RecentTrades trades={league.recent_trades ?? []} />}
             {results && <Standings results={results} />}
           </div>
         </div>

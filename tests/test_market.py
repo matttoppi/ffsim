@@ -11,6 +11,7 @@ from ffsim.draft_intel.market import (
     fantasypros_market_status,
     import_market_csv,
     load_market_snapshot_at,
+    load_market_snapshot_by_id,
     refresh_fantasypros_adp,
 )
 from ffsim.draft_intel.storage import SCHEMA
@@ -119,8 +120,18 @@ class MarketSnapshotTest(unittest.TestCase):
                 fetch_payload=fetch_payload,
                 api_key="test",
             )
+            forced = refresh_fantasypros_adp(
+                season=2026,
+                storage_dir=directory,
+                sleeper_players_path=sleeper_path,
+                contexts=context,
+                now=first_at + timedelta(hours=13),
+                fetch_payload=fetch_payload,
+                api_key="test",
+                force=True,
+            )
 
-            self.assertEqual(len(calls), 2)
+            self.assertEqual(len(calls), 3)
             self.assertEqual(first["fetched_contexts"][0]["mapped_player_count"], 2)
             self.assertEqual(
                 first["fetched_contexts"][0]["unmatched_players"][0]["name"],
@@ -128,6 +139,8 @@ class MarketSnapshotTest(unittest.TestCase):
             )
             self.assertEqual(fresh["fetched_contexts"], [])
             self.assertEqual(len(stale["fetched_contexts"]), 1)
+            # force=True fetches even though the hour-13 snapshot is fresh.
+            self.assertEqual(len(forced["fetched_contexts"]), 1)
             self.assertTrue(fantasypros_market_status(
                 season=2026,
                 storage_dir=directory,
@@ -138,10 +151,11 @@ class MarketSnapshotTest(unittest.TestCase):
                 sources = database.execute(
                     "SELECT source, COUNT(*) FROM market_snapshots GROUP BY source ORDER BY source"
                 ).fetchall()
+                # Two TTL-driven fetches plus the forced hour-13 fetch.
                 self.assertEqual(sources, [
-                    ("fantasypros:consensus", 2),
-                    ("fantasypros:espn", 2),
-                    ("fantasypros:sleeper", 2),
+                    ("fantasypros:consensus", 3),
+                    ("fantasypros:espn", 3),
+                    ("fantasypros:sleeper", 3),
                 ])
                 sleeper_adp = database.execute(
                     """
@@ -248,6 +262,14 @@ class MarketSnapshotTest(unittest.TestCase):
             self.assertEqual(snapshot["observations"][0]["canonical_player_id"], "sleeper:1")
             self.assertEqual(snapshot["observations"][0]["adp"], 10.5)
             self.assertNotEqual(first["snapshot_id"], second["snapshot_id"])
+            pinned = load_market_snapshot_by_id(
+                first["snapshot_id"], storage_dir=directory
+            )
+            self.assertEqual(pinned["snapshot_id"], first["snapshot_id"])
+            self.assertEqual(pinned["observations"], snapshot["observations"])
+            self.assertIsNone(
+                load_market_snapshot_by_id("missing", storage_dir=directory)
+            )
             self.assertEqual(Path(first["raw_snapshot_path"]).read_bytes(), b"sleeper_id,adp,rank,std_dev,tier\n1,10.5,9,2.5,2\n")
             self.assertIsNone(load_market_snapshot_at(
                 source="consensus",

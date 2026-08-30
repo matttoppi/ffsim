@@ -1,0 +1,1397 @@
+{
+  "counts": {
+    "fully_supported_states": 2,
+    "stable_states": 2,
+    "states": 6,
+    "supported_candidates": 38,
+    "top_ten_candidates": 59
+  },
+  "experiment": "exact survival coverage for current VONA and static VORP",
+  "gate": {
+    "candidate_coverage": 0.6440677966101694,
+    "fully_supported_state_coverage": 0.3333333333333333,
+    "passes": false,
+    "required_candidate_coverage": 0.7,
+    "required_stable_sign_rate": 0.8,
+    "required_state_coverage": 0.5,
+    "stable_sign_rate": 1.0
+  },
+  "limitations": [
+    "saved current 2026 states are a coverage and sensitivity audit, not an outcome backtest",
+    "historical point-in-time projections are unavailable",
+    "expected-best values assume independent player survival",
+    "static VORP and roster-specific terminal marginal value remain separate",
+    "no live VONA, WORP, rollout, API, or UI integration"
+  ],
+  "lookup_model_version": "exact-empirical-survival-v1",
+  "lookup_status": "research",
+  "skipped_files": [
+    {
+      "reason": "not_timing_report",
+      "source": "tmp/timing-config-12.json"
+    }
+  ],
+  "states": [
+    {
+      "candidate_count": 10,
+      "context": {
+        "gap": 18,
+        "round_": 1,
+        "scoring_format": "PPR",
+        "team_count": 10
+      },
+      "draft_id": "1393628519644286976",
+      "pick_no": 1,
+      "source": "tmp/timing-1393628519644286976.json",
+      "source_sha256": "bcfd0aacabd3a316e3b3f7ac9295086cab73a695243aee11d70b7290eb7c6457",
+      "support": [
+        {
+          "count": 981,
+          "interval_95": [
+            0.0005592613916431208,
+            0.007403034270928402
+          ],
+          "key": [
+            1,
+            18,
+            1,
+            "RB",
+            "PPR",
+            10
+          ],
+          "market_rank": 1,
+          "name": "Jahmyr Gibbs",
+          "player_id": "9221",
+          "position": "RB",
+          "probability": 0.003051881993896236,
+          "raw_rate": 0.0020387359836901123,
+          "status": "available",
+          "successes": 2
+        },
+        {
+          "count": 696,
+          "interval_95": [
+            0.003072280769103395,
+            0.01670590903841876
+          ],
+          "key": [
+            2,
+            18,
+            1,
+            "RB",
+            "PPR",
+            10
+          ],
+          "market_rank": 2,
+          "name": "Bijan Robinson",
+          "player_id": "9509",
+          "position": "RB",
+          "probability": 0.008595988538681949,
+          "raw_rate": 0.007183908045977011,
+          "status": "available",
+          "successes": 5
+        },
+        {
+          "count": 383,
+          "interval_95": [
+            0.5139123961563197,
+            0.6127544359527399
+          ],
+          "key": [
+            3,
+            18,
+            1,
+            "WR",
+            "PPR",
+            10
+          ],
+          "market_rank": 3,
+          "name": "Ja'Marr Chase",
+          "player_id": "7564",
+          "position": "WR",
+          "probability": 0.5636363636363636,
+          "raw_rate": 0.5639686684073107,
+          "status": "available",
+          "successes": 216
+        },
+        {
+          "count": 441,
+          "interval_95": [
+            0.09909687031684157,
+            0.16131402650575774
+          ],
+          "key": [
+            4,
+            18,
+            1,
+            "WR",
+            "PPR",
+            10
+          ],
+          "market_rank": 4,
+          "name": "Puka Nacua",
+          "player_id": "9493",
+          "position": "WR",
+          "probability": 0.12866817155756208,
+          "raw_rate": 0.12698412698412698,
+          "status": "available",
+          "successes": 56
+        },
+        {
+          "count": 272,
+          "interval_95": [
+            0.005733207656477533,
+            0.037195777674234
+          ],
+          "key": [
+            5,
+            18,
+            1,
+            "RB",
+            "PPR",
+            10
+          ],
+          "market_rank": 5,
+          "name": "Christian McCaffrey",
+          "player_id": "4034",
+          "position": "RB",
+          "probability": 0.01824817518248175,
+          "raw_rate": 0.014705882352941176,
+          "status": "available",
+          "successes": 4
+        },
+        {
+          "count": 638,
+          "interval_95": [
+            0.002440704338413463,
+            0.016008707479081695
+          ],
+          "key": [
+            6,
+            18,
+            1,
+            "WR",
+            "PPR",
+            10
+          ],
+          "market_rank": 6,
+          "name": "Jaxon Smith-Njigba",
+          "player_id": "9488",
+          "position": "WR",
+          "probability": 0.0078125,
+          "raw_rate": 0.006269592476489028,
+          "status": "available",
+          "successes": 4
+        },
+        {
+          "count": 568,
+          "interval_95": [
+            0.01212581415524564,
+            0.0365617944412608
+          ],
+          "key": [
+            7,
+            18,
+            1,
+            "RB",
+            "PPR",
+            10
+          ],
+          "market_rank": 7,
+          "name": "Jonathan Taylor",
+          "player_id": "6813",
+          "position": "RB",
+          "probability": 0.02280701754385965,
+          "raw_rate": 0.02112676056338028,
+          "status": "available",
+          "successes": 12
+        },
+        {
+          "count": 483,
+          "interval_95": [
+            0.018908873352915388,
+            0.050603674465512616
+          ],
+          "key": [
+            8,
+            18,
+            1,
+            "WR",
+            "PPR",
+            10
+          ],
+          "market_rank": 8,
+          "name": "Amon-Ra St. Brown",
+          "player_id": "7547",
+          "position": "WR",
+          "probability": 0.032989690721649485,
+          "raw_rate": 0.031055900621118012,
+          "status": "available",
+          "successes": 15
+        },
+        {
+          "count": 329,
+          "interval_95": [
+            0.02782135888678961,
+            0.07385343176437897
+          ],
+          "key": [
+            9,
+            18,
+            1,
+            "WR",
+            "PPR",
+            10
+          ],
+          "market_rank": 9,
+          "name": "CeeDee Lamb",
+          "player_id": "6786",
+          "position": "WR",
+          "probability": 0.04833836858006042,
+          "raw_rate": 0.04559270516717325,
+          "status": "available",
+          "successes": 15
+        },
+        {
+          "count": 341,
+          "interval_95": [
+            0.06231891723601744,
+            0.12281419895414057
+          ],
+          "key": [
+            10,
+            18,
+            1,
+            "RB",
+            "PPR",
+            10
+          ],
+          "market_rank": 10,
+          "name": "James Cook",
+          "player_id": "8138",
+          "position": "RB",
+          "probability": 0.09037900874635568,
+          "raw_rate": 0.08797653958944282,
+          "status": "available",
+          "successes": 30
+        }
+      ],
+      "supported_count": 10,
+      "vona": {
+        "stable_signs": true,
+        "static_vorp": {
+          "best_current": 202.9255362982247,
+          "expected_best_later": {
+            "high": 123.83792899617904,
+            "low": 98.16568960728696,
+            "mid": 111.30330886960009
+          },
+          "value_over_next_alternative_interval": [
+            79.08760730204565,
+            104.75984669093774
+          ]
+        },
+        "terminal_marginal": {
+          "best_current": 182.16487145606354,
+          "expected_best_later": {
+            "high": 100.5938579360691,
+            "low": 80.00854586470729,
+            "mid": 90.45472264924683
+          },
+          "value_over_next_alternative_interval": [
+            81.57101351999444,
+            102.15632559135625
+          ]
+        }
+      }
+    },
+    {
+      "candidate_count": 10,
+      "context": {
+        "gap": 23,
+        "round_": 2,
+        "scoring_format": "PPR",
+        "team_count": 12
+      },
+      "draft_id": "1393634461312106496",
+      "pick_no": 24,
+      "source": "tmp/timing-1393634461312106496.json",
+      "source_sha256": "4a6ad843112d3ce2d5625a41effc5d6ad8c92bb4caeadb51ba07e064d18fd97a",
+      "support": [
+        {
+          "key": [
+            1,
+            23,
+            2,
+            "RB",
+            "PPR",
+            12
+          ],
+          "market_rank": 1,
+          "minimum_support": 250,
+          "name": "Kenneth Walker",
+          "player_id": "8151",
+          "position": "RB",
+          "status": "unavailable"
+        },
+        {
+          "key": [
+            2,
+            23,
+            2,
+            "RB",
+            "PPR",
+            12
+          ],
+          "market_rank": 2,
+          "minimum_support": 250,
+          "name": "Derrick Henry",
+          "player_id": "3198",
+          "position": "RB",
+          "status": "unavailable"
+        },
+        {
+          "key": [
+            3,
+            23,
+            2,
+            "QB",
+            "PPR",
+            12
+          ],
+          "market_rank": 3,
+          "minimum_support": 250,
+          "name": "Josh Allen",
+          "player_id": "4984",
+          "position": "QB",
+          "status": "unavailable"
+        },
+        {
+          "key": [
+            4,
+            23,
+            2,
+            "WR",
+            "PPR",
+            12
+          ],
+          "market_rank": 4,
+          "minimum_support": 250,
+          "name": "Nico Collins",
+          "player_id": "7569",
+          "position": "WR",
+          "status": "unavailable"
+        },
+        {
+          "key": [
+            5,
+            23,
+            2,
+            "WR",
+            "PPR",
+            12
+          ],
+          "market_rank": 5,
+          "minimum_support": 250,
+          "name": "Rashee Rice",
+          "player_id": "10229",
+          "position": "WR",
+          "status": "unavailable"
+        },
+        {
+          "key": [
+            6,
+            23,
+            2,
+            "RB",
+            "PPR",
+            12
+          ],
+          "market_rank": 6,
+          "minimum_support": 250,
+          "name": "Kyren Williams",
+          "player_id": "8150",
+          "position": "RB",
+          "status": "unavailable"
+        },
+        {
+          "key": [
+            7,
+            23,
+            2,
+            "WR",
+            "PPR",
+            12
+          ],
+          "market_rank": 7,
+          "minimum_support": 250,
+          "name": "Chris Olave",
+          "player_id": "8144",
+          "position": "WR",
+          "status": "unavailable"
+        },
+        {
+          "key": [
+            8,
+            23,
+            2,
+            "RB",
+            "PPR",
+            12
+          ],
+          "market_rank": 8,
+          "minimum_support": 250,
+          "name": "Josh Jacobs",
+          "player_id": "5850",
+          "position": "RB",
+          "status": "unavailable"
+        },
+        {
+          "key": [
+            9,
+            23,
+            2,
+            "RB",
+            "PPR",
+            12
+          ],
+          "market_rank": 9,
+          "minimum_support": 250,
+          "name": "Breece Hall",
+          "player_id": "8155",
+          "position": "RB",
+          "status": "unavailable"
+        },
+        {
+          "key": [
+            10,
+            23,
+            2,
+            "QB",
+            "PPR",
+            12
+          ],
+          "market_rank": 10,
+          "minimum_support": 250,
+          "name": "Lamar Jackson",
+          "player_id": "4881",
+          "position": "QB",
+          "status": "unavailable"
+        }
+      ],
+      "supported_count": 0
+    },
+    {
+      "candidate_count": 9,
+      "context": {
+        "gap": 22,
+        "round_": 7,
+        "scoring_format": "PPR",
+        "team_count": 12
+      },
+      "draft_id": "1393656492011315200",
+      "pick_no": 73,
+      "source": "tmp/timing-1393656492011315200.json",
+      "source_sha256": "c556c49a25dde263b299a1781a68c1aaffa0c937bf64f566e0a3004cf22aa116",
+      "support": [
+        {
+          "key": [
+            2,
+            22,
+            7,
+            "WR",
+            "PPR",
+            12
+          ],
+          "market_rank": 2,
+          "minimum_support": 250,
+          "name": "Christian Watson",
+          "player_id": "8167",
+          "position": "WR",
+          "status": "unavailable"
+        },
+        {
+          "count": 1163,
+          "interval_95": [
+            0.9853579825245837,
+            0.9959234527619198
+          ],
+          "key": [
+            3,
+            22,
+            7,
+            "QB",
+            "PPR",
+            12
+          ],
+          "market_rank": 3,
+          "name": "Caleb Williams",
+          "player_id": "11560",
+          "position": "QB",
+          "probability": 0.9914163090128756,
+          "raw_rate": 0.9922613929492692,
+          "status": "available",
+          "successes": 1154
+        },
+        {
+          "count": 382,
+          "interval_95": [
+            0.8722880522213201,
+            0.9311504572602911
+          ],
+          "key": [
+            4,
+            22,
+            7,
+            "WR",
+            "PPR",
+            12
+          ],
+          "market_rank": 4,
+          "name": "DK Metcalf",
+          "player_id": "5846",
+          "position": "WR",
+          "probability": 0.9036458333333334,
+          "raw_rate": 0.9057591623036649,
+          "status": "available",
+          "successes": 346
+        },
+        {
+          "count": 337,
+          "interval_95": [
+            0.6616490420021113,
+            0.757900684322375
+          ],
+          "key": [
+            5,
+            22,
+            7,
+            "RB",
+            "PPR",
+            12
+          ],
+          "market_rank": 5,
+          "name": "Jaylen Warren",
+          "player_id": "8228",
+          "position": "RB",
+          "probability": 0.7109144542772862,
+          "raw_rate": 0.712166172106825,
+          "status": "available",
+          "successes": 240
+        },
+        {
+          "key": [
+            6,
+            22,
+            7,
+            "WR",
+            "PPR",
+            12
+          ],
+          "market_rank": 6,
+          "minimum_support": 250,
+          "name": "Marvin Harrison",
+          "player_id": "11628",
+          "position": "WR",
+          "status": "unavailable"
+        },
+        {
+          "count": 542,
+          "interval_95": [
+            0.7884975620620267,
+            0.8527141008086669
+          ],
+          "key": [
+            7,
+            22,
+            7,
+            "RB",
+            "PPR",
+            12
+          ],
+          "market_rank": 7,
+          "name": "Chuba Hubbard",
+          "player_id": "7594",
+          "position": "RB",
+          "probability": 0.8216911764705882,
+          "raw_rate": 0.8228782287822878,
+          "status": "available",
+          "successes": 446
+        },
+        {
+          "count": 550,
+          "interval_95": [
+            0.7549628497325683,
+            0.8228196787015544
+          ],
+          "key": [
+            8,
+            22,
+            7,
+            "RB",
+            "PPR",
+            12
+          ],
+          "market_rank": 8,
+          "name": "RJ Harvey",
+          "player_id": "12489",
+          "position": "RB",
+          "probability": 0.7898550724637681,
+          "raw_rate": 0.7909090909090909,
+          "status": "available",
+          "successes": 435
+        },
+        {
+          "count": 746,
+          "interval_95": [
+            0.9589531213502335,
+            0.9825790635805572
+          ],
+          "key": [
+            9,
+            22,
+            7,
+            "QB",
+            "PPR",
+            12
+          ],
+          "market_rank": 9,
+          "name": "Jaxson Dart",
+          "player_id": "12508",
+          "position": "QB",
+          "probability": 0.9719251336898396,
+          "raw_rate": 0.9731903485254692,
+          "status": "available",
+          "successes": 726
+        },
+        {
+          "count": 278,
+          "interval_95": [
+            0.25792402950315807,
+            0.36597819075105575
+          ],
+          "key": [
+            10,
+            22,
+            7,
+            "WR",
+            "PPR",
+            12
+          ],
+          "market_rank": 10,
+          "name": "Makai Lemon",
+          "player_id": "13294",
+          "position": "WR",
+          "probability": 0.3107142857142857,
+          "raw_rate": 0.30935251798561153,
+          "status": "available",
+          "successes": 86
+        }
+      ],
+      "supported_count": 7
+    },
+    {
+      "candidate_count": 10,
+      "context": {
+        "gap": 18,
+        "round_": 1,
+        "scoring_format": "PPR",
+        "team_count": 10
+      },
+      "draft_id": "1393721396240080896",
+      "pick_no": 1,
+      "source": "tmp/timing-1393721396240080896.json",
+      "source_sha256": "8bbd475ec4926994522e3214d249657caf292ce09308d835c46a9cc2ef61893b",
+      "support": [
+        {
+          "count": 981,
+          "interval_95": [
+            0.0005592613916431208,
+            0.007403034270928402
+          ],
+          "key": [
+            1,
+            18,
+            1,
+            "RB",
+            "PPR",
+            10
+          ],
+          "market_rank": 1,
+          "name": "Jahmyr Gibbs",
+          "player_id": "9221",
+          "position": "RB",
+          "probability": 0.003051881993896236,
+          "raw_rate": 0.0020387359836901123,
+          "status": "available",
+          "successes": 2
+        },
+        {
+          "count": 696,
+          "interval_95": [
+            0.003072280769103395,
+            0.01670590903841876
+          ],
+          "key": [
+            2,
+            18,
+            1,
+            "RB",
+            "PPR",
+            10
+          ],
+          "market_rank": 2,
+          "name": "Bijan Robinson",
+          "player_id": "9509",
+          "position": "RB",
+          "probability": 0.008595988538681949,
+          "raw_rate": 0.007183908045977011,
+          "status": "available",
+          "successes": 5
+        },
+        {
+          "count": 383,
+          "interval_95": [
+            0.5139123961563197,
+            0.6127544359527399
+          ],
+          "key": [
+            3,
+            18,
+            1,
+            "WR",
+            "PPR",
+            10
+          ],
+          "market_rank": 3,
+          "name": "Ja'Marr Chase",
+          "player_id": "7564",
+          "position": "WR",
+          "probability": 0.5636363636363636,
+          "raw_rate": 0.5639686684073107,
+          "status": "available",
+          "successes": 216
+        },
+        {
+          "count": 441,
+          "interval_95": [
+            0.09909687031684157,
+            0.16131402650575774
+          ],
+          "key": [
+            4,
+            18,
+            1,
+            "WR",
+            "PPR",
+            10
+          ],
+          "market_rank": 4,
+          "name": "Puka Nacua",
+          "player_id": "9493",
+          "position": "WR",
+          "probability": 0.12866817155756208,
+          "raw_rate": 0.12698412698412698,
+          "status": "available",
+          "successes": 56
+        },
+        {
+          "count": 272,
+          "interval_95": [
+            0.005733207656477533,
+            0.037195777674234
+          ],
+          "key": [
+            5,
+            18,
+            1,
+            "RB",
+            "PPR",
+            10
+          ],
+          "market_rank": 5,
+          "name": "Christian McCaffrey",
+          "player_id": "4034",
+          "position": "RB",
+          "probability": 0.01824817518248175,
+          "raw_rate": 0.014705882352941176,
+          "status": "available",
+          "successes": 4
+        },
+        {
+          "count": 638,
+          "interval_95": [
+            0.002440704338413463,
+            0.016008707479081695
+          ],
+          "key": [
+            6,
+            18,
+            1,
+            "WR",
+            "PPR",
+            10
+          ],
+          "market_rank": 6,
+          "name": "Jaxon Smith-Njigba",
+          "player_id": "9488",
+          "position": "WR",
+          "probability": 0.0078125,
+          "raw_rate": 0.006269592476489028,
+          "status": "available",
+          "successes": 4
+        },
+        {
+          "count": 568,
+          "interval_95": [
+            0.01212581415524564,
+            0.0365617944412608
+          ],
+          "key": [
+            7,
+            18,
+            1,
+            "RB",
+            "PPR",
+            10
+          ],
+          "market_rank": 7,
+          "name": "Jonathan Taylor",
+          "player_id": "6813",
+          "position": "RB",
+          "probability": 0.02280701754385965,
+          "raw_rate": 0.02112676056338028,
+          "status": "available",
+          "successes": 12
+        },
+        {
+          "count": 483,
+          "interval_95": [
+            0.018908873352915388,
+            0.050603674465512616
+          ],
+          "key": [
+            8,
+            18,
+            1,
+            "WR",
+            "PPR",
+            10
+          ],
+          "market_rank": 8,
+          "name": "Amon-Ra St. Brown",
+          "player_id": "7547",
+          "position": "WR",
+          "probability": 0.032989690721649485,
+          "raw_rate": 0.031055900621118012,
+          "status": "available",
+          "successes": 15
+        },
+        {
+          "count": 329,
+          "interval_95": [
+            0.02782135888678961,
+            0.07385343176437897
+          ],
+          "key": [
+            9,
+            18,
+            1,
+            "WR",
+            "PPR",
+            10
+          ],
+          "market_rank": 9,
+          "name": "CeeDee Lamb",
+          "player_id": "6786",
+          "position": "WR",
+          "probability": 0.04833836858006042,
+          "raw_rate": 0.04559270516717325,
+          "status": "available",
+          "successes": 15
+        },
+        {
+          "count": 341,
+          "interval_95": [
+            0.06231891723601744,
+            0.12281419895414057
+          ],
+          "key": [
+            10,
+            18,
+            1,
+            "RB",
+            "PPR",
+            10
+          ],
+          "market_rank": 10,
+          "name": "James Cook",
+          "player_id": "8138",
+          "position": "RB",
+          "probability": 0.09037900874635568,
+          "raw_rate": 0.08797653958944282,
+          "status": "available",
+          "successes": 30
+        }
+      ],
+      "supported_count": 10,
+      "vona": {
+        "stable_signs": true,
+        "static_vorp": {
+          "best_current": 202.9255362982247,
+          "expected_best_later": {
+            "high": 123.83792899617904,
+            "low": 98.16568960728696,
+            "mid": 111.30330886960009
+          },
+          "value_over_next_alternative_interval": [
+            79.08760730204565,
+            104.75984669093774
+          ]
+        },
+        "terminal_marginal": {
+          "best_current": 182.16487145606354,
+          "expected_best_later": {
+            "high": 100.5938579360691,
+            "low": 80.00854586470729,
+            "mid": 90.45472264924683
+          },
+          "value_over_next_alternative_interval": [
+            81.57101351999444,
+            102.15632559135625
+          ]
+        }
+      }
+    },
+    {
+      "candidate_count": 10,
+      "context": {
+        "gap": 8,
+        "round_": 2,
+        "scoring_format": "PPR",
+        "team_count": 10
+      },
+      "draft_id": "1393746402558881792",
+      "pick_no": 16,
+      "source": "tmp/timing-1393746402558881792.json",
+      "source_sha256": "de08ce6f73d592db3aca077fde815c4260d7c88e81854f0f1f3ce6123914dc7d",
+      "support": [
+        {
+          "count": 320,
+          "interval_95": [
+            0.8377274542780706,
+            0.9095514623280727
+          ],
+          "key": [
+            1,
+            8,
+            2,
+            "RB",
+            "PPR",
+            10
+          ],
+          "market_rank": 1,
+          "name": "Omarion Hampton",
+          "player_id": "12507",
+          "position": "RB",
+          "probability": 0.8757763975155279,
+          "raw_rate": 0.878125,
+          "status": "available",
+          "successes": 281
+        },
+        {
+          "key": [
+            2,
+            8,
+            2,
+            "RB",
+            "PPR",
+            10
+          ],
+          "market_rank": 2,
+          "minimum_support": 250,
+          "name": "Chase Brown",
+          "player_id": "9224",
+          "position": "RB",
+          "status": "unavailable"
+        },
+        {
+          "key": [
+            3,
+            8,
+            2,
+            "WR",
+            "PPR",
+            10
+          ],
+          "market_rank": 3,
+          "minimum_support": 250,
+          "name": "A.J. Brown",
+          "player_id": "5859",
+          "position": "WR",
+          "status": "unavailable"
+        },
+        {
+          "key": [
+            4,
+            8,
+            2,
+            "TE",
+            "PPR",
+            10
+          ],
+          "market_rank": 4,
+          "minimum_support": 250,
+          "name": "Trey McBride",
+          "player_id": "8130",
+          "position": "TE",
+          "status": "unavailable"
+        },
+        {
+          "count": 456,
+          "interval_95": [
+            0.35093120422424423,
+            0.44030125495300293
+          ],
+          "key": [
+            5,
+            8,
+            2,
+            "RB",
+            "PPR",
+            10
+          ],
+          "market_rank": 5,
+          "name": "Kenneth Walker",
+          "player_id": "8151",
+          "position": "RB",
+          "probability": 0.3951965065502183,
+          "raw_rate": 0.39473684210526316,
+          "status": "available",
+          "successes": 180
+        },
+        {
+          "key": [
+            6,
+            8,
+            2,
+            "TE",
+            "PPR",
+            10
+          ],
+          "market_rank": 6,
+          "minimum_support": 250,
+          "name": "Brock Bowers",
+          "player_id": "11604",
+          "position": "TE",
+          "status": "unavailable"
+        },
+        {
+          "count": 437,
+          "interval_95": [
+            0.20258989537857436,
+            0.28248592323745464
+          ],
+          "key": [
+            7,
+            8,
+            2,
+            "RB",
+            "PPR",
+            10
+          ],
+          "market_rank": 7,
+          "name": "Derrick Henry",
+          "player_id": "3198",
+          "position": "RB",
+          "probability": 0.24145785876993167,
+          "raw_rate": 0.2402745995423341,
+          "status": "available",
+          "successes": 105
+        },
+        {
+          "count": 294,
+          "interval_95": [
+            0.8162769186148117,
+            0.8955108235944701
+          ],
+          "key": [
+            8,
+            8,
+            2,
+            "QB",
+            "PPR",
+            10
+          ],
+          "market_rank": 8,
+          "name": "Josh Allen",
+          "player_id": "4984",
+          "position": "QB",
+          "probability": 0.8581081081081081,
+          "raw_rate": 0.8605442176870748,
+          "status": "available",
+          "successes": 253
+        },
+        {
+          "count": 461,
+          "interval_95": [
+            0.2162168270166273,
+            0.2954447798619308
+          ],
+          "key": [
+            9,
+            8,
+            2,
+            "WR",
+            "PPR",
+            10
+          ],
+          "market_rank": 9,
+          "name": "George Pickens",
+          "player_id": "8137",
+          "position": "WR",
+          "probability": 0.2548596112311015,
+          "raw_rate": 0.25379609544468545,
+          "status": "available",
+          "successes": 117
+        },
+        {
+          "count": 522,
+          "interval_95": [
+            0.3723217169140754,
+            0.45652407999510786
+          ],
+          "key": [
+            10,
+            8,
+            2,
+            "RB",
+            "PPR",
+            10
+          ],
+          "market_rank": 10,
+          "name": "Jeremiyah Love",
+          "player_id": "13287",
+          "position": "RB",
+          "probability": 0.41412213740458015,
+          "raw_rate": 0.41379310344827586,
+          "status": "available",
+          "successes": 216
+        }
+      ],
+      "supported_count": 6
+    },
+    {
+      "candidate_count": 10,
+      "context": {
+        "gap": 2,
+        "round_": 5,
+        "scoring_format": "PPR",
+        "team_count": 10
+      },
+      "draft_id": "1394035775644913664",
+      "pick_no": 49,
+      "source": "tmp/timing-1394035775644913664.json",
+      "source_sha256": "ae93c9f0f38d2f83bc9266fa36fd2c1cde7565e17874b5e613adecff7d3225bd",
+      "support": [
+        {
+          "count": 661,
+          "interval_95": [
+            0.9942217815491691,
+            1.0
+          ],
+          "key": [
+            1,
+            2,
+            5,
+            "QB",
+            "PPR",
+            10
+          ],
+          "market_rank": 1,
+          "name": "Drake Maye",
+          "player_id": "11564",
+          "position": "QB",
+          "probability": 0.9984917043740573,
+          "raw_rate": 1.0,
+          "status": "available",
+          "successes": 661
+        },
+        {
+          "count": 342,
+          "interval_95": [
+            0.9703174256840824,
+            0.9954426216902069
+          ],
+          "key": [
+            2,
+            2,
+            5,
+            "WR",
+            "PPR",
+            10
+          ],
+          "market_rank": 2,
+          "name": "Luther Burden",
+          "player_id": "12519",
+          "position": "WR",
+          "probability": 0.9854651162790697,
+          "raw_rate": 0.9883040935672515,
+          "status": "available",
+          "successes": 338
+        },
+        {
+          "key": [
+            3,
+            2,
+            5,
+            "WR",
+            "PPR",
+            10
+          ],
+          "market_rank": 3,
+          "minimum_support": 250,
+          "name": "Davante Adams",
+          "player_id": "2133",
+          "position": "WR",
+          "status": "unavailable"
+        },
+        {
+          "count": 298,
+          "interval_95": [
+            0.9708242773227945,
+            0.9965705416816103
+          ],
+          "key": [
+            4,
+            2,
+            5,
+            "RB",
+            "PPR",
+            10
+          ],
+          "market_rank": 4,
+          "name": "TreVeyon Henderson",
+          "player_id": "12529",
+          "position": "RB",
+          "probability": 0.9866666666666667,
+          "raw_rate": 0.9899328859060402,
+          "status": "available",
+          "successes": 295
+        },
+        {
+          "key": [
+            5,
+            2,
+            5,
+            "RB",
+            "PPR",
+            10
+          ],
+          "market_rank": 5,
+          "minimum_support": 250,
+          "name": "David Montgomery",
+          "player_id": "5892",
+          "position": "RB",
+          "status": "unavailable"
+        },
+        {
+          "count": 457,
+          "interval_95": [
+            0.98087924867359,
+            0.9977650403836478
+          ],
+          "key": [
+            6,
+            2,
+            5,
+            "QB",
+            "PPR",
+            10
+          ],
+          "market_rank": 6,
+          "name": "Joe Burrow",
+          "player_id": "6770",
+          "position": "QB",
+          "probability": 0.9912854030501089,
+          "raw_rate": 0.9934354485776805,
+          "status": "available",
+          "successes": 454
+        },
+        {
+          "count": 259,
+          "interval_95": [
+            0.8050321921641987,
+            0.8912046287956492
+          ],
+          "key": [
+            7,
+            2,
+            5,
+            "WR",
+            "PPR",
+            10
+          ],
+          "market_rank": 7,
+          "name": "Terry McLaurin",
+          "player_id": "5927",
+          "position": "WR",
+          "probability": 0.8505747126436781,
+          "raw_rate": 0.8532818532818532,
+          "status": "available",
+          "successes": 221
+        },
+        {
+          "key": [
+            8,
+            2,
+            5,
+            "WR",
+            "PPR",
+            10
+          ],
+          "market_rank": 8,
+          "minimum_support": 250,
+          "name": "Jameson Williams",
+          "player_id": "8148",
+          "position": "WR",
+          "status": "unavailable"
+        },
+        {
+          "key": [
+            9,
+            2,
+            5,
+            "RB",
+            "PPR",
+            10
+          ],
+          "market_rank": 9,
+          "minimum_support": 250,
+          "name": "D'Andre Swift",
+          "player_id": "6790",
+          "position": "RB",
+          "status": "unavailable"
+        },
+        {
+          "key": [
+            10,
+            2,
+            5,
+            "WR",
+            "PPR",
+            10
+          ],
+          "market_rank": 10,
+          "minimum_support": 250,
+          "name": "DJ Moore",
+          "player_id": "4983",
+          "position": "WR",
+          "status": "unavailable"
+        }
+      ],
+      "supported_count": 5
+    }
+  ],
+  "status": "rejected"
+}

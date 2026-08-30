@@ -1,0 +1,93 @@
+{
+  "callback_calls": {
+    "personalized": 11939538,
+    "population": 2439628
+  },
+  "conclusion": "Terminal-first timing and the fixed 10% corrected manager mixture pass the six-state full 300-rollout cached shadow gate. One-turn route ranking fails in three of six states and remains diagnostic only.",
+  "experiment": "six-state terminal timing and manager shadow impact",
+  "manager_gate": {
+    "all_shadow_leaders_practical": true,
+    "live_callback_unchanged": true,
+    "passes": true,
+    "personalized_callbacks_used": true,
+    "population_fallbacks_used": true
+  },
+  "manager_probability_blend": 0.1,
+  "rollouts": 300,
+  "route_diagnostic": {
+    "mean_spearman": 0.7348307474001284,
+    "practical_co_leader_states": 3,
+    "total_states": 6
+  },
+  "source_result": "result.json",
+  "state_summaries": [
+    {
+      "baseline_leader": "9509",
+      "draft_id": "1393628519644286976",
+      "pick_no": 1,
+      "route_leader": "9509",
+      "route_practical_co_leader": true,
+      "route_terminal_rank": 1,
+      "shadow_leader": "9509",
+      "shadow_practical_co_leader": true
+    },
+    {
+      "baseline_leader": "10229",
+      "draft_id": "1393634461312106496",
+      "pick_no": 24,
+      "route_leader": "10229",
+      "route_practical_co_leader": true,
+      "route_terminal_rank": 1,
+      "shadow_leader": "10229",
+      "shadow_practical_co_leader": true
+    },
+    {
+      "baseline_leader": "7523",
+      "draft_id": "1393656492011315200",
+      "pick_no": 73,
+      "route_leader": "LAR",
+      "route_practical_co_leader": false,
+      "route_terminal_rank": 23,
+      "shadow_leader": "7523",
+      "shadow_practical_co_leader": true
+    },
+    {
+      "baseline_leader": "9509",
+      "draft_id": "1393721396240080896",
+      "pick_no": 1,
+      "route_leader": "9509",
+      "route_practical_co_leader": true,
+      "route_terminal_rank": 1,
+      "shadow_leader": "9509",
+      "shadow_practical_co_leader": true
+    },
+    {
+      "baseline_leader": "8130",
+      "draft_id": "1393746402558881792",
+      "pick_no": 16,
+      "route_leader": "11604",
+      "route_practical_co_leader": false,
+      "route_terminal_rank": 3,
+      "shadow_leader": "8130",
+      "shadow_practical_co_leader": true
+    },
+    {
+      "baseline_leader": "6790",
+      "draft_id": "1394035775644913664",
+      "pick_no": 49,
+      "route_leader": "12506",
+      "route_practical_co_leader": false,
+      "route_terminal_rank": 3,
+      "shadow_leader": "6790",
+      "shadow_practical_co_leader": true
+    }
+  ],
+  "states": 6,
+  "status": "research",
+  "terminal_first_gate": {
+    "all_reports_shadow_only": true,
+    "complete_top_ten_capture": true,
+    "passes": true,
+    "recommendations_terminal_first": true
+  }
+}

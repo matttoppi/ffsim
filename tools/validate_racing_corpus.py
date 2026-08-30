@@ -20,12 +20,14 @@ from ffsim.draft_intel.live import (
     LIVE_ROLLOUT_CHUNK,
     LIVE_SEASON_WORLDS_PER_ROLLOUT,
     LIVE_TEMPERATURE,
+    _live_market_snapshot,
     create_live_executor,
     evaluate_live_candidates,
     live_recommendation_payload,
     merge_screen_refinement,
     select_finalists,
 )
+from ffsim.draft_intel.market import load_market_snapshot_by_id
 from ffsim.draft_intel.market_model import (
     MODEL_VERSION as OPPONENT_MARKET_MODEL_VERSION,
 )
@@ -556,6 +558,42 @@ def _error_record(batch_id, session, failure, run_identity):
     }
 
 
+def _pin_recorded_market_snapshots(templates, sessions):
+    expected = defaultdict(set)
+    for session in sessions:
+        scenario = session["config"].get("scenario") or {}
+        prepared = session["config"].get("prepared") or {}
+        expected[str(scenario.get("template_league_id"))].add(
+            prepared.get("market_snapshot_id")
+        )
+    result = []
+    for template in templates:
+        template_id = str(template.scenario.get("template_league_id"))
+        snapshot_ids = expected.get(template_id, set())
+        if len(snapshot_ids) != 1 or None in snapshot_ids:
+            raise ValueError(
+                f"Synthetic template {template_id} has inconsistent recorded market snapshots"
+            )
+        snapshot_id = next(iter(snapshot_ids))
+        snapshot = _live_market_snapshot(load_market_snapshot_by_id(snapshot_id))
+        if snapshot is None or not snapshot.get("observations"):
+            raise ValueError(f"Recorded market snapshot is unavailable: {snapshot_id}")
+        summary = {
+            **template.prepared.summary,
+            "market_snapshot_id": snapshot_id,
+            "market_players": len(snapshot["observations"]),
+        }
+        result.append(replace(
+            template,
+            prepared=replace(
+                template.prepared,
+                summary=summary,
+                market_snapshot=snapshot,
+            ),
+        ))
+    return tuple(result)
+
+
 def validate(args):
     output_path = Path(args.output) if args.output else (
         CACHE_DIR / "draft_intel" / f"racing-corpus-{args.batch_id}.jsonl"
@@ -593,7 +631,9 @@ def validate(args):
 
     templates = {
         template.scenario["template_league_id"]: template
-        for template in _load_templates(args.config)
+        for template in _pin_recorded_market_snapshots(
+            _load_templates(args.config), sessions
+        )
     }
     with output_path.open("a", encoding="utf-8") as output:
         for session in sessions:

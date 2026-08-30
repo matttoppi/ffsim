@@ -196,6 +196,35 @@ def load_market_snapshot_at(
     finally:
         connection.close()
 
+def load_market_snapshot_by_id(snapshot_id, *, storage_dir=None):
+    database_path = Path(storage_dir or CACHE_DIR / "draft_intel") / "history.sqlite3"
+    if not database_path.exists():
+        return None
+    connection = sqlite3.connect(database_path)
+    connection.row_factory = sqlite3.Row
+    try:
+        _ensure_market_schema(connection)
+        snapshot = connection.execute(
+            "SELECT * FROM market_snapshots WHERE snapshot_id = ?",
+            (str(snapshot_id),),
+        ).fetchone()
+        if snapshot is None:
+            return None
+        observations = connection.execute(
+            """
+            SELECT canonical_player_id, source_player_id, adp, rank, std_dev, tier
+            FROM market_observations
+            WHERE snapshot_id = ?
+            ORDER BY COALESCE(rank, adp), canonical_player_id
+            """,
+            (snapshot["snapshot_id"],),
+        ).fetchall()
+        result = dict(snapshot)
+        result["observations"] = [dict(observation) for observation in observations]
+        return result
+    finally:
+        connection.close()
+
 
 def refresh_fantasypros_adp(
     *,
@@ -206,6 +235,7 @@ def refresh_fantasypros_adp(
     now=None,
     fetch_payload=None,
     api_key=None,
+    force=False,
 ):
     """Fetch each due ADP context once and persist every platform in its response."""
     storage_dir = Path(storage_dir or CACHE_DIR / "draft_intel")
@@ -224,7 +254,7 @@ def refresh_fantasypros_adp(
     due = tuple(
         context
         for context, context_status in zip(contexts, status["contexts"], strict=True)
-        if not context_status["fresh"]
+        if force or not context_status["fresh"]
     )
     if not due:
         return {**status, "fetched_contexts": [], "skipped_contexts": list(contexts)}

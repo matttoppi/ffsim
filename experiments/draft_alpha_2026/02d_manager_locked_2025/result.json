@@ -1,0 +1,391 @@
+{
+  "experiment": "frozen manager residual one-time 2025 benchmark",
+  "gate": {
+    "all_pick_log_loss_difference": -0.014286060452239902,
+    "paired_seen_log_loss_difference": {
+      "drafts": 2431,
+      "estimate": -0.03193024253488516,
+      "high": -0.03016255894512607,
+      "low": -0.03374480506164589,
+      "samples": 200,
+      "seed": 20260828
+    },
+    "passes": true,
+    "seen_manager_log_loss_improvement": 0.03193024253496812
+  },
+  "limitations": [
+    "offline opponent-choice evidence only",
+    "position preference does not model player-specific affinity",
+    "only managers with at least 20 prior supported picks receive a factor",
+    "a separate architecture decision is required before any live use",
+    "no live opponent callback, VONA, WORP, rollout, API, or UI integration"
+  ],
+  "locked_test_evaluation_count": 1,
+  "locked_test_loaded": true,
+  "model": {
+    "minimum_manager_picks": 20,
+    "population_position_factors": [
+      0.5484814269624487,
+      1.5407086659771552,
+      1.4841744535407149,
+      1.0420289167372963,
+      0.34879646402295034,
+      0.5293052116623355,
+      0.008771400624807872
+    ],
+    "positions": [
+      "QB",
+      "RB",
+      "WR",
+      "TE",
+      "K",
+      "DEF",
+      "UNKNOWN"
+    ],
+    "shrinkage_opportunities": 50.0
+  },
+  "status": "locked_benchmark_passed",
+  "target_manager_coverage": {
+    "configured_managers": 25,
+    "coverage": 0.48,
+    "eligible_managers": 12,
+    "managers": [
+      {
+        "display_name": "Hines24H",
+        "eligible": false,
+        "manager_id": "1281035404887232512",
+        "position_factors": null,
+        "training_picks": 0
+      },
+      {
+        "display_name": "IanGroom63",
+        "eligible": false,
+        "manager_id": "947219515455184896",
+        "position_factors": null,
+        "training_picks": 0
+      },
+      {
+        "display_name": "JoshHem",
+        "eligible": true,
+        "manager_id": "644302181473812480",
+        "position_factors": {
+          "DEF": 0.7244133305974458,
+          "K": 0.9088670903858658,
+          "QB": 0.27887415386493514,
+          "RB": 1.5705174199123717,
+          "TE": 1.0215159719065496,
+          "UNKNOWN": 0.004668082253073937,
+          "WR": 1.744809194771689
+        },
+        "training_picks": 66
+      },
+      {
+        "display_name": "JustindaKing",
+        "eligible": false,
+        "manager_id": "572989715469271040",
+        "position_factors": null,
+        "training_picks": 0
+      },
+      {
+        "display_name": "MitchGott",
+        "eligible": false,
+        "manager_id": "1002285292444819456",
+        "position_factors": null,
+        "training_picks": 0
+      },
+      {
+        "display_name": "NathanSchmidt",
+        "eligible": true,
+        "manager_id": "678607117686513664",
+        "position_factors": {
+          "DEF": 0.4609205474453495,
+          "K": 0.43055238835005694,
+          "QB": 0.5320635438135627,
+          "RB": 1.4352205417067705,
+          "TE": 0.8095108907582642,
+          "UNKNOWN": 0.00282305594309361,
+          "WR": 1.5942050951584545
+        },
+        "training_picks": 102
+      },
+      {
+        "display_name": "Opticlone",
+        "eligible": false,
+        "manager_id": "347857281594949632",
+        "position_factors": null,
+        "training_picks": 0
+      },
+      {
+        "display_name": "PeterD128",
+        "eligible": true,
+        "manager_id": "736322075165343744",
+        "position_factors": {
+          "DEF": 0.8746476812894988,
+          "K": 0.9075991578817673,
+          "QB": 0.36585632512112437,
+          "RB": 1.431408267740182,
+          "TE": 1.2043279645418141,
+          "UNKNOWN": 0.004667195799134036,
+          "WR": 1.6397799253529144
+        },
+        "training_picks": 66
+      },
+      {
+        "display_name": "TheIcey",
+        "eligible": false,
+        "manager_id": "844035450694922240",
+        "position_factors": null,
+        "training_picks": 0
+      },
+      {
+        "display_name": "ZomChris",
+        "eligible": false,
+        "manager_id": "987391210308395008",
+        "position_factors": null,
+        "training_picks": 0
+      },
+      {
+        "display_name": "afarah2",
+        "eligible": false,
+        "manager_id": "984208766423920640",
+        "position_factors": null,
+        "training_picks": 0
+      },
+      {
+        "display_name": "averyhuffman",
+        "eligible": true,
+        "manager_id": "738032286284603392",
+        "position_factors": {
+          "DEF": 0.6762002014404699,
+          "K": 0.3534720681427591,
+          "QB": 0.555286885446879,
+          "RB": 1.397131247779798,
+          "TE": 0.7930847878074765,
+          "UNKNOWN": 0.0024009645733167268,
+          "WR": 1.5697392315481145
+        },
+        "training_picks": 131
+      },
+      {
+        "display_name": "ayegocrazy",
+        "eligible": false,
+        "manager_id": "852322876597088256",
+        "position_factors": null,
+        "training_picks": 0
+      },
+      {
+        "display_name": "bsluss77",
+        "eligible": false,
+        "manager_id": "863590777396236288",
+        "position_factors": null,
+        "training_picks": 0
+      },
+      {
+        "display_name": "ciggy1k",
+        "eligible": false,
+        "manager_id": "1265755351588810752",
+        "position_factors": null,
+        "training_picks": 0
+      },
+      {
+        "display_name": "copeland6969",
+        "eligible": false,
+        "manager_id": "873417629816258560",
+        "position_factors": null,
+        "training_picks": 14
+      },
+      {
+        "display_name": "jconte2",
+        "eligible": true,
+        "manager_id": "1000234468109619200",
+        "position_factors": {
+          "DEF": 0.6524500625277386,
+          "K": 0.5300936290507515,
+          "QB": 0.4183717735866926,
+          "RB": 1.5758001948264353,
+          "TE": 1.2282866480636774,
+          "UNKNOWN": 0.008664491361592157,
+          "WR": 1.4205146315122295
+        },
+        "training_picks": 21
+      },
+      {
+        "display_name": "joshuad423",
+        "eligible": true,
+        "manager_id": "737078979458166784",
+        "position_factors": {
+          "DEF": 1.0339423504315028,
+          "K": 0.9279167759943403,
+          "QB": 0.3332639854776119,
+          "RB": 1.57607387847234,
+          "TE": 1.2406948722794475,
+          "UNKNOWN": 0.0031813765237532097,
+          "WR": 1.5584951255580612
+        },
+        "training_picks": 97
+      },
+      {
+        "display_name": "levpig",
+        "eligible": true,
+        "manager_id": "736466450759417856",
+        "position_factors": {
+          "DEF": 0.9301058088203483,
+          "K": 0.7865750233103412,
+          "QB": 0.4029502722178307,
+          "RB": 1.3832995975933744,
+          "TE": 1.0274855749841496,
+          "UNKNOWN": 0.005439810697309536,
+          "WR": 1.6694970865272531
+        },
+        "training_picks": 51
+      },
+      {
+        "display_name": "marcwood04",
+        "eligible": true,
+        "manager_id": "736386493920219136",
+        "position_factors": {
+          "DEF": 1.0270174593328198,
+          "K": 0.9102825313419051,
+          "QB": 0.36770037353817353,
+          "RB": 1.458930608106634,
+          "TE": 1.0283133078781963,
+          "UNKNOWN": 0.00468098784858544,
+          "WR": 1.6409575532322274
+        },
+        "training_picks": 66
+      },
+      {
+        "display_name": "mtoppi",
+        "eligible": true,
+        "manager_id": "413785390642630656",
+        "position_factors": {
+          "DEF": 0.7233418929548623,
+          "K": 0.5155175592858603,
+          "QB": 0.28915412572293975,
+          "RB": 1.5442137962627513,
+          "TE": 0.9771632664822191,
+          "UNKNOWN": 0.004646826081501366,
+          "WR": 1.5973935623373048
+        },
+        "training_picks": 128
+      },
+      {
+        "display_name": "papichulojared",
+        "eligible": true,
+        "manager_id": "737731416133107712",
+        "position_factors": {
+          "DEF": 0.6294048633188459,
+          "K": 0.8926776861967897,
+          "QB": 0.4363404932220219,
+          "RB": 1.411994578972758,
+          "TE": 1.60861253675753,
+          "UNKNOWN": 0.004232794483151257,
+          "WR": 1.4416469356811557
+        },
+        "training_picks": 79
+      },
+      {
+        "display_name": "steveparticelli",
+        "eligible": true,
+        "manager_id": "736312394468425728",
+        "position_factors": {
+          "DEF": 0.7693140654726952,
+          "K": 0.7863401713820779,
+          "QB": 0.3673864288750871,
+          "RB": 1.6916989087108283,
+          "TE": 1.0265335858791569,
+          "UNKNOWN": 0.005435232654698538,
+          "WR": 1.5076665660615245
+        },
+        "training_picks": 51
+      },
+      {
+        "display_name": "titipii",
+        "eligible": false,
+        "manager_id": "967540993195126784",
+        "position_factors": null,
+        "training_picks": 0
+      },
+      {
+        "display_name": "will07239",
+        "eligible": true,
+        "manager_id": "607264091798568960",
+        "position_factors": {
+          "DEF": 0.870563202771597,
+          "K": 0.6217225781726506,
+          "QB": 0.4307899505246425,
+          "RB": 1.4547643935570505,
+          "TE": 1.1339726686285692,
+          "UNKNOWN": 0.004675461763753073,
+          "WR": 1.4830862942309588
+        },
+        "training_picks": 94
+      }
+    ],
+    "minimum_training_picks": 20
+  },
+  "train_seasons": [
+    2021,
+    2022,
+    2023,
+    2024
+  ],
+  "training_counts": {
+    "drafts": 6154,
+    "eligible_managers": 11473,
+    "managers": 31141,
+    "missing_board_picks": 4109,
+    "missing_manager_picks": 16714,
+    "picks": 1059299
+  },
+  "validation": {
+    "counts": {
+      "drafts": 2558,
+      "missing_board_picks": 1060,
+      "picks": 445638,
+      "seen_manager_coverage": 0.44741471777541414,
+      "seen_manager_picks": 199385
+    },
+    "personalized_all": {
+      "count": 445638,
+      "log_loss": 5.197900118489617,
+      "multiclass_brier": 1.0031526962172326,
+      "top_5_accuracy": 0.1881639357505419
+    },
+    "personalized_seen": {
+      "count": 199385,
+      "log_loss": 5.093077098235716,
+      "multiclass_brier": 1.0009838621571674,
+      "top_5_accuracy": 0.21340120871680418
+    },
+    "population_all": {
+      "count": 445638,
+      "log_loss": 5.212186178941857,
+      "multiclass_brier": 1.0031620088718602,
+      "top_5_accuracy": 0.19164658310108204
+    },
+    "population_seen": {
+      "count": 199385,
+      "log_loss": 5.125007340770684,
+      "multiclass_brier": 1.0010046765253577,
+      "top_5_accuracy": 0.22118514431878025
+    },
+    "support_buckets": {
+      "100+": {
+        "mean_log_loss_difference": -0.040067307365938463,
+        "picks": 95385
+      },
+      "20-49": {
+        "mean_log_loss_difference": -0.02548352654556257,
+        "picks": 60694
+      },
+      "50-99": {
+        "mean_log_loss_difference": -0.02304286090984183,
+        "picks": 43306
+      }
+    }
+  },
+  "validation_seasons": [
+    2025
+  ]
+}

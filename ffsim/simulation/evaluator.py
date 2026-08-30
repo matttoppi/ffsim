@@ -137,6 +137,8 @@ class LeagueEvaluator:
             for stream in streams
         ], dtype=np.float32)
         self._mean_scores = None
+        self._mean_scores_raw = None
+        self._adjusted_scores = {}
         self._mean_available = None
         self._unit_cum = None
         self._fixed_replacement = None
@@ -333,7 +335,7 @@ class LeagueEvaluator:
             totals += replacement_value * (team_cum[:, :, offset + count] - lower)
         return totals, chosen
 
-    def projected_roster_value(self, roster_assignment, roster_id):
+    def projected_roster_value(self, roster_assignment, roster_id, personal_values=None):
         """Deterministic projected lineup points over full-streamer replacement.
 
         Scores one roster's best legal weekly lineup on each player's flat
@@ -371,6 +373,13 @@ class LeagueEvaluator:
         order = self._lineup_order(assignment[team])
         available = self._mean_available[order][None, :, :]
         scores = self._mean_scores[order][None, :, :]
+        if personal_values:
+            # Owner season-point offsets (ADR-046): the ONE adjusted value
+            # basis. Seating, bench discount, and the baseline stay
+            # identical to the raw scorer, so a boost passes through
+            # exactly as the lineup carries it.
+            adjusted, _ = self.adjusted_flat_season_scores(personal_values)
+            scores = adjusted[order][None, :, :]
         totals, chosen = self._lineup_totals(
             order,
             available,
@@ -417,6 +426,7 @@ class LeagueEvaluator:
             flat = (mean_scores * available).sum(
                 axis=1, keepdims=True
             ) / available_weeks
+            self._mean_scores_raw = flat * available
             floor = np.asarray([
                 replacement.get(position, 0.0)
                 for position in self.bank.player_positions
@@ -428,6 +438,51 @@ class LeagueEvaluator:
                 np.arange(slot_count + 1, dtype=float), (1, weeks, 1)
             )
         return self._mean_scores, self._mean_available
+
+    def adjusted_flat_season_scores(self, personal_values):
+        """``flat_season_scores`` under the owner's season-point offsets.
+
+        The single application of ADR-046 to the value basis: each offset
+        player's PRE-FLOOR flat weekly score shifts by ``offset /
+        available weeks``, then the identical position-cutline floor and
+        availability mask apply, so a sub-cutline boost that cannot clear
+        the floor earns nothing. Same ``(scores, available)`` contract as
+        ``flat_season_scores``; players without an offset keep the floored
+        matrix rows bit-for-bit (only offset rows are rewritten on a
+        copy). Memoized per offset board — offsets are immutable within a
+        prepared draft.
+        """
+        scores, available = self.flat_season_scores()
+        board = tuple(sorted(
+            (str(player_id), float(offset))
+            for player_id, offset in (personal_values or {}).items()
+            if float(offset)
+        ))
+        if not board:
+            return scores, available
+        adjusted = self._adjusted_scores.get(board)
+        if adjusted is None:
+            replacement = self._starter_cutline_replacement()
+            index = {
+                player_id: row
+                for row, player_id in enumerate(self.bank.player_ids)
+            }
+            adjusted = scores.copy()
+            for player_id, offset in board:
+                row = index.get(player_id)
+                if row is None:
+                    continue
+                weeks_available = max(int(available[row].sum()), 1)
+                floor = replacement.get(self.bank.player_positions[row], 0.0)
+                shifted = (
+                    self._mean_scores_raw[row] + offset / weeks_available
+                )
+                adjusted[row] = np.where(
+                    available[row], np.maximum(shifted, floor), 0.0
+                )
+            adjusted.flags.writeable = False
+            self._adjusted_scores[board] = adjusted
+        return adjusted, available
 
     def _starter_cutline_replacement(self):
         """Weekly streamer level at the league-wide starter cutline.

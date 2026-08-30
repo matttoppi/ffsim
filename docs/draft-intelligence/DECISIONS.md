@@ -1693,6 +1693,79 @@ second roster-value convention while keeping the simulation algorithm intact.
   VORP, roster value, ADP, and position filtering. Projection mode removes the
   league-equity sidebar.
 
+## ADR-038 — Isolate the historical Sleeper research dataset
+
+### Status
+
+Accepted and implemented (2026-08-27).
+
+### Decision
+
+The large historical Sleeper collector runs as the separate
+`ffsim.historical_sleeper` package. It does not enter the simulation, API, or
+live draft startup paths. Discovery and hydration use separate resumable
+SQLite queues. Canonical facts use season-qualified identities, while immutable
+content-addressed gzip JSON files retain source responses outside SQLite.
+
+The client spaces all concurrent calls through one global 750-request-per-minute
+limiter. It retries transient failures with exponential backoff and jitter, and
+stops the crawl after three HTTP 429 responses in 60 seconds.
+
+The initial hydration flag is a reversible cohort description, not a source
+filter. All discovered formats remain stored with raw settings and reason codes.
+Analysis reads bounded Parquet exports rather than scanning the operational
+database through the simulation process.
+
+### Rationale
+
+Historical collection can produce thousands of endpoint tasks and tens of
+millions of picks. Keeping that workload isolated prevents crawl state, large
+tables, and source failures from changing draft recommendation correctness or
+latency. SQLite WAL and disk-backed queues provide the required single-machine
+reliability without a database service.
+
+### Consequences
+
+- `python -m ffsim.historical_sleeper collect` targets 10,000 training-ready
+  league-seasons and at least 500 from each requested target year by default.
+  It pauses discovery above a 500-candidate hydration backlog, queues the
+  least-covered years first, claims older pending seasons first, and stops only
+  when total and year floors pass or all queues are exhausted. All limits are
+  CLI-configurable; remaining graph tasks stay resumable.
+- `status` defaults to a compact model-first five-second dashboard: championship
+  target progress, year floors, current hydration/discovery work, crawler
+  memory, SQLite total GB, and aggregate health. `status --verbose` adds the
+  operational inventory, PIDs, storage components, and exact quality codes.
+  `status --once` retains all fields as JSON.
+- Owner graph expansion and hydration candidate selection stay in SQLite.
+  Deterministic, deduplicated owner batches prevent Python from materializing
+  the full crawl graph on each collection cycle.
+- Raw responses can rebuild canonical tables without another Sleeper request.
+- League renewals remain separate league-seasons connected by
+  `previous_league_id`.
+- Source and effective draft-pick ownership remain separate.
+- Graph discovery provenance is audit metadata, never an analytical weight.
+- Strategy definitions remain downstream derived data.
+
+### Validation
+
+- Twenty-four fixture-backed unit tests cover request limiting, retry and
+  rate-limit stopping, queue deduplication, season separation, graph-depth
+  resume, source mapping, keeper filtering, pick order, outcomes, raw
+  deduplication, offline rebuild, database validation, hydration paging,
+  target/year stopping, discovery pause, deficient-year priority, bounded
+  memory, strict readiness, compact/verbose dashboards, explicit RPM labeling,
+  process-memory parsing, and SQLite size accounting.
+- A bounded live crawl from four seeds discovered 1,014 league-seasons and 313
+  users with no rate-limit stop. Three qualifying 2025 leagues hydrated 578
+  draft picks, 578 weekly matchup rows, and 34 team-seasons.
+- SQLite integrity and foreign-key checks pass with zero error quality flags.
+  The three Parquet outputs contain 1,014 leagues, 34 team-seasons, and 578
+  draft picks.
+- A 5,000-owner regression enqueued one bounded 1,000-task slice with less than
+  5 MB of traced Python allocation. Real queue-only and 25-request crawl smokes
+  peaked at 33.1 MB and 40.7 MB resident memory, respectively.
+
 ## ADR-039 — Gate WORP behind exact-context holdout validation and approval
 
 ### Status
@@ -1767,3 +1840,550 @@ unreviewed fit from entering live recommendations.
 - Browser verification confirms candidate WORP stays absent, shows its pending
   exact context, and labels route value as approximate.
 - Historical holdout validation remains pending the owner's data download.
+
+## ADR-040 — Keep the Historical Draft Value Network offline until locked validation
+
+### Status
+
+Accepted as an offline research plan (2026-08-27). Safe pre-crawl tooling is implemented. No model is trained or live-eligible.
+
+### Decision
+
+The Historical Draft Value Network (HDVN) remains a separate offline project.
+It tests completed-draft outcome scoring and partial-prefix conditional value
+without replacing the live projected completed-roster objective.
+
+Three values remain separate:
+
+1. current ex-ante `ffsim` projected completed-roster value;
+2. out-of-sample historical outcome/quality score;
+3. within-league championship calibration benchmark.
+
+Historical season points, playoffs, and championships are labels used to train
+or validate the historical score. They never enter live draft-time features.
+Historical projections are features only when their source snapshot predates
+the target draft.
+
+The neural model must beat context, regularized linear/logistic, and
+gradient-boosted baselines under one immutable league-season temporal split.
+Prefixes from one team reuse one outcome, so V1 samples one prefix per team per
+epoch and keeps total team-season weight constant. The entire league-season
+stays in one partition.
+
+Partial-prefix output is research-only. It may later screen or explain timing
+hypotheses only if conservative screening retains every finalist selected by
+independent terminal rollouts. Serious live candidates still require many
+probabilistic completed-draft continuations, coupled randomness, terminal roster
+evaluation, paired uncertainty, and exact sample counts.
+
+### Rationale
+
+A learned historical score can test whether roster construction and
+market-relative draft behavior explain later outcomes beyond simple baselines.
+It can also average over observed continuation behavior for partial states.
+However, continuation-manager skill, repeated prefix labels, missing
+point-in-time projections, and counterfactual candidate substitutions can create
+leakage and false confidence. Offline separation makes those claims testable
+without weakening the current decision invariant.
+
+### Consequences
+
+- [`HISTORICAL_DRAFT_VALUE_NETWORK.md`](HISTORICAL_DRAFT_VALUE_NETWORK.md)
+  defines the research and release contract.
+- [`HDVN_IMPLEMENTATION_LEDGER.md`](HDVN_IMPLEMENTATION_LEDGER.md) tracks
+  HDVN-00 through HDVN-12 in dependency order.
+- Schemas, protocols, disposable snapshots, and synthetic checks can precede
+  HDVN-00. Real feature materialization and model fitting begin only from an
+  immutable historical database snapshot after the named data gates pass.
+- Neural training waits for 5,000 strict ready leagues, 500 per target year,
+  leakage-safe market features, and completed simple baselines.
+- The locked review waits for 10,000 strict ready leagues and an untouched 2025
+  test manifest.
+- Artifacts have research, candidate, validated-shadow, or rejected status.
+  There is no live status in this plan.
+- Shadow mode requires its own approval and cannot alter rankings or user-visible
+  recommendations.
+- Any later integration or rejection receives a separate ADR.
+
+### Validation
+
+This ADR records design gates only. No model has been trained, no neural metric
+has been measured, and no live behavior has changed.
+
+## ADR-041 — Keep historical timing and manager models terminal-subordinate
+
+### Status
+
+Accepted for offline shadow research (2026-08-29). No live ranking or opponent
+callback change is approved.
+
+### Decision
+
+Historical survival, VONA route, and manager-personalization models remain
+subordinate to the coupled completed-roster objective.
+
+The hierarchical `(relative rank, gap, round, position)` model can annotate the
+ten market players after each current-pick branch. It cannot rank current
+candidates. Ineligible next-turn players remain in the captured market state but
+do not enter route value.
+
+The manager model can run through an offline callback with an explicit
+population fallback. No manager correction can replace or silently modify the
+live opponent callback. A conservative mixture requires broad shadow evidence
+before a later integration decision.
+
+Historical projections enter research only through an immutable approved-source
+snapshot. Every source requires an authoritative observation timestamp,
+authorization, Sleeper IDs, raw-byte hashing, and a target-draft cutoff. A
+season parameter, current retrieval timestamp, or Git commit timestamp does not
+prove point-in-time eligibility.
+
+### Rationale
+
+The hierarchical survival model improves player-return calibration, but its
+one-turn route objective is not the completed-roster objective. On cached mock
+draft `1393656492011315200` at pick 73, route value selected Los Angeles DEF,
+which ranked 23rd under 300 completed-roster rollouts. Trevor Lawrence led the
+terminal evaluation. The paired terminal-leader edge was `12.4938` points with
+interval `[11.9047, 13.0829]`, and rank correlation was `0.0791`.
+
+Manager position-count features improve player-choice log loss beyond static and
+round-phase preferences. The corrected state reconstruction updates roster counts
+from board-unsupported source picks and preserves the improvement in both rolling
+folds and the seen 2024 transfer. The marginal-hazard survival approximation
+worsened, and the full manager correction moved a one-state shadow recommendation
+outside the baseline practical tier. A fixed 10% mixture retained the baseline
+leader in all six cached states at the full 300-rollout budget. This is
+full-budget cached-shadow evidence, not independent live-shadow validation.
+
+### Consequences
+
+- Timing report version 3 captures all ten branch-specific market players and
+  records eligibility separately from survival.
+- Timing reports remain `decision_active: false`.
+- Live recommendations remain ranked by coupled projected completed-roster
+  value.
+- Hierarchical survival is explanation-only shadow evidence.
+- Manager artifacts remain offline and unsupported managers use the population
+  distribution.
+- Corrected position-count features remain research-only because the model was
+  selected after the one-time 2025 benchmark and has no untouched locked test.
+- HDVN neural artifacts remain rejected and offline.
+- No historical projection source is accepted from the current local PFF file,
+  Sleeper historical endpoints, or FantasyPros personal API responses.
+- `historical-projection-import` accepts only an approved evidence sidecar and
+  enforces the observation-time cutoff.
+- Any live manager mixture or timing screen requires a new ADR and real
+  live-shadow evidence beyond cached mocks.
+
+### Validation
+
+- Hierarchical survival artifact:
+  `0ee13d56a87c5c8206a5c437879b3a8c1419dfd4d4d7c0dc591905d58faf9d91`.
+- Manager artifact:
+  `eaa845cf7e258fca95f51e9ee253f41f75a3d403041f90f4263361ba8580eab1`.
+- Every branch in top-ten capture attempt 2 contains ranks 1 through 10.
+- VONA impact attempts reject route ranking and retain terminal-first shadow
+  evidence.
+- Corrected roster-count manager features pass both rolling folds and the seen
+  2024 transfer after 916, 956, and 965 board-unsupported roster-state updates.
+- The six-state, 300-rollout gate retains the baseline leader under the fixed
+  10% manager mixture in all six states, keeps every shadow leader inside the
+  baseline practical tier, and uses both supported personalization and
+  population fallback.
+- One-turn route ranking is practical in only three of six states and remains
+  diagnostic-only.
+
+## ADR-042 — Integrate alpha as fail-isolated live shadow evidence
+
+### Status
+
+Accepted for live shadow collection (2026-08-29). Candidate ranking and the
+live opponent distribution remain unchanged.
+
+### Decision
+
+After a final terminal recommendation is published, the monitor starts one
+asynchronous alpha-shadow calculation for that exact draft state.
+
+The shadow collector:
+
+1. loads only hash-validated `research` hierarchical-survival and corrected
+   roster-manager artifacts;
+2. captures branch-specific market ranks 1–10 and next-turn eligibility;
+3. reports hierarchical return probabilities, 95% intervals, and direct and
+   pooled support;
+4. runs a low-cost 20-rollout manager comparison with the fixed 90% population
+   and 10% corrected manager mixture;
+5. records supported-personalization and population-fallback calls;
+6. persists replay inputs and artifact versions to telemetry;
+7. discards results after the draft state changes.
+
+Shadow calculation and shadow telemetry failures cannot fail or stop the live
+monitor. The collector never supplies input to candidate screening, terminal
+rollouts, practical tiers, league equity, or recommendation labels.
+
+The monitor and read-only alpha endpoint expose `disabled`, `idle`, `pending`,
+`ready`, `stale`, and `failed` states. The War Room labels the panel
+`Draft alpha — shadow` and states that the terminal recommendation remains in
+control.
+
+### Rationale
+
+The full six-state 300-rollout cached gate retains the baseline leader under
+the fixed 10% manager mixture in all six states. Hierarchical survival improves
+return calibration, but one-turn route ranking fails the terminal practical
+gate in three of six states. Integrating evidence after recommendation
+publication makes the useful signal available without repeating the unsafe
+ranking experiment.
+
+Running the manager comparison at 20 rollouts gives live disagreement and
+support telemetry in about five seconds on the cached state. The offline replay
+inputs retain the exact terminal candidates and state identity so later audits
+can rerun the full 300-rollout gate.
+
+### Consequences
+
+- Hierarchical and corrected manager artifacts remain `research`.
+- Artifact absence disables shadow evidence explicitly.
+- A shadow disagreement is displayed and logged but never changes the pick.
+- Unsupported managers always use the population distribution.
+- State advancement makes old shadow evidence stale and discards late results.
+- Real session evidence remains required before any opponent-distribution
+  integration.
+- RACE-01 remains independently blocked and unreleasable.
+
+### Validation
+
+- Corrected roster-manager artifact:
+  `b1a99ee7cbce2d0fd59dd383aeff7ad0438adc875cf169c26bfc6b87a5abfd93`.
+- Cached collector smoke keeps the recommendation hash unchanged, captures all
+  ten branch players, uses eight supported and three fallback opponent rosters,
+  and completes in `5.2247` seconds.
+- Cached `LiveDraftMonitor` flow keeps the recommendation hash unchanged,
+  persists one `alpha_shadow` telemetry event, and completes in `5.3425`
+  seconds.
+- Backend tests cover ready, stale, calculation failure, telemetry failure,
+  automatic post-recommendation queueing, and serialized newest-state
+  processing without overlapping shadow workers.
+- Frontend tests cover ready, pending, stale, failed, and disabled shadow states.
+
+## ADR-043 — Gate alpha shadow changes with aggregate telemetry
+
+### Status
+
+Accepted for shadow evidence governance (2026-08-29). No decision-model release
+is approved.
+
+### Decision
+
+Every alpha-shadow session is audited through one read-only aggregate contract.
+The audit deduplicates `(session, pick, state signature)` and reports:
+
+- ready, failed, discarded, and duplicate events;
+- total and component latency;
+- top-ten capture and decision inactivity;
+- manager exact agreement and terminal practical-tier retention;
+- personalization and population-fallback use;
+- manager roster support;
+- terminal-candidate return coverage, outside-model rate, direct support, and
+  interval width;
+- artifact versions, rounds, and opponent-pick gaps.
+
+The cached development gate requires six ready states, zero failures, 100%
+top-ten capture, 100% manager practical retention, p95 duration at most ten
+seconds, both callback paths, and `decision_active: false`.
+
+The live evidence gate requires at least 30 new states not used during model
+selection under the same conditions. It cannot be satisfied by duplicating
+cached states.
+
+### Rationale
+
+The first six-state audit found every correctness gate passing but p95 shadow
+latency at `13.5098s`. Component instrumentation showed manager rollouts, not
+hierarchical timing, dominate latency. Limiting the live manager comparison to
+the five terminal finalists preserves 20 rollouts and the fixed 10% mixture
+while reducing p95 to `6.7061s`. The optimized development gate passes.
+
+The audit also shows that the current rank-10 survival model measures only
+`46.3%` of terminal candidates. More than half are outside its intended market
+window. The system must not extrapolate those probabilities. A separate
+rank-20 experiment is required.
+
+### Consequences
+
+- `alpha-shadow-audit` is available through CLI and read-only API.
+- Audit reads cannot mutate telemetry; immutable reports record the source
+  telemetry hash.
+- The War Room shows observed state count, p95 latency, manager practical
+  retention, and live-gate collection status.
+- The manager live shadow evaluates at most five terminal candidates.
+- Current rank-10 survival evidence remains valid only for relative ranks 1–10.
+- Real live-shadow collection and a rank-20 model experiment can proceed in
+  parallel.
+- Candidate ranking, practical tiers, and the live opponent callback remain
+  unchanged.
+
+### Validation
+
+- Initial audit:
+  `experiments/draft_alpha_2026/2026-08-29_alpha_shadow_audit/audit.json`.
+- Optimized audit:
+  `experiments/draft_alpha_2026/2026-08-29_alpha_shadow_latency_attempt1/audit.json`.
+- Optimized audit contract hash:
+  `0c77cb675a43259f99eb1ed46bec4163cda8ffbc39e95a48873aed6fa5cfe0f7`.
+- Backend tests prove audit reads preserve the telemetry database hash.
+- Frontend tests cover aggregate metrics and the collecting live gate.
+
+## ADR-044 — Validate rank-20 survival separately and keep route ranking disabled
+
+### Status
+
+Accepted as offline and candidate shadow evidence (2026-08-29). The live
+default remains the rank-10 artifact.
+
+### Decision
+
+Relative market ranks 11–20 use a separately materialized hierarchical model.
+The rank-20 artifact cannot modify or overwrite the immutable rank-10 artifact.
+It may run only through explicit offline or shadow selection until at least 30
+new live states support a later evidence-display decision.
+
+One-turn route ranking remains disabled. Passing survival calibration does not
+make route value a terminal roster objective.
+
+### Rationale
+
+The integrated audit measured only `46.3%` of terminal candidates with the
+rank-10 window. The rank-20 hierarchy preserves every rank-1–10 training cell,
+keeps rolling rank-1–10 Brier changes within `±0.000001`, and preserves the
+elite RB long-gap estimate at `0.621%`.
+
+For ranks 11–20, Brier improves over the exact population baseline by
+`0.010101` and `0.001517` in the rolling folds. Both paired upper 95% bounds
+are below zero. Seen 2024 improves by `0.008718`. Calibration and false-safe
+gates pass.
+
+The rank-20 artifact raises six-state terminal-candidate timing coverage to
+`88.2%` and passes the cached shadow latency and manager-retention gate.
+However, its route leader remains decisively wrong in two states, with paired
+terminal losses of `11.4544` and `17.3812` points.
+
+### Consequences
+
+- Rank-20 is return evidence only.
+- The live default rank-10 manifest remains unchanged.
+- Rank-20 shadow selection requires an explicit manifest override.
+- Timing report breadth follows the selected artifact's validated target count.
+- Branches record both top-ten and full market-window completeness.
+- No probability is emitted beyond rank 20.
+- A later display-default decision requires 30 new live states.
+- Route ranking and VONA score blending remain prohibited.
+
+### Validation
+
+- Rank-20 experiment:
+  `experiments/draft_alpha_2026/2026-08-29_rank20_survival_next/result.json`.
+- Rank-20 artifact:
+  `055517e675b968c32da4af629bc38b7c1ae335152639df86c648e007e02e3437`.
+- Rank-20 six-state shadow coverage: `88.2353%`.
+- Rank-20 shadow p95 latency: `6.8113s`.
+- Rank-20 route practical co-leaders: `4/6`.
+- Rank-10 live default hash:
+  `0ee13d56a87c5c8206a5c437879b3a8c1419dfd4d4d7c0dc591905d58faf9d91`.
+
+## ADR-045 — Provide a simple remaining-player points board
+
+### Status
+
+Accepted for projection monitoring (2026-08-30).
+
+### Decision
+
+Projection monitoring opens with a simple points view that lists at most ten
+undrafted players per position by projected season points.
+
+The list:
+
+- uses the league's Sleeper scoring settings;
+- uses FantasyPros as the primary QB/RB/WR/TE projection source;
+- uses PFF for K/DEF projections;
+- includes remaining players even when the current roster has filled that
+  position;
+- ranks within position only;
+- does not apply VORP, WORP, roster fit, ADP, availability, or draft simulation.
+
+The existing detailed projection board remains available through `Full value`.
+
+### Rationale
+
+During a draft, the owner needs a fast answer to a simple question: which
+remaining players project for the most points at each position? The full value
+board answers a different question and includes several additional values.
+Keeping both views avoids hiding the simple projection while preserving the
+decision-support detail.
+
+### Consequences
+
+- `points_players` is a separate API field from roster-feasible value players.
+- Each position is capped at ten rows.
+- `Value & roster fit` is the default projection-board view; `Projected points`
+  stays one click away.
+  (Amended 2026-08-30 at owner request; the original default was the simple
+  points view.)
+- `Full value` retains route value, VORP, approved WORP, roster value, and ADP.
+- This view does not change the terminal simulation recommendation.
+
+### Validation
+
+- Backend tests verify league-scored position ordering and the ten-player cap.
+- Frontend tests verify the simple default and the `Full value` toggle.
+- Browser checks verify the points tables and responsive layout.
+
+## ADR-046 — Personal season-point offsets adjust the user-side valuation
+
+### Status
+
+Accepted (2026-08-30). Same-day supersession: the first slice applied
+offsets as pick-space ADP moves (rank-only tie-breaks); the owner
+clarified that offsets are opinions about player value, so the shipped
+design applies them as season-point deltas on top of the base projection.
+
+### Decision
+
+The owner records one offset per player, in projected season points, from
+the fixed set ±5/±10/±15/±20/±25/±30/±40/±50 (0 clears). Positive means
+the owner values the player above the base projection (like); negative
+below it (dislike). Offsets persist in
+`data/cache/draft_intel/personal_ranks.json` keyed by Sleeper player ID,
+load into `PreparedDraft.personal_ranks` at prepare time, and enter
+evaluation identity through a `:ranks<hash>` suffix on the live draft
+model version.
+
+Offsets adjust the user-side valuation exactly once per player, through
+two central transforms (centralized 2026-08-30 so consumers cannot drift
+apart):
+
+- `LeagueEvaluator.adjusted_flat_season_scores(personal_values)` is the
+  ONE adjusted value basis: each offset player's PRE-FLOOR flat weekly
+  score shifts by `offset / available weeks`, then the identical
+  position-cutline floor applies (memoized per offset board; no-offset
+  players bit-identical). Both the future-user policy
+  (`next_turn_user_policy`) and the terminal scorer's preference path
+  (`projected_roster_value(..., personal_values)`) read it, so a
+  sub-cutline boost that cannot clear the floor earns nothing in both by
+  construction;
+- `adjusted_projection` (personal_ranks) is the ONE season-point map
+  transform, `base + offset`: the policy's projection map (seating,
+  candidate selection, tiebreaks) and the board's points/VORP/WORP
+  display go through it. Replacement levels stay raw.
+
+(Corrected 2026-08-30: the first implementation added the offset AFTER
+summing the floored flat scores, so a sub-cutline player's roster value
+equaled his offset at 100% pass-through — a +30 TE17 below the 170.5 TE
+cutline outranked a 29.1-value TE1 rookie in the board's current-turn TE
+plan. On the replayed pick-25 mock state the policy valued
+Ferguson/Likely/Pitts at exactly their +30/+20/+10 offsets before the
+fix and at 0.0 after, matching
+`projected_roster_value(..., personal_values)` marginals exactly, while
+no-offset players are bit-identical.)
+
+Consumers:
+
+- `evaluate_candidates` computes a preference-adjusted utility per
+  continuation by rescoring the completed roster with the SAME terminal
+  lineup scorer under adjusted projections
+  (`LeagueEvaluator.projected_roster_value(..., personal_values)`): each
+  rostered offset shifts that player's pre-floor flat weekly scores by
+  `offset / available weeks`, then the identical cutline floor, seating,
+  bench discount, and streamer baseline apply. A starter's boost passes
+  through fully, a bench boost earns the bench-asset fraction, and a
+  sub-cutline boost that cannot clear the floor earns nothing — exactly
+  matching the future-user policy's floored values. `rank_candidates`,
+  co-leader/toss-up detection (`paired_preference_delta`), and the
+  recommendation all use this utility consistently;
+- `live_candidate_pool`'s guaranteed value-over-replacement entrants rank
+  by `projection + offset`, so liked players enter the evaluated window
+  sooner; the market-ADP head is unchanged;
+- the projection board displays personal numbers: `projected_points`,
+  VORP, and WORP in both the Points and Value tables are `base projection
+  + offset` against the raw replacement baseline, and the board's
+  current/route values come from the personalized policy;
+- payload rows expose `personal_offset`, `preference_adjusted_value`, and
+  its standard error; raw `projected_roster_value` fields stay raw.
+
+The positional falloff / cost-of-waiting diagnostic deliberately ignores
+offsets: it selects and prices targets with a separate raw-projection
+policy (`position_outlook.value_basis = "raw_projection"`), because it
+measures market scarcity — a +30 boost on a late-round dart throw must
+not make him the positional target or flatten every drop to zero. The
+owner observed exactly that failure mode when falloff briefly used
+personalized values. The QB/TE position-timing outlook stays raw for the
+same reason.
+
+Opponent choice, survival simulation, replacement levels, the terminal
+roster scorer, and the shared `SeasonWorldBank` never see offsets:
+football worlds and market behavior are opinion-independent.
+
+### Rationale
+
+The engine's objective is point-valued (ADR-026), and the owner's offsets
+are opinions about player value in the same units, so no conversion model
+is needed. Applying them to the shared bank would corrupt
+opinion-independent football worlds and force expensive world rebuilds;
+applying them only to display would not honor the request. The preference
+utility originally added each rostered offset at full weight; a live
+measurement on the owner's real pick-24 state showed completed rosters
+accumulating 150–180 offset points with a 35-point cross-candidate
+spread, and the full-weight sum over-credited bench/sub-floor boosts by
+roughly 3× versus the lineup-consistent rescoring (corrected shifts
++48.9/+44.8/+15.2 for Nabers/Olave/Rice against sums of
++167/+182/+152). The adjusted-scorer utility replaced the sum the same
+day; seating order stays raw in both the scorer and the policy, so the
+ADR-031 alignment is preserved and strengthened.
+
+### Consequences
+
+- A large offset can overturn a projected-value leader; the raw metrics
+  remain visible alongside the preference-adjusted utility for telemetry
+  and explanation.
+- Rankings from disjoint rollout ranges merge exactly
+  (`merge_rollout_ranges` concatenates preference values), and the model
+  version hash keeps cached evaluations from mixing boards.
+- Saving an offset while a prepared draft is idle atomically replaces the
+  prepared snapshot; a running monitor keeps its immutable board and new
+  offsets apply at the next preparation (`applied` field reports which).
+- `GET/POST /api/personal-ranks` and the "My ranks" web tab are the only
+  write paths.
+
+### Validation
+
+- Unit tests cover storage round-trip, offset validation, and hash
+  stability.
+- A decision-layer test proves +50 on a starter-seat candidate flips the
+  ranking and recommendation, shifts the preference utility by exactly
+  the offset, leaves raw metrics identical, keeps preference fields unset
+  without offsets, and merges rollout ranges exactly.
+- A bench-passthrough test proves a +40 boost on a sub-cutline bench
+  player shifts the preference utility by exactly nothing, and a
+  floor-clearing boost earns strictly less than full credit.
+- A policy-level regression test proves a sub-cutline +30 boost earns
+  nothing in `next_turn_user_policy` and a floor-clearing boost earns
+  exactly the terminal scorer's adjusted pass-through, never the full
+  offset (`test_sub_cutline_offsets_cannot_pass_the_floor`).
+- An integration run on the owner's real pick-24 state (300-world bank,
+  60 coupled rollouts, the owner's 93 stored offsets) produced
+  lineup-consistent preference values that rank Nabers over Olave over
+  Rice, versus a raw ranking led by Rice.
+- A policy test proves `base projection + offset` flips the simulated
+  future user's choice with replacement levels unchanged.
+- A candidate-pool test proves offsets promote value entrants without
+  moving the market-ADP head.
+- A board regression test proves `projected_points`/VORP display personal
+  numbers and the Points table resorts, while a +30 dart throw leaves the
+  falloff targets, edges, and `value_basis: raw_projection` byte-identical
+  to the raw board.
+- API tests cover the board join, round-trip, prepared-draft hot-swap, and
+  the no-league 409; a live browser session verified save, badge, and
+  persistence with the point-semantics copy.

@@ -1,0 +1,7 @@
+{
+  "status": "failed",
+  "stage": "cached timing context construction",
+  "error_type": "ValueError",
+  "error": "league cache does not match the configured league",
+  "result_created": false
+}

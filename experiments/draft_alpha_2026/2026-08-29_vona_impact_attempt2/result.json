@@ -1,0 +1,196 @@
+{
+  "draft_id": "1393656492011315200",
+  "experiment": "hierarchical one-turn VONA versus completed-roster value",
+  "gate": {
+    "complete_top_ten_capture": true,
+    "passes": false,
+    "practical_co_leader": false,
+    "practical_tie_points": 0.1
+  },
+  "limitations": [
+    "one cached mock state only",
+    "hierarchical route remains shadow-only",
+    "full completed-roster value remains the recommendation objective"
+  ],
+  "paired_terminal_leader_minus_route": {
+    "estimate": 12.493787362464605,
+    "interval": [
+      11.904684208532078,
+      13.082890516397132
+    ],
+    "standard_error": 0.30056283363904396
+  },
+  "pick_no": 73,
+  "rollouts": 300,
+  "route_leader": "LAR",
+  "route_terminal_rank": 23,
+  "route_terminal_value": 279.67937206323893,
+  "season_worlds_per_rollout": 14,
+  "spearman_route_vs_terminal": 0.0790513833992095,
+  "status": "rejected",
+  "terminal_leader": "7523",
+  "terminal_leader_value": 292.17315942570355,
+  "terminal_ranking": [
+    {
+      "player_id": "7523",
+      "projected_roster_value": 292.17315942570355,
+      "rank": 1,
+      "route_value": 13.238539319189636,
+      "vona": -13.599426533493439
+    },
+    {
+      "player_id": "8167",
+      "projected_roster_value": 290.0379607068587,
+      "rank": 2,
+      "route_value": 5.836109883468656,
+      "vona": -20.25415968950072
+    },
+    {
+      "player_id": "8228",
+      "projected_roster_value": 289.0388291755356,
+      "rank": 3,
+      "route_value": 5.70171608610547,
+      "vona": -20.775828603890602
+    },
+    {
+      "player_id": "11628",
+      "projected_roster_value": 286.8161681539722,
+      "rank": 4,
+      "route_value": 3.144937097816553,
+      "vona": -23.66408334179746
+    },
+    {
+      "player_id": "6819",
+      "projected_roster_value": 286.68009943293157,
+      "rank": 5,
+      "route_value": 3.1449370907794734,
+      "vona": -23.69492201969683
+    },
+    {
+      "player_id": "8142",
+      "projected_roster_value": 286.64557232024566,
+      "rank": 6,
+      "route_value": 3.1449371060674736,
+      "vona": -23.69492201969683
+    },
+    {
+      "player_id": "5846",
+      "projected_roster_value": 286.58729793970406,
+      "rank": 7,
+      "route_value": 3.676175489962301,
+      "vona": -23.218158736956948
+    },
+    {
+      "player_id": "7021",
+      "projected_roster_value": 286.38735976647314,
+      "rank": 8,
+      "route_value": 3.1449370795054197,
+      "vona": -23.694502680741348
+    },
+    {
+      "player_id": "13294",
+      "projected_roster_value": 286.3388286771825,
+      "rank": 9,
+      "route_value": 3.1449370538504864,
+      "vona": -23.69492201969683
+    },
+    {
+      "player_id": "6797",
+      "projected_roster_value": 286.29686422699643,
+      "rank": 10,
+      "route_value": 3.1449371932184733,
+      "vona": -23.694502680741348
+    },
+    {
+      "player_id": "6806",
+      "projected_roster_value": 286.18235468871336,
+      "rank": 11,
+      "route_value": 3.1449370726198196,
+      "vona": -23.664922019708424
+    },
+    {
+      "player_id": "12489",
+      "projected_roster_value": 286.07423010782213,
+      "rank": 12,
+      "route_value": 3.144937072381943,
+      "vona": -23.66408334179746
+    },
+    {
+      "player_id": "12534",
+      "projected_roster_value": 286.0476355570229,
+      "rank": 13,
+      "route_value": 3.1449370558632195,
+      "vona": -23.69492201969683
+    },
+    {
+      "player_id": "7611",
+      "projected_roster_value": 286.02091876745845,
+      "rank": 14,
+      "route_value": 3.1449370871740197,
+      "vona": -23.69492201969683
+    },
+    {
+      "player_id": "7594",
+      "projected_roster_value": 285.97160150836976,
+      "rank": 15,
+      "route_value": 3.1449370783812243,
+      "vona": -23.694502680741348
+    },
+    {
+      "player_id": "4037",
+      "projected_roster_value": 285.95293082314197,
+      "rank": 16,
+      "route_value": 3.1449370762724733,
+      "vona": -23.694502680741348
+    },
+    {
+      "player_id": "10232",
+      "projected_roster_value": 285.9132751529601,
+      "rank": 17,
+      "route_value": 3.1449370770024734,
+      "vona": -23.69492201969683
+    },
+    {
+      "player_id": "5967",
+      "projected_roster_value": 285.8366205419769,
+      "rank": 18,
+      "route_value": 3.1449370906744196,
+      "vona": -23.66408334179746
+    },
+    {
+      "player_id": "8183",
+      "projected_roster_value": 282.7804972413195,
+      "rank": 19,
+      "route_value": 3.1449372017062736,
+      "vona": -23.69492201969683
+    },
+    {
+      "player_id": "11560",
+      "projected_roster_value": 282.6687613281929,
+      "rank": 20,
+      "route_value": 3.2144814126070287,
+      "vona": -23.665341358663902
+    },
+    {
+      "player_id": "3294",
+      "projected_roster_value": 282.63957695847876,
+      "rank": 21,
+      "route_value": 3.1449372003946734,
+      "vona": -23.69492201969683
+    },
+    {
+      "player_id": "12508",
+      "projected_roster_value": 282.62992397629836,
+      "rank": 22,
+      "route_value": 3.1449372047535213,
+      "vona": -23.69492201969683
+    },
+    {
+      "player_id": "LAR",
+      "projected_roster_value": 279.67937206323893,
+      "rank": 23,
+      "route_value": 17.020347323371634,
+      "vona": -9.245801797247129
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "status": "evaluation_complete_gate_encoding_failed",
+  "error": "manager_gate.passes used all(manager_gate.values()), so the required live_callback_changed == false value was treated as a failing condition",
+  "policy_attempt_counted": false,
+  "state_evaluations_reusable": true,
+  "action": "Finalize the frozen state results with an explicit live_callback_unchanged condition; do not rerun or retune the models"
+}

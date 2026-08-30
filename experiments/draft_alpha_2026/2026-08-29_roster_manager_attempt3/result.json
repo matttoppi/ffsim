@@ -1,0 +1,35 @@
+{
+  "experiment": "frozen position-count manager 2024 transfer",
+  "gate": {
+    "improvement": 0.01612849414354695,
+    "paired_roster_minus_phase": {
+      "drafts": 1993,
+      "estimate": -0.016128494143622336,
+      "high": -0.014121138984503631,
+      "low": -0.018290078776832887,
+      "samples": 200,
+      "seed": 20260828
+    },
+    "passes": true
+  },
+  "improvement": 0.01612849414354695,
+  "limitations": [
+    "2024 is a seen transfer diagnostic",
+    "2025 was not queried",
+    "offline research only"
+  ],
+  "locked_test_loaded": false,
+  "phase_log_loss": 5.085122241996261,
+  "picks": 157673,
+  "roster_log_loss": 5.068993747852715,
+  "status": "research",
+  "train_seasons": [
+    2021,
+    2022,
+    2023
+  ],
+  "validation_2024_seen_diagnostic": true,
+  "validation_seasons": [
+    2024
+  ]
+}

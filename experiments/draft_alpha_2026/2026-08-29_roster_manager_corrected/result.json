@@ -1,0 +1,117 @@
+{
+  "experiment": "corrected position-count manager residual",
+  "folds": {
+    "train-2021-2022_validate-2023": {
+      "board_unsupported_state_updates": 956,
+      "gate": {
+        "improvement": 0.013965672515233974,
+        "paired_roster_minus_phase": {
+          "drafts": 1498,
+          "estimate": -0.013965672515197688,
+          "high": -0.011492675308083244,
+          "low": -0.01640274617678937,
+          "samples": 200,
+          "seed": 20260829
+        },
+        "passes": true
+      },
+      "improvement": 0.013965672515233974,
+      "phase_log_loss": 5.067565475355249,
+      "picks": 87472,
+      "roster_log_loss": 5.053599802840014,
+      "train_years": [
+        2021,
+        2022
+      ],
+      "training_counts": {
+        "managers": 12880,
+        "missing_board_state_updates": 1596,
+        "scored_picks": 335898
+      },
+      "validation_years": [
+        2023
+      ]
+    },
+    "train-2021_validate-2022": {
+      "board_unsupported_state_updates": 916,
+      "gate": {
+        "improvement": 0.01403973376381599,
+        "paired_roster_minus_phase": {
+          "drafts": 807,
+          "estimate": -0.014039733763752702,
+          "high": -0.009792336580816585,
+          "low": -0.018117234825443838,
+          "samples": 200,
+          "seed": 20260828
+        },
+        "passes": true
+      },
+      "improvement": 0.01403973376381599,
+      "phase_log_loss": 5.033805322643245,
+      "picks": 30074,
+      "roster_log_loss": 5.019765588879428,
+      "train_years": [
+        2021
+      ],
+      "training_counts": {
+        "managers": 5478,
+        "missing_board_state_updates": 680,
+        "scored_picks": 112352
+      },
+      "validation_years": [
+        2022
+      ]
+    }
+  },
+  "gate": {
+    "passes": true
+  },
+  "limitations": [
+    "position counts do not encode league-specific starting slots",
+    "2024 is a seen transfer diagnostic",
+    "2025 was not queried",
+    "offline research only"
+  ],
+  "locked_test_loaded": false,
+  "seen_transfer_seasons": [
+    2024
+  ],
+  "status": "research",
+  "train_development_seasons": [
+    2021,
+    2022,
+    2023
+  ],
+  "transfer_2024": {
+    "board_unsupported_state_updates": 965,
+    "gate": {
+      "improvement": 0.016122623222302002,
+      "paired_roster_minus_phase": {
+        "drafts": 1993,
+        "estimate": -0.016122623222326566,
+        "high": -0.014017295844175416,
+        "low": -0.018438997143619767,
+        "samples": 200,
+        "seed": 20260830
+      },
+      "passes": true
+    },
+    "improvement": 0.016122623222302002,
+    "phase_log_loss": 5.085122241996261,
+    "picks": 157673,
+    "roster_log_loss": 5.06899961877396,
+    "train_years": [
+      2021,
+      2022,
+      2023
+    ],
+    "training_counts": {
+      "managers": 21748,
+      "missing_board_state_updates": 2552,
+      "scored_picks": 657321
+    },
+    "validation_years": [
+      2024
+    ]
+  }
+}

@@ -145,6 +145,10 @@ class LiveDraftTest(unittest.TestCase):
         self.assertEqual(board["worp_calibration"]["status"], "validated")
         self.assertEqual(board["next_user_pick_no"], 3)
         self.assertEqual(
+            board["points_source"], "fantasypros_primary_offense"
+        )
+        self.assertEqual(board["special_teams_points_source"], "pff")
+        self.assertEqual(
             [plan["position"] for plan in board["plans"]],
             [
                 plan["position"]
@@ -161,6 +165,26 @@ class LiveDraftTest(unittest.TestCase):
             [(player["player_id"], player["projected_points"]) for player in qb_rows],
             [("qb1", 90.0), ("qb2", 60.0), ("qb3", 30.0)],
         )
+        points_qb = [
+            player
+            for player in board["points_players"]
+            if player["position"] == "QB"
+        ]
+        self.assertEqual(
+            [
+                (
+                    player["position_rank"],
+                    player["player_id"],
+                    player["projected_points"],
+                )
+                for player in points_qb
+            ],
+            [
+                (1, "qb1", 90.0),
+                (2, "qb2", 60.0),
+                (3, "qb3", 30.0),
+            ],
+        )
         self.assertEqual(qb_rows[0]["replacement_points"], 30.0)
         self.assertEqual(qb_rows[0]["value_over_replacement"], 60.0)
         self.assertAlmostEqual(qb_rows[0]["wins_over_replacement"], 0.6)
@@ -171,6 +195,309 @@ class LiveDraftTest(unittest.TestCase):
         self.assertGreaterEqual(
             board["plans"][0]["route_value"],
             board["plans"][-1]["route_value"],
+        )
+
+    def test_projection_value_board_publishes_tables_without_plans_off_clock(self):
+        player_ids = (
+            "qb1", "qb2", "qb3",
+            "rb1", "rb2", "rb3",
+            "wr1", "wr2", "wr3",
+        )
+        positions = ("QB",) * 3 + ("RB",) * 3 + ("WR",) * 3
+        expected_scores = (30, 20, 10, 24, 16, 8, 22, 15, 7)
+        league_evaluator = SimpleNamespace(
+            bank=SimpleNamespace(
+                player_ids=player_ids,
+                player_positions=positions,
+                expected_scores=expected_scores,
+                weeks=(1, 2, 3),
+            ),
+            roster_ids=(1, 2),
+            slot_counts={"QB": 1, "RB": 1, "WR": 1},
+            regular_season_weeks=3,
+        )
+        prepared = SimpleNamespace(
+            user_roster_id=1,
+            summary={
+                "market_context": {
+                    "target_context": {"team_count": 2, "scoring": "PPR"}
+                }
+            },
+            evaluator=league_evaluator,
+            market_snapshot={
+                "source": SLEEPER_ADP_SOURCE,
+                "snapshot_id": "projection-board",
+                "observations": [
+                    {"canonical_player_id": player_id, "adp": index * 4}
+                    for index, player_id in enumerate(player_ids, 1)
+                ],
+            },
+            player_details={
+                player_id: {"name": player_id.upper(), "team": "TST"}
+                for player_id in player_ids
+            },
+        )
+        opponent_state = SimpleNamespace(
+            current_pick_no=2,
+            current_roster_id=2,
+            pick_owners=(1, 2, 1, 2, 1, 2, 1, 2),
+            rosters=((1, ()), (2, ())),
+            available_player_ids=frozenset(player_ids),
+        )
+
+        with patch(
+            "ffsim.draft_intel.live.load_worp_curve",
+            return_value=(
+                WORPCurve(2, "PPR", (0.0, 10.0), (0.0, 0.2)),
+                {"status": "validated", "team_count": 2, "scoring_format": "PPR"},
+            ),
+        ):
+            board = projection_value_board(prepared, opponent_state)
+
+        self.assertEqual(board["pick_no"], 2)
+        self.assertTrue(board["players"])
+        self.assertTrue(board["points_players"])
+        self.assertEqual(board["plans"], [])
+        self.assertIsNone(board["recommended_player_id"])
+        self.assertIsNone(board["recommended_position"])
+        self.assertEqual(board["next_user_pick_no"], 3)
+
+        outlook = board["position_outlook"]
+        self.assertEqual(outlook["edge_basis"], "first_marginal_seat")
+        self.assertEqual(
+            outlook["availability_model"], "adp_order_with_reach_cushion"
+        )
+        # Off the clock at pick 2, the user's future turns are 3, 5, 7.
+        self.assertEqual(outlook["future_turn_pick_nos"], [3, 5, 7])
+        rows = outlook["positions"]
+        self.assertEqual(
+            sorted(row["position"] for row in rows), ["QB", "RB", "WR"]
+        )
+        # Positions are ordered by take-now edge; every edge and drop is the
+        # first-seat marginal value difference against the same turn, and the
+        # no-flex league reports one dedicated seat per position.
+        edges = [row["take_now_edge"] for row in rows]
+        self.assertEqual(edges, sorted(edges, reverse=True))
+        for row in rows:
+            self.assertEqual(row["open_dedicated_slots"], 1)
+            self.assertEqual(row["eligible_open_flex_slots"], 0)
+            self.assertEqual(row["remaining_starting_opportunities"], 1)
+            self.assertEqual(
+                [turn["pick_no"] for turn in row["turns"]], [3, 5, 7]
+            )
+            for turn in row["turns"]:
+                self.assertAlmostEqual(
+                    turn["drop_from_now"],
+                    row["best_now_marginal_value"] - turn["marginal_value"],
+                )
+            self.assertAlmostEqual(
+                row["take_now_edge"],
+                row["best_now_marginal_value"]
+                - row["turns"][0]["marginal_value"],
+            )
+            self.assertLessEqual(len(row["top_players"]), 5)
+            self.assertAlmostEqual(
+                row["top_players"][0]["edge_vs_next_turn"], row["take_now_edge"]
+            )
+
+        completed_state = SimpleNamespace(
+            current_pick_no=None,
+            current_roster_id=None,
+            pick_owners=(1, 2),
+            rosters=((1, ()), (2, ())),
+            available_player_ids=frozenset(),
+        )
+        self.assertIsNone(projection_value_board(prepared, completed_state))
+
+    def test_personal_offsets_move_board_points_but_not_falloff(self):
+        player_ids = (
+            "qb1", "qb2", "qb3",
+            "rb1", "rb2", "rb3",
+            "wr1", "wr2", "wr3",
+        )
+        positions = ("QB",) * 3 + ("RB",) * 3 + ("WR",) * 3
+        expected_scores = (30, 20, 10, 24, 16, 8, 22, 15, 7)
+
+        def prepared_with(personal_ranks):
+            return SimpleNamespace(
+                user_roster_id=1,
+                summary={
+                    "market_context": {
+                        "target_context": {"team_count": 2, "scoring": "PPR"}
+                    }
+                },
+                evaluator=SimpleNamespace(
+                    bank=SimpleNamespace(
+                        player_ids=player_ids,
+                        player_positions=positions,
+                        expected_scores=expected_scores,
+                        weeks=(1, 2, 3),
+                    ),
+                    roster_ids=(1, 2),
+                    slot_counts={"QB": 1, "RB": 1, "WR": 1},
+                    regular_season_weeks=3,
+                ),
+                market_snapshot={
+                    "source": SLEEPER_ADP_SOURCE,
+                    "snapshot_id": "projection-board",
+                    "observations": [
+                        {"canonical_player_id": player_id, "adp": index * 4}
+                        for index, player_id in enumerate(player_ids, 1)
+                    ],
+                },
+                player_details={
+                    player_id: {"name": player_id.upper(), "team": "TST"}
+                    for player_id in player_ids
+                },
+                personal_ranks=personal_ranks,
+            )
+
+        state = SimpleNamespace(
+            current_pick_no=1,
+            current_roster_id=1,
+            pick_owners=(1, 2, 1, 2, 1, 2, 1, 2),
+            rosters=((1, ()), (2, ())),
+            available_player_ids=frozenset(player_ids),
+        )
+        with patch(
+            "ffsim.draft_intel.live.load_worp_curve",
+            return_value=(
+                WORPCurve(2, "PPR", (0.0, 10.0), (0.0, 0.2)),
+                {"status": "validated", "team_count": 2, "scoring_format": "PPR"},
+            ),
+        ):
+            raw_board = projection_value_board(prepared_with({}), state)
+            # +30 season points on the deep WR dart throw (wr3: 21 raw).
+            my_board = projection_value_board(
+                prepared_with({"wr3": 30}), state
+            )
+
+        rows = {row["player_id"]: row for row in my_board["players"]}
+        # Board points are personal: base projection + offset; VORP follows
+        # with the raw replacement baseline; untouched players unchanged.
+        self.assertEqual(rows["wr3"]["projected_points"], 51.0)
+        self.assertEqual(rows["wr3"]["personal_offset"], 30)
+        self.assertEqual(rows["wr1"]["projected_points"], 66.0)
+        self.assertEqual(
+            rows["wr3"]["value_over_replacement"],
+            51.0 - rows["wr3"]["replacement_points"],
+        )
+        # The Points table resorts on personal points: wr3 (51) over wr2 (45).
+        self.assertEqual(
+            [
+                row["player_id"]
+                for row in my_board["points_players"]
+                if row["position"] == "WR"
+            ],
+            ["wr1", "wr3", "wr2"],
+        )
+
+        # The falloff diagnostic ignores offsets entirely: same targets,
+        # same edges as the raw board, and it says so.
+        self.assertEqual(
+            my_board["position_outlook"]["value_basis"], "raw_projection"
+        )
+        raw_wr = next(
+            row for row in raw_board["position_outlook"]["positions"]
+            if row["position"] == "WR"
+        )
+        my_wr = next(
+            row for row in my_board["position_outlook"]["positions"]
+            if row["position"] == "WR"
+        )
+        # The raw-strongest WR keeps the falloff headline despite the boost.
+        self.assertEqual(my_wr["best_now_player_id"], "wr1")
+        self.assertEqual(my_wr["best_now_player_id"], raw_wr["best_now_player_id"])
+        self.assertEqual(
+            [turn["player_id"] for turn in my_wr["turns"]],
+            [turn["player_id"] for turn in raw_wr["turns"]],
+        )
+        self.assertEqual(my_wr["take_now_edge"], raw_wr["take_now_edge"])
+        self.assertEqual(
+            [player["marginal_value"] for player in my_wr["top_players"]],
+            [player["marginal_value"] for player in raw_wr["top_players"]],
+        )
+        # Falloff points stay raw (market card, one basis), with the offset
+        # carried separately so the UI can flag the boosted name.
+        wr3_target = next(
+            player for player in my_wr["top_players"]
+            if player["player_id"] == "wr3"
+        )
+        self.assertEqual(wr3_target["projected_points"], 21.0)
+        self.assertEqual(wr3_target["personal_offset"], 30)
+        self.assertEqual(my_wr["best_now_points"], raw_wr["best_now_points"])
+
+    def test_projection_points_board_caps_each_position_at_ten_remaining(self):
+        player_ids = tuple(f"qb{index:02d}" for index in range(1, 13))
+        league_evaluator = SimpleNamespace(
+            bank=SimpleNamespace(
+                player_ids=player_ids,
+                player_positions=("QB",) * len(player_ids),
+                expected_scores=tuple(
+                    range(len(player_ids), 0, -1)
+                ),
+                weeks=(1,),
+            ),
+            roster_ids=(1, 2),
+            slot_counts={"QB": 1},
+            regular_season_weeks=1,
+        )
+        prepared = SimpleNamespace(
+            user_roster_id=1,
+            summary={
+                "market_context": {
+                    "target_context": {
+                        "team_count": 2,
+                        "scoring": "PPR",
+                    }
+                }
+            },
+            evaluator=league_evaluator,
+            market_snapshot={
+                "source": SLEEPER_ADP_SOURCE,
+                "snapshot_id": "points-board",
+                "observations": [
+                    {
+                        "canonical_player_id": player_id,
+                        "adp": index,
+                    }
+                    for index, player_id in enumerate(player_ids, 1)
+                ],
+            },
+            player_details={
+                player_id: {"name": player_id.upper(), "team": "TST"}
+                for player_id in player_ids
+            },
+        )
+        state = SimpleNamespace(
+            current_pick_no=1,
+            current_roster_id=1,
+            pick_owners=(1, 2, 1, 2),
+            rosters=((1, ()), (2, ())),
+            available_player_ids=frozenset(player_ids),
+        )
+
+        with patch(
+            "ffsim.draft_intel.live.load_worp_curve",
+            return_value=(
+                None,
+                {
+                    "status": "missing",
+                    "team_count": 2,
+                    "scoring_format": "PPR",
+                },
+            ),
+        ):
+            board = projection_value_board(prepared, state)
+
+        self.assertEqual(len(board["points_players"]), 10)
+        self.assertEqual(
+            [player["position_rank"] for player in board["points_players"]],
+            list(range(1, 11)),
+        )
+        self.assertEqual(
+            [player["player_id"] for player in board["points_players"]],
+            list(player_ids[:10]),
         )
 
     def test_live_league_equity_payload_names_and_ranks_every_roster(self):
@@ -235,11 +562,25 @@ class LiveDraftTest(unittest.TestCase):
             player_details={},
         )
         candidates = ("p1", "p2", "p3")
-        sequential = evaluate_live_candidates(prepared, state, 4, candidates)
-        with create_live_executor(prepared, workers=2) as executor:
-            parallel = evaluate_live_candidates(
-                prepared, state, 4, candidates, executor=executor
-            )
+        with (
+            patch(
+                "ffsim.historical_sleeper.manager_choice.load_manager_choice_model",
+                side_effect=AssertionError("live path loaded manager research"),
+            ),
+            patch(
+                "ffsim.historical_sleeper.hierarchical_survival.load_hierarchical_survival_model",
+                side_effect=AssertionError("live path loaded survival research"),
+            ),
+            patch(
+                "ffsim.historical_sleeper.hdvn_neural.load_neural_artifact",
+                side_effect=AssertionError("live path loaded rejected neural research"),
+            ),
+        ):
+            sequential = evaluate_live_candidates(prepared, state, 4, candidates)
+            with create_live_executor(prepared, workers=2) as executor:
+                parallel = evaluate_live_candidates(
+                    prepared, state, 4, candidates, executor=executor
+                )
         self.assertEqual(sequential.rollout_ids, parallel.rollout_ids)
         self.assertEqual(sequential.world_indices, parallel.world_indices)
         self.assertEqual(sequential.draft_model_version, parallel.draft_model_version)
@@ -1001,6 +1342,67 @@ class LiveDraftTest(unittest.TestCase):
                 SimpleNamespace(available_player_ids=frozenset(), current_pick_no=1),
                 5,
             )
+
+    def test_personal_point_offsets_promote_value_entrants_only(self):
+        adps = {
+            "p02": ("RB", 2.0),
+            "p09": ("WR", 9.0),
+            "p10": ("WR", 10.0),
+            "p11": ("QB", 11.0),
+            "p14": ("QB", 14.0),
+            "p30": ("TE", 30.0),
+            "p90": ("K", 90.0),
+        }
+
+        def prepared_with(personal_ranks):
+            return SimpleNamespace(
+                user_roster_id=1,
+                market_snapshot={
+                    "source": SLEEPER_ADP_SOURCE,
+                    "snapshot_id": "snap",
+                    "observations": [
+                        {"canonical_player_id": player_id, "adp": adp}
+                        for player_id, (_, adp) in adps.items()
+                    ],
+                },
+                evaluator=SimpleNamespace(
+                    bank=SimpleNamespace(
+                        player_ids=tuple(adps),
+                        player_positions=tuple(
+                            position for position, _ in adps.values()
+                        ),
+                        expected_scores=(20.0, 15.0, 14.0, 18.0, 17.0, 10.0, 5.0),
+                        weeks=(1, 2, 3),
+                    ),
+                    roster_ids=(1, 2),
+                    slot_counts={"QB": 1, "RB": 1, "WR": 1, "TE": 1, "K": 1},
+                ),
+                player_details={
+                    player_id: {"position": position}
+                    for player_id, (position, _) in adps.items()
+                },
+                personal_ranks=personal_ranks,
+            )
+
+        state = SimpleNamespace(
+            available_player_ids=frozenset(adps),
+            current_pick_no=10,
+            pick_owners=(1,) * 20,
+            roster_player_ids=lambda _roster_id: (),
+        )
+
+        baseline = live_candidate_pool(prepared_with({}), state, 3)
+        # +40 season points on the deep TE raise his subjective value over
+        # the QBs, so he enters the evaluated window as an earlier
+        # value-over-replacement entrant.
+        liked = live_candidate_pool(prepared_with({"p30": 40}), state, 3)
+
+        # The ADP head is market-ordered in both cases — offsets are point
+        # opinions, not board moves.
+        self.assertEqual(baseline[:3], ["p02", "p09", "p10"])
+        self.assertEqual(liked[:3], ["p02", "p09", "p10"])
+        self.assertLess(baseline.index("p11"), baseline.index("p30"))
+        self.assertLess(liked.index("p30"), liked.index("p11"))
 
     def test_candidate_pool_requires_starter_positions_at_the_draft_tail(self):
         adps = {"rb": 1.0, "k": 50.0, "def": 60.0}

@@ -1,0 +1,124 @@
+{
+  "experiment": "frozen hierarchical survival 2024 transfer diagnostic",
+  "gate": {
+    "brier": 0.09449577521416276,
+    "coverage": 1.0,
+    "elite_rank2_rb_gap18_round1": {
+      "count": 2006,
+      "probability": 0.006208049375724019,
+      "successes": 7
+    },
+    "expected_calibration_error": 0.03760994507558993,
+    "false_safe_rate": 0.06875873257314716,
+    "passes": true
+  },
+  "limitations": [
+    "2024 is a seen transfer diagnostic, not an untouched holdout",
+    "scoring format, team count, and manager identity are pooled",
+    "hierarchical probabilities do not model joint tier survival",
+    "2025 was not queried",
+    "no live VONA, WORP, rollout, API, or UI integration"
+  ],
+  "locked_test_loaded": false,
+  "shrinkage_observations": 100.0,
+  "status": "research",
+  "train_seasons": [
+    2021,
+    2022,
+    2023
+  ],
+  "validation": {
+    "counts": {
+      "coverage": 1.0,
+      "drafts": 2320,
+      "samples": 3766940,
+      "states": 376694
+    },
+    "metrics": {
+      "brier": 0.09449577521416276,
+      "calibration": [
+        {
+          "count": 75458,
+          "lower": 0.0,
+          "mean_prediction": 0.03291469166523246,
+          "observed_rate": 0.11740305865514591,
+          "upper": 0.1
+        },
+        {
+          "count": 59664,
+          "lower": 0.1,
+          "mean_prediction": 0.15710219377966197,
+          "observed_rate": 0.27569388576025744,
+          "upper": 0.2
+        },
+        {
+          "count": 115963,
+          "lower": 0.2,
+          "mean_prediction": 0.2533508944481315,
+          "observed_rate": 0.4070350025439149,
+          "upper": 0.3
+        },
+        {
+          "count": 97339,
+          "lower": 0.3,
+          "mean_prediction": 0.3470782100910108,
+          "observed_rate": 0.5199252098336741,
+          "upper": 0.4
+        },
+        {
+          "count": 114115,
+          "lower": 0.4,
+          "mean_prediction": 0.4520247598529877,
+          "observed_rate": 0.6594400385575954,
+          "upper": 0.5
+        },
+        {
+          "count": 125269,
+          "lower": 0.5,
+          "mean_prediction": 0.5537267855951811,
+          "observed_rate": 0.6723930102419593,
+          "upper": 0.6
+        },
+        {
+          "count": 176008,
+          "lower": 0.6,
+          "mean_prediction": 0.6501724932441941,
+          "observed_rate": 0.7259670014999319,
+          "upper": 0.7
+        },
+        {
+          "count": 268121,
+          "lower": 0.7,
+          "mean_prediction": 0.7512456494966593,
+          "observed_rate": 0.7987662286803346,
+          "upper": 0.8
+        },
+        {
+          "count": 452983,
+          "lower": 0.8,
+          "mean_prediction": 0.8576049259045687,
+          "observed_rate": 0.8589284807597636,
+          "upper": 0.9
+        },
+        {
+          "count": 2282020,
+          "lower": 0.9,
+          "mean_prediction": 0.9735884687983973,
+          "observed_rate": 0.9611602878151813,
+          "upper": 1.0
+        }
+      ],
+      "count": 3766940,
+      "expected_calibration_error": 0.03760994507558993,
+      "false_safe_rate": 0.06875873257314716,
+      "false_urgent_rate": 0.28878268315510686,
+      "log_loss": 0.3099896299221611,
+      "safe_coverage": 0.7972317053098802,
+      "urgent_coverage": 0.06665489760920004
+    }
+  },
+  "validation_2024_seen_diagnostic": true,
+  "validation_seasons": [
+    2024
+  ]
+}

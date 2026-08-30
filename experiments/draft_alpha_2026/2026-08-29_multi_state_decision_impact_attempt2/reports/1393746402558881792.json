@@ -1,0 +1,5139 @@
+{
+  "candidate_branches": {
+    "10229": {
+      "captured_market_players": 10,
+      "current_player_id": "10229",
+      "current_value": 85.62492744144134,
+      "eligible_later_players": 10,
+      "expected_next_turn_value": 112.83873471869597,
+      "later_players": [
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.6587669956417417,
+            0.7219725097489484
+          ],
+          "lookup_status": "available",
+          "marginal_value": 12.774750013613705,
+          "market_rank": 1,
+          "player_id": "12507",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.6908105542532789,
+          "raw_rate": 0.6680555555555555,
+          "support": 720,
+          "survival_probability": 0.6908105542532789
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3633135577820461,
+            0.46211003988893407
+          ],
+          "lookup_status": "available",
+          "marginal_value": 94.36729777007692,
+          "market_rank": 2,
+          "player_id": "9224",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.4122744311135265,
+          "raw_rate": 0.26071428571428573,
+          "support": 280,
+          "survival_probability": 0.4122744311135265
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.27632259320045494,
+            0.34185078513875705
+          ],
+          "lookup_status": "available",
+          "marginal_value": 32.99101220838922,
+          "market_rank": 3,
+          "player_id": "5859",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.30861089742654285,
+          "raw_rate": 0.24924471299093656,
+          "support": 662,
+          "survival_probability": 0.30861089742654285
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.761537392686911,
+            0.8318844992404534
+          ],
+          "lookup_status": "available",
+          "marginal_value": 117.28145903319728,
+          "market_rank": 4,
+          "player_id": "8130",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.7978413804044414,
+          "raw_rate": 0.8270676691729323,
+          "support": 399,
+          "survival_probability": 0.7978413804044414
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.36726601617438265,
+            0.42354839639525443
+          ],
+          "lookup_status": "available",
+          "marginal_value": 81.59213385487055,
+          "market_rank": 5,
+          "player_id": "8151",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.3952358219438351,
+          "raw_rate": 0.3752362948960302,
+          "support": 1058,
+          "survival_probability": 0.3952358219438351
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.5570324275488103,
+            0.6507349738302771
+          ],
+          "lookup_status": "available",
+          "marginal_value": 106.02397165799215,
+          "market_rank": 6,
+          "player_id": "11604",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.6043578163680334,
+          "raw_rate": 0.6214511041009464,
+          "support": 317,
+          "survival_probability": 0.6043578163680334
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3441143269736985,
+            0.40158811681927076
+          ],
+          "lookup_status": "available",
+          "marginal_value": 68.76705051640546,
+          "market_rank": 7,
+          "player_id": "3198",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.3726290414357327,
+          "raw_rate": 0.359026369168357,
+          "support": 986,
+          "survival_probability": 0.3726290414357327
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.7753781895921003,
+            0.8194350481952499
+          ],
+          "lookup_status": "available",
+          "marginal_value": 42.64345746647644,
+          "market_rank": 8,
+          "player_id": "4984",
+          "pooled_support": 3775,
+          "position": "QB",
+          "probability": 0.7978491073421691,
+          "raw_rate": 0.8221276595744681,
+          "support": 1175,
+          "survival_probability": 0.7978491073421691
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.36552165231133693,
+            0.4150321654331628
+          ],
+          "lookup_status": "available",
+          "marginal_value": 73.21296354163447,
+          "market_rank": 9,
+          "player_id": "8137",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.39013723117491417,
+          "raw_rate": 0.38201438848920866,
+          "support": 1390,
+          "survival_probability": 0.39013723117491417
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.5146182108576389,
+            0.5637987550196262
+          ],
+          "lookup_status": "available",
+          "marginal_value": 35.96255346638573,
+          "market_rank": 10,
+          "player_id": "13287",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.5392556388339194,
+          "raw_rate": 0.5362220717670955,
+          "support": 1477,
+          "survival_probability": 0.5392556388339194
+        }
+      ],
+      "route_support_status": "complete",
+      "route_value": 198.46366216013732,
+      "supported_later_players": 10,
+      "top_ten_capture_complete": true
+    },
+    "11604": {
+      "captured_market_players": 10,
+      "current_player_id": "11604",
+      "current_value": 106.02397165799215,
+      "eligible_later_players": 10,
+      "expected_next_turn_value": 109.46340036862681,
+      "later_players": [
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.6587669956417417,
+            0.7219725097489484
+          ],
+          "lookup_status": "available",
+          "marginal_value": 12.774750013613705,
+          "market_rank": 1,
+          "player_id": "12507",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.6908105542532789,
+          "raw_rate": 0.6680555555555555,
+          "support": 720,
+          "survival_probability": 0.6908105542532789
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3633135577820461,
+            0.46211003988893407
+          ],
+          "lookup_status": "available",
+          "marginal_value": 94.36729777007692,
+          "market_rank": 2,
+          "player_id": "9224",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.4122744311135265,
+          "raw_rate": 0.26071428571428573,
+          "support": 280,
+          "survival_probability": 0.4122744311135265
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.27632259320045494,
+            0.34185078513875705
+          ],
+          "lookup_status": "available",
+          "marginal_value": 32.99101220838922,
+          "market_rank": 3,
+          "player_id": "5859",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.30861089742654285,
+          "raw_rate": 0.24924471299093656,
+          "support": 662,
+          "survival_probability": 0.30861089742654285
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.761537392686911,
+            0.8318844992404534
+          ],
+          "lookup_status": "available",
+          "marginal_value": 117.22652855191384,
+          "market_rank": 4,
+          "player_id": "8130",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.7978413804044414,
+          "raw_rate": 0.8270676691729323,
+          "support": 399,
+          "survival_probability": 0.7978413804044414
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.36726601617438265,
+            0.42354839639525443
+          ],
+          "lookup_status": "available",
+          "marginal_value": 81.59213385487055,
+          "market_rank": 5,
+          "player_id": "8151",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.3952358219438351,
+          "raw_rate": 0.3752362948960302,
+          "support": 1058,
+          "survival_probability": 0.3952358219438351
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.4018788019710795,
+            0.46327670785744646
+          ],
+          "lookup_status": "available",
+          "marginal_value": 68.76705051640546,
+          "market_rank": 6,
+          "player_id": "3198",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.4324496590845545,
+          "raw_rate": 0.41935483870967744,
+          "support": 899,
+          "survival_probability": 0.4324496590845545
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.7729871842195235,
+            0.8203441903081177
+          ],
+          "lookup_status": "available",
+          "marginal_value": 42.64345746647644,
+          "market_rank": 7,
+          "player_id": "4984",
+          "pooled_support": 3775,
+          "position": "QB",
+          "probability": 0.7971746283898786,
+          "raw_rate": 0.8260437375745527,
+          "support": 1006,
+          "survival_probability": 0.7971746283898786
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.2777816020831413,
+            0.32865759994739335
+          ],
+          "lookup_status": "available",
+          "marginal_value": 73.21296354163447,
+          "market_rank": 8,
+          "player_id": "8137",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.302921415224653,
+          "raw_rate": 0.2847222222222222,
+          "support": 1152,
+          "survival_probability": 0.302921415224653
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3390065028703207,
+            0.39778776109031644
+          ],
+          "lookup_status": "available",
+          "marginal_value": 35.96255346638573,
+          "market_rank": 9,
+          "player_id": "13287",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.36815534796768845,
+          "raw_rate": 0.3536977491961415,
+          "support": 933,
+          "survival_probability": 0.36815534796768845
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.44392923707300563,
+            0.5000366899323299
+          ],
+          "lookup_status": "available",
+          "marginal_value": 42.7571187232942,
+          "market_rank": 10,
+          "player_id": "7569",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.4719392118856714,
+          "raw_rate": 0.4618834080717489,
+          "support": 1115,
+          "survival_probability": 0.4719392118856714
+        }
+      ],
+      "route_support_status": "complete",
+      "route_value": 215.48737202661897,
+      "supported_later_players": 10,
+      "top_ten_capture_complete": true
+    },
+    "11632": {
+      "captured_market_players": 10,
+      "current_player_id": "11632",
+      "current_value": 44.33156811656935,
+      "eligible_later_players": 10,
+      "expected_next_turn_value": 112.83873471869597,
+      "later_players": [
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.6587669956417417,
+            0.7219725097489484
+          ],
+          "lookup_status": "available",
+          "marginal_value": 12.774750013613705,
+          "market_rank": 1,
+          "player_id": "12507",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.6908105542532789,
+          "raw_rate": 0.6680555555555555,
+          "support": 720,
+          "survival_probability": 0.6908105542532789
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3633135577820461,
+            0.46211003988893407
+          ],
+          "lookup_status": "available",
+          "marginal_value": 94.36729777007692,
+          "market_rank": 2,
+          "player_id": "9224",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.4122744311135265,
+          "raw_rate": 0.26071428571428573,
+          "support": 280,
+          "survival_probability": 0.4122744311135265
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.27632259320045494,
+            0.34185078513875705
+          ],
+          "lookup_status": "available",
+          "marginal_value": 32.99101220838922,
+          "market_rank": 3,
+          "player_id": "5859",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.30861089742654285,
+          "raw_rate": 0.24924471299093656,
+          "support": 662,
+          "survival_probability": 0.30861089742654285
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.761537392686911,
+            0.8318844992404534
+          ],
+          "lookup_status": "available",
+          "marginal_value": 117.28145903319728,
+          "market_rank": 4,
+          "player_id": "8130",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.7978413804044414,
+          "raw_rate": 0.8270676691729323,
+          "support": 399,
+          "survival_probability": 0.7978413804044414
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.36726601617438265,
+            0.42354839639525443
+          ],
+          "lookup_status": "available",
+          "marginal_value": 81.59213385487055,
+          "market_rank": 5,
+          "player_id": "8151",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.3952358219438351,
+          "raw_rate": 0.3752362948960302,
+          "support": 1058,
+          "survival_probability": 0.3952358219438351
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.5570324275488103,
+            0.6507349738302771
+          ],
+          "lookup_status": "available",
+          "marginal_value": 106.02397165799215,
+          "market_rank": 6,
+          "player_id": "11604",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.6043578163680334,
+          "raw_rate": 0.6214511041009464,
+          "support": 317,
+          "survival_probability": 0.6043578163680334
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3441143269736985,
+            0.40158811681927076
+          ],
+          "lookup_status": "available",
+          "marginal_value": 68.76705051640546,
+          "market_rank": 7,
+          "player_id": "3198",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.3726290414357327,
+          "raw_rate": 0.359026369168357,
+          "support": 986,
+          "survival_probability": 0.3726290414357327
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.7753781895921003,
+            0.8194350481952499
+          ],
+          "lookup_status": "available",
+          "marginal_value": 42.64345746647644,
+          "market_rank": 8,
+          "player_id": "4984",
+          "pooled_support": 3775,
+          "position": "QB",
+          "probability": 0.7978491073421691,
+          "raw_rate": 0.8221276595744681,
+          "support": 1175,
+          "survival_probability": 0.7978491073421691
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.36552165231133693,
+            0.4150321654331628
+          ],
+          "lookup_status": "available",
+          "marginal_value": 73.21296354163447,
+          "market_rank": 9,
+          "player_id": "8137",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.39013723117491417,
+          "raw_rate": 0.38201438848920866,
+          "support": 1390,
+          "survival_probability": 0.39013723117491417
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.5146182108576389,
+            0.5637987550196262
+          ],
+          "lookup_status": "available",
+          "marginal_value": 35.96255346638573,
+          "market_rank": 10,
+          "player_id": "13287",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.5392556388339194,
+          "raw_rate": 0.5362220717670955,
+          "support": 1477,
+          "survival_probability": 0.5392556388339194
+        }
+      ],
+      "route_support_status": "complete",
+      "route_value": 157.17030283526532,
+      "supported_later_players": 10,
+      "top_ten_capture_complete": true
+    },
+    "12506": {
+      "captured_market_players": 10,
+      "current_player_id": "12506",
+      "current_value": 61.08093957084462,
+      "eligible_later_players": 10,
+      "expected_next_turn_value": 112.78819771340667,
+      "later_players": [
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.6587669956417417,
+            0.7219725097489484
+          ],
+          "lookup_status": "available",
+          "marginal_value": 12.774750013613705,
+          "market_rank": 1,
+          "player_id": "12507",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.6908105542532789,
+          "raw_rate": 0.6680555555555555,
+          "support": 720,
+          "survival_probability": 0.6908105542532789
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3633135577820461,
+            0.46211003988893407
+          ],
+          "lookup_status": "available",
+          "marginal_value": 94.36729777007692,
+          "market_rank": 2,
+          "player_id": "9224",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.4122744311135265,
+          "raw_rate": 0.26071428571428573,
+          "support": 280,
+          "survival_probability": 0.4122744311135265
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.27632259320045494,
+            0.34185078513875705
+          ],
+          "lookup_status": "available",
+          "marginal_value": 32.99101220838922,
+          "market_rank": 3,
+          "player_id": "5859",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.30861089742654285,
+          "raw_rate": 0.24924471299093656,
+          "support": 662,
+          "survival_probability": 0.30861089742654285
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.761537392686911,
+            0.8318844992404534
+          ],
+          "lookup_status": "available",
+          "marginal_value": 117.22652855191384,
+          "market_rank": 4,
+          "player_id": "8130",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.7978413804044414,
+          "raw_rate": 0.8270676691729323,
+          "support": 399,
+          "survival_probability": 0.7978413804044414
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.36726601617438265,
+            0.42354839639525443
+          ],
+          "lookup_status": "available",
+          "marginal_value": 81.59213385487055,
+          "market_rank": 5,
+          "player_id": "8151",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.3952358219438351,
+          "raw_rate": 0.3752362948960302,
+          "support": 1058,
+          "survival_probability": 0.3952358219438351
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.5570324275488103,
+            0.6507349738302771
+          ],
+          "lookup_status": "available",
+          "marginal_value": 105.96904117670871,
+          "market_rank": 6,
+          "player_id": "11604",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.6043578163680334,
+          "raw_rate": 0.6214511041009464,
+          "support": 317,
+          "survival_probability": 0.6043578163680334
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3441143269736985,
+            0.40158811681927076
+          ],
+          "lookup_status": "available",
+          "marginal_value": 68.76705051640546,
+          "market_rank": 7,
+          "player_id": "3198",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.3726290414357327,
+          "raw_rate": 0.359026369168357,
+          "support": 986,
+          "survival_probability": 0.3726290414357327
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.7753781895921003,
+            0.8194350481952499
+          ],
+          "lookup_status": "available",
+          "marginal_value": 42.64345746647644,
+          "market_rank": 8,
+          "player_id": "4984",
+          "pooled_support": 3775,
+          "position": "QB",
+          "probability": 0.7978491073421691,
+          "raw_rate": 0.8221276595744681,
+          "support": 1175,
+          "survival_probability": 0.7978491073421691
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.36552165231133693,
+            0.4150321654331628
+          ],
+          "lookup_status": "available",
+          "marginal_value": 73.21296354163447,
+          "market_rank": 9,
+          "player_id": "8137",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.39013723117491417,
+          "raw_rate": 0.38201438848920866,
+          "support": 1390,
+          "survival_probability": 0.39013723117491417
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.5146182108576389,
+            0.5637987550196262
+          ],
+          "lookup_status": "available",
+          "marginal_value": 35.96255346638573,
+          "market_rank": 10,
+          "player_id": "13287",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.5392556388339194,
+          "raw_rate": 0.5362220717670955,
+          "support": 1477,
+          "survival_probability": 0.5392556388339194
+        }
+      ],
+      "route_support_status": "complete",
+      "route_value": 173.86913728425128,
+      "supported_later_players": 10,
+      "top_ten_capture_complete": true
+    },
+    "12507": {
+      "captured_market_players": 10,
+      "current_player_id": "12507",
+      "current_value": 12.774750013613705,
+      "eligible_later_players": 10,
+      "expected_next_turn_value": 112.74238271925056,
+      "later_players": [
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.6587669956417417,
+            0.7219725097489484
+          ],
+          "lookup_status": "available",
+          "marginal_value": 91.17957495582387,
+          "market_rank": 1,
+          "player_id": "9224",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.6908105542532789,
+          "raw_rate": 0.6680555555555555,
+          "support": 720,
+          "survival_probability": 0.6908105542532789
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.569456729882631,
+            0.6328894920149977
+          ],
+          "lookup_status": "available",
+          "marginal_value": 32.99101220838922,
+          "market_rank": 2,
+          "player_id": "5859",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.6013832426949016,
+          "raw_rate": 0.5724815724815725,
+          "support": 814,
+          "survival_probability": 0.6013832426949016
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.7525695247464396,
+            0.8272109789648229
+          ],
+          "lookup_status": "available",
+          "marginal_value": 117.28145903319728,
+          "market_rank": 3,
+          "player_id": "8130",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.7911046340066644,
+          "raw_rate": 0.8163841807909604,
+          "support": 354,
+          "survival_probability": 0.7911046340066644
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3731006011154331,
+            0.44116522122062346
+          ],
+          "lookup_status": "available",
+          "marginal_value": 78.4044110406175,
+          "market_rank": 4,
+          "player_id": "8151",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.4069122012788689,
+          "raw_rate": 0.3676680972818312,
+          "support": 699,
+          "survival_probability": 0.4069122012788689
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.48023722108348144,
+            0.5894597216018467
+          ],
+          "lookup_status": "available",
+          "marginal_value": 106.02397165799215,
+          "market_rank": 5,
+          "player_id": "11604",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.5350566827929815,
+          "raw_rate": 0.502283105022831,
+          "support": 219,
+          "survival_probability": 0.5350566827929815
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.4018788019710795,
+            0.46327670785744646
+          ],
+          "lookup_status": "available",
+          "marginal_value": 65.57932770215241,
+          "market_rank": 6,
+          "player_id": "3198",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.4324496590845545,
+          "raw_rate": 0.41935483870967744,
+          "support": 899,
+          "survival_probability": 0.4324496590845545
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.7729871842195235,
+            0.8203441903081177
+          ],
+          "lookup_status": "available",
+          "marginal_value": 42.64345746647644,
+          "market_rank": 7,
+          "player_id": "4984",
+          "pooled_support": 3775,
+          "position": "QB",
+          "probability": 0.7971746283898786,
+          "raw_rate": 0.8260437375745527,
+          "support": 1006,
+          "survival_probability": 0.7971746283898786
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.2777816020831413,
+            0.32865759994739335
+          ],
+          "lookup_status": "available",
+          "marginal_value": 73.21296354163447,
+          "market_rank": 8,
+          "player_id": "8137",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.302921415224653,
+          "raw_rate": 0.2847222222222222,
+          "support": 1152,
+          "survival_probability": 0.302921415224653
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3390065028703207,
+            0.39778776109031644
+          ],
+          "lookup_status": "available",
+          "marginal_value": 32.77483065213268,
+          "market_rank": 9,
+          "player_id": "13287",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.36815534796768845,
+          "raw_rate": 0.3536977491961415,
+          "support": 933,
+          "survival_probability": 0.36815534796768845
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.44392923707300563,
+            0.5000366899323299
+          ],
+          "lookup_status": "available",
+          "marginal_value": 42.7571187232942,
+          "market_rank": 10,
+          "player_id": "7569",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.4719392118856714,
+          "raw_rate": 0.4618834080717489,
+          "support": 1115,
+          "survival_probability": 0.4719392118856714
+        }
+      ],
+      "route_support_status": "complete",
+      "route_value": 125.51713273286427,
+      "supported_later_players": 10,
+      "top_ten_capture_complete": true
+    },
+    "12517": {
+      "captured_market_players": 10,
+      "current_player_id": "12517",
+      "current_value": 94.35515191630054,
+      "eligible_later_players": 10,
+      "expected_next_turn_value": 112.78819771340667,
+      "later_players": [
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.6587669956417417,
+            0.7219725097489484
+          ],
+          "lookup_status": "available",
+          "marginal_value": 12.774750013613705,
+          "market_rank": 1,
+          "player_id": "12507",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.6908105542532789,
+          "raw_rate": 0.6680555555555555,
+          "support": 720,
+          "survival_probability": 0.6908105542532789
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3633135577820461,
+            0.46211003988893407
+          ],
+          "lookup_status": "available",
+          "marginal_value": 94.36729777007692,
+          "market_rank": 2,
+          "player_id": "9224",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.4122744311135265,
+          "raw_rate": 0.26071428571428573,
+          "support": 280,
+          "survival_probability": 0.4122744311135265
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.27632259320045494,
+            0.34185078513875705
+          ],
+          "lookup_status": "available",
+          "marginal_value": 32.99101220838922,
+          "market_rank": 3,
+          "player_id": "5859",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.30861089742654285,
+          "raw_rate": 0.24924471299093656,
+          "support": 662,
+          "survival_probability": 0.30861089742654285
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.761537392686911,
+            0.8318844992404534
+          ],
+          "lookup_status": "available",
+          "marginal_value": 117.22652855191384,
+          "market_rank": 4,
+          "player_id": "8130",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.7978413804044414,
+          "raw_rate": 0.8270676691729323,
+          "support": 399,
+          "survival_probability": 0.7978413804044414
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.36726601617438265,
+            0.42354839639525443
+          ],
+          "lookup_status": "available",
+          "marginal_value": 81.59213385487055,
+          "market_rank": 5,
+          "player_id": "8151",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.3952358219438351,
+          "raw_rate": 0.3752362948960302,
+          "support": 1058,
+          "survival_probability": 0.3952358219438351
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.5570324275488103,
+            0.6507349738302771
+          ],
+          "lookup_status": "available",
+          "marginal_value": 105.96904117670871,
+          "market_rank": 6,
+          "player_id": "11604",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.6043578163680334,
+          "raw_rate": 0.6214511041009464,
+          "support": 317,
+          "survival_probability": 0.6043578163680334
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3441143269736985,
+            0.40158811681927076
+          ],
+          "lookup_status": "available",
+          "marginal_value": 68.76705051640546,
+          "market_rank": 7,
+          "player_id": "3198",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.3726290414357327,
+          "raw_rate": 0.359026369168357,
+          "support": 986,
+          "survival_probability": 0.3726290414357327
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.7753781895921003,
+            0.8194350481952499
+          ],
+          "lookup_status": "available",
+          "marginal_value": 42.64345746647644,
+          "market_rank": 8,
+          "player_id": "4984",
+          "pooled_support": 3775,
+          "position": "QB",
+          "probability": 0.7978491073421691,
+          "raw_rate": 0.8221276595744681,
+          "support": 1175,
+          "survival_probability": 0.7978491073421691
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.36552165231133693,
+            0.4150321654331628
+          ],
+          "lookup_status": "available",
+          "marginal_value": 73.21296354163447,
+          "market_rank": 9,
+          "player_id": "8137",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.39013723117491417,
+          "raw_rate": 0.38201438848920866,
+          "support": 1390,
+          "survival_probability": 0.39013723117491417
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.5146182108576389,
+            0.5637987550196262
+          ],
+          "lookup_status": "available",
+          "marginal_value": 35.96255346638573,
+          "market_rank": 10,
+          "player_id": "13287",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.5392556388339194,
+          "raw_rate": 0.5362220717670955,
+          "support": 1477,
+          "survival_probability": 0.5392556388339194
+        }
+      ],
+      "route_support_status": "complete",
+      "route_value": 207.14334962970722,
+      "supported_later_players": 10,
+      "top_ten_capture_complete": true
+    },
+    "12518": {
+      "captured_market_players": 10,
+      "current_player_id": "12518",
+      "current_value": 101.97612157962318,
+      "eligible_later_players": 10,
+      "expected_next_turn_value": 112.78819771340667,
+      "later_players": [
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.6587669956417417,
+            0.7219725097489484
+          ],
+          "lookup_status": "available",
+          "marginal_value": 12.774750013613705,
+          "market_rank": 1,
+          "player_id": "12507",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.6908105542532789,
+          "raw_rate": 0.6680555555555555,
+          "support": 720,
+          "survival_probability": 0.6908105542532789
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3633135577820461,
+            0.46211003988893407
+          ],
+          "lookup_status": "available",
+          "marginal_value": 94.36729777007692,
+          "market_rank": 2,
+          "player_id": "9224",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.4122744311135265,
+          "raw_rate": 0.26071428571428573,
+          "support": 280,
+          "survival_probability": 0.4122744311135265
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.27632259320045494,
+            0.34185078513875705
+          ],
+          "lookup_status": "available",
+          "marginal_value": 32.99101220838922,
+          "market_rank": 3,
+          "player_id": "5859",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.30861089742654285,
+          "raw_rate": 0.24924471299093656,
+          "support": 662,
+          "survival_probability": 0.30861089742654285
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.761537392686911,
+            0.8318844992404534
+          ],
+          "lookup_status": "available",
+          "marginal_value": 117.22652855191384,
+          "market_rank": 4,
+          "player_id": "8130",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.7978413804044414,
+          "raw_rate": 0.8270676691729323,
+          "support": 399,
+          "survival_probability": 0.7978413804044414
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.36726601617438265,
+            0.42354839639525443
+          ],
+          "lookup_status": "available",
+          "marginal_value": 81.59213385487055,
+          "market_rank": 5,
+          "player_id": "8151",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.3952358219438351,
+          "raw_rate": 0.3752362948960302,
+          "support": 1058,
+          "survival_probability": 0.3952358219438351
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.5570324275488103,
+            0.6507349738302771
+          ],
+          "lookup_status": "available",
+          "marginal_value": 105.96904117670871,
+          "market_rank": 6,
+          "player_id": "11604",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.6043578163680334,
+          "raw_rate": 0.6214511041009464,
+          "support": 317,
+          "survival_probability": 0.6043578163680334
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3441143269736985,
+            0.40158811681927076
+          ],
+          "lookup_status": "available",
+          "marginal_value": 68.76705051640546,
+          "market_rank": 7,
+          "player_id": "3198",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.3726290414357327,
+          "raw_rate": 0.359026369168357,
+          "support": 986,
+          "survival_probability": 0.3726290414357327
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.7753781895921003,
+            0.8194350481952499
+          ],
+          "lookup_status": "available",
+          "marginal_value": 42.64345746647644,
+          "market_rank": 8,
+          "player_id": "4984",
+          "pooled_support": 3775,
+          "position": "QB",
+          "probability": 0.7978491073421691,
+          "raw_rate": 0.8221276595744681,
+          "support": 1175,
+          "survival_probability": 0.7978491073421691
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.36552165231133693,
+            0.4150321654331628
+          ],
+          "lookup_status": "available",
+          "marginal_value": 73.21296354163447,
+          "market_rank": 9,
+          "player_id": "8137",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.39013723117491417,
+          "raw_rate": 0.38201438848920866,
+          "support": 1390,
+          "survival_probability": 0.39013723117491417
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.5146182108576389,
+            0.5637987550196262
+          ],
+          "lookup_status": "available",
+          "marginal_value": 35.96255346638573,
+          "market_rank": 10,
+          "player_id": "13287",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.5392556388339194,
+          "raw_rate": 0.5362220717670955,
+          "support": 1477,
+          "survival_probability": 0.5392556388339194
+        }
+      ],
+      "route_support_status": "complete",
+      "route_value": 214.76431929302987,
+      "supported_later_players": 10,
+      "top_ten_capture_complete": true
+    },
+    "12526": {
+      "captured_market_players": 10,
+      "current_player_id": "12526",
+      "current_value": 38.1326394451213,
+      "eligible_later_players": 10,
+      "expected_next_turn_value": 112.83873471869597,
+      "later_players": [
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.6587669956417417,
+            0.7219725097489484
+          ],
+          "lookup_status": "available",
+          "marginal_value": 12.774750013613705,
+          "market_rank": 1,
+          "player_id": "12507",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.6908105542532789,
+          "raw_rate": 0.6680555555555555,
+          "support": 720,
+          "survival_probability": 0.6908105542532789
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3633135577820461,
+            0.46211003988893407
+          ],
+          "lookup_status": "available",
+          "marginal_value": 94.36729777007692,
+          "market_rank": 2,
+          "player_id": "9224",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.4122744311135265,
+          "raw_rate": 0.26071428571428573,
+          "support": 280,
+          "survival_probability": 0.4122744311135265
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.27632259320045494,
+            0.34185078513875705
+          ],
+          "lookup_status": "available",
+          "marginal_value": 32.99101220838922,
+          "market_rank": 3,
+          "player_id": "5859",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.30861089742654285,
+          "raw_rate": 0.24924471299093656,
+          "support": 662,
+          "survival_probability": 0.30861089742654285
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.761537392686911,
+            0.8318844992404534
+          ],
+          "lookup_status": "available",
+          "marginal_value": 117.28145903319728,
+          "market_rank": 4,
+          "player_id": "8130",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.7978413804044414,
+          "raw_rate": 0.8270676691729323,
+          "support": 399,
+          "survival_probability": 0.7978413804044414
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.36726601617438265,
+            0.42354839639525443
+          ],
+          "lookup_status": "available",
+          "marginal_value": 81.59213385487055,
+          "market_rank": 5,
+          "player_id": "8151",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.3952358219438351,
+          "raw_rate": 0.3752362948960302,
+          "support": 1058,
+          "survival_probability": 0.3952358219438351
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.5570324275488103,
+            0.6507349738302771
+          ],
+          "lookup_status": "available",
+          "marginal_value": 106.02397165799215,
+          "market_rank": 6,
+          "player_id": "11604",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.6043578163680334,
+          "raw_rate": 0.6214511041009464,
+          "support": 317,
+          "survival_probability": 0.6043578163680334
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3441143269736985,
+            0.40158811681927076
+          ],
+          "lookup_status": "available",
+          "marginal_value": 68.76705051640546,
+          "market_rank": 7,
+          "player_id": "3198",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.3726290414357327,
+          "raw_rate": 0.359026369168357,
+          "support": 986,
+          "survival_probability": 0.3726290414357327
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.7753781895921003,
+            0.8194350481952499
+          ],
+          "lookup_status": "available",
+          "marginal_value": 42.64345746647644,
+          "market_rank": 8,
+          "player_id": "4984",
+          "pooled_support": 3775,
+          "position": "QB",
+          "probability": 0.7978491073421691,
+          "raw_rate": 0.8221276595744681,
+          "support": 1175,
+          "survival_probability": 0.7978491073421691
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.36552165231133693,
+            0.4150321654331628
+          ],
+          "lookup_status": "available",
+          "marginal_value": 73.21296354163447,
+          "market_rank": 9,
+          "player_id": "8137",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.39013723117491417,
+          "raw_rate": 0.38201438848920866,
+          "support": 1390,
+          "survival_probability": 0.39013723117491417
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.5146182108576389,
+            0.5637987550196262
+          ],
+          "lookup_status": "available",
+          "marginal_value": 35.96255346638573,
+          "market_rank": 10,
+          "player_id": "13287",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.5392556388339194,
+          "raw_rate": 0.5362220717670955,
+          "support": 1477,
+          "survival_probability": 0.5392556388339194
+        }
+      ],
+      "route_support_status": "complete",
+      "route_value": 150.97137416381727,
+      "supported_later_players": 10,
+      "top_ten_capture_complete": true
+    },
+    "13287": {
+      "captured_market_players": 10,
+      "current_player_id": "13287",
+      "current_value": 35.96255346638573,
+      "eligible_later_players": 10,
+      "expected_next_turn_value": 112.65663660470612,
+      "later_players": [
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.6587669956417417,
+            0.7219725097489484
+          ],
+          "lookup_status": "available",
+          "marginal_value": 9.587027199360655,
+          "market_rank": 1,
+          "player_id": "12507",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.6908105542532789,
+          "raw_rate": 0.6680555555555555,
+          "support": 720,
+          "survival_probability": 0.6908105542532789
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3633135577820461,
+            0.46211003988893407
+          ],
+          "lookup_status": "available",
+          "marginal_value": 91.17957495582387,
+          "market_rank": 2,
+          "player_id": "9224",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.4122744311135265,
+          "raw_rate": 0.26071428571428573,
+          "support": 280,
+          "survival_probability": 0.4122744311135265
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.27632259320045494,
+            0.34185078513875705
+          ],
+          "lookup_status": "available",
+          "marginal_value": 32.99101220838922,
+          "market_rank": 3,
+          "player_id": "5859",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.30861089742654285,
+          "raw_rate": 0.24924471299093656,
+          "support": 662,
+          "survival_probability": 0.30861089742654285
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.761537392686911,
+            0.8318844992404534
+          ],
+          "lookup_status": "available",
+          "marginal_value": 117.28145903319728,
+          "market_rank": 4,
+          "player_id": "8130",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.7978413804044414,
+          "raw_rate": 0.8270676691729323,
+          "support": 399,
+          "survival_probability": 0.7978413804044414
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.36726601617438265,
+            0.42354839639525443
+          ],
+          "lookup_status": "available",
+          "marginal_value": 78.4044110406175,
+          "market_rank": 5,
+          "player_id": "8151",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.3952358219438351,
+          "raw_rate": 0.3752362948960302,
+          "support": 1058,
+          "survival_probability": 0.3952358219438351
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.5570324275488103,
+            0.6507349738302771
+          ],
+          "lookup_status": "available",
+          "marginal_value": 106.02397165799215,
+          "market_rank": 6,
+          "player_id": "11604",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.6043578163680334,
+          "raw_rate": 0.6214511041009464,
+          "support": 317,
+          "survival_probability": 0.6043578163680334
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3441143269736985,
+            0.40158811681927076
+          ],
+          "lookup_status": "available",
+          "marginal_value": 65.57932770215241,
+          "market_rank": 7,
+          "player_id": "3198",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.3726290414357327,
+          "raw_rate": 0.359026369168357,
+          "support": 986,
+          "survival_probability": 0.3726290414357327
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.7753781895921003,
+            0.8194350481952499
+          ],
+          "lookup_status": "available",
+          "marginal_value": 42.64345746647644,
+          "market_rank": 8,
+          "player_id": "4984",
+          "pooled_support": 3775,
+          "position": "QB",
+          "probability": 0.7978491073421691,
+          "raw_rate": 0.8221276595744681,
+          "support": 1175,
+          "survival_probability": 0.7978491073421691
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.36552165231133693,
+            0.4150321654331628
+          ],
+          "lookup_status": "available",
+          "marginal_value": 73.21296354163447,
+          "market_rank": 9,
+          "player_id": "8137",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.39013723117491417,
+          "raw_rate": 0.38201438848920866,
+          "support": 1390,
+          "survival_probability": 0.39013723117491417
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.44392923707300563,
+            0.5000366899323299
+          ],
+          "lookup_status": "available",
+          "marginal_value": 42.7571187232942,
+          "market_rank": 10,
+          "player_id": "7569",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.4719392118856714,
+          "raw_rate": 0.4618834080717489,
+          "support": 1115,
+          "survival_probability": 0.4719392118856714
+        }
+      ],
+      "route_support_status": "complete",
+      "route_value": 148.61919007109185,
+      "supported_later_players": 10,
+      "top_ten_capture_complete": true
+    },
+    "3198": {
+      "captured_market_players": 10,
+      "current_player_id": "3198",
+      "current_value": 68.76705051640546,
+      "eligible_later_players": 10,
+      "expected_next_turn_value": 112.42046741322987,
+      "later_players": [
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.6587669956417417,
+            0.7219725097489484
+          ],
+          "lookup_status": "available",
+          "marginal_value": 9.587027199360655,
+          "market_rank": 1,
+          "player_id": "12507",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.6908105542532789,
+          "raw_rate": 0.6680555555555555,
+          "support": 720,
+          "survival_probability": 0.6908105542532789
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3633135577820461,
+            0.46211003988893407
+          ],
+          "lookup_status": "available",
+          "marginal_value": 91.17957495582387,
+          "market_rank": 2,
+          "player_id": "9224",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.4122744311135265,
+          "raw_rate": 0.26071428571428573,
+          "support": 280,
+          "survival_probability": 0.4122744311135265
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.27632259320045494,
+            0.34185078513875705
+          ],
+          "lookup_status": "available",
+          "marginal_value": 32.99101220838922,
+          "market_rank": 3,
+          "player_id": "5859",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.30861089742654285,
+          "raw_rate": 0.24924471299093656,
+          "support": 662,
+          "survival_probability": 0.30861089742654285
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.761537392686911,
+            0.8318844992404534
+          ],
+          "lookup_status": "available",
+          "marginal_value": 117.28145903319728,
+          "market_rank": 4,
+          "player_id": "8130",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.7978413804044414,
+          "raw_rate": 0.8270676691729323,
+          "support": 399,
+          "survival_probability": 0.7978413804044414
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.36726601617438265,
+            0.42354839639525443
+          ],
+          "lookup_status": "available",
+          "marginal_value": 78.4044110406175,
+          "market_rank": 5,
+          "player_id": "8151",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.3952358219438351,
+          "raw_rate": 0.3752362948960302,
+          "support": 1058,
+          "survival_probability": 0.3952358219438351
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.5570324275488103,
+            0.6507349738302771
+          ],
+          "lookup_status": "available",
+          "marginal_value": 106.02397165799215,
+          "market_rank": 6,
+          "player_id": "11604",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.6043578163680334,
+          "raw_rate": 0.6214511041009464,
+          "support": 317,
+          "survival_probability": 0.6043578163680334
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.7729871842195235,
+            0.8203441903081177
+          ],
+          "lookup_status": "available",
+          "marginal_value": 42.64345746647644,
+          "market_rank": 7,
+          "player_id": "4984",
+          "pooled_support": 3775,
+          "position": "QB",
+          "probability": 0.7971746283898786,
+          "raw_rate": 0.8260437375745527,
+          "support": 1006,
+          "survival_probability": 0.7971746283898786
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.2777816020831413,
+            0.32865759994739335
+          ],
+          "lookup_status": "available",
+          "marginal_value": 73.21296354163447,
+          "market_rank": 8,
+          "player_id": "8137",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.302921415224653,
+          "raw_rate": 0.2847222222222222,
+          "support": 1152,
+          "survival_probability": 0.302921415224653
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3390065028703207,
+            0.39778776109031644
+          ],
+          "lookup_status": "available",
+          "marginal_value": 32.77483065213268,
+          "market_rank": 9,
+          "player_id": "13287",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.36815534796768845,
+          "raw_rate": 0.3536977491961415,
+          "support": 933,
+          "survival_probability": 0.36815534796768845
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.44392923707300563,
+            0.5000366899323299
+          ],
+          "lookup_status": "available",
+          "marginal_value": 42.7571187232942,
+          "market_rank": 10,
+          "player_id": "7569",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.4719392118856714,
+          "raw_rate": 0.4618834080717489,
+          "support": 1115,
+          "survival_probability": 0.4719392118856714
+        }
+      ],
+      "route_support_status": "complete",
+      "route_value": 181.18751792963533,
+      "supported_later_players": 10,
+      "top_ten_capture_complete": true
+    },
+    "4881": {
+      "captured_market_players": 10,
+      "current_player_id": "4881",
+      "current_value": 3.547404814045857e-07,
+      "eligible_later_players": 10,
+      "expected_next_turn_value": 112.83873471869597,
+      "later_players": [
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.6587669956417417,
+            0.7219725097489484
+          ],
+          "lookup_status": "available",
+          "marginal_value": 12.774750013613705,
+          "market_rank": 1,
+          "player_id": "12507",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.6908105542532789,
+          "raw_rate": 0.6680555555555555,
+          "support": 720,
+          "survival_probability": 0.6908105542532789
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3633135577820461,
+            0.46211003988893407
+          ],
+          "lookup_status": "available",
+          "marginal_value": 94.36729777007692,
+          "market_rank": 2,
+          "player_id": "9224",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.4122744311135265,
+          "raw_rate": 0.26071428571428573,
+          "support": 280,
+          "survival_probability": 0.4122744311135265
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.27632259320045494,
+            0.34185078513875705
+          ],
+          "lookup_status": "available",
+          "marginal_value": 32.99101220838922,
+          "market_rank": 3,
+          "player_id": "5859",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.30861089742654285,
+          "raw_rate": 0.24924471299093656,
+          "support": 662,
+          "survival_probability": 0.30861089742654285
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.761537392686911,
+            0.8318844992404534
+          ],
+          "lookup_status": "available",
+          "marginal_value": 117.28145903319728,
+          "market_rank": 4,
+          "player_id": "8130",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.7978413804044414,
+          "raw_rate": 0.8270676691729323,
+          "support": 399,
+          "survival_probability": 0.7978413804044414
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.36726601617438265,
+            0.42354839639525443
+          ],
+          "lookup_status": "available",
+          "marginal_value": 81.59213385487055,
+          "market_rank": 5,
+          "player_id": "8151",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.3952358219438351,
+          "raw_rate": 0.3752362948960302,
+          "support": 1058,
+          "survival_probability": 0.3952358219438351
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.5570324275488103,
+            0.6507349738302771
+          ],
+          "lookup_status": "available",
+          "marginal_value": 106.02397165799215,
+          "market_rank": 6,
+          "player_id": "11604",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.6043578163680334,
+          "raw_rate": 0.6214511041009464,
+          "support": 317,
+          "survival_probability": 0.6043578163680334
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3441143269736985,
+            0.40158811681927076
+          ],
+          "lookup_status": "available",
+          "marginal_value": 68.76705051640546,
+          "market_rank": 7,
+          "player_id": "3198",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.3726290414357327,
+          "raw_rate": 0.359026369168357,
+          "support": 986,
+          "survival_probability": 0.3726290414357327
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.7753781895921003,
+            0.8194350481952499
+          ],
+          "lookup_status": "available",
+          "marginal_value": 42.64345746647644,
+          "market_rank": 8,
+          "player_id": "4984",
+          "pooled_support": 3775,
+          "position": "QB",
+          "probability": 0.7978491073421691,
+          "raw_rate": 0.8221276595744681,
+          "support": 1175,
+          "survival_probability": 0.7978491073421691
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.36552165231133693,
+            0.4150321654331628
+          ],
+          "lookup_status": "available",
+          "marginal_value": 73.21296354163447,
+          "market_rank": 9,
+          "player_id": "8137",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.39013723117491417,
+          "raw_rate": 0.38201438848920866,
+          "support": 1390,
+          "survival_probability": 0.39013723117491417
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.5146182108576389,
+            0.5637987550196262
+          ],
+          "lookup_status": "available",
+          "marginal_value": 35.96255346638573,
+          "market_rank": 10,
+          "player_id": "13287",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.5392556388339194,
+          "raw_rate": 0.5362220717670955,
+          "support": 1477,
+          "survival_probability": 0.5392556388339194
+        }
+      ],
+      "route_support_status": "complete",
+      "route_value": 112.83873507343645,
+      "supported_later_players": 10,
+      "top_ten_capture_complete": true
+    },
+    "4984": {
+      "captured_market_players": 10,
+      "current_player_id": "4984",
+      "current_value": 42.64345746647644,
+      "eligible_later_players": 10,
+      "expected_next_turn_value": 112.69687405358997,
+      "later_players": [
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.6587669956417417,
+            0.7219725097489484
+          ],
+          "lookup_status": "available",
+          "marginal_value": 12.774750013613705,
+          "market_rank": 1,
+          "player_id": "12507",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.6908105542532789,
+          "raw_rate": 0.6680555555555555,
+          "support": 720,
+          "survival_probability": 0.6908105542532789
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3633135577820461,
+            0.46211003988893407
+          ],
+          "lookup_status": "available",
+          "marginal_value": 94.36729777007692,
+          "market_rank": 2,
+          "player_id": "9224",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.4122744311135265,
+          "raw_rate": 0.26071428571428573,
+          "support": 280,
+          "survival_probability": 0.4122744311135265
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.27632259320045494,
+            0.34185078513875705
+          ],
+          "lookup_status": "available",
+          "marginal_value": 32.99101220838922,
+          "market_rank": 3,
+          "player_id": "5859",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.30861089742654285,
+          "raw_rate": 0.24924471299093656,
+          "support": 662,
+          "survival_probability": 0.30861089742654285
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.761537392686911,
+            0.8318844992404534
+          ],
+          "lookup_status": "available",
+          "marginal_value": 117.28145903319728,
+          "market_rank": 4,
+          "player_id": "8130",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.7978413804044414,
+          "raw_rate": 0.8270676691729323,
+          "support": 399,
+          "survival_probability": 0.7978413804044414
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.36726601617438265,
+            0.42354839639525443
+          ],
+          "lookup_status": "available",
+          "marginal_value": 81.59213385487055,
+          "market_rank": 5,
+          "player_id": "8151",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.3952358219438351,
+          "raw_rate": 0.3752362948960302,
+          "support": 1058,
+          "survival_probability": 0.3952358219438351
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.5570324275488103,
+            0.6507349738302771
+          ],
+          "lookup_status": "available",
+          "marginal_value": 106.02397165799215,
+          "market_rank": 6,
+          "player_id": "11604",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.6043578163680334,
+          "raw_rate": 0.6214511041009464,
+          "support": 317,
+          "survival_probability": 0.6043578163680334
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3441143269736985,
+            0.40158811681927076
+          ],
+          "lookup_status": "available",
+          "marginal_value": 68.76705051640546,
+          "market_rank": 7,
+          "player_id": "3198",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.3726290414357327,
+          "raw_rate": 0.359026369168357,
+          "support": 986,
+          "survival_probability": 0.3726290414357327
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.2777816020831413,
+            0.32865759994739335
+          ],
+          "lookup_status": "available",
+          "marginal_value": 73.21296354163447,
+          "market_rank": 8,
+          "player_id": "8137",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.302921415224653,
+          "raw_rate": 0.2847222222222222,
+          "support": 1152,
+          "survival_probability": 0.302921415224653
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3390065028703207,
+            0.39778776109031644
+          ],
+          "lookup_status": "available",
+          "marginal_value": 35.96255346638573,
+          "market_rank": 9,
+          "player_id": "13287",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.36815534796768845,
+          "raw_rate": 0.3536977491961415,
+          "support": 933,
+          "survival_probability": 0.36815534796768845
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.44392923707300563,
+            0.5000366899323299
+          ],
+          "lookup_status": "available",
+          "marginal_value": 42.7571187232942,
+          "market_rank": 10,
+          "player_id": "7569",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.4719392118856714,
+          "raw_rate": 0.4618834080717489,
+          "support": 1115,
+          "survival_probability": 0.4719392118856714
+        }
+      ],
+      "route_support_status": "complete",
+      "route_value": 155.3403315200664,
+      "supported_later_players": 10,
+      "top_ten_capture_complete": true
+    },
+    "5850": {
+      "captured_market_players": 10,
+      "current_player_id": "5850",
+      "current_value": 58.29433334867943,
+      "eligible_later_players": 10,
+      "expected_next_turn_value": 112.64855796686436,
+      "later_players": [
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.6587669956417417,
+            0.7219725097489484
+          ],
+          "lookup_status": "available",
+          "marginal_value": 9.587027199360655,
+          "market_rank": 1,
+          "player_id": "12507",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.6908105542532789,
+          "raw_rate": 0.6680555555555555,
+          "support": 720,
+          "survival_probability": 0.6908105542532789
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3633135577820461,
+            0.46211003988893407
+          ],
+          "lookup_status": "available",
+          "marginal_value": 91.17957495582387,
+          "market_rank": 2,
+          "player_id": "9224",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.4122744311135265,
+          "raw_rate": 0.26071428571428573,
+          "support": 280,
+          "survival_probability": 0.4122744311135265
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.27632259320045494,
+            0.34185078513875705
+          ],
+          "lookup_status": "available",
+          "marginal_value": 32.99101220838922,
+          "market_rank": 3,
+          "player_id": "5859",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.30861089742654285,
+          "raw_rate": 0.24924471299093656,
+          "support": 662,
+          "survival_probability": 0.30861089742654285
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.761537392686911,
+            0.8318844992404534
+          ],
+          "lookup_status": "available",
+          "marginal_value": 117.28145903319728,
+          "market_rank": 4,
+          "player_id": "8130",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.7978413804044414,
+          "raw_rate": 0.8270676691729323,
+          "support": 399,
+          "survival_probability": 0.7978413804044414
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.36726601617438265,
+            0.42354839639525443
+          ],
+          "lookup_status": "available",
+          "marginal_value": 78.4044110406175,
+          "market_rank": 5,
+          "player_id": "8151",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.3952358219438351,
+          "raw_rate": 0.3752362948960302,
+          "support": 1058,
+          "survival_probability": 0.3952358219438351
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.5570324275488103,
+            0.6507349738302771
+          ],
+          "lookup_status": "available",
+          "marginal_value": 106.02397165799215,
+          "market_rank": 6,
+          "player_id": "11604",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.6043578163680334,
+          "raw_rate": 0.6214511041009464,
+          "support": 317,
+          "survival_probability": 0.6043578163680334
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3441143269736985,
+            0.40158811681927076
+          ],
+          "lookup_status": "available",
+          "marginal_value": 65.57932770215241,
+          "market_rank": 7,
+          "player_id": "3198",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.3726290414357327,
+          "raw_rate": 0.359026369168357,
+          "support": 986,
+          "survival_probability": 0.3726290414357327
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.7753781895921003,
+            0.8194350481952499
+          ],
+          "lookup_status": "available",
+          "marginal_value": 42.64345746647644,
+          "market_rank": 8,
+          "player_id": "4984",
+          "pooled_support": 3775,
+          "position": "QB",
+          "probability": 0.7978491073421691,
+          "raw_rate": 0.8221276595744681,
+          "support": 1175,
+          "survival_probability": 0.7978491073421691
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.36552165231133693,
+            0.4150321654331628
+          ],
+          "lookup_status": "available",
+          "marginal_value": 73.21296354163447,
+          "market_rank": 9,
+          "player_id": "8137",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.39013723117491417,
+          "raw_rate": 0.38201438848920866,
+          "support": 1390,
+          "survival_probability": 0.39013723117491417
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.5146182108576389,
+            0.5637987550196262
+          ],
+          "lookup_status": "available",
+          "marginal_value": 32.77483065213268,
+          "market_rank": 10,
+          "player_id": "13287",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.5392556388339194,
+          "raw_rate": 0.5362220717670955,
+          "support": 1477,
+          "survival_probability": 0.5392556388339194
+        }
+      ],
+      "route_support_status": "complete",
+      "route_value": 170.9428913155438,
+      "supported_later_players": 10,
+      "top_ten_capture_complete": true
+    },
+    "5859": {
+      "captured_market_players": 10,
+      "current_player_id": "5859",
+      "current_value": 32.99101220838922,
+      "eligible_later_players": 10,
+      "expected_next_turn_value": 112.29647483557362,
+      "later_players": [
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.6587669956417417,
+            0.7219725097489484
+          ],
+          "lookup_status": "available",
+          "marginal_value": 12.774750013613705,
+          "market_rank": 1,
+          "player_id": "12507",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.6908105542532789,
+          "raw_rate": 0.6680555555555555,
+          "support": 720,
+          "survival_probability": 0.6908105542532789
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3633135577820461,
+            0.46211003988893407
+          ],
+          "lookup_status": "available",
+          "marginal_value": 94.36729777007692,
+          "market_rank": 2,
+          "player_id": "9224",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.4122744311135265,
+          "raw_rate": 0.26071428571428573,
+          "support": 280,
+          "survival_probability": 0.4122744311135265
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.7525695247464396,
+            0.8272109789648229
+          ],
+          "lookup_status": "available",
+          "marginal_value": 117.28145903319728,
+          "market_rank": 3,
+          "player_id": "8130",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.7911046340066644,
+          "raw_rate": 0.8163841807909604,
+          "support": 354,
+          "survival_probability": 0.7911046340066644
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3731006011154331,
+            0.44116522122062346
+          ],
+          "lookup_status": "available",
+          "marginal_value": 81.59213385487055,
+          "market_rank": 4,
+          "player_id": "8151",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.4069122012788689,
+          "raw_rate": 0.3676680972818312,
+          "support": 699,
+          "survival_probability": 0.4069122012788689
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.48023722108348144,
+            0.5894597216018467
+          ],
+          "lookup_status": "available",
+          "marginal_value": 106.02397165799215,
+          "market_rank": 5,
+          "player_id": "11604",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.5350566827929815,
+          "raw_rate": 0.502283105022831,
+          "support": 219,
+          "survival_probability": 0.5350566827929815
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.4018788019710795,
+            0.46327670785744646
+          ],
+          "lookup_status": "available",
+          "marginal_value": 68.76705051640546,
+          "market_rank": 6,
+          "player_id": "3198",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.4324496590845545,
+          "raw_rate": 0.41935483870967744,
+          "support": 899,
+          "survival_probability": 0.4324496590845545
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.7729871842195235,
+            0.8203441903081177
+          ],
+          "lookup_status": "available",
+          "marginal_value": 42.64345746647644,
+          "market_rank": 7,
+          "player_id": "4984",
+          "pooled_support": 3775,
+          "position": "QB",
+          "probability": 0.7971746283898786,
+          "raw_rate": 0.8260437375745527,
+          "support": 1006,
+          "survival_probability": 0.7971746283898786
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.2777816020831413,
+            0.32865759994739335
+          ],
+          "lookup_status": "available",
+          "marginal_value": 73.21296354163447,
+          "market_rank": 8,
+          "player_id": "8137",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.302921415224653,
+          "raw_rate": 0.2847222222222222,
+          "support": 1152,
+          "survival_probability": 0.302921415224653
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3390065028703207,
+            0.39778776109031644
+          ],
+          "lookup_status": "available",
+          "marginal_value": 35.96255346638573,
+          "market_rank": 9,
+          "player_id": "13287",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.36815534796768845,
+          "raw_rate": 0.3536977491961415,
+          "support": 933,
+          "survival_probability": 0.36815534796768845
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.44392923707300563,
+            0.5000366899323299
+          ],
+          "lookup_status": "available",
+          "marginal_value": 42.7571187232942,
+          "market_rank": 10,
+          "player_id": "7569",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.4719392118856714,
+          "raw_rate": 0.4618834080717489,
+          "support": 1115,
+          "survival_probability": 0.4719392118856714
+        }
+      ],
+      "route_support_status": "complete",
+      "route_value": 145.28748704396284,
+      "supported_later_players": 10,
+      "top_ten_capture_complete": true
+    },
+    "6801": {
+      "captured_market_players": 10,
+      "current_player_id": "6801",
+      "current_value": 10.468272013645782,
+      "eligible_later_players": 10,
+      "expected_next_turn_value": 112.83873471869597,
+      "later_players": [
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.6587669956417417,
+            0.7219725097489484
+          ],
+          "lookup_status": "available",
+          "marginal_value": 12.774750013613705,
+          "market_rank": 1,
+          "player_id": "12507",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.6908105542532789,
+          "raw_rate": 0.6680555555555555,
+          "support": 720,
+          "survival_probability": 0.6908105542532789
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3633135577820461,
+            0.46211003988893407
+          ],
+          "lookup_status": "available",
+          "marginal_value": 94.36729777007692,
+          "market_rank": 2,
+          "player_id": "9224",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.4122744311135265,
+          "raw_rate": 0.26071428571428573,
+          "support": 280,
+          "survival_probability": 0.4122744311135265
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.27632259320045494,
+            0.34185078513875705
+          ],
+          "lookup_status": "available",
+          "marginal_value": 32.99101220838922,
+          "market_rank": 3,
+          "player_id": "5859",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.30861089742654285,
+          "raw_rate": 0.24924471299093656,
+          "support": 662,
+          "survival_probability": 0.30861089742654285
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.761537392686911,
+            0.8318844992404534
+          ],
+          "lookup_status": "available",
+          "marginal_value": 117.28145903319728,
+          "market_rank": 4,
+          "player_id": "8130",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.7978413804044414,
+          "raw_rate": 0.8270676691729323,
+          "support": 399,
+          "survival_probability": 0.7978413804044414
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.36726601617438265,
+            0.42354839639525443
+          ],
+          "lookup_status": "available",
+          "marginal_value": 81.59213385487055,
+          "market_rank": 5,
+          "player_id": "8151",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.3952358219438351,
+          "raw_rate": 0.3752362948960302,
+          "support": 1058,
+          "survival_probability": 0.3952358219438351
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.5570324275488103,
+            0.6507349738302771
+          ],
+          "lookup_status": "available",
+          "marginal_value": 106.02397165799215,
+          "market_rank": 6,
+          "player_id": "11604",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.6043578163680334,
+          "raw_rate": 0.6214511041009464,
+          "support": 317,
+          "survival_probability": 0.6043578163680334
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3441143269736985,
+            0.40158811681927076
+          ],
+          "lookup_status": "available",
+          "marginal_value": 68.76705051640546,
+          "market_rank": 7,
+          "player_id": "3198",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.3726290414357327,
+          "raw_rate": 0.359026369168357,
+          "support": 986,
+          "survival_probability": 0.3726290414357327
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.7753781895921003,
+            0.8194350481952499
+          ],
+          "lookup_status": "available",
+          "marginal_value": 42.64345746647644,
+          "market_rank": 8,
+          "player_id": "4984",
+          "pooled_support": 3775,
+          "position": "QB",
+          "probability": 0.7978491073421691,
+          "raw_rate": 0.8221276595744681,
+          "support": 1175,
+          "survival_probability": 0.7978491073421691
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.36552165231133693,
+            0.4150321654331628
+          ],
+          "lookup_status": "available",
+          "marginal_value": 73.21296354163447,
+          "market_rank": 9,
+          "player_id": "8137",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.39013723117491417,
+          "raw_rate": 0.38201438848920866,
+          "support": 1390,
+          "survival_probability": 0.39013723117491417
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.5146182108576389,
+            0.5637987550196262
+          ],
+          "lookup_status": "available",
+          "marginal_value": 35.96255346638573,
+          "market_rank": 10,
+          "player_id": "13287",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.5392556388339194,
+          "raw_rate": 0.5362220717670955,
+          "support": 1477,
+          "survival_probability": 0.5392556388339194
+        }
+      ],
+      "route_support_status": "complete",
+      "route_value": 123.30700673234176,
+      "supported_later_players": 10,
+      "top_ten_capture_complete": true
+    },
+    "7553": {
+      "captured_market_players": 10,
+      "current_player_id": "7553",
+      "current_value": 44.44057594004857,
+      "eligible_later_players": 10,
+      "expected_next_turn_value": 112.78819771340667,
+      "later_players": [
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.6587669956417417,
+            0.7219725097489484
+          ],
+          "lookup_status": "available",
+          "marginal_value": 12.774750013613705,
+          "market_rank": 1,
+          "player_id": "12507",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.6908105542532789,
+          "raw_rate": 0.6680555555555555,
+          "support": 720,
+          "survival_probability": 0.6908105542532789
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3633135577820461,
+            0.46211003988893407
+          ],
+          "lookup_status": "available",
+          "marginal_value": 94.36729777007692,
+          "market_rank": 2,
+          "player_id": "9224",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.4122744311135265,
+          "raw_rate": 0.26071428571428573,
+          "support": 280,
+          "survival_probability": 0.4122744311135265
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.27632259320045494,
+            0.34185078513875705
+          ],
+          "lookup_status": "available",
+          "marginal_value": 32.99101220838922,
+          "market_rank": 3,
+          "player_id": "5859",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.30861089742654285,
+          "raw_rate": 0.24924471299093656,
+          "support": 662,
+          "survival_probability": 0.30861089742654285
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.761537392686911,
+            0.8318844992404534
+          ],
+          "lookup_status": "available",
+          "marginal_value": 117.22652855191384,
+          "market_rank": 4,
+          "player_id": "8130",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.7978413804044414,
+          "raw_rate": 0.8270676691729323,
+          "support": 399,
+          "survival_probability": 0.7978413804044414
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.36726601617438265,
+            0.42354839639525443
+          ],
+          "lookup_status": "available",
+          "marginal_value": 81.59213385487055,
+          "market_rank": 5,
+          "player_id": "8151",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.3952358219438351,
+          "raw_rate": 0.3752362948960302,
+          "support": 1058,
+          "survival_probability": 0.3952358219438351
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.5570324275488103,
+            0.6507349738302771
+          ],
+          "lookup_status": "available",
+          "marginal_value": 105.96904117670871,
+          "market_rank": 6,
+          "player_id": "11604",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.6043578163680334,
+          "raw_rate": 0.6214511041009464,
+          "support": 317,
+          "survival_probability": 0.6043578163680334
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3441143269736985,
+            0.40158811681927076
+          ],
+          "lookup_status": "available",
+          "marginal_value": 68.76705051640546,
+          "market_rank": 7,
+          "player_id": "3198",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.3726290414357327,
+          "raw_rate": 0.359026369168357,
+          "support": 986,
+          "survival_probability": 0.3726290414357327
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.7753781895921003,
+            0.8194350481952499
+          ],
+          "lookup_status": "available",
+          "marginal_value": 42.64345746647644,
+          "market_rank": 8,
+          "player_id": "4984",
+          "pooled_support": 3775,
+          "position": "QB",
+          "probability": 0.7978491073421691,
+          "raw_rate": 0.8221276595744681,
+          "support": 1175,
+          "survival_probability": 0.7978491073421691
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.36552165231133693,
+            0.4150321654331628
+          ],
+          "lookup_status": "available",
+          "marginal_value": 73.21296354163447,
+          "market_rank": 9,
+          "player_id": "8137",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.39013723117491417,
+          "raw_rate": 0.38201438848920866,
+          "support": 1390,
+          "survival_probability": 0.39013723117491417
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.5146182108576389,
+            0.5637987550196262
+          ],
+          "lookup_status": "available",
+          "marginal_value": 35.96255346638573,
+          "market_rank": 10,
+          "player_id": "13287",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.5392556388339194,
+          "raw_rate": 0.5362220717670955,
+          "support": 1477,
+          "survival_probability": 0.5392556388339194
+        }
+      ],
+      "route_support_status": "complete",
+      "route_value": 157.22877365345525,
+      "supported_later_players": 10,
+      "top_ten_capture_complete": true
+    },
+    "7569": {
+      "captured_market_players": 10,
+      "current_player_id": "7569",
+      "current_value": 42.7571187232942,
+      "eligible_later_players": 10,
+      "expected_next_turn_value": 112.83873471869597,
+      "later_players": [
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.6587669956417417,
+            0.7219725097489484
+          ],
+          "lookup_status": "available",
+          "marginal_value": 12.774750013613705,
+          "market_rank": 1,
+          "player_id": "12507",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.6908105542532789,
+          "raw_rate": 0.6680555555555555,
+          "support": 720,
+          "survival_probability": 0.6908105542532789
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3633135577820461,
+            0.46211003988893407
+          ],
+          "lookup_status": "available",
+          "marginal_value": 94.36729777007692,
+          "market_rank": 2,
+          "player_id": "9224",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.4122744311135265,
+          "raw_rate": 0.26071428571428573,
+          "support": 280,
+          "survival_probability": 0.4122744311135265
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.27632259320045494,
+            0.34185078513875705
+          ],
+          "lookup_status": "available",
+          "marginal_value": 32.99101220838922,
+          "market_rank": 3,
+          "player_id": "5859",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.30861089742654285,
+          "raw_rate": 0.24924471299093656,
+          "support": 662,
+          "survival_probability": 0.30861089742654285
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.761537392686911,
+            0.8318844992404534
+          ],
+          "lookup_status": "available",
+          "marginal_value": 117.28145903319728,
+          "market_rank": 4,
+          "player_id": "8130",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.7978413804044414,
+          "raw_rate": 0.8270676691729323,
+          "support": 399,
+          "survival_probability": 0.7978413804044414
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.36726601617438265,
+            0.42354839639525443
+          ],
+          "lookup_status": "available",
+          "marginal_value": 81.59213385487055,
+          "market_rank": 5,
+          "player_id": "8151",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.3952358219438351,
+          "raw_rate": 0.3752362948960302,
+          "support": 1058,
+          "survival_probability": 0.3952358219438351
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.5570324275488103,
+            0.6507349738302771
+          ],
+          "lookup_status": "available",
+          "marginal_value": 106.02397165799215,
+          "market_rank": 6,
+          "player_id": "11604",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.6043578163680334,
+          "raw_rate": 0.6214511041009464,
+          "support": 317,
+          "survival_probability": 0.6043578163680334
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3441143269736985,
+            0.40158811681927076
+          ],
+          "lookup_status": "available",
+          "marginal_value": 68.76705051640546,
+          "market_rank": 7,
+          "player_id": "3198",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.3726290414357327,
+          "raw_rate": 0.359026369168357,
+          "support": 986,
+          "survival_probability": 0.3726290414357327
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.7753781895921003,
+            0.8194350481952499
+          ],
+          "lookup_status": "available",
+          "marginal_value": 42.64345746647644,
+          "market_rank": 8,
+          "player_id": "4984",
+          "pooled_support": 3775,
+          "position": "QB",
+          "probability": 0.7978491073421691,
+          "raw_rate": 0.8221276595744681,
+          "support": 1175,
+          "survival_probability": 0.7978491073421691
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.36552165231133693,
+            0.4150321654331628
+          ],
+          "lookup_status": "available",
+          "marginal_value": 73.21296354163447,
+          "market_rank": 9,
+          "player_id": "8137",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.39013723117491417,
+          "raw_rate": 0.38201438848920866,
+          "support": 1390,
+          "survival_probability": 0.39013723117491417
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.5146182108576389,
+            0.5637987550196262
+          ],
+          "lookup_status": "available",
+          "marginal_value": 35.96255346638573,
+          "market_rank": 10,
+          "player_id": "13287",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.5392556388339194,
+          "raw_rate": 0.5362220717670955,
+          "support": 1477,
+          "survival_probability": 0.5392556388339194
+        }
+      ],
+      "route_support_status": "complete",
+      "route_value": 155.5958534419902,
+      "supported_later_players": 10,
+      "top_ten_capture_complete": true
+    },
+    "8130": {
+      "captured_market_players": 10,
+      "current_player_id": "8130",
+      "current_value": 117.28145903319728,
+      "eligible_later_players": 10,
+      "expected_next_turn_value": 93.4208823926896,
+      "later_players": [
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.6587669956417417,
+            0.7219725097489484
+          ],
+          "lookup_status": "available",
+          "marginal_value": 12.774750013613705,
+          "market_rank": 1,
+          "player_id": "12507",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.6908105542532789,
+          "raw_rate": 0.6680555555555555,
+          "support": 720,
+          "survival_probability": 0.6908105542532789
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3633135577820461,
+            0.46211003988893407
+          ],
+          "lookup_status": "available",
+          "marginal_value": 94.36729777007692,
+          "market_rank": 2,
+          "player_id": "9224",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.4122744311135265,
+          "raw_rate": 0.26071428571428573,
+          "support": 280,
+          "survival_probability": 0.4122744311135265
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.27632259320045494,
+            0.34185078513875705
+          ],
+          "lookup_status": "available",
+          "marginal_value": 32.99101220838922,
+          "market_rank": 3,
+          "player_id": "5859",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.30861089742654285,
+          "raw_rate": 0.24924471299093656,
+          "support": 662,
+          "survival_probability": 0.30861089742654285
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3731006011154331,
+            0.44116522122062346
+          ],
+          "lookup_status": "available",
+          "marginal_value": 81.59213385487055,
+          "market_rank": 4,
+          "player_id": "8151",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.4069122012788689,
+          "raw_rate": 0.3676680972818312,
+          "support": 699,
+          "survival_probability": 0.4069122012788689
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.48023722108348144,
+            0.5894597216018467
+          ],
+          "lookup_status": "available",
+          "marginal_value": 105.96904117670871,
+          "market_rank": 5,
+          "player_id": "11604",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.5350566827929815,
+          "raw_rate": 0.502283105022831,
+          "support": 219,
+          "survival_probability": 0.5350566827929815
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.4018788019710795,
+            0.46327670785744646
+          ],
+          "lookup_status": "available",
+          "marginal_value": 68.76705051640546,
+          "market_rank": 6,
+          "player_id": "3198",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.4324496590845545,
+          "raw_rate": 0.41935483870967744,
+          "support": 899,
+          "survival_probability": 0.4324496590845545
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.7729871842195235,
+            0.8203441903081177
+          ],
+          "lookup_status": "available",
+          "marginal_value": 42.64345746647644,
+          "market_rank": 7,
+          "player_id": "4984",
+          "pooled_support": 3775,
+          "position": "QB",
+          "probability": 0.7971746283898786,
+          "raw_rate": 0.8260437375745527,
+          "support": 1006,
+          "survival_probability": 0.7971746283898786
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.2777816020831413,
+            0.32865759994739335
+          ],
+          "lookup_status": "available",
+          "marginal_value": 73.21296354163447,
+          "market_rank": 8,
+          "player_id": "8137",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.302921415224653,
+          "raw_rate": 0.2847222222222222,
+          "support": 1152,
+          "survival_probability": 0.302921415224653
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3390065028703207,
+            0.39778776109031644
+          ],
+          "lookup_status": "available",
+          "marginal_value": 35.96255346638573,
+          "market_rank": 9,
+          "player_id": "13287",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.36815534796768845,
+          "raw_rate": 0.3536977491961415,
+          "support": 933,
+          "survival_probability": 0.36815534796768845
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.44392923707300563,
+            0.5000366899323299
+          ],
+          "lookup_status": "available",
+          "marginal_value": 42.7571187232942,
+          "market_rank": 10,
+          "player_id": "7569",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.4719392118856714,
+          "raw_rate": 0.4618834080717489,
+          "support": 1115,
+          "survival_probability": 0.4719392118856714
+        }
+      ],
+      "route_support_status": "complete",
+      "route_value": 210.70234142588689,
+      "supported_later_players": 10,
+      "top_ten_capture_complete": true
+    },
+    "8137": {
+      "captured_market_players": 10,
+      "current_player_id": "8137",
+      "current_value": 73.21296354163447,
+      "eligible_later_players": 10,
+      "expected_next_turn_value": 112.60684207925308,
+      "later_players": [
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.6587669956417417,
+            0.7219725097489484
+          ],
+          "lookup_status": "available",
+          "marginal_value": 12.774750013613705,
+          "market_rank": 1,
+          "player_id": "12507",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.6908105542532789,
+          "raw_rate": 0.6680555555555555,
+          "support": 720,
+          "survival_probability": 0.6908105542532789
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3633135577820461,
+            0.46211003988893407
+          ],
+          "lookup_status": "available",
+          "marginal_value": 94.36729777007692,
+          "market_rank": 2,
+          "player_id": "9224",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.4122744311135265,
+          "raw_rate": 0.26071428571428573,
+          "support": 280,
+          "survival_probability": 0.4122744311135265
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.27632259320045494,
+            0.34185078513875705
+          ],
+          "lookup_status": "available",
+          "marginal_value": 32.99101220838922,
+          "market_rank": 3,
+          "player_id": "5859",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.30861089742654285,
+          "raw_rate": 0.24924471299093656,
+          "support": 662,
+          "survival_probability": 0.30861089742654285
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.761537392686911,
+            0.8318844992404534
+          ],
+          "lookup_status": "available",
+          "marginal_value": 117.28145903319728,
+          "market_rank": 4,
+          "player_id": "8130",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.7978413804044414,
+          "raw_rate": 0.8270676691729323,
+          "support": 399,
+          "survival_probability": 0.7978413804044414
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.36726601617438265,
+            0.42354839639525443
+          ],
+          "lookup_status": "available",
+          "marginal_value": 81.59213385487055,
+          "market_rank": 5,
+          "player_id": "8151",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.3952358219438351,
+          "raw_rate": 0.3752362948960302,
+          "support": 1058,
+          "survival_probability": 0.3952358219438351
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.5570324275488103,
+            0.6507349738302771
+          ],
+          "lookup_status": "available",
+          "marginal_value": 106.02397165799215,
+          "market_rank": 6,
+          "player_id": "11604",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.6043578163680334,
+          "raw_rate": 0.6214511041009464,
+          "support": 317,
+          "survival_probability": 0.6043578163680334
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3441143269736985,
+            0.40158811681927076
+          ],
+          "lookup_status": "available",
+          "marginal_value": 68.76705051640546,
+          "market_rank": 7,
+          "player_id": "3198",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.3726290414357327,
+          "raw_rate": 0.359026369168357,
+          "support": 986,
+          "survival_probability": 0.3726290414357327
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.7753781895921003,
+            0.8194350481952499
+          ],
+          "lookup_status": "available",
+          "marginal_value": 42.64345746647644,
+          "market_rank": 8,
+          "player_id": "4984",
+          "pooled_support": 3775,
+          "position": "QB",
+          "probability": 0.7978491073421691,
+          "raw_rate": 0.8221276595744681,
+          "support": 1175,
+          "survival_probability": 0.7978491073421691
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3390065028703207,
+            0.39778776109031644
+          ],
+          "lookup_status": "available",
+          "marginal_value": 35.96255346638573,
+          "market_rank": 9,
+          "player_id": "13287",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.36815534796768845,
+          "raw_rate": 0.3536977491961415,
+          "support": 933,
+          "survival_probability": 0.36815534796768845
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.44392923707300563,
+            0.5000366899323299
+          ],
+          "lookup_status": "available",
+          "marginal_value": 42.7571187232942,
+          "market_rank": 10,
+          "player_id": "7569",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.4719392118856714,
+          "raw_rate": 0.4618834080717489,
+          "support": 1115,
+          "survival_probability": 0.4719392118856714
+        }
+      ],
+      "route_support_status": "complete",
+      "route_value": 185.81980562088756,
+      "supported_later_players": 10,
+      "top_ten_capture_complete": true
+    },
+    "8144": {
+      "captured_market_players": 10,
+      "current_player_id": "8144",
+      "current_value": 54.23545475757059,
+      "eligible_later_players": 10,
+      "expected_next_turn_value": 112.83873471869597,
+      "later_players": [
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.6587669956417417,
+            0.7219725097489484
+          ],
+          "lookup_status": "available",
+          "marginal_value": 12.774750013613705,
+          "market_rank": 1,
+          "player_id": "12507",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.6908105542532789,
+          "raw_rate": 0.6680555555555555,
+          "support": 720,
+          "survival_probability": 0.6908105542532789
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3633135577820461,
+            0.46211003988893407
+          ],
+          "lookup_status": "available",
+          "marginal_value": 94.36729777007692,
+          "market_rank": 2,
+          "player_id": "9224",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.4122744311135265,
+          "raw_rate": 0.26071428571428573,
+          "support": 280,
+          "survival_probability": 0.4122744311135265
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.27632259320045494,
+            0.34185078513875705
+          ],
+          "lookup_status": "available",
+          "marginal_value": 32.99101220838922,
+          "market_rank": 3,
+          "player_id": "5859",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.30861089742654285,
+          "raw_rate": 0.24924471299093656,
+          "support": 662,
+          "survival_probability": 0.30861089742654285
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.761537392686911,
+            0.8318844992404534
+          ],
+          "lookup_status": "available",
+          "marginal_value": 117.28145903319728,
+          "market_rank": 4,
+          "player_id": "8130",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.7978413804044414,
+          "raw_rate": 0.8270676691729323,
+          "support": 399,
+          "survival_probability": 0.7978413804044414
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.36726601617438265,
+            0.42354839639525443
+          ],
+          "lookup_status": "available",
+          "marginal_value": 81.59213385487055,
+          "market_rank": 5,
+          "player_id": "8151",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.3952358219438351,
+          "raw_rate": 0.3752362948960302,
+          "support": 1058,
+          "survival_probability": 0.3952358219438351
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.5570324275488103,
+            0.6507349738302771
+          ],
+          "lookup_status": "available",
+          "marginal_value": 106.02397165799215,
+          "market_rank": 6,
+          "player_id": "11604",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.6043578163680334,
+          "raw_rate": 0.6214511041009464,
+          "support": 317,
+          "survival_probability": 0.6043578163680334
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3441143269736985,
+            0.40158811681927076
+          ],
+          "lookup_status": "available",
+          "marginal_value": 68.76705051640546,
+          "market_rank": 7,
+          "player_id": "3198",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.3726290414357327,
+          "raw_rate": 0.359026369168357,
+          "support": 986,
+          "survival_probability": 0.3726290414357327
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.7753781895921003,
+            0.8194350481952499
+          ],
+          "lookup_status": "available",
+          "marginal_value": 42.64345746647644,
+          "market_rank": 8,
+          "player_id": "4984",
+          "pooled_support": 3775,
+          "position": "QB",
+          "probability": 0.7978491073421691,
+          "raw_rate": 0.8221276595744681,
+          "support": 1175,
+          "survival_probability": 0.7978491073421691
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.36552165231133693,
+            0.4150321654331628
+          ],
+          "lookup_status": "available",
+          "marginal_value": 73.21296354163447,
+          "market_rank": 9,
+          "player_id": "8137",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.39013723117491417,
+          "raw_rate": 0.38201438848920866,
+          "support": 1390,
+          "survival_probability": 0.39013723117491417
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.5146182108576389,
+            0.5637987550196262
+          ],
+          "lookup_status": "available",
+          "marginal_value": 35.96255346638573,
+          "market_rank": 10,
+          "player_id": "13287",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.5392556388339194,
+          "raw_rate": 0.5362220717670955,
+          "support": 1477,
+          "survival_probability": 0.5392556388339194
+        }
+      ],
+      "route_support_status": "complete",
+      "route_value": 167.07418947626655,
+      "supported_later_players": 10,
+      "top_ten_capture_complete": true
+    },
+    "8150": {
+      "captured_market_players": 10,
+      "current_player_id": "8150",
+      "current_value": 47.12885959886773,
+      "eligible_later_players": 10,
+      "expected_next_turn_value": 112.64855796686436,
+      "later_players": [
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.6587669956417417,
+            0.7219725097489484
+          ],
+          "lookup_status": "available",
+          "marginal_value": 9.587027199360655,
+          "market_rank": 1,
+          "player_id": "12507",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.6908105542532789,
+          "raw_rate": 0.6680555555555555,
+          "support": 720,
+          "survival_probability": 0.6908105542532789
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3633135577820461,
+            0.46211003988893407
+          ],
+          "lookup_status": "available",
+          "marginal_value": 91.17957495582387,
+          "market_rank": 2,
+          "player_id": "9224",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.4122744311135265,
+          "raw_rate": 0.26071428571428573,
+          "support": 280,
+          "survival_probability": 0.4122744311135265
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.27632259320045494,
+            0.34185078513875705
+          ],
+          "lookup_status": "available",
+          "marginal_value": 32.99101220838922,
+          "market_rank": 3,
+          "player_id": "5859",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.30861089742654285,
+          "raw_rate": 0.24924471299093656,
+          "support": 662,
+          "survival_probability": 0.30861089742654285
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.761537392686911,
+            0.8318844992404534
+          ],
+          "lookup_status": "available",
+          "marginal_value": 117.28145903319728,
+          "market_rank": 4,
+          "player_id": "8130",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.7978413804044414,
+          "raw_rate": 0.8270676691729323,
+          "support": 399,
+          "survival_probability": 0.7978413804044414
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.36726601617438265,
+            0.42354839639525443
+          ],
+          "lookup_status": "available",
+          "marginal_value": 78.4044110406175,
+          "market_rank": 5,
+          "player_id": "8151",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.3952358219438351,
+          "raw_rate": 0.3752362948960302,
+          "support": 1058,
+          "survival_probability": 0.3952358219438351
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.5570324275488103,
+            0.6507349738302771
+          ],
+          "lookup_status": "available",
+          "marginal_value": 106.02397165799215,
+          "market_rank": 6,
+          "player_id": "11604",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.6043578163680334,
+          "raw_rate": 0.6214511041009464,
+          "support": 317,
+          "survival_probability": 0.6043578163680334
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3441143269736985,
+            0.40158811681927076
+          ],
+          "lookup_status": "available",
+          "marginal_value": 65.57932770215241,
+          "market_rank": 7,
+          "player_id": "3198",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.3726290414357327,
+          "raw_rate": 0.359026369168357,
+          "support": 986,
+          "survival_probability": 0.3726290414357327
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.7753781895921003,
+            0.8194350481952499
+          ],
+          "lookup_status": "available",
+          "marginal_value": 42.64345746647644,
+          "market_rank": 8,
+          "player_id": "4984",
+          "pooled_support": 3775,
+          "position": "QB",
+          "probability": 0.7978491073421691,
+          "raw_rate": 0.8221276595744681,
+          "support": 1175,
+          "survival_probability": 0.7978491073421691
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.36552165231133693,
+            0.4150321654331628
+          ],
+          "lookup_status": "available",
+          "marginal_value": 73.21296354163447,
+          "market_rank": 9,
+          "player_id": "8137",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.39013723117491417,
+          "raw_rate": 0.38201438848920866,
+          "support": 1390,
+          "survival_probability": 0.39013723117491417
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.5146182108576389,
+            0.5637987550196262
+          ],
+          "lookup_status": "available",
+          "marginal_value": 32.77483065213268,
+          "market_rank": 10,
+          "player_id": "13287",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.5392556388339194,
+          "raw_rate": 0.5362220717670955,
+          "support": 1477,
+          "survival_probability": 0.5392556388339194
+        }
+      ],
+      "route_support_status": "complete",
+      "route_value": 159.7774175657321,
+      "supported_later_players": 10,
+      "top_ten_capture_complete": true
+    },
+    "8151": {
+      "captured_market_players": 10,
+      "current_player_id": "8151",
+      "current_value": 81.59213385487055,
+      "eligible_later_players": 10,
+      "expected_next_turn_value": 111.77416188226955,
+      "later_players": [
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.6587669956417417,
+            0.7219725097489484
+          ],
+          "lookup_status": "available",
+          "marginal_value": 9.587027199360655,
+          "market_rank": 1,
+          "player_id": "12507",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.6908105542532789,
+          "raw_rate": 0.6680555555555555,
+          "support": 720,
+          "survival_probability": 0.6908105542532789
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3633135577820461,
+            0.46211003988893407
+          ],
+          "lookup_status": "available",
+          "marginal_value": 91.17957495582387,
+          "market_rank": 2,
+          "player_id": "9224",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.4122744311135265,
+          "raw_rate": 0.26071428571428573,
+          "support": 280,
+          "survival_probability": 0.4122744311135265
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.27632259320045494,
+            0.34185078513875705
+          ],
+          "lookup_status": "available",
+          "marginal_value": 32.99101220838922,
+          "market_rank": 3,
+          "player_id": "5859",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.30861089742654285,
+          "raw_rate": 0.24924471299093656,
+          "support": 662,
+          "survival_probability": 0.30861089742654285
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.761537392686911,
+            0.8318844992404534
+          ],
+          "lookup_status": "available",
+          "marginal_value": 117.28145903319728,
+          "market_rank": 4,
+          "player_id": "8130",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.7978413804044414,
+          "raw_rate": 0.8270676691729323,
+          "support": 399,
+          "survival_probability": 0.7978413804044414
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.48023722108348144,
+            0.5894597216018467
+          ],
+          "lookup_status": "available",
+          "marginal_value": 106.02397165799215,
+          "market_rank": 5,
+          "player_id": "11604",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.5350566827929815,
+          "raw_rate": 0.502283105022831,
+          "support": 219,
+          "survival_probability": 0.5350566827929815
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.4018788019710795,
+            0.46327670785744646
+          ],
+          "lookup_status": "available",
+          "marginal_value": 65.57932770215241,
+          "market_rank": 6,
+          "player_id": "3198",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.4324496590845545,
+          "raw_rate": 0.41935483870967744,
+          "support": 899,
+          "survival_probability": 0.4324496590845545
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.7729871842195235,
+            0.8203441903081177
+          ],
+          "lookup_status": "available",
+          "marginal_value": 42.64345746647644,
+          "market_rank": 7,
+          "player_id": "4984",
+          "pooled_support": 3775,
+          "position": "QB",
+          "probability": 0.7971746283898786,
+          "raw_rate": 0.8260437375745527,
+          "support": 1006,
+          "survival_probability": 0.7971746283898786
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.2777816020831413,
+            0.32865759994739335
+          ],
+          "lookup_status": "available",
+          "marginal_value": 73.21296354163447,
+          "market_rank": 8,
+          "player_id": "8137",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.302921415224653,
+          "raw_rate": 0.2847222222222222,
+          "support": 1152,
+          "survival_probability": 0.302921415224653
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3390065028703207,
+            0.39778776109031644
+          ],
+          "lookup_status": "available",
+          "marginal_value": 32.77483065213268,
+          "market_rank": 9,
+          "player_id": "13287",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.36815534796768845,
+          "raw_rate": 0.3536977491961415,
+          "support": 933,
+          "survival_probability": 0.36815534796768845
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.44392923707300563,
+            0.5000366899323299
+          ],
+          "lookup_status": "available",
+          "marginal_value": 42.7571187232942,
+          "market_rank": 10,
+          "player_id": "7569",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.4719392118856714,
+          "raw_rate": 0.4618834080717489,
+          "support": 1115,
+          "survival_probability": 0.4719392118856714
+        }
+      ],
+      "route_support_status": "complete",
+      "route_value": 193.3662957371401,
+      "supported_later_players": 10,
+      "top_ten_capture_complete": true
+    },
+    "8155": {
+      "captured_market_players": 10,
+      "current_player_id": "8155",
+      "current_value": 54.08442341689701,
+      "eligible_later_players": 10,
+      "expected_next_turn_value": 112.64855796686436,
+      "later_players": [
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.6587669956417417,
+            0.7219725097489484
+          ],
+          "lookup_status": "available",
+          "marginal_value": 9.587027199360655,
+          "market_rank": 1,
+          "player_id": "12507",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.6908105542532789,
+          "raw_rate": 0.6680555555555555,
+          "support": 720,
+          "survival_probability": 0.6908105542532789
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3633135577820461,
+            0.46211003988893407
+          ],
+          "lookup_status": "available",
+          "marginal_value": 91.17957495582387,
+          "market_rank": 2,
+          "player_id": "9224",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.4122744311135265,
+          "raw_rate": 0.26071428571428573,
+          "support": 280,
+          "survival_probability": 0.4122744311135265
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.27632259320045494,
+            0.34185078513875705
+          ],
+          "lookup_status": "available",
+          "marginal_value": 32.99101220838922,
+          "market_rank": 3,
+          "player_id": "5859",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.30861089742654285,
+          "raw_rate": 0.24924471299093656,
+          "support": 662,
+          "survival_probability": 0.30861089742654285
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.761537392686911,
+            0.8318844992404534
+          ],
+          "lookup_status": "available",
+          "marginal_value": 117.28145903319728,
+          "market_rank": 4,
+          "player_id": "8130",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.7978413804044414,
+          "raw_rate": 0.8270676691729323,
+          "support": 399,
+          "survival_probability": 0.7978413804044414
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.36726601617438265,
+            0.42354839639525443
+          ],
+          "lookup_status": "available",
+          "marginal_value": 78.4044110406175,
+          "market_rank": 5,
+          "player_id": "8151",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.3952358219438351,
+          "raw_rate": 0.3752362948960302,
+          "support": 1058,
+          "survival_probability": 0.3952358219438351
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.5570324275488103,
+            0.6507349738302771
+          ],
+          "lookup_status": "available",
+          "marginal_value": 106.02397165799215,
+          "market_rank": 6,
+          "player_id": "11604",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.6043578163680334,
+          "raw_rate": 0.6214511041009464,
+          "support": 317,
+          "survival_probability": 0.6043578163680334
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3441143269736985,
+            0.40158811681927076
+          ],
+          "lookup_status": "available",
+          "marginal_value": 65.57932770215241,
+          "market_rank": 7,
+          "player_id": "3198",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.3726290414357327,
+          "raw_rate": 0.359026369168357,
+          "support": 986,
+          "survival_probability": 0.3726290414357327
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.7753781895921003,
+            0.8194350481952499
+          ],
+          "lookup_status": "available",
+          "marginal_value": 42.64345746647644,
+          "market_rank": 8,
+          "player_id": "4984",
+          "pooled_support": 3775,
+          "position": "QB",
+          "probability": 0.7978491073421691,
+          "raw_rate": 0.8221276595744681,
+          "support": 1175,
+          "survival_probability": 0.7978491073421691
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.36552165231133693,
+            0.4150321654331628
+          ],
+          "lookup_status": "available",
+          "marginal_value": 73.21296354163447,
+          "market_rank": 9,
+          "player_id": "8137",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.39013723117491417,
+          "raw_rate": 0.38201438848920866,
+          "support": 1390,
+          "survival_probability": 0.39013723117491417
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.5146182108576389,
+            0.5637987550196262
+          ],
+          "lookup_status": "available",
+          "marginal_value": 32.77483065213268,
+          "market_rank": 10,
+          "player_id": "13287",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.5392556388339194,
+          "raw_rate": 0.5362220717670955,
+          "support": 1477,
+          "survival_probability": 0.5392556388339194
+        }
+      ],
+      "route_support_status": "complete",
+      "route_value": 166.73298138376137,
+      "supported_later_players": 10,
+      "top_ten_capture_complete": true
+    },
+    "9224": {
+      "captured_market_players": 10,
+      "current_player_id": "9224",
+      "current_value": 94.36729777007692,
+      "eligible_later_players": 10,
+      "expected_next_turn_value": 111.08039840500204,
+      "later_players": [
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.6587669956417417,
+            0.7219725097489484
+          ],
+          "lookup_status": "available",
+          "marginal_value": 9.587027199360655,
+          "market_rank": 1,
+          "player_id": "12507",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.6908105542532789,
+          "raw_rate": 0.6680555555555555,
+          "support": 720,
+          "survival_probability": 0.6908105542532789
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.569456729882631,
+            0.6328894920149977
+          ],
+          "lookup_status": "available",
+          "marginal_value": 32.99101220838922,
+          "market_rank": 2,
+          "player_id": "5859",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.6013832426949016,
+          "raw_rate": 0.5724815724815725,
+          "support": 814,
+          "survival_probability": 0.6013832426949016
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.7525695247464396,
+            0.8272109789648229
+          ],
+          "lookup_status": "available",
+          "marginal_value": 117.28145903319728,
+          "market_rank": 3,
+          "player_id": "8130",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.7911046340066644,
+          "raw_rate": 0.8163841807909604,
+          "support": 354,
+          "survival_probability": 0.7911046340066644
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3731006011154331,
+            0.44116522122062346
+          ],
+          "lookup_status": "available",
+          "marginal_value": 78.4044110406175,
+          "market_rank": 4,
+          "player_id": "8151",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.4069122012788689,
+          "raw_rate": 0.3676680972818312,
+          "support": 699,
+          "survival_probability": 0.4069122012788689
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.48023722108348144,
+            0.5894597216018467
+          ],
+          "lookup_status": "available",
+          "marginal_value": 106.02397165799215,
+          "market_rank": 5,
+          "player_id": "11604",
+          "pooled_support": 3775,
+          "position": "TE",
+          "probability": 0.5350566827929815,
+          "raw_rate": 0.502283105022831,
+          "support": 219,
+          "survival_probability": 0.5350566827929815
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.4018788019710795,
+            0.46327670785744646
+          ],
+          "lookup_status": "available",
+          "marginal_value": 65.57932770215241,
+          "market_rank": 6,
+          "player_id": "3198",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.4324496590845545,
+          "raw_rate": 0.41935483870967744,
+          "support": 899,
+          "survival_probability": 0.4324496590845545
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.7729871842195235,
+            0.8203441903081177
+          ],
+          "lookup_status": "available",
+          "marginal_value": 42.64345746647644,
+          "market_rank": 7,
+          "player_id": "4984",
+          "pooled_support": 3775,
+          "position": "QB",
+          "probability": 0.7971746283898786,
+          "raw_rate": 0.8260437375745527,
+          "support": 1006,
+          "survival_probability": 0.7971746283898786
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.2777816020831413,
+            0.32865759994739335
+          ],
+          "lookup_status": "available",
+          "marginal_value": 73.21296354163447,
+          "market_rank": 8,
+          "player_id": "8137",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.302921415224653,
+          "raw_rate": 0.2847222222222222,
+          "support": 1152,
+          "survival_probability": 0.302921415224653
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.3390065028703207,
+            0.39778776109031644
+          ],
+          "lookup_status": "available",
+          "marginal_value": 32.77483065213268,
+          "market_rank": 9,
+          "player_id": "13287",
+          "pooled_support": 3775,
+          "position": "RB",
+          "probability": 0.36815534796768845,
+          "raw_rate": 0.3536977491961415,
+          "support": 933,
+          "survival_probability": 0.36815534796768845
+        },
+        {
+          "eligible_next_turn": true,
+          "interval_95": [
+            0.44392923707300563,
+            0.5000366899323299
+          ],
+          "lookup_status": "available",
+          "marginal_value": 42.7571187232942,
+          "market_rank": 10,
+          "player_id": "7569",
+          "pooled_support": 3775,
+          "position": "WR",
+          "probability": 0.4719392118856714,
+          "raw_rate": 0.4618834080717489,
+          "support": 1115,
+          "survival_probability": 0.4719392118856714
+        }
+      ],
+      "route_support_status": "complete",
+      "route_value": 205.44769617507896,
+      "supported_later_players": 10,
+      "top_ten_capture_complete": true
+    }
+  },
+  "candidate_breadth": 20,
+  "code_sha256": "c21c6da71725f7f5d8e13474f492fb93abf7e5e5b6caaa7fc973a387e09959cf",
+  "decision_active": false,
+  "draft_id": "1393746402558881792",
+  "fallback_breadth": 10,
+  "input_hashes": {
+    "config": "da0bef9b31dda0cb53dc8d0011782fd5d5663abe19aad1e57c54b3c15e6ad236",
+    "draft_cache": "2677122130e200085e2c9f819878711313bd9ebad3425df2cb0e4481e81f79fd",
+    "league_cache": "8519b57fa254f7543edcd99fb1ce7c19341034ed4088e4f44ddf52abcdb065fb",
+    "players": "a7f40ca9b1bc02063dc7efa45f7bef5c78c67bd8b8436eb62d0859bdc48faaba"
+  },
+  "league_id": "1312074476493484032",
+  "limitations": [
+    "offline shadow only; no API, UI, VONA, ranking, or rollout change",
+    "one-turn route value is not the completed-roster terminal objective",
+    "expected next-turn value uses independent marginal survival probabilities",
+    "ineligible top-ten market players are captured but excluded from route value",
+    "the survival artifact did not load the 2025 locked test"
+  ],
+  "market_snapshot_id": "1f0341577327b9e813908cc0b5a2bbc957c464c4309cb84f1d1403398b5b5b1f",
+  "next_turn_pick_no": 25,
+  "opponent_picks_until_next": 8,
+  "pick_no": 16,
+  "players": [
+    {
+      "best_wait_current_player_id": "11604",
+      "best_wait_current_value": 106.02397165799215,
+      "best_wait_route_support": "complete",
+      "best_wait_route_value": 215.48737202661897,
+      "current_roster_value": 12.774750013613705,
+      "expected_fallback_value": 109.45166249430515,
+      "market_adp": 15.999999999999998,
+      "market_rank": 1,
+      "name": "Omarion Hampton",
+      "player_id": "12507",
+      "position": "RB",
+      "projected_points": 257.03406666666666,
+      "replacement_points": 174.97860814621976,
+      "return_probability": 0.6908105542532789,
+      "support_status": "available",
+      "survival_direct_support": 720,
+      "survival_interval_95": [
+        0.6587669956417417,
+        0.7219725097489484
+      ],
+      "survival_pooled_support": 3775,
+      "survival_raw_rate": 0.6680555555555555,
+      "take_now_expected_next_turn_value": 112.74238271925056,
+      "take_now_route_support": "complete",
+      "take_now_route_value": 125.51713273286427,
+      "target_next_turn_value": 12.774750013613705,
+      "team": "LAC",
+      "value_loss_if_target_gone": 0.0,
+      "wait_delta": 89.9702392937547
+    },
+    {
+      "best_wait_current_player_id": "11604",
+      "best_wait_current_value": 106.02397165799215,
+      "best_wait_route_support": "complete",
+      "best_wait_route_value": 215.48737202661897,
+      "current_roster_value": 94.36729777007692,
+      "expected_fallback_value": 107.25941159715455,
+      "market_adp": 17.0,
+      "market_rank": 2,
+      "name": "Chase Brown",
+      "player_id": "9224",
+      "position": "RB",
+      "projected_points": 281.65074444444446,
+      "replacement_points": 174.97860814621976,
+      "return_probability": 0.4122744311135265,
+      "support_status": "available",
+      "survival_direct_support": 280,
+      "survival_interval_95": [
+        0.3633135577820461,
+        0.46211003988893407
+      ],
+      "survival_pooled_support": 3775,
+      "survival_raw_rate": 0.26071428571428573,
+      "take_now_expected_next_turn_value": 111.08039840500204,
+      "take_now_route_support": "complete",
+      "take_now_route_value": 205.44769617507896,
+      "target_next_turn_value": 94.36729777007692,
+      "team": "CIN",
+      "value_loss_if_target_gone": 0.0,
+      "wait_delta": 10.03967585154001
+    },
+    {
+      "best_wait_current_player_id": "11604",
+      "best_wait_current_value": 106.02397165799215,
+      "best_wait_route_support": "complete",
+      "best_wait_route_value": 215.48737202661897,
+      "current_roster_value": 32.99101220838922,
+      "expected_fallback_value": 109.44905297484213,
+      "market_adp": 17.999999999999996,
+      "market_rank": 3,
+      "name": "A.J. Brown",
+      "player_id": "5859",
+      "position": "WR",
+      "projected_points": 259.3279034267913,
+      "replacement_points": 178.36556363636365,
+      "return_probability": 0.30861089742654285,
+      "support_status": "available",
+      "survival_direct_support": 662,
+      "survival_interval_95": [
+        0.27632259320045494,
+        0.34185078513875705
+      ],
+      "survival_pooled_support": 3775,
+      "survival_raw_rate": 0.24924471299093656,
+      "take_now_expected_next_turn_value": 112.29647483557362,
+      "take_now_route_support": "complete",
+      "take_now_route_value": 145.28748704396284,
+      "target_next_turn_value": 32.99101220838922,
+      "team": "NE",
+      "value_loss_if_target_gone": 0.0,
+      "wait_delta": 70.19988498265613
+    },
+    {
+      "best_wait_current_player_id": "11604",
+      "best_wait_current_value": 106.02397165799215,
+      "best_wait_route_support": "complete",
+      "best_wait_route_value": 215.48737202661897,
+      "current_roster_value": 117.28145903319728,
+      "expected_fallback_value": 78.82535526126676,
+      "market_adp": 18.999999999999996,
+      "market_rank": 4,
+      "name": "Trey McBride",
+      "player_id": "8130",
+      "position": "TE",
+      "projected_points": 364.6399856798858,
+      "replacement_points": 178.3072,
+      "return_probability": 0.7978413804044414,
+      "support_status": "available",
+      "survival_direct_support": 399,
+      "survival_interval_95": [
+        0.761537392686911,
+        0.8318844992404534
+      ],
+      "survival_pooled_support": 3775,
+      "survival_raw_rate": 0.8270676691729323,
+      "take_now_expected_next_turn_value": 93.4208823926896,
+      "take_now_route_support": "complete",
+      "take_now_route_value": 210.70234142588689,
+      "target_next_turn_value": 117.22652855191384,
+      "team": "ARI",
+      "value_loss_if_target_gone": 38.40117329064708,
+      "wait_delta": 4.785030600732085
+    },
+    {
+      "best_wait_current_player_id": "11604",
+      "best_wait_current_value": 106.02397165799215,
+      "best_wait_route_support": "complete",
+      "best_wait_route_value": 215.48737202661897,
+      "current_roster_value": 81.59213385487055,
+      "expected_fallback_value": 108.40200907447742,
+      "market_adp": 19.999999999999996,
+      "market_rank": 5,
+      "name": "Kenneth Walker",
+      "player_id": "8151",
+      "position": "RB",
+      "projected_points": 259.47343333333333,
+      "replacement_points": 174.97860814621976,
+      "return_probability": 0.3952358219438351,
+      "support_status": "available",
+      "survival_direct_support": 1058,
+      "survival_interval_95": [
+        0.36726601617438265,
+        0.42354839639525443
+      ],
+      "survival_pooled_support": 3775,
+      "survival_raw_rate": 0.3752362948960302,
+      "take_now_expected_next_turn_value": 111.77416188226955,
+      "take_now_route_support": "complete",
+      "take_now_route_value": 193.3662957371401,
+      "target_next_turn_value": 81.59213385487055,
+      "team": "KC",
+      "value_loss_if_target_gone": 0.0,
+      "wait_delta": 22.12107628947888
+    },
+    {
+      "best_wait_current_player_id": "12518",
+      "best_wait_current_value": 101.97612157962318,
+      "best_wait_route_support": "complete",
+      "best_wait_route_value": 214.76431929302987,
+      "current_roster_value": 106.02397165799215,
+      "expected_fallback_value": 109.48485036327068,
+      "market_adp": 21.0,
+      "market_rank": 6,
+      "name": "Brock Bowers",
+      "player_id": "11604",
+      "position": "TE",
+      "projected_points": 343.11731404315924,
+      "replacement_points": 178.3072,
+      "return_probability": 0.6043578163680334,
+      "support_status": "available",
+      "survival_direct_support": 317,
+      "survival_interval_95": [
+        0.5570324275488103,
+        0.6507349738302771
+      ],
+      "survival_pooled_support": 3775,
+      "survival_raw_rate": 0.6214511041009464,
+      "take_now_expected_next_turn_value": 109.46340036862681,
+      "take_now_route_support": "complete",
+      "take_now_route_value": 215.48737202661897,
+      "target_next_turn_value": 105.96904117670871,
+      "team": "LV",
+      "value_loss_if_target_gone": 0.0,
+      "wait_delta": -0.7230527335890997
+    },
+    {
+      "best_wait_current_player_id": "11604",
+      "best_wait_current_value": 106.02397165799215,
+      "best_wait_route_support": "complete",
+      "best_wait_route_value": 215.48737202661897,
+      "current_roster_value": 68.76705051640546,
+      "expected_fallback_value": 108.85436333378998,
+      "market_adp": 22.000000000000004,
+      "market_rank": 7,
+      "name": "Derrick Henry",
+      "player_id": "3198",
+      "position": "RB",
+      "projected_points": 278.1040555555556,
+      "replacement_points": 174.97860814621976,
+      "return_probability": 0.4324496590845545,
+      "support_status": "available",
+      "survival_direct_support": 899,
+      "survival_interval_95": [
+        0.4018788019710795,
+        0.46327670785744646
+      ],
+      "survival_pooled_support": 3775,
+      "survival_raw_rate": 0.41935483870967744,
+      "take_now_expected_next_turn_value": 112.42046741322987,
+      "take_now_route_support": "complete",
+      "take_now_route_value": 181.18751792963533,
+      "target_next_turn_value": 68.76705051640546,
+      "team": "BAL",
+      "value_loss_if_target_gone": 0.0,
+      "wait_delta": 34.29985409698364
+    },
+    {
+      "best_wait_current_player_id": "11604",
+      "best_wait_current_value": 106.02397165799215,
+      "best_wait_route_support": "complete",
+      "best_wait_route_value": 215.48737202661897,
+      "current_roster_value": 42.64345746647644,
+      "expected_fallback_value": 109.23465079836585,
+      "market_adp": 23.0,
+      "market_rank": 8,
+      "name": "Josh Allen",
+      "player_id": "4984",
+      "position": "QB",
+      "projected_points": 404.3642505668935,
+      "replacement_points": 334.64697732426305,
+      "return_probability": 0.7971746283898786,
+      "support_status": "available",
+      "survival_direct_support": 1006,
+      "survival_interval_95": [
+        0.7729871842195235,
+        0.8203441903081177
+      ],
+      "survival_pooled_support": 3775,
+      "survival_raw_rate": 0.8260437375745527,
+      "take_now_expected_next_turn_value": 112.69687405358997,
+      "take_now_route_support": "complete",
+      "take_now_route_value": 155.3403315200664,
+      "target_next_turn_value": 42.64345746647644,
+      "team": "BUF",
+      "value_loss_if_target_gone": 0.0,
+      "wait_delta": 60.14704050655257
+    },
+    {
+      "best_wait_current_player_id": "11604",
+      "best_wait_current_value": 106.02397165799215,
+      "best_wait_route_support": "complete",
+      "best_wait_route_value": 215.48737202661897,
+      "current_roster_value": 73.21296354163447,
+      "expected_fallback_value": 109.01928490303708,
+      "market_adp": 24.000000000000004,
+      "market_rank": 9,
+      "name": "George Pickens",
+      "player_id": "8137",
+      "position": "WR",
+      "projected_points": 256.90458255451716,
+      "replacement_points": 178.36556363636365,
+      "return_probability": 0.302921415224653,
+      "support_status": "available",
+      "survival_direct_support": 1152,
+      "survival_interval_95": [
+        0.2777816020831413,
+        0.32865759994739335
+      ],
+      "survival_pooled_support": 3775,
+      "survival_raw_rate": 0.2847222222222222,
+      "take_now_expected_next_turn_value": 112.60684207925308,
+      "take_now_route_support": "complete",
+      "take_now_route_value": 185.81980562088756,
+      "target_next_turn_value": 73.21296354163447,
+      "team": "DAL",
+      "value_loss_if_target_gone": 0.0,
+      "wait_delta": 29.667566405731407
+    },
+    {
+      "best_wait_current_player_id": "11604",
+      "best_wait_current_value": 106.02397165799215,
+      "best_wait_route_support": "complete",
+      "best_wait_route_value": 215.48737202661897,
+      "current_roster_value": 35.96255346638573,
+      "expected_fallback_value": 109.44134090496013,
+      "market_adp": 24.999999999999996,
+      "market_rank": 10,
+      "name": "Jeremiyah Love",
+      "player_id": "13287",
+      "position": "RB",
+      "projected_points": 257.34409862241023,
+      "replacement_points": 174.97860814621976,
+      "return_probability": 0.36815534796768845,
+      "support_status": "available",
+      "survival_direct_support": 933,
+      "survival_interval_95": [
+        0.3390065028703207,
+        0.39778776109031644
+      ],
+      "survival_pooled_support": 3775,
+      "survival_raw_rate": 0.3536977491961415,
+      "take_now_expected_next_turn_value": 112.65663660470612,
+      "take_now_route_support": "complete",
+      "take_now_route_value": 148.61919007109185,
+      "target_next_turn_value": 35.96255346638573,
+      "team": "ARI",
+      "value_loss_if_target_gone": 0.0,
+      "wait_delta": 66.86818195552712
+    },
+    {
+      "best_wait_current_player_id": "11604",
+      "best_wait_current_value": 106.02397165799215,
+      "best_wait_route_support": "complete",
+      "best_wait_route_value": 215.48737202661897,
+      "current_roster_value": 42.7571187232942,
+      "expected_fallback_value": 109.40986016584075,
+      "market_adp": 26.000000000000004,
+      "market_rank": 11,
+      "name": "Nico Collins",
+      "player_id": "7569",
+      "position": "WR",
+      "projected_points": 251.77704984423676,
+      "replacement_points": 178.36556363636365,
+      "return_probability": 0.4719392118856714,
+      "support_status": "available",
+      "survival_direct_support": 1115,
+      "survival_interval_95": [
+        0.44392923707300563,
+        0.5000366899323299
+      ],
+      "survival_pooled_support": 3775,
+      "survival_raw_rate": 0.4618834080717489,
+      "take_now_expected_next_turn_value": 112.83873471869597,
+      "take_now_route_support": "complete",
+      "take_now_route_value": 155.5958534419902,
+      "target_next_turn_value": 42.7571187232942,
+      "team": "HOU",
+      "value_loss_if_target_gone": 0.0,
+      "wait_delta": 59.891518584628784
+    },
+    {
+      "best_wait_current_player_id": "11604",
+      "best_wait_current_value": 106.02397165799215,
+      "best_wait_route_support": "complete",
+      "best_wait_route_value": 215.48737202661897,
+      "current_roster_value": 85.62492744144134,
+      "expected_fallback_value": 109.46340036862681,
+      "market_adp": 27.0,
+      "market_rank": 12,
+      "name": "Rashee Rice",
+      "player_id": "10229",
+      "position": "WR",
+      "projected_points": 278.1394566978193,
+      "replacement_points": 178.36556363636365,
+      "return_probability": null,
+      "support_status": "outside_top_ten",
+      "survival_direct_support": 0,
+      "survival_interval_95": null,
+      "survival_pooled_support": null,
+      "survival_raw_rate": null,
+      "take_now_expected_next_turn_value": 112.83873471869597,
+      "take_now_route_support": "complete",
+      "take_now_route_value": 198.46366216013732,
+      "target_next_turn_value": null,
+      "team": "KC",
+      "value_loss_if_target_gone": null,
+      "wait_delta": 17.023709866481653
+    },
+    {
+      "best_wait_current_player_id": "11604",
+      "best_wait_current_value": 106.02397165799215,
+      "best_wait_route_support": "complete",
+      "best_wait_route_value": 215.48737202661897,
+      "current_roster_value": 44.33156811656935,
+      "expected_fallback_value": 109.46340036862681,
+      "market_adp": 27.999999999999996,
+      "market_rank": 13,
+      "name": "Malik Nabers",
+      "player_id": "11632",
+      "position": "WR",
+      "projected_points": 241.65448193146418,
+      "replacement_points": 178.36556363636365,
+      "return_probability": null,
+      "support_status": "outside_top_ten",
+      "survival_direct_support": 0,
+      "survival_interval_95": null,
+      "survival_pooled_support": null,
+      "survival_raw_rate": null,
+      "take_now_expected_next_turn_value": 112.83873471869597,
+      "take_now_route_support": "complete",
+      "take_now_route_value": 157.17030283526532,
+      "target_next_turn_value": null,
+      "team": "NYG",
+      "value_loss_if_target_gone": null,
+      "wait_delta": 58.31706919135365
+    },
+    {
+      "best_wait_current_player_id": "11604",
+      "best_wait_current_value": 106.02397165799215,
+      "best_wait_route_support": "complete",
+      "best_wait_route_value": 215.48737202661897,
+      "current_roster_value": 47.12885959886773,
+      "expected_fallback_value": 109.46340036862681,
+      "market_adp": 29.000000000000004,
+      "market_rank": 14,
+      "name": "Kyren Williams",
+      "player_id": "8150",
+      "position": "RB",
+      "projected_points": 243.21930814621976,
+      "replacement_points": 174.97860814621976,
+      "return_probability": null,
+      "support_status": "outside_top_ten",
+      "survival_direct_support": 0,
+      "survival_interval_95": null,
+      "survival_pooled_support": null,
+      "survival_raw_rate": null,
+      "take_now_expected_next_turn_value": 112.64855796686436,
+      "take_now_route_support": "complete",
+      "take_now_route_value": 159.7774175657321,
+      "target_next_turn_value": null,
+      "team": "LAR",
+      "value_loss_if_target_gone": null,
+      "wait_delta": 55.70995446088688
+    },
+    {
+      "best_wait_current_player_id": "11604",
+      "best_wait_current_value": 106.02397165799215,
+      "best_wait_route_support": "complete",
+      "best_wait_route_value": 215.48737202661897,
+      "current_roster_value": 54.23545475757059,
+      "expected_fallback_value": 109.46340036862681,
+      "market_adp": 30.000000000000004,
+      "market_rank": 15,
+      "name": "Chris Olave",
+      "player_id": "8144",
+      "position": "WR",
+      "projected_points": 262.1416448598131,
+      "replacement_points": 178.36556363636365,
+      "return_probability": null,
+      "support_status": "outside_top_ten",
+      "survival_direct_support": 0,
+      "survival_interval_95": null,
+      "survival_pooled_support": null,
+      "survival_raw_rate": null,
+      "take_now_expected_next_turn_value": 112.83873471869597,
+      "take_now_route_support": "complete",
+      "take_now_route_value": 167.07418947626655,
+      "target_next_turn_value": null,
+      "team": "NO",
+      "value_loss_if_target_gone": null,
+      "wait_delta": 48.41318255035242
+    },
+    {
+      "best_wait_current_player_id": "11604",
+      "best_wait_current_value": 106.02397165799215,
+      "best_wait_route_support": "complete",
+      "best_wait_route_value": 215.48737202661897,
+      "current_roster_value": 58.29433334867943,
+      "expected_fallback_value": 109.46340036862681,
+      "market_adp": 31.0,
+      "market_rank": 16,
+      "name": "Josh Jacobs",
+      "player_id": "5850",
+      "position": "RB",
+      "projected_points": 252.48312222222225,
+      "replacement_points": 174.97860814621976,
+      "return_probability": null,
+      "support_status": "outside_top_ten",
+      "survival_direct_support": 0,
+      "survival_interval_95": null,
+      "survival_pooled_support": null,
+      "survival_raw_rate": null,
+      "take_now_expected_next_turn_value": 112.64855796686436,
+      "take_now_route_support": "complete",
+      "take_now_route_value": 170.9428913155438,
+      "target_next_turn_value": null,
+      "team": "GB",
+      "value_loss_if_target_gone": null,
+      "wait_delta": 44.54448071107518
+    },
+    {
+      "best_wait_current_player_id": "11604",
+      "best_wait_current_value": 106.02397165799215,
+      "best_wait_route_support": "complete",
+      "best_wait_route_value": 215.48737202661897,
+      "current_roster_value": 54.08442341689701,
+      "expected_fallback_value": 109.46340036862681,
+      "market_adp": 32.0,
+      "market_rank": 17,
+      "name": "Breece Hall",
+      "player_id": "8155",
+      "position": "RB",
+      "projected_points": 255.99630000000002,
+      "replacement_points": 174.97860814621976,
+      "return_probability": null,
+      "support_status": "outside_top_ten",
+      "survival_direct_support": 0,
+      "survival_interval_95": null,
+      "survival_pooled_support": null,
+      "survival_raw_rate": null,
+      "take_now_expected_next_turn_value": 112.64855796686436,
+      "take_now_route_support": "complete",
+      "take_now_route_value": 166.73298138376137,
+      "target_next_turn_value": null,
+      "team": "NYJ",
+      "value_loss_if_target_gone": null,
+      "wait_delta": 48.7543906428576
+    },
+    {
+      "best_wait_current_player_id": "11604",
+      "best_wait_current_value": 106.02397165799215,
+      "best_wait_route_support": "complete",
+      "best_wait_route_value": 215.48737202661897,
+      "current_roster_value": 3.547404814045857e-07,
+      "expected_fallback_value": 109.46340036862681,
+      "market_adp": 33.0,
+      "market_rank": 18,
+      "name": "Lamar Jackson",
+      "player_id": "4881",
+      "position": "QB",
+      "projected_points": 354.7404814045857,
+      "replacement_points": 334.64697732426305,
+      "return_probability": null,
+      "support_status": "outside_top_ten",
+      "survival_direct_support": 0,
+      "survival_interval_95": null,
+      "survival_pooled_support": null,
+      "survival_raw_rate": null,
+      "take_now_expected_next_turn_value": 112.83873471869597,
+      "take_now_route_support": "complete",
+      "take_now_route_value": 112.83873507343645,
+      "target_next_turn_value": null,
+      "team": "BAL",
+      "value_loss_if_target_gone": null,
+      "wait_delta": 102.64863695318252
+    },
+    {
+      "best_wait_current_player_id": "11604",
+      "best_wait_current_value": 106.02397165799215,
+      "best_wait_route_support": "complete",
+      "best_wait_route_value": 215.48737202661897,
+      "current_roster_value": 10.468272013645782,
+      "expected_fallback_value": 109.46340036862681,
+      "market_adp": 34.00000000000001,
+      "market_rank": 19,
+      "name": "Tee Higgins",
+      "player_id": "6801",
+      "position": "WR",
+      "projected_points": 226.003375,
+      "replacement_points": 178.36556363636365,
+      "return_probability": null,
+      "support_status": "outside_top_ten",
+      "survival_direct_support": 0,
+      "survival_interval_95": null,
+      "survival_pooled_support": null,
+      "survival_raw_rate": null,
+      "take_now_expected_next_turn_value": 112.83873471869597,
+      "take_now_route_support": "complete",
+      "take_now_route_value": 123.30700673234176,
+      "target_next_turn_value": null,
+      "team": "CIN",
+      "value_loss_if_target_gone": null,
+      "wait_delta": 92.18036529427721
+    },
+    {
+      "best_wait_current_player_id": "11604",
+      "best_wait_current_value": 106.02397165799215,
+      "best_wait_route_support": "complete",
+      "best_wait_route_value": 215.48737202661897,
+      "current_roster_value": 38.1326394451213,
+      "expected_fallback_value": 109.46340036862681,
+      "market_adp": 34.99999999999999,
+      "market_rank": 20,
+      "name": "Tetairoa McMillan",
+      "player_id": "12526",
+      "position": "WR",
+      "projected_points": 237.99759813084114,
+      "replacement_points": 178.36556363636365,
+      "return_probability": null,
+      "support_status": "outside_top_ten",
+      "survival_direct_support": 0,
+      "survival_interval_95": null,
+      "survival_pooled_support": null,
+      "survival_raw_rate": null,
+      "take_now_expected_next_turn_value": 112.83873471869597,
+      "take_now_route_support": "complete",
+      "take_now_route_value": 150.97137416381727,
+      "target_next_turn_value": null,
+      "team": "CAR",
+      "value_loss_if_target_gone": null,
+      "wait_delta": 64.5159978628017
+    },
+    {
+      "best_wait_current_player_id": "11604",
+      "best_wait_current_value": 106.02397165799215,
+      "best_wait_route_support": "complete",
+      "best_wait_route_value": 215.48737202661897,
+      "current_roster_value": 94.35515191630054,
+      "expected_fallback_value": 109.46340036862681,
+      "market_adp": 41.00000000000001,
+      "market_rank": 26,
+      "name": "Colston Loveland",
+      "player_id": "12517",
+      "position": "TE",
+      "projected_points": 290.7107406299855,
+      "replacement_points": 178.3072,
+      "return_probability": null,
+      "support_status": "outside_top_ten",
+      "survival_direct_support": 0,
+      "survival_interval_95": null,
+      "survival_pooled_support": null,
+      "survival_raw_rate": null,
+      "take_now_expected_next_turn_value": 112.78819771340667,
+      "take_now_route_support": "complete",
+      "take_now_route_value": 207.14334962970722,
+      "target_next_turn_value": null,
+      "team": "CHI",
+      "value_loss_if_target_gone": null,
+      "wait_delta": 8.344022396911754
+    },
+    {
+      "best_wait_current_player_id": "11604",
+      "best_wait_current_value": 106.02397165799215,
+      "best_wait_route_support": "complete",
+      "best_wait_route_value": 215.48737202661897,
+      "current_roster_value": 101.97612157962318,
+      "expected_fallback_value": 109.46340036862681,
+      "market_adp": 46.0,
+      "market_rank": 31,
+      "name": "Tyler Warren",
+      "player_id": "12518",
+      "position": "TE",
+      "projected_points": 290.93864540044467,
+      "replacement_points": 178.3072,
+      "return_probability": null,
+      "support_status": "outside_top_ten",
+      "survival_direct_support": 0,
+      "survival_interval_95": null,
+      "survival_pooled_support": null,
+      "survival_raw_rate": null,
+      "take_now_expected_next_turn_value": 112.78819771340667,
+      "take_now_route_support": "complete",
+      "take_now_route_value": 214.76431929302987,
+      "target_next_turn_value": null,
+      "team": "IND",
+      "value_loss_if_target_gone": null,
+      "wait_delta": 0.7230527335890997
+    },
+    {
+      "best_wait_current_player_id": "11604",
+      "best_wait_current_value": 106.02397165799215,
+      "best_wait_route_support": "complete",
+      "best_wait_route_value": 215.48737202661897,
+      "current_roster_value": 61.08093957084462,
+      "expected_fallback_value": 109.46340036862681,
+      "market_adp": 66.99999999999997,
+      "market_rank": 52,
+      "name": "Harold Fannin",
+      "player_id": "12506",
+      "position": "TE",
+      "projected_points": 276.3002119074307,
+      "replacement_points": 178.3072,
+      "return_probability": null,
+      "support_status": "outside_top_ten",
+      "survival_direct_support": 0,
+      "survival_interval_95": null,
+      "survival_pooled_support": null,
+      "survival_raw_rate": null,
+      "take_now_expected_next_turn_value": 112.78819771340667,
+      "take_now_route_support": "complete",
+      "take_now_route_value": 173.86913728425128,
+      "target_next_turn_value": null,
+      "team": "CLE",
+      "value_loss_if_target_gone": null,
+      "wait_delta": 41.61823474236769
+    },
+    {
+      "best_wait_current_player_id": "11604",
+      "best_wait_current_value": 106.02397165799215,
+      "best_wait_route_support": "complete",
+      "best_wait_route_value": 215.48737202661897,
+      "current_roster_value": 44.44057594004857,
+      "expected_fallback_value": 109.46340036862681,
+      "market_adp": 68.00000000000001,
+      "market_rank": 53,
+      "name": "Kyle Pitts",
+      "player_id": "7553",
+      "position": "TE",
+      "projected_points": 276.1566084343768,
+      "replacement_points": 178.3072,
+      "return_probability": null,
+      "support_status": "outside_top_ten",
+      "survival_direct_support": 0,
+      "survival_interval_95": null,
+      "survival_pooled_support": null,
+      "survival_raw_rate": null,
+      "take_now_expected_next_turn_value": 112.78819771340667,
+      "take_now_route_support": "complete",
+      "take_now_route_value": 157.22877365345525,
+      "target_next_turn_value": null,
+      "team": "ATL",
+      "value_loss_if_target_gone": null,
+      "wait_delta": 58.25859837316372
+    }
+  ],
+  "report_version": "offline-2026-player-timing-v3",
+  "roster_id": 5,
+  "round": 2,
+  "sha256": "60501a273b058963c5a420ea280d6899731c4d6049c738f34be5422b1d7628a9",
+  "status": "offline_research",
+  "survival_manifest_hash": "0ee13d56a87c5c8206a5c437879b3a8c1419dfd4d4d7c0dc591905d58faf9d91",
+  "survival_model_version": "hierarchical-position-survival-v1",
+  "top_ten_capture_complete": true,
+  "world_bank": {
+    "players": 607,
+    "version": "e1816053ea18295cb1569c7858bcca0380673ea35228ebb104bc2c732caece34",
+    "worlds": 20
+  }
+}

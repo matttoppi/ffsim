@@ -1,0 +1,112 @@
+{
+  "experiment": "rank-20 route versus terminal paired check",
+  "gate": {
+    "passes": false
+  },
+  "limitations": [
+    "route ranking remains diagnostic",
+    "cached mock states only",
+    "no manager mixture or live ranking change"
+  ],
+  "practical_tie_points": 0.1,
+  "rollouts": 300,
+  "states": [
+    {
+      "baseline_leader": "9509",
+      "baseline_minus_route": {
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "standard_error": 0.0
+      },
+      "draft_id": "1393628519644286976",
+      "pick_no": 1,
+      "rank20_route_leader": "9509",
+      "route_is_terminal_practical_co_leader": true,
+      "same_leader": true
+    },
+    {
+      "baseline_leader": "10229",
+      "baseline_minus_route": {
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "standard_error": 0.0
+      },
+      "draft_id": "1393634461312106496",
+      "pick_no": 24,
+      "rank20_route_leader": "10229",
+      "route_is_terminal_practical_co_leader": true,
+      "same_leader": true
+    },
+    {
+      "baseline_leader": "7523",
+      "baseline_minus_route": {
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "standard_error": 0.0
+      },
+      "draft_id": "1393656492011315200",
+      "pick_no": 73,
+      "rank20_route_leader": "7523",
+      "route_is_terminal_practical_co_leader": true,
+      "same_leader": true
+    },
+    {
+      "baseline_leader": "9509",
+      "baseline_minus_route": {
+        "estimate": 0.0,
+        "interval": [
+          0.0,
+          0.0
+        ],
+        "standard_error": 0.0
+      },
+      "draft_id": "1393721396240080896",
+      "pick_no": 1,
+      "rank20_route_leader": "9509",
+      "route_is_terminal_practical_co_leader": true,
+      "same_leader": true
+    },
+    {
+      "baseline_leader": "8130",
+      "baseline_minus_route": {
+        "estimate": 11.45441595586703,
+        "interval": [
+          10.269466963000347,
+          12.639364948733714
+        ],
+        "standard_error": 0.6045658126870838
+      },
+      "draft_id": "1393746402558881792",
+      "pick_no": 16,
+      "rank20_route_leader": "11604",
+      "route_is_terminal_practical_co_leader": false,
+      "same_leader": false
+    },
+    {
+      "baseline_leader": "6790",
+      "baseline_minus_route": {
+        "estimate": 17.381150115160423,
+        "interval": [
+          16.00946657765306,
+          18.752833652667785
+        ],
+        "standard_error": 0.6998385395445731
+      },
+      "draft_id": "1394035775644913664",
+      "pick_no": 49,
+      "rank20_route_leader": "4217",
+      "route_is_terminal_practical_co_leader": false,
+      "same_leader": false
+    }
+  ],
+  "status": "rejected"
+}

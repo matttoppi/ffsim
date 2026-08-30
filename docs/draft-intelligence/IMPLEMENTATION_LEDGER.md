@@ -8,7 +8,37 @@ This file is the current operational state of the project. Keep it short, factua
 **State:** Candidates are ranked by mean projected completed-roster value across paired continuations (ADR-026); with the future-user policy aligned to the terminal scorer (ADR-031) that ranking is exactly the take-vs-wait regret ordering, and the practical-tie gate is 0.1 points sized to the measured residual (ADR-032). RACE-01 uses one final leader-minus-candidate practical-tier predicate (ADR-033), and decision engine v9 keeps every selected finalist through the 300-rollout maximum because intermediate stochastic confidence intervals are non-monotone (ADR-036). Focused tests and the corrected one-state smoke pass; the all-2,384-state run remains pending, so RACE-01 is not releasable. WHY-01 makes War Room evidence branch-named and field-derived (ADR-034). MKT-01 preserves canonical historical scoring/provenance and separates requested league context from the selected market board (ADR-035); implementation and validation are complete. Compact recommendation-stage telemetry is schema version 2. The opponent market model is `sleeper-adp-inverse-rank-v2`; no decision-engine, draft/VONA-model, roster-scorer, `SeasonWorldBank`, or cache version advances for MKT-01. Decision engine v9.
 **Branch:** `feat/draft-intelligence`
 **Implementation code changed:** Yes
-**Primary next action:** Run the checkpointed all-2,384-state staged-versus-true-flat validator; refinement optimization belongs to PERF-01.
+**Primary next action:** Recover the exact world-bank input bundle used by batch `20260815T043426-52dba2d4`, or generate and freeze a replacement corpus before rerunning the all-state RACE-01 validator. Refinement optimization belongs to PERF-01.
+
+**RACE-01 validator blocker — 2026-08-28:** The full validator was attempted twice. The first attempt failed because template preparation selected a newer exact-team-count market snapshot instead of the snapshot recorded by telemetry. The validator now loads the recorded snapshot by immutable ID; focused market and validator tests pass 12/12. The second attempt then failed before state evaluation because the recorded `SeasonWorldBank` version `f300c1bf66636ce4465210aeafad1f59fea7e86cefd54ec9bd4c6c21abec8ef7` does not match the only retained player/projection cache, which builds version `5e394919bdad453ca3a9f18f348dd86f20da7c6721c1a15987b0361184cc936a`. The checkpoint JSONL remains empty because no state evaluation started. The telemetry snapshot did not preserve the original world-bank inputs, and no old `players.json` copy exists in the repository, cache, `tmp`, `archive`, or `output`. Do not remove the identity check. RACE-01 remains pending and not releasable.
+
+## ALPHA-2026 — Offline model search
+
+**State:** Offline research implementation complete; no live integration approved.
+
+- Added isolated, frozen-gate experiments under `experiments/draft_alpha_2026/`.
+- Audited the immutable 10,013-league-season Sleeper corpus, current 2026 projection sources, cached SQLite stores, and available APIs.
+- Reconfirmed that the 4,707-parameter completed-draft neural network and residual corrections do not beat the historical-market outcome baseline.
+- Manager-position residuals improved seen-manager player-choice log loss in both rolling folds, the seen 2024 transfer, and the one-time 2025 benchmark. The 2025 improvement was `0.031930` with paired draft-clustered difference `-0.031930 [-0.033745, -0.030163]`. The 2021–2023 transfer fit covers 11 of 25 configured managers (`02c_manager_2024_diagnostic/result.json`); the final 2021–2024 locked-benchmark fit covers 12 of 25 (`02d_manager_locked_2025/result.json`). Both use the fixed 20-pick threshold.
+- Rejected live manager use: downstream exact-player survival Brier improved only `0.000338`, below the fixed `0.001` gate, and false-safe rate worsened by `0.000095`.
+- A fixed hierarchical `(relative rank, gap, round, position)` survival model passed both rolling folds and the seen 2024 transfer. Rolling Brier was `0.070530` and `0.074189`; 2024 Brier was `0.094496`. Against the prior exact rank-gap-round baseline, rolling Brier improved by `0.013158 [-0.013779, -0.012584]` and `0.004754 [-0.005608, -0.003960]`, where intervals are paired model-minus-baseline differences. The elite rank-2 RB, round-1, gap-18 estimate is `0.621%` from 2,006 direct observations.
+- Rejected VONA route ranking. Timing report v3 now captures ranks 1–10 for every candidate branch, including next-turn-ineligible players, but one-turn route value selected Los Angeles DEF at terminal rank 23. Trevor Lawrence led the 300-rollout completed-roster evaluation by `12.4938 [11.9047, 13.0829]` paired points; route-versus-terminal rank correlation was `0.0791`. Hierarchical timing remains terminal-subordinate explanation only.
+- `DATA_INVENTORY.md` records sources, API boundaries, model results, assumptions, and the selected offline architecture.
+- Built immutable hierarchical-survival artifact `0ee13d56a87c5c8206a5c437879b3a8c1419dfd4d4d7c0dc591905d58faf9d91`, static manager artifact `eaa845cf7e258fca95f51e9ee253f41f75a3d403041f90f4263361ba8580eab1`, and corrected roster-manager artifact `b1a99ee7cbce2d0fd59dd383aeff7ad0438adc875cf169c26bfc6b87a5abfd93`. All remain `research`; only the fail-isolated shadow collector can load the hierarchical and corrected roster artifacts.
+- Round-phase manager factors improve static manager log loss by `0.02038` and `0.01401` in rolling folds. Corrected position-count reconstruction adds board-unsupported source picks to roster state and improves the round model by `0.01404` and `0.01397`, then by `0.01612` in the seen 2024 transfer; the validations apply 916, 956, and 965 missing-board state updates. The marginal-hazard approximation still worsens, and the full manager callback leaves the baseline practical tier. Across six frozen cached states at the full 300-rollout budget, a fixed 10% mixture retains the same leader as baseline in all six states, exercises 11,939,538 personalized and 2,439,628 population-fallback callback calls, and keeps every shadow leader inside the baseline practical tier. One-turn route ranking remains practical in only three states.
+- Audited three historical projection sources. The local PFF file lacks authoritative provider timing and IDs; Sleeper rows were updated after each season; FantasyPros responses lack observation timestamps and personal access does not authorize historical bulk use. No source entered training. Added a fail-closed `historical-projection-import` path requiring approved timestamp, authorization, Sleeper IDs, raw hash, and draft-time cutoff evidence.
+- Added asynchronous live alpha shadow collection after the terminal recommendation is published. It captures branch-specific return evidence, runs a 20-rollout fixed 10% manager shadow, persists replay inputs and support/fallback counts, discards stale results, and cannot fail the monitor when calculation or telemetry fails.
+- Added `GET /api/draft-intel/alpha-shadow` and a War Room `Draft alpha — shadow` panel with ready, pending, stale, disabled, and failed states. The panel names return probabilities and intervals, manager agreement, and top next-turn alternatives while stating that terminal ranking remains authoritative.
+- Cached `LiveDraftMonitor` verification keeps the recommendation hash identical before and after shadow collection, records one telemetry event, captures the full top ten, exercises eight supported and three fallback opponent rosters, and finishes the serialized shadow in `5.3425` seconds. The 20-rollout manager shadow leader remains inside the terminal practical tier.
+- Added `alpha-shadow-audit` module, CLI, read-only API, immutable report output, and War Room aggregate summary. The audit deduplicates state identity and reports latency, failure/discard rates, top-ten capture, manager agreement and practical retention, support/fallback calls, return coverage, artifact versions, rounds, and pick gaps without modifying telemetry.
+- The initial six-state audit failed only latency: median `10.2911s`, p95 `13.5098s`. Limiting the 20-rollout manager shadow to the five terminal finalists reduces median to `5.1556s`, p95 to `6.7061s`, and maximum to `6.7076s`; hierarchical timing p95 is `0.0583s` and manager-shadow p95 is `6.6598s`. The optimized development gate passes with zero failures, 100% top-ten capture, 100% manager practical-tier retention, personalization and fallback use, and `decision_active: false`.
+- The audit exposes the next support problem: only `46.3%` of terminal candidates have rank-10 survival estimates, `53.7%` are outside the model, direct support ranges from 2 to a median 869, and exact manager/terminal agreement is `4/6` while practical retention is `6/6`. The live evidence gate remains blocked at 6/30 new states.
+- A separately frozen rank-20 hierarchy passes every rolling model gate. Rank-1–10 cells are row-equivalent to the current model, rolling rank-1–10 Brier changes stay within `±0.000001`, and the elite rank-2 RB gap-18 estimate remains `0.621%`. Rank-11–20 Brier improves by `0.010101` and `0.001517` in rolling folds with paired upper bounds below zero; the seen 2024 improvement is `0.008718`. False-safe rates remain below `0.092` and expected calibration error below `0.035`.
+- Immutable rank-20 artifact `055517e675b968c32da4af629bc38b7c1ae335152639df86c648e007e02e3437` raises six-state terminal-candidate return coverage from `43.4%` to `88.2%`. Its integrated shadow candidate passes the cached development gate with p95 `6.8113s`, zero failures, 100% manager practical retention, and the live rank-10 default unchanged.
+- Rank-20 route ranking remains rejected. It matches the terminal leader in four of six states but loses by `11.4544 [10.2695, 12.6394]` and `17.3812 [16.0095, 18.7528]` paired points in the other two. Rank-20 is evidence-only research and cannot rank picks.
+- Added a simple `Projected points` view to projection monitoring. It shows the top ten undrafted players at each position by league-scored season points, including players outside current roster-feasibility filters. QB/RB/WR/TE use FantasyPros as the primary projection source; K/DEF use PFF. The existing VORP, WORP, roster-value, ADP, and lookahead table remains available through `Full value`.
+
+**Next model step:** Collect at least 30 new real live-shadow states before deciding whether rank-20 replaces rank-10 for evidence display. Keep route ranking disabled and terminal completed-roster value authoritative. Separately recover the RACE-01 world-bank input bundle.
 
 ## Project entrypoints
 
@@ -87,6 +117,439 @@ Read in this order:
 - [x] Apply transparent per-draft season, scoring-type, and league-size relevance components while retaining raw counts and component values.
 - [x] Validate the descriptive baseline against 2,197 picks by 20 stored managers; every member of the attached real league has eligible history.
 - [x] Validate `manager-audit` against the current target context: 2026, 12-team PPR.
+
+### OPP-01 — Offline population choice and survival calibration
+
+**State:** Offline slice complete. Fixed choice and exact-player survival passed;
+top-three tier survival failed, so the joint artifact is rejected and offline.
+
+**Frozen contract before fitting:**
+
+- Read the accepted rolling-market database for 2021–2024 only. Fit on
+  2021–2023, validate on 2024, and never query 2025.
+- Reconstruct each supported draft sequentially. Remove every observed pick
+  from the target draft's leakage-safe pre-draft market board.
+- Use the existing accepted inverse-ADP baseline as the one fixed population
+  choice setting: `temperature=1.0`, `reach_rate=0.0`. Do not fit or search
+  choice parameters in OPP-01.
+- Compare that fixed setting only with the current provisional live prior
+  (`temperature=0.11`, reach rate `0.15`).
+- Build exact observed next-turn samples after each roster pick. Track the top
+  ten remaining market players and the top-three market tier until that
+  roster's next pick.
+- Player survival uses a Beta-smoothed market-rank/gap baseline. The frozen
+  population model adds position and round bucket with shrinkage strength 50.
+  Tier survival uses the same gap/round/context hierarchy.
+- Report choice log loss, multiclass Brier score, top-K accuracy, calibration,
+  exact-player survival log loss/Brier/calibration, tier survival
+  log loss/Brier/calibration, context support, and draft-clustered intervals.
+- Choice passes only with at least `0.01` lower 2024 log loss than the
+  provisional live prior and an upper 95% draft-clustered paired interval below
+  zero.
+- Player and tier survival pass only with at least `0.001` lower 2024 Brier
+  than their market-only baselines and upper paired interval bounds below zero.
+- A passing offline artifact is still `research`. Live use requires a separate
+  decision, exact callback-equivalence tests, and no regression in coupled
+  rollout behavior.
+
+**Boundary correction:**
+
+- `opponent-final-20260828` and `opponent-final2-20260828` evaluated a 70-cell
+  temperature/reach grid. They are exploratory, rejected for boundary
+  noncompliance, and cannot support a model claim or live decision.
+- The accepted corrective run uses only the pre-existing inverse-ADP setting
+  (`temperature=1.0`, no reach). Its manifest records one temperature and one
+  reach rate.
+
+**Accepted OPP-01 result — 2026-08-28:**
+
+- Training used 3,834 drafts, 657,321 supported choices, 617,061 next-turn
+  states, and 6,170,610 exact-player survival samples from 2021–2023.
+- Validation used 2,320 drafts, 401,978 supported choices, 376,694 next-turn
+  states, and 3,766,940 player survival samples from 2024.
+- The fixed inverse-ADP choice model passed against the current provisional
+  live prior. Its 2024 log loss was `5.44151` versus `11.03484`; paired
+  difference was `-5.59333 [-5.69700, -5.47563]`. Coverage was 99.72%.
+  This is strong evidence that the mock-fitted live temperature does not
+  transfer to the historical human corpus, but OPP-01 does not change it live.
+- The exact-player population survival model passed: Brier `0.094609` versus
+  `0.120211`, improvement `0.025603`, with paired draft-clustered difference
+  `-0.025603 [-0.026916, -0.024012]`. Log loss improved from `0.390470` to
+  `0.310143`.
+- The top-three tier model failed its Brier gate: `0.036796` versus `0.036520`,
+  difference `+0.000276 [-0.000453, +0.000889]`. Its log loss improved, but
+  secondary log loss cannot rescue the frozen Brier gate.
+- Choice and exact-player survival passed. The joint artifact remains
+  `rejected` because tier survival failed. The passed components remain offline
+  research evidence for separately gated integration work.
+- Output: `/Users/matt/.cache/ffsim/historical_sleeper/hdvn/opponent-final4-20260828`.
+  Contract hash: `5d1a7e1896d84d2b9f697c58f3e9b3c5300ffe4eb149d87787e863b9f1fd5c50`.
+  Manifest file SHA-256:
+  `c2408d9f886a8a8593d9cf29ae7c3a5658476ee97324e28543831fbd3c9e3595`.
+  Model SHA-256:
+  `d58ecda5d98c8bb84773157aae7a7ee07a1a4ac6ad28577edf542dd761e239ba`.
+  Report SHA-256:
+  `a96433dfe6cd750a680d71d2a6b976c46e8b43a0f82809dd5385a39a701e8cac`.
+- `opponent_model.py` SHA-256:
+  `cb9c6b570e366908467220cf6cabfaebfa70cf894167fb3f7bd797e77105ad56`.
+- The accepted fit ran with warnings promoted to errors. It queried only
+  seasons 2021–2024 and records `locked_test_loaded: false`; 2025 was not
+  queried.
+- Warning-strict verification passed two focused OPP-01 tests, 66 historical-package tests, and 77 live boundary tests.
+
+### OPP-02 — Offline wait-versus-reach replay
+
+**State:** Replay complete and `rejected` by its frozen coverage gate. The
+diagnostic found materially fewer false-safe calls but became too conservative.
+
+**Frozen contract before replay:**
+
+- Replay 2024 historical next-turn states only. OPP-01 already used 2024, so
+  this is downstream diagnostic evidence, not a new independent holdout.
+- Never query 2025.
+- After each observed roster pick, track the top ten remaining market players
+  until that roster's next pick. Preserve whole-draft clustering.
+- Compare three probabilities: the market-rank/gap survival baseline, the
+  passed OPP-01 exact-player predictor, and the current live
+  `temperature=0.11`/reach-`0.15` conditional modal-hazard approximation.
+- Classify `safe to wait` at survival probability `>= 0.70` and `urgent` at
+  probability `<= 0.30`. Do not tune these thresholds.
+- Report Brier score, log loss, calibration, safe/urgent coverage, false-safe
+  rate, false-urgent rate, elimination-pick offset, and realized fallback
+  market-rank loss.
+- The OPP-01 predictor passes the replay gate only if its false-safe rate is at
+  least `0.02` lower than the market baseline, its safe coverage is no more
+  than `0.10` lower, and its upper 95% draft-clustered paired Brier interval is
+  below zero.
+- A pass creates only an offline `research` replay artifact. Live use requires
+  a separate decision and coupled-rollout equivalence tests.
+
+**OPP-02 result — 2026-08-28:**
+
+- Replayed 376,694 next-turn states and 3,766,940 top-ten player targets from
+  2,320 complete 2024 drafts.
+- The historical player model reduced Brier score from `0.120211` to `0.094609`
+  with paired difference `-0.025603 [-0.027146, -0.024197]`, and reduced log
+  loss from `0.390470` to `0.310143`.
+- At the frozen 0.70 safe threshold, the market baseline called every target
+  safe and was wrong 14.86% of the time. The historical model called 79.60%
+  safe and was wrong 7.10% of the time: a 7.76 percentage-point false-safe
+  improvement.
+- The historical model's safe coverage fell by 20.40 percentage points, above
+  the frozen 10-point maximum. It therefore failed the replay gate despite
+  better calibration and false-safe behavior.
+- Historical-model false-safe players disappeared after a mean 5.26
+  intervening picks and incurred mean fallback market-rank loss 0.73. Its
+  urgent coverage was 8.34%; 33.58% of urgent calls survived.
+- The current live conditional modal-hazard approximation was severely
+  over-urgent: Brier `0.555425`, log loss `10.08411`, safe coverage 25.11%,
+  urgent coverage 64.57%, and false-urgent rate 82.89%. This is diagnostic
+  evidence only; no live behavior changed.
+- Output: `/Users/matt/.cache/ffsim/historical_sleeper/hdvn/wait-reach-final-20260828`.
+  Contract hash: `0a31bd84d6a7f88ce04dc2f00096ca1ba09f1ad3c6128958dea0c5579d932c03`.
+  Manifest file SHA-256:
+  `ab59c38fc540a65bfdd564decb522cb925b8636c60b74ed52db1980606279195`.
+  Predictions SHA-256:
+  `bcb60bcf63ca1e9788d6aa313f7afca4ffb02b9b271925c738862a3cc257f8e9`.
+  Report SHA-256:
+  `c7a173d515e859fc415a5ad94a42e19338611979d97bedbb4c077d9972ca316b`.
+  `wait_reach_replay.py` SHA-256:
+  `01a323324e63317abc5075c5fe58c7ddadb52087803c5beb76c5ece3a2f170ff`.
+- The artifact records `seen_validation_diagnostic: true` and
+  `locked_test_loaded: false`. It did not query 2025 and is not live-eligible.
+- Warning-strict verification passed four focused opponent/replay tests, 68 historical-package tests, and 77 live boundary tests.
+
+### OPP-03 — Correct long-gap player survival pooling
+
+**State:** Rejected. Exact-context keys fixed the elite-player estimate, but
+the corrected position model did not pass its frozen overall validation gate.
+
+**Observed defect:**
+
+- The accepted OPP-01 model pooled every gap of ten or more picks and rounds
+  one through three into one player cell.
+- That broad `rank 2-3 / gap 10+ / RB / early` training cell reported
+  `6,088 / 38,290 = 15.90%` survival.
+- The exact 2021–2023 context for a rank-2 RB, round 1, gap 18 is
+  `7 / 2,006 = 0.349%`.
+- The same exact 2024 diagnostic context is `1 / 387 = 0.258%`.
+- Therefore, the 15.99% Bijan output is a model aggregation error, not ordinary
+  uncertainty. `opponent-final4`, OPP-02 long-gap outputs, and existing TIM-01
+  reports must not be used for long-gap player decisions.
+
+**Frozen corrective contract before refitting:**
+
+- Keep the fixed inverse-ADP choice setting, target definition, Beta prior,
+  shrinkage strength, feature hashes, train years, and 2024 diagnostic boundary
+  unchanged.
+- Key player baseline counts by exact integer `(rank, gap, round)`.
+- Key player population counts by exact integer
+  `(rank, gap, round, position)`.
+- Do not change tier-survival keys or gates.
+- Keep the existing player gate: at least `0.001` lower 2024 Brier than the
+  exact rank/gap/round baseline and an upper draft-clustered paired bound below
+  zero.
+- Add a regression invariant that the rank-2 RB, round-1, gap-18 training cell
+  remains `7 / 2,006` and its shrunk prediction remains below 1%.
+- `opponent-final5-20260828` is rejected by this invariant: it predicted 1.55%
+  because it still combined ranks 2–3 and shrank toward a prior pooled across
+  rounds. It cannot support downstream reports.
+- Refit on 2021–2023, rerun the seen-2024 diagnostic, and never query 2025.
+- Regenerate OPP-02 and all saved TIM-01 reports. Old artifacts remain
+  immutable but are explicitly superseded for player survival.
+
+**OPP-03 result — 2026-08-28:**
+
+- `opponent-final6-20260828` uses exact player rank, gap, round, and position.
+- The rank-2 RB, round-1, gap-18 prediction fell from the invalid 15.99% to
+  `0.489%`, with exact training support `7 / 2,006 = 0.349%`. The seen-2024
+  rate remains `1 / 387 = 0.258%`.
+- Overall 2024 player Brier was `0.095891` versus the exact
+  rank/gap/round baseline `0.096149`: improvement `0.000257`, paired difference
+  `-0.000257 [-0.001195, +0.000768]`. This misses the frozen `0.001`
+  improvement and the interval crosses zero.
+- Log loss improved from `0.320074` to `0.312949`, but secondary log loss
+  cannot rescue the Brier gate.
+- The corrected artifact is `rejected`; player survival, OPP-02, and TIM-01
+  were not regenerated. No current artifact is eligible for a 2026 timing
+  decision.
+- Output:
+  `/Users/matt/.cache/ffsim/historical_sleeper/hdvn/opponent-final6-20260828`.
+  Contract hash:
+  `a80036f95a386220b82089c3b0d2417c4d5642db91119ce892aa3ce2675be663`.
+  Manifest file SHA-256:
+  `5cca9e22df084ae04f0ce3f9eab9c398d409d36112c74fd7c6a7a819cbef8f88`.
+  Model SHA-256:
+  `2e62d9b94ff40cf343491b22f68016f9919445a511d5b843cb96895016841a1f`.
+  Report SHA-256:
+  `33c183a939ff8f1090621e649124df7494787024ab66b02bd1cd5ce8d3b9b2e3`.
+- The fit queried 2021–2024 only and records `locked_test_loaded: false`.
+- Warning-strict verification passed seven focused survival/replay/timing tests, including the permanent rank-2 RB round-1 gap-18 regression, plus 68 historical-package tests and 79 live/timing boundary tests.
+
+### OPP-04 — Continuous monotonic player survival
+
+**State:** Rejected. Both rolling folds passed aggregate policy metrics, but the
+fixed additive model failed the frozen elite long-gap regression.
+
+**Frozen contract before fitting:**
+
+- Query only 2021–2023 rolling-market drafts. Use train-2021/validate-2022 and
+  train-2021–2022/validate-2023 folds. Do not query 2024 or 2025.
+- Keep the OPP survival target and top-ten candidate construction unchanged.
+- Fit one aggregated binomial logistic model with fixed features:
+  `log1p(market_rank)`, `log1p(exact_gap)`, exact round, position one-hot,
+  scoring-format one-hot, and team count.
+- Constrain the market-rank coefficient nonnegative and the gap coefficient
+  nonpositive. Use L-BFGS-B, L2 `0.001`, maximum 200 iterations, and no
+  architecture or hyperparameter search.
+- Compare with a Beta(2,2)-smoothed exact `(rank, gap, round)` empirical
+  baseline fitted inside each fold.
+- Keep policy thresholds fixed at safe `>= 0.70` and urgent `<= 0.30`.
+- In both folds, require at least `0.001` lower Brier, at least `0.02` lower
+  false-safe rate, no more than `0.10` safe-coverage loss, and a pooled upper
+  95% draft-clustered paired Brier bound below zero.
+- Preserve the rank-2 RB, round-1, gap-18 regression below 1% with at least
+  1,000 training observations.
+- A pass produces only an offline `research` artifact trained on 2021–2023.
+  It does not authorize 2024/2025 access, TIM-01 regeneration, or live use.
+
+
+**OPP-04 result — 2026-08-28:**
+
+- Fold one trained on 1,057,250 samples from 657 drafts in 2021 and validated
+  on 2,098,920 samples from 1,299 drafts in 2022.
+- Fold two trained on 3,156,170 samples from 1,956 drafts in 2021–2022 and
+  validated on 3,014,440 samples from 1,878 drafts in 2023.
+- Both rolling folds passed aggregate gates. Brier improvement was `0.019284`
+  in 2022 and `0.004943` in 2023; false-safe improvement was `0.031779` and
+  `0.023562`; safe-coverage loss was `0.028430` and `0.056641`.
+- Pooled paired Brier difference was
+  `-0.010829 [-0.012063, -0.009705]` across 3,177 validation drafts.
+- The fixed additive model predicted `26.63%` survival for the rank-2 RB,
+  round-1, gap-18 regression despite 2,006 training observations. It cannot
+  represent the required rank-by-gap tail interaction and fails the frozen
+  sub-1% invariant.
+- The artifact is `rejected`. It did not query 2024 or 2025, and it cannot
+  regenerate TIM-01 or affect live behavior.
+- Output:
+  `/Users/matt/.cache/ffsim/historical_sleeper/hdvn/continuous-survival-final-20260828`.
+  Contract hash:
+  `1e91e0b2ee001917216d27168eb4d5603649307356ba08bdc23f20fb45b7559a`.
+  Manifest file SHA-256:
+  `faf90e2c771b249eaf1a941953c13128c7c5174183cbf2c65531539fd4b6e470`.
+  Model SHA-256:
+  `c06641f54d0c7ac6d8d1ae5fdfdd2e1bd13f11e4b9e4907f0c46ad813b49109c`.
+  Report SHA-256:
+  `727e1303c9f2a620bf889712f716ef661a04acbbbb073aa22c2dc85fb14391a8`.
+- Warning-strict verification passed nine focused survival/replay/timing tests, 71 historical-package tests, and 79 live/timing boundary tests.
+
+### OPP-05 — Supported exact empirical survival lookup
+
+**State:** Passed as an offline `research` lookup with transparent exact rates
+and fail-closed support. No live or TIM-01 integration is authorized.
+
+**Frozen contract before materialization:**
+
+- Query only 2021–2023 rolling-market drafts. Use train-2021/validate-2022 and
+  train-2021–2022/validate-2023 support/calibration folds. Do not query 2024 or
+  2025.
+- Key every player cell by exact
+  `(market rank, pick gap, round, position, scoring format, team count)`.
+- Require at least 250 training observations. Return `unavailable` below that
+  threshold; do not interpolate, pool, or fall back to another cell.
+- Report raw successes/count, raw rate, Laplace-smoothed Beta(1,1) probability,
+  and a 95% Wilson interval.
+- Require at least 10% supported validation coverage, supported-cell Brier at
+  most `0.15`, and expected calibration error at most `0.05` in both folds.
+- Preserve exact rank-2 RB, round-1, gap-18 PPR regression cells: 10-team
+  `5 / 696`, 12-team `2 / 1,101`, both supported and smoothed below 1%.
+- A pass creates only an offline `research` lookup trained on 2021–2023. It
+  does not authorize 2024/2025 access, TIM-01 regeneration, or live use.
+
+**OPP-05 result — 2026-08-28:**
+
+- Materialized 62,684 exact cells from 6,170,610 player observations across
+  3,834 training-year drafts. The support-250 gate retains 8,115 cells and
+  4,156,593 observations.
+- Fold-one coverage was `10.07%`, Brier `0.006563`, and expected calibration
+  error `0.000280`. Fold-two coverage was `28.32%`, Brier `0.065135`, and
+  expected calibration error `0.043743`. Both frozen gates passed.
+- The 10-team PPR rank-2 RB, round-1, gap-18 cell reports `5 / 696 = 0.718%`,
+  smoothed probability `0.860%`, and Wilson interval `[0.307%, 1.671%]`.
+- The 12-team PPR equivalent reports `2 / 1,101 = 0.182%`, smoothed probability
+  `0.272%`, and Wilson interval `[0.050%, 0.660%]`.
+- The 10-team half-PPR equivalent has only 49 observations and returns
+  `unavailable`; no context fallback is applied.
+- The artifact status is `research`. It used 2021–2023 only and records
+  `validation_2024_loaded: false` and `locked_test_loaded: false`.
+- Output:
+  `/Users/matt/.cache/ffsim/historical_sleeper/hdvn/empirical-survival-final-20260828`.
+  Contract hash:
+  `88f11d19aa4d719b43e1d8258d614f6277e42e94624e1b237f948f2d758f609d`.
+  Manifest file SHA-256:
+  `cb5029023e7df434040af8284b94b06d6c30fc6cfefdf9e89c78f4e2ea0a99eb`.
+  Lookup SHA-256:
+  `0e9a68a8057445d852f4ee9a857aeac9183b03690ae3b9d2b5782fc9a077dbd2`.
+  Report SHA-256:
+  `e94087f39a1b3b0f361742d9fba11c0b6db2bcd31fbaba2ccf48cb8224462f0f`.
+- Warning-strict verification passed 11 focused lookup/survival/replay/timing tests, 73 historical-package tests, and 79 live/timing boundary tests.
+
+### TIM-01 — Offline 2026 player timing report
+
+**State:** Suspended. The command remains available, but every existing report uses the superseded broad-gap artifact and must not guide a draft decision.
+
+**Frozen contract before implementation:**
+
+- Load explicit cached league and draft payloads. Make no Sleeper, projection,
+  or market network request.
+- Use the current cached 2026 market board for availability and the current
+  cached 2026 projection world bank for roster-specific marginal value.
+- Load only the passed exact-player component from the compliant fixed-parameter
+  OPP-01 artifact.
+- Require the requested roster to be on the clock in a supported snake or
+  linear draft.
+- Evaluate the normal candidate pool with default breadth 20. For each current
+  candidate, add the player to the roster, inspect the top ten remaining market
+  players, and combine their historical survival probabilities with the
+  terminal-aligned marginal values.
+- Compute one-turn diagnostic route value as current marginal value plus
+  expected best next-turn marginal value. The expected-best calculation uses
+  an explicit independence approximation over the supported top-ten players.
+- For every target, report current value, current 2026 market rank, historical
+  return probability in its best alternative branch, expected fallback value,
+  take-now route, best wait route, and signed wait delta.
+- Do not emit an automatic `TAKE`, `WAIT`, or `REACH` label. Do not call the
+  result a recommendation or use it to reorder the live board.
+- Write deterministic JSON with exact cache, artifact, market snapshot,
+  world-bank, feature-support, and code identities.
+
+**TIM-01 result — 2026-08-28:**
+
+- Added `draft-timing-report`, which loads explicit local league/draft caches,
+  cached 2026 players/projections/market data, and the compliant OPP-01
+  artifact without network access.
+- The report preserves existing roster feasibility and terminal-aligned
+  marginal-value semantics. It does not modify VONA, rankings, projection
+  inputs, opponent callbacks, or coupled rollouts.
+- Each candidate row records projected points, replacement points,
+  roster-specific current value, current market rank, take-now route, best
+  alternative route, wait delta, historical/market return probabilities,
+  support, expected fallback value, and value loss if the target disappears.
+- Historical survival is emitted only for the top-ten market region validated
+  by OPP-01. Deeper candidates are explicitly `outside_top_ten`; the command
+  does not extrapolate.
+- A real cached 2026 mock smoke passed at draft `1394035775644913664`, roster
+  9, pick 49, with two opponent picks until pick 52. It used 20 deterministic
+  worlds over 607 players and market snapshot
+  `1f0341577327b9e813908cc0b5a2bbc957c464c4309cb84f1d1403398b5b5b1f`.
+- Smoke report: `tmp/timing-1394035775644913664.json`; contract hash
+  `724e5db2aa1b643a4289f7f1136fc3ad278e63712b1fe4659ca6586cd61de299`;
+  file SHA-256
+  `ae93c9f0f38d2f83bc9266fa36fd2c1cde7565e17874b5e613adecff7d3225bd`.
+- The output is immutable, self-hashed, labeled `offline_research`, and records
+  `decision_active: false`.
+- Warning-strict verification passed two focused TIM-01 tests, 68 historical-package tests, and 79 live/timing boundary tests.
+- Saved-state verification passed six active caches: two 10-team pre-draft states at pick 1, 10-team states at picks 16 and 49, and 12-team states at picks 24 and 73. A completed 170-pick cache failed closed because no roster was on the clock.
+- OPP-03 invalidates the survival fields in all six reports, including the 15.99% Bijan value. Current code fails closed on the superseded artifact version. TIM-01 remains unavailable until a corrected player-survival model passes its frozen gate.
+
+### TIM-02 — Empirical lookup timing integration
+
+**State:** Complete as an offline `research` integration. No decision label or
+live behavior was added.
+
+**Frozen contract before implementation:**
+
+- Replace the superseded OPP model input with exact OPP-05 artifact
+  `88f11d19aa4d719b43e1d8258d614f6277e42e94624e1b237f948f2d758f609d`.
+- Query by exact current branch market rank, picks to next turn, round,
+  position, scoring format, and team count.
+- Preserve the OPP-05 support-250 rule, Beta(1,1) probability, Wilson interval,
+  and `unavailable` result without fallback or interpolation.
+- Exclude unavailable cells from expected-next-turn probability aggregation.
+  Keep their support state explicit in every candidate row.
+- Preserve current cached projection scoring, roster feasibility, candidate
+  pool, one-turn route formula, and all input hashes unchanged.
+- Decision thresholds: none. Emit no `TAKE`, `WAIT`, `REACH`, recommendation,
+  or live rank.
+- Offline gate: regenerate the six previously proven 10/12-team saved states;
+  preserve completed-state rejection; produce a supported 10-team PPR
+  rank-2/round-1/gap-18 estimate of 0.860%; and make no network, 2024, 2025,
+  API, UI, VONA, callback, ranking, or rollout change.
+
+**TIM-02 result — 2026-08-28:**
+
+- Cleanly replaced the superseded model input with OPP-05 exact lookup
+  `88f11d19aa4d719b43e1d8258d614f6277e42e94624e1b237f948f2d758f609d`.
+- Six saved 10/12-team reports completed at picks 1, 16, 24, 49, and 73. A
+  completed 170-pick state still failed closed because no roster was on clock.
+- The 10-team PPR Bijan branch at pick 1 now reports `5 / 696`, raw `0.718%`,
+  smoothed `0.860%`, interval `[0.307%, 1.671%]`, and support status
+  `available`.
+- Unsupported cells return null probability/rate/interval and zero support.
+  Routes with no supported next-turn cells now return null instead of treating
+  unavailable players as zero-value outcomes.
+- Report support varied by saved state: 10 of 21 candidates at both 10-team
+  pick-1 states, 6 of 24 at pick 16, 5 of 26 at pick 49, 0 of 21 at the
+  12-team pick-24 state, and 7 of 23 at the 12-team pick-73 state.
+- Reports:
+  - `tmp/timing3-1393628519644286976.json` —
+    `622a27c2d7a8ce3042ae912a18fea50cb5aa0db79c830976aeca01c3a739cefc`.
+  - `tmp/timing3-1393721396240080896.json` —
+    `d7a95463d3d298fb14f83d84aaf26dc57b770cbcc0278f4068a2cee50d1eb8b1`.
+  - `tmp/timing3-1393746402558881792.json` —
+    `31f43ec4bbc809e4c8cb7d1f4d48cd9af271f6026dab591e4dfbf0704387867a`.
+  - `tmp/timing3-1394035775644913664.json` —
+    `a5b0f39f0e6fbf946973263c3de833ccbf92079d3ce462fa9853fa3d6471b8f7`.
+  - `tmp/timing3-1393634461312106496.json` —
+    `449ba77015e3519361ef8a2c1ff4705a2cdc55413ea09240f3bc43f72d2d6b01`.
+  - `tmp/timing3-1393656492011315200.json` —
+    `aa5da7f71ecb76aa723172eb25109f35adcb674203ff67e137c13c2095523357`.
+- Reports are version `offline-2026-player-timing-v2`, self-hashed,
+  `decision_active: false`, and record code SHA-256
+  `74f6838c4ae79d2a46e2b9651d823b1a5e7f57aa3c5f1d8431251c537514acf1`.
+- The command made no network request and did not query 2024 or 2025. It did
+  not change API/UI behavior, VONA, rankings, callbacks, or rollouts.
+- Warning-strict verification passed 12 focused lookup/survival/replay/timing tests, 73 historical-package tests, and 80 live/timing boundary tests.
 
 ## Phase 4 foundation completed
 
@@ -289,9 +752,85 @@ Phase 1 is complete. Phase 2 now has append-only manual and official FantasyPros
 
 ## Last updated
 
+2026-08-30 — Added an owner-requested forced FantasyPros refresh for tonight's draft, plus the falloff horizon-copy nit. Setup form: a new "Pull the latest FantasyPros data" checkbox posts `force_refresh: true` with the prepare request; the help text states it ignores the 12-hour cache and downloads base projections and ADP before boosts and calculations apply. Plumbing: `DraftPrepareRequest.force_refresh` (default false) → `prepare_draft(force_refresh=)` → `PlayerLoader.refresh_if_stale(force=)` and `refresh_fantasypros_adp(force=)`, which fetches every context regardless of TTL freshness; the separate `/api/draft-intel/history/refresh` path is unchanged. Falloff copy: the card edge now reads "18.4 · roster value lost if you wait until pick 24 · seats", naming both the metric and the horizon. Verified with bare runs: full Python suite 253 passed + 683 subtests (new force-fetch market test, prepare-forwarding API test), frontend 63/63 (checkbox POST-body test, horizon-copy test), production build clean. The supervised `ffsim-api` process was restarted onto the new code and reports ready, so the flag is live for tonight.
+
+2026-08-30 — Third falloff clarity pass after an owner screenshot showed the section still confusing late-draft: five cards, four reading "+0.0 lost if you wait", repeated zero-value turn rows, and per-turn numbers clipping at the card edge. Changes: (1) zero-cost positions (edge < 0.05) no longer render cards — they collapse into one "No cost to wait:" strip with badge, best-now player, and points, so cards only appear where waiting actually loses value; (2) the card edge is unsigned and names its horizon ("18.4" + "lost if you wait until pick 19 · 2 seats open"), and each turn row names its metrics on a second line — "roster value 63.6 · down 18.4" — with the direction clause omitted below 0.05 so "−0.0" noise disappears; (3) the section explanation is concrete ("If you skip a position now, the model expects a weaker best option at your next pick. The red number is the roster value that wait costs."); (4) `.falloff-turns li` moved from flex to a two-line `auto minmax(0,1fr)` grid so long names truncate and the labeled numbers get their own line instead of clipping at the card edge. Verified: PositionOutlook tests cover the safe strip (zero-edge K collapses; costly RB/QB stay cards), the labeled turn-row format, the horizon wording, and unsigned card edges; direct `npm test` (63/63) and `npm run build` pass.
+
+2026-08-30 — Follow-up UX pass on the projection board at owner request. (1) Header help now renders as an instant CSS tooltip: the sortable overall-table headings moved their ASD-STE100 explanations from the slow native `title` attribute to `data-help` on the header cell, shown as a styled card under the sticky header on hover or keyboard focus (the sticky `th` is the positioned containing block; `position: relative` was deliberately not added because it would override sticky at higher specificity and un-pin the header). (2) "Value & roster fit" is now the default projection-board view (ADR-045 amended); "Points only" stays one click away. (3) The confusing positional-falloff section was rewritten in plain language: heading "Cost of waiting — by position", a one-sentence explanation of the cards, edge label "lost if you wait", "Best now: … roster value", per-turn rows "value · −drop vs now", a market-view footnote, and the metric glossary entry renamed "Cost of waiting (positional falloff)". Verified: updated PositionOutlook and DraftIntel tests cover the new copy, the value default, and the `data-help` attributes; direct `npm test` (63/63) and `npm run build` pass. Limitation: browser hover placement of the CSS tooltip was not visually verified — the headless probe timed out twice and was abandoned; placement rests on the sticky-th containing-block analysis.
+
+2026-08-30 — Added the owner-requested flat cross-position ranking to the projection board's "Value & roster fit" view ("hard to see who the next best pick would be without going into the positions specifically"), then made its metric headings clickable sorts with hover help at the owner's follow-ups. The "Overall · next best pick" table (accessible region name `Overall ranking`) renders above the per-position tables: top 40 remaining players across positions with an overall Rank column (1, 2, …), sorted by roster value by default. Clicking Projected, VORP, Roster value, or ADP re-sorts by that metric — ADP ascends in market order, the rest descend, `aria-sort` marks the active column, and the header notes the active sort; each sortable heading carries an ASD-STE100 explanation via `data-help` CSS tooltips (initially the native `title` attribute, replaced the same day — see the tooltip entry above), and the WORP column (shown only when validated) stays non-interactive with its own hover help. After the clicked metric, the fixed roster-value/VORP/projected/ADP/player-ID chain keeps every ordering deterministic through the 0.0-roster-value tail. Columns match the position tables plus an inline position badge; the table respects the shared All/Skill filters and hides when a single-position chip is active. Display-only reuse of existing `projection_board.players` fields — no API, model, or ranking change. Verified: the extended value-view frontend test asserts the default roster-value order, re-sorting by Projected/ADP (QB first) and back to Roster value (RB first), the VORP/ADP hover-help text, the third VORP header, and the single-position hide; direct `npm test` (63/63) and `npm run build` pass.
+
+2026-08-30 — Fixed the owner's MacBook-viewport container overflow ("next pick lists are out of their box") with three CSS containment rules in `web/src/styles.css`. (1) The falloff "Targets and later turns" table's nowrap cells forced a ~380px minimum width past its ~320px card; it now uses `table-layout: fixed` (name column 38%, ellipsized cells, wrapping headers). (2) `.timing-card li span` (QB/TE market-timing rows) gained `min-width: 0` so long player strings stop pushing the nowrap drop label outside the card. (3) `.draft-rail > *` gained the `min-width: 0` grid-item guard its sibling grids already had. Verified: 63/63 frontend tests, clean production build, and a headless-Chromium static probe of the built stylesheet at 1512×982 showing both fixed containers contained at a 250px track — at or below every real track minimum (`minmax(250px,1fr)` falloff, `minmax(280px,1fr)` timing), which bounds the 1280-wide case where the rail still renders. Limitation: the full live-state dashboard composition was not browser-rendered at 1280×800/1440×900.
+
+2026-08-30 — Centralized the ADR-046 offset transforms at owner request ("the offset should only be applied to the player's season-long projected points"). Two helpers now hold the whole rule: `LeagueEvaluator.adjusted_flat_season_scores(personal_values)` (pre-floor shift by `offset / available weeks`, identical cutline floor, memoized per offset board, no-offset players bit-identical; replaces the one-day `flat_season_scores_raw` accessor) feeds both the future-user policy and the scorer's preference path, and `personal_ranks.adjusted_projection` (`base + offset`) feeds the policy's projection map and the board's points/VORP/WORP display. `live_candidate_pool` keeps its raw-basis market head and inline entrant ordering per ADR-046 — deliberately untouched. Behavior is unchanged; the pick-25 harness reproduces the identical decomposition and the full suite passes (341 + 691 subtests).
+
+2026-08-30 — Fixed the future-user policy's boost over-credit the owner hit live at pick 25 (Ferguson TE17 proposed over Loveland). `next_turn_user_policy` summed the FLOORED flat scores and then added the offset, so every sub-cutline player's roster value equaled his offset at 100% pass-through, while the terminal scorer shifts pre-floor raw flats and re-floors. Decomposition on the replayed pick-25 mock state (23 feed picks + Nabers at 24, 300-world bank, TE season cutline 170.5, 16 available weeks × 10.028 weekly cut = 160.4): Ferguson raw 111.8 → floored 160.4 → old value 30.0 (== his +30); Likely 130.3 → 20.0; Pitts 145.3 → 10.0; Loveland raw 189.5 → 29.1. After the fix the policy shifts `flat_season_scores_raw` by `offset / available weeks` and re-floors (new `LeagueEvaluator.flat_season_scores_raw` accessor): Ferguson/Likely/Pitts value 0.0 — exactly the scorer's `projected_roster_value(..., personal_values)` marginals — and Loveland (29.08) outranks them in policy `current_values` and the board's TE plan (leader Trey McBride, 56.0). No-offset players are bit-identical; the bare-evaluator fallback path is unchanged. Audited the other offset consumers: board Roster value/route plans consume the policy (fixed transitively); board VORP/WORP display and `live_candidate_pool` value entrants are raw-basis by design, not floored — no defect. New policy regression `tests/test_vona.py::test_sub_cutline_offsets_cannot_pass_the_floor`; existing +50-starter, bench-passthrough, and policy-shift tests pass unchanged; full suite 341 passed + 691 subtests. ADR-046 amended with the corrected pre-floor semantics.
+
+2026-08-30 — Replaced the full-credit preference sum with a lineup-consistent utility after review correctly rejected the "cannot materially distort" claim. Measurement on the owner's real pick-24 mock state (23 replayed picks, 300-world bank, 60 coupled rollouts, his 93 stored offsets): completed user rosters accumulated 150–180 offset points with a 35-point cross-candidate spread, and full-weight crediting over-stated bench/sub-floor boosts ~3× (corrected candidate shifts +48.9/+44.8/+15.2 for Nabers/Olave/Rice versus sums of +167/+182/+152). Fix: `LeagueEvaluator.projected_roster_value` accepts `personal_values` and rescoring shifts each rostered player's pre-floor flat weekly scores by offset/available-weeks, then applies the identical cutline floor, raw seating order, bench discount, and streamer baseline; `evaluate_candidates` now uses this adjusted scorer per continuation instead of `raw + Σ offsets`, so a starter boost passes through fully, a bench boost earns the bench-asset fraction, and a sub-cutline boost that cannot clear the floor earns nothing — exactly matching the future-user policy's floored values (ADR-031 alignment preserved; raw metrics and bank untouched; `_mean_scores_raw` cached alongside the floored flats and initialized in `__init__`). Corrected ranking on the live state: Nabers 302.7 > Olave 299.4 > Rice 284.6 (raw leader was Rice). ADR-046 rewritten accordingly. New bench-passthrough decision test (+40 sub-cutline → exactly zero shift; floor-clearing boost < full credit); the +50 starter pass-through test still holds; full suites pass (340 Python, 63 frontend).
+
+2026-08-30 — Resolved the owner's live falloff confusion ("why Rashee Rice over Malik/Zay/Olave") and a real mixed-basis display bug. The falloff card had picked Rice correctly on raw market value (48.2 before the owner's −25 fade; Nabers' 61.1 board value includes his +25 boost) but displayed boost-adjusted points ("243 pts") beside raw values in one line. Falloff rows (headline, per-turn targets, top players) now display raw projected points and carry `personal_offset`, and the UI renders the boost/fade chip beside every falloff name, so a faded market target reads as "Rashee Rice ⟨−25⟩ · raw pts" instead of contradicting the personal board. Glossary "Roster value" entry corrected per review: 0.0 now reads "no value above streaming after availability and your adjustment," covering fades that floor small positives to zero (verified live: Irving 1.9−5→0, DeVonta 3.6−10→0, while Maye/Lamar/Kittle are genuinely sub-cutline in a 1-QB league where the weekly cutline is QB13). Regression test extended to pin raw falloff points plus the separated offset field; full suites pass (339 Python, 63 frontend, tsc, production build).
+
+2026-08-30 — Fixed the between-pick refresh/lag the owner hit live ("page refreshes on picks, registers my pick 5–10 s late"). Measured causes: (1) the monitor cleared `projection_board` on every state change and the UI unmounted the whole Live board tab until the replacement published — the visible flash; (2) the frontend replaced the entire monitor object every 500 ms because `last_sync_at`/`sync_count` always change, re-rendering the ~600-row board tables twice a second — the jank that made pick registration feel seconds late (board compute itself measured 10 ms against the real 300-world bank; preliminary equity 0.42 s, so in-process calc work compounds but was not primary). Fixes: the monitor keeps the last board across state changes (the new one lands ~10 ms later in the same iteration); the frontend stabilizes poll payloads — unchanged sections (state, recommendation, board, equity, shadow, progress) reuse their previous object references via serialized comparison, clock-only polls skip the state update entirely, the sync clock moved to its own state, and `ProjectionBoard`/`PositionOutlook` are memoized so they re-render only on real changes; the Live board shows a small gold "updating for pick N" chip instead of unmounting when its pick lags the room. New frontend regression test proves a stale-pick board stays mounted with the chip; 63 frontend tests, tsc, production build, and the full 339-test Python suite pass. Owner must restart `ffsim serve` and hard-refresh.
+
+2026-08-30 — Second UX pass, focused on the first-run flow and loop closure. The empty draft-setup screen now opens with a three-step strip (1 "Set your boosts" — a link that switches to the My ranks tab, wired via a new `onOpenRanks` prop from App; 2 "Prepare draft · ~1–2 min · projections, worlds, your boosts"; 3 "Start monitoring"), shown only before preparation. The post-prepare readiness grid gained a "Your boosts" cell fed by the preparation summary's `personal_ranks.players` (new field in the `DraftPreparation` type), so the owner can confirm his board actually loaded. My ranks header now reads "93 rated · 53 boosts · 40 fades" (was a bare rated count) and Escape clears the player search. Verified: setup strip renders and its boosts link navigates to My ranks in headless Chromium against the live backend; tsc clean, 62 frontend tests (new assertions for the strip and navigation, updated count-copy assertions), production build clean.
+
+2026-08-30 — Fixed the "small screen" complaint: the UI used fixed pixel type (15/16px), so large monitors rendered a tiny dashboard. The root font now scales with the viewport (`html { font-size: clamp(15px, 12px + 0.3vw, 19px) }` — ~16.3px at 1440w, ~17.8px at 1920w, 19px from ~2330w), the body font moved to rem so everything rem-sized scales together, and `.shell` gained a 2400px ultrawide reading cap with centered margins. Verified in headless Chromium at 2560×1400 (root 19px, proportionally larger throughout, no overflow) and 1440×900 (16.3px, layout unchanged, no horizontal overflow); tsc, 62 frontend tests, and the production build pass.
+
+2026-08-30 — UX clarity pass at owner request; net inline copy shrank while the metric glossary became the single explanation home. Consistent vocabulary: personal offsets are "boosts" (+, gold) and "fades" (−, violet) everywhere. A compact BoostChip now marks every number that already includes an offset (both projection-board tables and simulation candidate rows, which also show a small "yours <preference value>" when it differs from the raw ranking value); the Points callout switches to "Your projected points · FantasyPros baseline + your adjustments" only when boosted rows are visible. Market views that deliberately ignore boosts (positional falloff, driven by `value_basis: raw_projection`, and the renamed "When to draft QB / TE · market timing" cards) carry one "market view · ignores boosts" chip instead of paragraphs. Jargon cuts: "Fast projection route" → "Best pick by projections" with a plain route sentence; five dense footnotes reduced to one-line state with their definitions moved into the glossary (new "Your boosts" entry names exactly where offsets do and do not apply); the redundant contenders hint merged into the screened-section label. My Ranks: duplicate "my call" column removed (single sign-tinted badge), buttons renamed Boost/Fade, picker hints "← fade / boost →", and saves during monitoring surface "Saved — applies after next draft prep" from the API `applied` field. api.ts types gained personal_offset/preference_adjusted_value/value_basis/applied. Verified: tsc clean, 62 frontend tests pass, production build clean, and headless-browser review of the My Ranks tab against the owner's real 93-offset board (an accidental test click on Bijan was reverted to unrated).
+
+2026-08-30 — Fixed the offset/board incoherence the owner hit mid-mock (boosted dart throws dominating positional falloff with all-zero drops, raw points shown beside adjusted values). Boundaries now (ADR-046 amended): the projection board displays personal numbers — `projected_points`, VORP, and WORP in both Points and Value tables are `base projection + offset` against the raw replacement baseline, `personal_offset` on every row, and board current/route values come from the personalized policy, whose internal projection map (seating, candidate selection, tiebreaks) is also adjusted per the same convention. The positional falloff / cost-of-waiting diagnostic and QB/TE timing outlook deliberately stay on a separate raw-projection policy (`position_outlook.value_basis: "raw_projection"`): cost of waiting measures market scarcity, so a +30 on a late dart throw can no longer become the positional target or flatten drops to zero. New regression test proves adjusted board points/resort plus byte-identical falloff targets and edges versus the raw board; full suite 339 Python tests pass. Owner must restart `ffsim serve` and re-prepare to pick up the fix.
+
+2026-08-30 — Reworked personal rankings to season-point semantics after owner clarification, superseding the same-day pick-space slice (ADR-046 rewritten). Offsets (±5…±50 points, 0 clears; positive = like/more points) persist in `data/cache/draft_intel/personal_ranks.json` keyed by Sleeper ID via `GET/POST /api/personal-ranks` and the "My ranks" tab (368-player cached ADP board, immediate save, point-semantics copy). Integration is user-side and counted exactly once per player: the future-user policy applies `base projection + offset` before the cutline floor (replacement levels, seating, and the shared `SeasonWorldBank` stay raw); `evaluate_candidates` computes a per-continuation preference-adjusted utility (raw roster value + offsets of the user's completed roster) that drives `rank_candidates`, co-leader/toss-up detection via `paired_preference_delta`, and the recommendation, while raw `projected_roster_value` metrics remain untouched for telemetry; candidate-pool value entrants rank by `projection + offset` (market-ADP head unchanged); the live draft model version gains a `:ranks<hash>` suffix so evaluation identity and rollout-range merges cannot mix boards. Prepare-time load with atomic idle hot-swap; an active monitor keeps its immutable board (`applied: live | next_prepare`). Validated: decision test flips the leader with +50 and shows the utility shifts by exactly the offset with raw metrics identical and exact range merges; policy test flips the simulated future pick; pool test promotes value entrants only; API round-trip and live browser save verified. Full suite 338 Python + 61 frontend tests pass with clean tsc.
+
+2026-08-30 — Clarity pass on the live War Room after owner feedback that the combined view was confusing. The live view now has two owner-switched sub-tabs under one shared position filter: "Live board" (pure projection math — falloff cards and the projection board, noted as updating after every synced pick including other managers') and "Simulation advice" (contenders, Why panel, with the championship odds and experimental evidence shown only in this view; the tab gains a ✓ when advice is final). Panels stay mounted and toggle with `hidden`, so nothing shifts on data arrival and the command strip keeps the one-line answer visible in both views. Plain-language renames: "Screened watchlist" → "More candidates · rough early estimates" (rows say "rough est."), board views → "Points only" / "Value & roster fit", alpha panel → "Return odds · experimental" with chip "Evidence only — never changes the pick"; run/seed/engine/world/model identifiers moved into a collapsed "Run details" disclosure. Separately confirmed the owner's own 13:54 server already runs the new backend (managers endpoint live, `position_outlook` present, simulation mode), so every-pick board updates are active — the perceived staleness was the draft waiting on the owner's own pick; a supervised duplicate server failed to bind on 8000 and was left stopped without touching the owner's process. Verified both sub-tabs against the live backend with real pick-25 data (falloff leader Rashee Rice +37.8, simulation final suggestion Rashee Rice +4.9 vs next, zero console errors, no overflow at 1440 or 390); 56 frontend tests (four assertions updated for renames), tsc, production build, and React Doctor (pre-existing findings only) pass.
+
+2026-08-30 — Superseded note for the two entries below: their "activation requires a backend restart" caveats are resolved. The owner's own `ffsim serve` process (started 13:54) was probed and runs the new code — `GET /api/draft-intel/managers` returns 200 and the monitor payload carries `position_outlook` with `recommendation_mode: simulation`. The every-pick off-clock board refresh is therefore deployed on the running server; that specific behavior is proven by the backend unit tests (opponent-state and completed-state board regressions), and has not yet been observed against a live opponent pick because the draft has been waiting on the owner's own pick throughout the session.
+
+2026-08-30 — Added a positional falloff analysis ("cost of waiting") to the projection board at owner request. For every position, `projection_value_board` now reports the first-seat marginal roster value of the best available player now versus the deterministically selected best remaining player (ADP-threshold, not a probability-weighted expectation) at each of the user's actual future turns, using the existing live reach cushion (ADR-019) and the flex- and bench-aware current-roster scorer. The payload declares its assumptions (`availability_model`, `roster_assumption`, `edge_basis: first_marginal_seat`, `reach_rate`, the exact future turn picks) and flex-aware demand per position (`open_dedicated_slots`, `eligible_open_flex_slots` marked shared, `remaining_starting_opportunities`); positions are ordered purely by computed take-now edge — no strategy is hardcoded, so patterns like early double-RB emerge from the math only when the falloff supports them. Top-five per-position targets carry each player's marginal value and edge versus the next turn. The UI renders sorted falloff cards above the projection board, respects the shared Skill/position filter, shows positive waiting costs as positive numbers (a sign-rendering bug caught in review was fixed with a regression test), and states that the analysis is not a survival probability and stays subordinate to the terminal simulation. Validation: 232 Python tests (new falloff identities: drops equal best-now minus turn value, edges match first-turn drops, ordering is descending, no-flex leagues report zero shared flex seats), 56 frontend tests, tsc, production build, and React Doctor (pre-existing findings only). The browser layout check rendered a fixture `position_outlook` injected over the running app because no prepared monitor exists on a new-code server yet; no console errors or overflow. Activation still requires the backend restart noted in the concurrent-engines entry.
+
+2026-08-30 — Added a League scouting tab so the Phase 3 manager-history work is usable during a real draft. New read-only `GET /api/draft-intel/managers` joins the attached league snapshot (users, rosters, draft order) with `summarize_manager_profiles` for the target context and caches per league/draft; the response marks managers without eligible history as population-model-only and carries `MANAGER_PROFILE_MODEL_STATUS` (descriptive only, not decision-eligible). The tab renders per-manager cards in draft-slot order: history depth (drafts, picks, context weight — no confidence labels), first-QB/first-TE typical round with selected/draft counts, four-round start style (Zero-RB/Hero-RB/RB-heavy plus WR-heavy counts), and most-drafted positions; the component fetches only when the tab is opened. Verified against the real league data through a second server instance running the new code (12 managers, 2,265 historical picks, correct slot order) with no console errors or overflow; 232 Python tests (new endpoint join test), 54 frontend tests (new component test), tsc, and the production build pass.
+
+2026-08-30 — Reorganized the War Room around concurrent engines at owner request. Backend: `projection_value_board` now publishes after every synchronized pick, including opponent picks — remaining-pool tables (points, VORP, WORP, roster value, ADP) update off the clock while the pick-anchored current-turn plan and route values still publish only on the user's clock; a completed pick sheet returns None cleanly, and the off-clock next-turn anchor was corrected (the current opponent pick now counts as the intervening opponent). The monitor's `recommendation_mode` API contract is unchanged. Frontend: the engine selector is gone — monitoring always starts the simulation engine, which runs in the background with its staged progress while the projection board displays immediately; the live view is organized into labeled sections ("Pick advice · full simulation" and "Live board · projections"), a shared position filter with a new Skill (RB/WR/TE) toggle governs both boards, a collapsible "What the metrics mean" glossary defines projected roster value, title/playoff odds, VORP, WORP, VONA-style opportunity/urgency, route value, ADP, and next-turn availability using existing verified copy, UI polling tightened from 1s to 500ms (backend poll interval unchanged at 1s), and the shell is now full-width. Validation: 231 Python tests plus new off-clock/completed-state board regressions, 53 frontend tests (three updated for the removed selector and glossary), tsc, production build, and React Doctor (only pre-existing findings). Browser-verified at 1440 and 390 widths with fixtures for the concurrent refining state and against the real running backend for compatibility; no console errors or overflow. The running backend process still executes the old board gate — restart `ffsim serve` and re-prepare after the current live draft to activate every-pick projection updates.
+
+2026-08-30 — Superseded note for the entry below: the engine selector, its lock notice, and the command-strip engine label were removed later the same day when the UI moved to concurrent engines (see the concurrent-engines entry above). The "Board view" labeling of the projection toggle remains.
+
+2026-08-30 — Made the two recommendation engines legible in the UI after the owner could not tell them apart during a live draft. The command strip now names the active engine ("Full simulation · rest-of-draft evaluation" or "Projection lookahead · no simulation") during monitoring; the setup selector shows permanent side-by-side descriptions for both engines with `aria-pressed` state and a gold lock notice explaining that the engine is fixed while monitoring runs; the projection board's Projected points / Full value switch is now labeled "Board view" so it cannot be mistaken for the engine selector. Verified against the live in-progress draft (pick 25, projection mode) in headless Chromium with no console errors; 53 frontend tests, tsc, and the production build pass.
+
+2026-08-30 — Overhauled the frontend palette from navy to a warm charcoal-leather scheme at owner request: warm near-black surfaces, chalk-white text, unchanged FFSim gold as the sole brand accent, bronze data bars replacing steel blue, and a muted violet reserved for the experimental alpha-shadow panel. Position-badge and race-board hues (semantic per-position and per-team colors) are unchanged. All CSS token mirrors (shadcn variables) were remapped; no blue literals remain in the stylesheet. Verified in headless Chromium at 1440 and 390 widths (setup against the real backend, live board against injected fixtures) with no console errors or overflow; 53 frontend tests and the production build pass. The stopped backend was restarted as a persistent supervised process.
+
+2026-08-30 — Rebuilt the War Room frontend as a full-width desktop dashboard without changing any API contract or model behavior. A sticky app bar carries the league, tool navigation, and league switching; the live view leads with a command strip that shows the current pick, on-the-clock state, sync freshness, and the primary recommendation (name, position, projected roster value, edge versus next, final/refining state), which stays visible during refinement and position filtering. Candidate rows gained a column header, one merged telemetry line (title/playoffs/wins/ADP), and a collapsed opportunity-evidence disclosure; championship odds, the subordinate alpha shadow, and the pick feed moved to a right rail. Geometry is square throughout, decorative gradients are flattened (a faint yard-line background texture remains), JetBrains Mono renders all tabular numerics, and setup collapses into a summary once monitoring starts. Verification, all through the Vite dev server in a real headless Chromium: against the real running backend — startup, offline banner with retry, draft-setup form, league-picker search against the live Sleeper API including its empty-result and cancel paths, and the season-simulator tab, with zero console errors and a visible keyboard focus ring; against API fixtures injected into the page (no live draft was running) — the on-clock ready board with rail, refining pipeline with persistent recommendation, and projection mode, at 1440/1280/768/390 widths with no horizontal overflow. 53 frontend tests, tsc, and the production build pass; one filter test was updated for the intentionally persistent command-strip recommendation. React Doctor reports only pre-existing findings (DraftIntel component size, prop-sync effect, LeaguePicker state cluster). Remaining limitation: live on-clock behavior has not yet been observed against a real Sleeper mock draft.
+
+2026-08-28 — Completed TIM-02 as an offline integration of the passed OPP-05 exact lookup. Six saved 10/12-team reports regenerated with exact probabilities, raw rates, Wilson intervals, and fail-closed support. The 10-team PPR Bijan branch now reports 5/696, smoothed 0.860%. A 12-team pick-24 state with no supported cells emits null routes instead of false zero-value assumptions. Reports remain `decision_active: false`; no network, 2024/2025, API/UI, VONA, ranking, callback, or rollout behavior changed.
+
+2026-08-28 — Passed OPP-05 as an offline exact empirical lookup. Support-250 cells cover 4,156,593 training observations and passed both 2022/2023 support-calibration folds. The 10-team PPR rank-2 RB/round-1/gap-18 cell reports 5/696, smoothed 0.860%; the 12-team cell reports 2/1,101, smoothed 0.272%. Unsupported contexts return unavailable without fallback. The lookup used 2021–2023 only; 2024 and 2025 remained untouched. TIM-01 and live Draft Intelligence remain unchanged.
+
+2026-08-28 — Rejected OPP-04 after training-year-only rolling development. The fixed monotonic logistic model passed both aggregate fold gates and improved pooled Brier by 0.010829 [0.009705, 0.012063], but predicted 26.63% survival for the frozen rank-2 RB/round-1/gap-18 case with 2,006 observations. The additive form cannot represent the required rank-by-gap tail interaction. It did not query 2024 or 2025 and cannot supply TIM-01 or live predictions.
+
+2026-08-28 — Rejected OPP-03 after correcting the `10+` gap-bucket defect with exact rank, gap, round, and position keys. The rank-2 RB, round-1, gap-18 estimate fell from an invalid 15.99% to 0.489%, close to the raw 0.349% training rate and 0.258% seen-2024 rate. Overall position-model Brier improved by only 0.000257 with an interval crossing zero, below the frozen gate. `opponent-final4`, OPP-02 long-gap evidence, and all existing TIM-01 reports are superseded and must not guide decisions. 2025 remained untouched.
+
+2026-08-28 — TIM-01 remains implemented but suspended. Its six saved-state reports proved the offline cache/projection adapter works across 10- and 12-team states, but they used the superseded broad-gap OPP-01 artifact. Current code rejects that artifact version; no timing report is decision-eligible until a corrected player-survival model passes.
+
+2026-08-28 — Completed OPP-02 across 376,694 historical next-turn states and 3,766,940 player targets. The OPP-01 exact-player model cut false-safe calls from 14.86% to 7.10% and improved Brier by 0.025603, but safe coverage fell from 100% to 79.60%, beyond the frozen 10-point loss limit. The replay artifact is `rejected`. The provisional live modal-hazard approximation was severely over-urgent and remains unchanged. This is seen-2024 diagnostic evidence; 2025 remained untouched. Any threshold calibration requires a new training-year development contract before one frozen 2025 test.
+
+2026-08-28 — Completed the compliant OPP-01 fixed-parameter rerun on the accepted historical market corpus. The inverse-ADP choice baseline beat the provisional live prior on 2024 log loss, and the population exact-player survival model passed with Brier 0.094609 versus 0.120211 and paired difference -0.025603 [-0.026916, -0.024012]. Top-three tier survival missed its Brier gate, so the joint artifact is `rejected` and remains offline. Two earlier 70-cell exploratory artifacts are explicitly noncompliant and rejected. No live callback changed; 2025 remained untouched.
+
+2026-08-28 — Rejected the separately approved HDVN-R01 residual-alpha discovery after train-only rolling validation. Fixed roster-summary Ridge, pick-sequence Ridge, combined Ridge, and masked neural corrections all failed to improve the historical-market baseline in both 2022 and 2023. The strongest correction, roster Ridge, improved 2023 MAE by only 0.02018 and worsened 2022 by 0.38928; its pooled paired difference was +0.15078 [0.10540, 0.19311]. The command opened only the 2021–2023 train Parquet file. It did not open 2024 or 2025. No live behavior changed.
+
+2026-08-28 — Rejected HDVN-06 under its predeclared 2024 points-percentile gate. One fixed 4,707-parameter masked roster model trained on 51,980 teams from 4,617 league-seasons in 2021–2023 and validated on 29,178 teams from 2,570 league-seasons in 2024. Its points MAE was 27.24022 [27.18108, 27.30409], above the 27.08046 threshold and worse than the historical-market baseline by 0.05976 [0.01488, 0.10715]. The locked 2025 file was not opened. The artifact status is `rejected`; HDVN-07 was not initialized; no live behavior changed.
+
+2026-08-27 — Completed safe HDVN pre-crawl preparation without changing live recommendation behavior. The isolated historical package now has immutable SQLite backup manifests, the `hdvn-features-v1` point-in-time registry, an accepted rolling Sleeper market-source audit, an exact-cutoff rolling market board, bounded team and prefix generators, one-prefix-per-team sampling, versioned labels and temporal splits, metric and model protocols, fail-closed artifact loading, and a deterministic network-free dry run. The focused warning-strict HDVN suite passes 16 tests. HDVN-00 through HDVN-12 remain blocked by their final data, fitting, benchmark, approval, or integration gates. No real model was trained, selected, shadowed, or integrated.
+
+2026-08-27 — Reorganized draft-intelligence documentation without changing code or model behavior. The directory README is now the canonical navigation map for current control, stable specification, active research, operations, and historical evidence. `VALUE_MODEL_BOUNDARIES.md` defines ownership and allowed interactions for the live terminal objective, VONA, WORP, and HDVN: VONA stays live next-turn evidence, WORP stays exact-context win telemetry, and both remain outside the planned neural network. HDVN retains its own specification and HDVN-00–HDVN-12 ledger. Resolved positional research and the 2026-08-15 audit/remediation pair moved under `archive/`, with index and internal links preserved.
+
+2026-08-27 — Planned the separate Historical Draft Value Network research project (ADR-040). `HISTORICAL_DRAFT_VALUE_NETWORK.md` defines completed-draft and partial-prefix outcome experiments, strict separation from live projected value, point-in-time feature and leakage rules, one-prefix-per-team-per-epoch weighting, league-season temporal splits, simple-model baselines, uncertainty, artifacts, and release gates. `HDVN_IMPLEMENTATION_LEDGER.md` tracks HDVN-00 through HDVN-12 from frozen data snapshot to baselines, neural experiments, locked benchmark, optional read-only shadow mode, and a later integration-or-rejection decision. No model is trained, no artifact is live-eligible, and no recommendation behavior changes.
+
 2026-08-27 — Added the gated WORP calibration pipeline (ADR-039). `worp-calibrate` reads regular-season matchup margins from the isolated historical Sleeper store, fits exact `(team_count, scoring_format)` points-to-win curves with league-season holdout isolation, and records source hashes, sample counts, thresholds, curves, and holdout errors. Passing the default 1,000-train/250-holdout gates produces only a candidate artifact. `worp-approve` requires an exact context and architecture-decision reference before the live loader accepts it; missing, candidate, failed, malformed, unapproved, and mismatched artifacts leave WORP unavailable without fallback. Projection board v2 can convert approved-context VORP to regular-season WORP and otherwise shows calibration status. It now labels route value as approximate ADP opponent-choice lookahead, not a full expected-value distribution. Full warning-strict Python tests pass 227/227; full frontend tests pass 49/49 and the production build passes. Browser verification confirms candidate WORP stays absent and visibly pending. Real-data fitting and holdout validation remain pending completion of the historical download.
 
+2026-08-27 — Added an isolated historical Sleeper research collector (ADR-038) under `ffsim/historical_sleeper`. `collect` runs at 750 requests/minute, targets 10,000 strict training-ready leagues plus at least 500 from each requested 2021–2025 season, pauses discovery above a 500-candidate hydration backlog, drains 50 candidates per cycle, and prioritizes older deficient years. The default five-second status is one compact hierarchy with target, hydration, discovery, health, and ready-by-year rows; `status --verbose` adds full inventory and exact detail, while `status --once` retains JSON. Progress logs now distinguish cumulative HTTP calls, interval-based HTTP RPM, and new league-seasons/min so high discovery fan-out cannot be mistaken for request rate. Twenty-four fixture-backed tests pass, including target/year stopping, discovery pause, deficient-year priority, strict readiness, compact/verbose rendering, 750-RPM circuit breaking, RPM labeling, and bounded-memory coverage.
+
 2026-08-27 — Added the optional deterministic projection lookahead (ADR-037). The live monitor now accepts `simulation` or `projection`; projection mode skips candidate rollouts, the worker executor, and league-equity calculations, while simulation mode remains unchanged and can show both boards. Projection board v1 ranks every eligible available player within position from prepared league-scored season points, reports the league-wide replacement cutline and VORP, reports roster-aware terminal marginal value, and compares each position's best current pick by deterministic ADP lookahead through the next non-adjacent user pick. WORP is intentionally absent because prepared points do not define a validated points-to-head-to-head-wins conversion; full simulation remains the source of expected wins. Focused Python tests pass 71/71; the full warning-strict Python suite passes 223/223. Draft Intelligence frontend tests pass 19/19; the full frontend suite passes 49/49 and the production build passes. Browser verification covers the live positional tables, filters, full-width layout, and absent league-equity sidebar.
+
+2026-08-17 — Added a Recent trades panel to the Season simulator. League refreshes now cache the 30 newest completed Sleeper trades across the current season, and the existing league response resolves team names, players, draft picks, and FAAB by receiving roster. The panel uses the cached data and shows an explicit empty state. All 221 warning-strict Python tests, 47 frontend tests, and the production build pass. React Doctor reports only the three existing DraftIntel/LeaguePicker warnings.
 
 2026-08-15 — Corrected RACE-01's unsafe intermediate elimination (ADR-036, decision engine v9). Intermediate stochastic confidence intervals are non-monotone, so every selected finalist now reaches the 300-rollout maximum; the 150- and 225-rollout stages still publish progress, and the final board applies the unchanged 0.1-point gate. Focused tests pass 73/73, and the full warning-strict Python suite passes 220/220. A fresh checkpoint-schema-3 staged-versus-true-flat smoke reused the frozen corpus input and passed with 5,000/5,000 candidate-rollouts, a 1.0 work ratio, zero outcome mismatches, zero unsafe mismatches, and player `9488` retained for its observed re-entry. Each record is bound to the snapshot hash, model/scorer/evaluator versions, seed, budgets, and runtime configuration; changed inputs and prior schemas fail closed on resume. The earlier failed smoke remains recorded below. The exact all-2,384-state run is pending, so RACE-01 is not complete or releasable. Exact next step: run that checkpointed corpus comparison; PERF-01 owns any later refinement optimization.
 

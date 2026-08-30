@@ -152,6 +152,73 @@ class NextTurnOpportunityCostTest(unittest.TestCase):
 
         self.assertGreater(utilities["qb_now"], utilities["rb_now"])
 
+    def test_personal_point_offsets_shift_future_user_choices(self):
+        policy, rosters, available, league_evaluator, snapshot = policy_fixture(
+            scarce_rb_points=21.0, rb_filler_points=20.0
+        )
+        baseline = policy(1, 1, rosters, available)
+        self.assertGreater(baseline["qb_now"], baseline["rb_now"])
+
+        state = SimpleNamespace(pick_owners=(1, 2, 2, 1))
+        choose = _live_opponent_choice(snapshot, league_evaluator, state, 0.01)
+        liked = _projection_user_policy(
+            league_evaluator, state, choose, {"rb_now": 50}
+        )(1, 1, rosters, available)
+
+        # +50 season points on the scarce RB flips the simulated user's
+        # first pick: base projection + offset feeds the same floored
+        # value-over-replacement policy, replacement levels unchanged. The
+        # QB plan also rises slightly — its later turn may now harvest the
+        # boosted RB — but the RB-now plan leads.
+        self.assertGreater(liked["rb_now"], liked["qb_now"])
+        self.assertGreater(liked["rb_now"], baseline["rb_now"])
+
+    def test_sub_cutline_offsets_cannot_pass_the_floor(self):
+        league_evaluator = evaluator()
+        state = draft_state()
+        snapshot = {
+            "source": SLEEPER_ADP_SOURCE,
+            "snapshot_id": "sub-cutline-offsets",
+            "observations": [
+                {"canonical_player_id": f"p{index}", "adp": index}
+                for index in range(1, 13)
+            ],
+        }
+        choose = _live_opponent_choice(snapshot, league_evaluator, state, 0.01)
+        values = lambda offsets: _projection_user_policy(
+            league_evaluator, state, choose, offsets
+        ).current_values(1, state.rosters, state.available_player_ids)
+        baseline = values(None)
+        empty = {1: (), 2: (), 3: (), 4: ()}
+        with_p8 = {1: (7,), 2: (), 3: (), 4: ()}
+
+        def scorer_gain(offsets):
+            return (
+                league_evaluator.projected_roster_value(with_p8, 1, offsets)
+                - league_evaluator.projected_roster_value(empty, 1, offsets)
+            )
+
+        # p8 (30/week) sits below the 60/week WR cutline, so his floored
+        # flat value is exactly the cutline. The old post-floor offset
+        # credited +30 at 100% (roster value == offset, the Ferguson bug);
+        # pre-floor, +30 cannot clear the cutline and earns exactly the
+        # terminal scorer's adjusted pass-through: nothing.
+        boosted = values({"p8": 30.0})
+        self.assertAlmostEqual(
+            boosted["p8"] - baseline["p8"], scorer_gain({"p8": 30.0}), places=6
+        )
+        self.assertLess(boosted["p8"] - baseline["p8"], 1e-6)
+        self.assertAlmostEqual(boosted["p8"], baseline["p8"], places=6)
+
+        # A floor-clearing boost earns exactly the terminal scorer's
+        # adjusted pass-through (raw + offset over the cutline), never the
+        # full offset.
+        big = values({"p8": 90.0})
+        self.assertAlmostEqual(
+            big["p8"] - baseline["p8"], scorer_gain({"p8": 90.0}), places=5
+        )
+        self.assertLess(big["p8"] - baseline["p8"], 90.0)
+
     def test_adjacent_picks_are_one_turn(self):
         self.assertEqual(
             _next_user_turn_pick_no((1, 1, 2, 3, 3, 2, 1), 1, 1),

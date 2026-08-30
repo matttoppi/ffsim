@@ -6,6 +6,7 @@ import numpy as np
 
 from ffsim.draft_intel.decision import DraftOpportunityCost
 from ffsim.draft_intel.market_model import position_caps, starting_lineup_needs
+from ffsim.draft_intel.personal_ranks import adjusted_projection
 from ffsim.models.team import FLEX_ELIGIBILITY
 from ffsim.simulation.evaluator import BENCH_ASSET_FACTOR
 
@@ -60,7 +61,7 @@ def season_value_over_replacement(evaluator):
     return projection, position_of, replacement
 
 
-def next_turn_user_policy(evaluator, state, opponent_choice):
+def next_turn_user_policy(evaluator, state, opponent_choice, personal_values=None):
     """Choose future user picks by current plus expected next-turn value.
 
     Player values mirror the terminal roster scorer
@@ -82,10 +83,21 @@ def next_turn_user_policy(evaluator, state, opponent_choice):
     if flat is None:
         # Bare test evaluators without score tensors: full availability at
         # the projection mean, which makes starter points equal projection.
-        starter_points = dict(projection)
+        # Offsets shift the projection directly — there is no separate
+        # pre-floor basis to adjust.
+        starter_points = dict(adjusted_projection(projection, personal_values))
         available_weeks = {player_id: weeks for player_id in projection}
     else:
-        scores, available = flat()
+        # Value basis: the terminal scorer's own flat scores; with owner
+        # offsets, the ONE central adjusted basis (ADR-046) — pre-floor
+        # shift by offset / available weeks, identical cutline floor — so
+        # the policy and ``projected_roster_value`` can never disagree on
+        # what a boost is worth. Replacement levels and the bank stay raw.
+        scores, available = (
+            evaluator.adjusted_flat_season_scores(personal_values)
+            if personal_values
+            else flat()
+        )
         player_index = {
             player_id: index
             for index, player_id in enumerate(evaluator.bank.player_ids)
@@ -98,6 +110,8 @@ def next_turn_user_policy(evaluator, state, opponent_choice):
             player_id: int(available[player_index[player_id]].sum())
             for player_id in projection
         }
+    # Seating, candidate selection, and tiebreaks see the owner's numbers.
+    projection = adjusted_projection(projection, personal_values)
     floored_values = {
         player_id: max(
             0.0,

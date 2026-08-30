@@ -1,0 +1,207 @@
+{
+  "artifact_versions": {
+    "manager": [
+      "b1a99ee7cbce2d0fd59dd383aeff7ad0438adc875cf169c26bfc6b87a5abfd93"
+    ],
+    "manager_blends": [
+      0.1
+    ],
+    "survival": [
+      "0ee13d56a87c5c8206a5c437879b3a8c1419dfd4d4d7c0dc591905d58faf9d91"
+    ]
+  },
+  "audit_version": "alpha-shadow-audit-v1",
+  "development_gate": {
+    "complete_top_ten": true,
+    "decision_inactive": true,
+    "manager_practical_retention": true,
+    "no_shadow_failures": true,
+    "p95_duration_at_most_10_seconds": false,
+    "passes": false,
+    "personalization_executed": true,
+    "population_fallback_executed": true,
+    "six_ready_states": true
+  },
+  "limitations": [
+    "shadow events do not contain realized draft outcomes",
+    "20-rollout manager results are telemetry, not release evidence",
+    "live integration requires at least 30 new states"
+  ],
+  "live_evidence_gate": {
+    "complete_top_ten": true,
+    "decision_inactive": true,
+    "manager_practical_retention": true,
+    "no_shadow_failures": true,
+    "p95_duration_at_most_10_seconds": false,
+    "passes": false,
+    "personalization_executed": true,
+    "population_fallback_executed": true,
+    "thirty_new_ready_states": false
+  },
+  "metrics": {
+    "candidate_return_coverage": 0.4632352941176471,
+    "decision_inactive_rate": 1.0,
+    "direct_support": {
+      "median": 869,
+      "minimum": 2
+    },
+    "discarded_events": 0,
+    "duplicate_ready_events": 0,
+    "duration_seconds": {
+      "maximum": 13.528079416137189,
+      "median": 10.291132042068057,
+      "p95": 13.509769885102287
+    },
+    "failed_events": 0,
+    "failure_rate": 0.0,
+    "manager_callback_calls": {
+      "personalized": 794792,
+      "population": 162456
+    },
+    "manager_exact_agreement_rate": 0.6666666666666666,
+    "manager_practical_retention_rate": 1.0,
+    "manager_roster_support": {
+      "population_fallback_rosters": 10,
+      "supported_rosters": 48,
+      "total_opponent_rosters": 58
+    },
+    "manager_shadow_states": 6,
+    "opponent_pick_gaps": {
+      "18": 2,
+      "2": 1,
+      "22": 1,
+      "23": 1,
+      "8": 1
+    },
+    "outside_model_candidate_rate": 0.5367647058823529,
+    "raw_ready_events": 6,
+    "ready_states": 6,
+    "return_interval_median_width": 0.04811492346940094,
+    "rounds": {
+      "1": 2,
+      "2": 2,
+      "5": 1,
+      "7": 1
+    },
+    "sessions": 6,
+    "top_ten_capture_rate": 1.0
+  },
+  "sha256": "4fad6ff381437b50a7218f0f76061fff5b9a6f305188d98cf84290d89c28eaaf",
+  "source": {
+    "draft_id": null,
+    "session_id": null,
+    "telemetry_path": "/Users/matt/matt/dev/fun/ffsim/experiments/draft_alpha_2026/2026-08-29_alpha_shadow_audit/telemetry.sqlite3",
+    "telemetry_sha256": "9016051d9cd008e1ccbf23db56ade92a45a01d689e5f10564dfa741afae697bb"
+  },
+  "states": [
+    {
+      "draft_id": "1393628519644286976",
+      "duration_seconds": 12.294308749958873,
+      "manager_support": {
+        "population_fallback_rosters": 1,
+        "supported_rosters": 8,
+        "total_opponent_rosters": 9
+      },
+      "opponent_picks_until_next": 18,
+      "pick_no": 1,
+      "round": 1,
+      "session_id": "b0aabb51-ad36-4dd6-a42e-ed0e46351c4d",
+      "shadow_leader_candidate_id": "9509",
+      "shadow_leader_in_terminal_practical_tier": true,
+      "state_signature": "448cac1b7f30350238e01c9e101c6922e657fe46b36a23b8a211aecb24f473be",
+      "terminal_recommendation_id": "9509",
+      "top_ten_capture_complete": true
+    },
+    {
+      "draft_id": "1393634461312106496",
+      "duration_seconds": 13.528079416137189,
+      "manager_support": {
+        "population_fallback_rosters": 3,
+        "supported_rosters": 8,
+        "total_opponent_rosters": 11
+      },
+      "opponent_picks_until_next": 23,
+      "pick_no": 24,
+      "round": 2,
+      "session_id": "bf8e74ca-9bcf-4225-bf5e-889188cd641d",
+      "shadow_leader_candidate_id": "10229",
+      "shadow_leader_in_terminal_practical_tier": true,
+      "state_signature": "194c30d34f5030888e1b24461cac931e14bf9a19d8e60d292d494e0fe5e34ab4",
+      "terminal_recommendation_id": "10229",
+      "top_ten_capture_complete": true
+    },
+    {
+      "draft_id": "1393656492011315200",
+      "duration_seconds": 5.446245583007112,
+      "manager_support": {
+        "population_fallback_rosters": 3,
+        "supported_rosters": 8,
+        "total_opponent_rosters": 11
+      },
+      "opponent_picks_until_next": 22,
+      "pick_no": 73,
+      "round": 7,
+      "session_id": "2eba6a67-eb4d-4bc4-8bb8-b316ee1ac74c",
+      "shadow_leader_candidate_id": "7523",
+      "shadow_leader_in_terminal_practical_tier": true,
+      "state_signature": "3257b4e8856ee5b2907a9cd28b3d3346874ce8e52a627ab39432401b68c8ea3a",
+      "terminal_recommendation_id": "8167",
+      "top_ten_capture_complete": true
+    },
+    {
+      "draft_id": "1393721396240080896",
+      "duration_seconds": 13.454841291997582,
+      "manager_support": {
+        "population_fallback_rosters": 1,
+        "supported_rosters": 8,
+        "total_opponent_rosters": 9
+      },
+      "opponent_picks_until_next": 18,
+      "pick_no": 1,
+      "round": 1,
+      "session_id": "ea1d451e-bdc9-4859-827b-80e3ca456b66",
+      "shadow_leader_candidate_id": "9509",
+      "shadow_leader_in_terminal_practical_tier": true,
+      "state_signature": "c33eaf3680448d41e733d31313e246109c69d260c9b3284e5248ff92fcbd0552",
+      "terminal_recommendation_id": "9509",
+      "top_ten_capture_complete": true
+    },
+    {
+      "draft_id": "1393746402558881792",
+      "duration_seconds": 8.28795533417724,
+      "manager_support": {
+        "population_fallback_rosters": 1,
+        "supported_rosters": 8,
+        "total_opponent_rosters": 9
+      },
+      "opponent_picks_until_next": 8,
+      "pick_no": 16,
+      "round": 2,
+      "session_id": "7045a59f-6075-43c1-bbfd-b3fe4522bf65",
+      "shadow_leader_candidate_id": "8130",
+      "shadow_leader_in_terminal_practical_tier": true,
+      "state_signature": "468cc865f7e6e55fbe3786ece50ddee545c3557d7dc13808825ecefea7b1c539",
+      "terminal_recommendation_id": "8130",
+      "top_ten_capture_complete": true
+    },
+    {
+      "draft_id": "1394035775644913664",
+      "duration_seconds": 6.785064082825556,
+      "manager_support": {
+        "population_fallback_rosters": 1,
+        "supported_rosters": 8,
+        "total_opponent_rosters": 9
+      },
+      "opponent_picks_until_next": 2,
+      "pick_no": 49,
+      "round": 5,
+      "session_id": "0cd39b86-7ca7-4304-889f-892d0d74cb9d",
+      "shadow_leader_candidate_id": "6790",
+      "shadow_leader_in_terminal_practical_tier": true,
+      "state_signature": "bce5563269287a8217757c1a15cebd3ffef1af75d05d29159e60628ce560782f",
+      "terminal_recommendation_id": "12506",
+      "top_ten_capture_complete": true
+    }
+  ],
+  "status": "research"
+}

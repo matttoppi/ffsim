@@ -1,6 +1,7 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { DraftIntel } from './DraftIntel'
+import { AlphaShadowPanel, DraftIntel } from './DraftIntel'
+import type { DraftMonitor } from './api'
 
 function response(body: unknown) {
   return { ok: true, status: 200, json: () => Promise.resolve(body) } as Response
@@ -20,9 +21,15 @@ afterEach(() => {
 
 describe('DraftIntel', () => {
   it('explains the league-created mobile mock requirement and accepts its URL', async () => {
-    render(<DraftIntel currentDraftId="real" />)
+    const openRanks = vi.fn()
+    render(<DraftIntel currentDraftId="real" onOpenRanks={openRanks} />)
     expect(screen.getByText(/Sleeper mobile app/)).toBeTruthy()
     expect(screen.getByText(/generic Draftboard created on desktop/)).toBeTruthy()
+
+    // Pre-preparation flow strip: boosts step navigates to My ranks.
+    expect(screen.getByText(/~1–2 min/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Set your boosts' }))
+    expect(openRanks).toHaveBeenCalled()
 
     fireEvent.change(screen.getByLabelText('Sleeper mock draft URL'), {
       target: { value: 'https://sleeper.app/draft/nfl/1393634461312106496' },
@@ -44,6 +51,21 @@ describe('DraftIntel', () => {
       draft_id: 'real',
       username: 'mtoppi',
       mock_draft_id: 'https://sleeper.app/draft/nfl/1393634461312106496',
+    })
+
+    // Checking the FantasyPros refresh box adds the force flag.
+    fireEvent.click(screen.getByLabelText(/Pull the latest FantasyPros data/))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Prepare draft' }))
+    })
+    const forced = fetchMock.mock.calls
+      .filter(([, init]) => init?.method === 'POST')
+      .at(-1)
+    expect(JSON.parse(String(forced?.[1]?.body))).toEqual({
+      draft_id: 'real',
+      username: 'mtoppi',
+      mock_draft_id: 'https://sleeper.app/draft/nfl/1393634461312106496',
+      force_refresh: true,
     })
   })
 
@@ -70,15 +92,22 @@ describe('DraftIntel', () => {
     opponent_picks_until_next: 3,
   })
 
-  const mockMonitor = (monitor: unknown) => {
-    fetchMock.mockImplementation((url: string) =>
-      Promise.resolve(
-        response(String(url).endsWith('/api/draft-intel/monitor') ? monitor : { status: 'idle' }),
-      ),
-    )
+  const mockMonitor = (monitor: unknown, audit: unknown = { status: 'idle' }) => {
+    fetchMock.mockImplementation((url: string) => {
+      const path = String(url)
+      return Promise.resolve(
+        response(
+          path.endsWith('/api/draft-intel/monitor')
+            ? monitor
+            : path.endsWith('/api/draft-intel/alpha-shadow/audit')
+              ? audit
+              : { status: 'idle' },
+        ),
+      )
+    })
   }
 
-  it('starts projection monitoring without requesting simulation work', async () => {
+  it('always starts monitoring with the simulation engine', async () => {
     fetchMock.mockImplementation((url: string, init?: RequestInit) => {
       if (String(url).endsWith('/api/draft-intel/prepare')) {
         return Promise.resolve(response({
@@ -96,7 +125,7 @@ describe('DraftIntel', () => {
       if (String(url).endsWith('/api/draft-intel/monitor')) {
         return Promise.resolve(response(
           init?.method === 'POST'
-            ? { status: 'starting', recommendation_mode: 'projection' }
+            ? { status: 'starting', recommendation_mode: 'simulation' }
             : { status: 'idle' },
         ))
       }
@@ -106,7 +135,6 @@ describe('DraftIntel', () => {
     await act(async () => {
       render(<DraftIntel currentDraftId="real" />)
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Projection lookahead' }))
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Start monitoring' }))
     })
@@ -116,7 +144,7 @@ describe('DraftIntel', () => {
         String(url).endsWith('/api/draft-intel/monitor') && init?.method === 'POST',
     )
     expect(JSON.parse(String(request?.[1]?.body))).toEqual({
-      recommendation_mode: 'projection',
+      recommendation_mode: 'simulation',
     })
   })
 
@@ -302,6 +330,68 @@ describe('DraftIntel', () => {
       status: 'running',
       recommendation_status: 'ready',
       recommendation_pick_no: 6,
+      alpha_shadow_status: 'ready',
+      alpha_shadow_pick_no: 6,
+      alpha_shadow_calculation_count: 1,
+      alpha_shadow: {
+        status: 'ready',
+        decision_active: false,
+        draft_id: 'mock',
+        pick_no: 6,
+        terminal_recommendation_id: 'p9',
+        terminal_q_leader_id: 'p9',
+        terminal_co_leader_candidate_ids: ['p9'],
+        survival_model_version: 'hierarchical-position-survival-v1',
+        survival_manifest_hash: 'survival',
+        manager_model_version: 'manager-position-count-residual-v1',
+        manager_manifest_hash: 'manager',
+        manager_probability_blend: 0.1,
+        top_ten_capture_complete: true,
+        candidates: [{
+          player_id: 'p9',
+          name: 'Fresh Player',
+          position: 'RB',
+          team: 'BUF',
+          engine_rank: 1,
+          market_rank: 4,
+          return_probability: 0.28,
+          return_interval_95: [0.21, 0.35],
+          direct_support: 390,
+          pooled_support: 2400,
+          support_status: 'available',
+          timing_label: 'urgent',
+          current_roster_value: 84,
+          wait_delta: -5,
+        }],
+        recommended_branch_next_turn: [{
+          player_id: 'p10',
+          market_rank: 1,
+          position: 'QB',
+          eligible_next_turn: true,
+          return_probability: 0.76,
+          return_interval_95: [0.7, 0.81],
+          direct_support: 800,
+          pooled_support: 2400,
+          timing_label: 'safe_to_wait',
+        }],
+        manager_support: {
+          supported_rosters: 7,
+          population_fallback_rosters: 2,
+          total_opponent_rosters: 9,
+        },
+        manager_shadow: {
+          status: 'ready',
+          rollouts: 20,
+          probability_blend: 0.1,
+          terminal_leader_candidate_id: 'p9',
+          shadow_leader_candidate_id: 'p9',
+          shadow_leader_in_terminal_practical_tier: true,
+          ranking: ['p9'],
+          callback_calls: { personalized: 100, population: 20 },
+        },
+        duration_seconds: 1.2,
+        limitations: [],
+      },
       recommendation: {
         model_status: 'baseline',
         rollout_count: 50,
@@ -393,14 +483,41 @@ describe('DraftIntel', () => {
         ],
       },
       state: { ...monitorState([pick(1, 'Alpha One')], 6), user_on_clock: true },
+    }, {
+      audit_version: 'alpha-shadow-audit-v1',
+      status: 'research',
+      metrics: {
+        sessions: 2,
+        ready_states: 6,
+        failed_events: 0,
+        discarded_events: 1,
+        failure_rate: 0,
+        duration_seconds: { median: 4.8, p95: 5.7, maximum: 6.1 },
+        top_ten_capture_rate: 1,
+        manager_practical_retention_rate: 1,
+        manager_exact_agreement_rate: 0.83,
+        manager_callback_calls: { personalized: 1000, population: 200 },
+      },
+      development_gate: { passes: true },
+      live_evidence_gate: { passes: false },
     })
     await act(async () => {
       render(<DraftIntel currentDraftId="real" />)
     })
-    expect(screen.getByText('Fresh Player')).toBeTruthy()
+    expect(screen.getAllByText('Fresh Player').length).toBeGreaterThan(1)
     expect(screen.getByText('✓ Final suggestion')).toBeTruthy()
     expect(screen.queryByText('First look')).toBeNull()
-    expect(screen.getByText('ADP 42')).toBeTruthy()
+    expect(screen.getByText(/· ADP 42/)).toBeTruthy()
+    expect(screen.getByText('Return odds · experimental')).toBeTruthy()
+    expect(screen.getByText('28%')).toBeTruthy()
+    expect(screen.getByText('21–35%')).toBeTruthy()
+    expect(screen.getByText(/7\/9 opponents personalized/)).toBeTruthy()
+    expect(screen.getByText(/inside the terminal practical tier/)).toBeTruthy()
+    expect(screen.getByText('Observed states')).toBeTruthy()
+    expect(screen.getAllByText('6').length).toBeGreaterThan(0)
+    expect(screen.getByText('5.7s')).toBeTruthy()
+    expect(screen.getByText('100%')).toBeTruthy()
+    expect(screen.getByText('Collecting')).toBeTruthy()
     expect(screen.getByText(/Fresh Player-root local opportunity evidence.*84 current marginal.*78 expected best at pick 9.*\+6 RB drop.*Patient Quarterback.*64%/)).toBeTruthy()
     expect(screen.getByText('Why Fresh Player')).toBeTruthy()
     expect(screen.getByText(/RB cliff/)).toBeTruthy()
@@ -408,15 +525,17 @@ describe('DraftIntel', () => {
     expect(screen.getByText(/36 picks before Fresh Player's ADP of 42/)).toBeTruthy()
     expect(screen.getByText(/Ready for pick 6/)).toBeTruthy()
     expect(screen.getByText('You are on the clock')).toBeTruthy()
-    expect(screen.getByText('QB & TE ADP-only timing · next three turns')).toBeTruthy()
-    expect(screen.getByText(/not a survival probability/)).toBeTruthy()
+    expect(screen.getByText('When to draft QB / TE · market timing')).toBeTruthy()
+    expect(screen.getAllByText('market view · your boosts excluded').length).toBeGreaterThan(0)
+    expect(screen.getByText(/ADP order only · next three turns/)).toBeTruthy()
+    expect(screen.getByText(/Not a survival probability/)).toBeTruthy()
     expect(screen.getByText('Target by pick 9')).toBeTruthy()
     expect(screen.getByText('Take now')).toBeTruthy()
     expect(screen.getByText(/Patient Quarterback · 319 pts/)).toBeTruthy()
     expect(screen.getByText('−31 vs now')).toBeTruthy()
   })
 
-  it('shows the projection-only position lists and next-turn route values', async () => {
+  it('shows simple FantasyPros points and the full projection value view', async () => {
     mockMonitor({
       status: 'running',
       recommendation_mode: 'projection',
@@ -461,11 +580,34 @@ describe('DraftIntel', () => {
             adp: 7,
           },
         ],
+        points_source: 'fantasypros_primary_offense',
+        special_teams_points_source: 'pff',
+        points_players: [
+          {
+            player_id: 'qb1',
+            name: 'Patient Quarterback',
+            position: 'QB',
+            team: 'BUF',
+            position_rank: 1,
+            projected_points: 390,
+            personal_offset: 15,
+          },
+          {
+            player_id: 'rb1',
+            name: 'Value Runner',
+            position: 'RB',
+            team: 'ATL',
+            position_rank: 1,
+            projected_points: 284,
+            personal_offset: 0,
+          },
+        ],
         players: [
           {
             player_id: 'qb1',
             name: 'Patient Quarterback',
             position: 'QB',
+            personal_offset: 15,
             team: 'BUF',
             position_rank: 1,
             projected_points: 390,
@@ -482,6 +624,7 @@ describe('DraftIntel', () => {
             team: 'ATL',
             position_rank: 1,
             projected_points: 284,
+            personal_offset: 0,
             replacement_points: 210,
             value_over_replacement: 74,
             wins_over_replacement: null,
@@ -497,18 +640,111 @@ describe('DraftIntel', () => {
       render(<DraftIntel currentDraftId="real" />)
     })
 
-    expect(screen.getByText('Fast projection route')).toBeTruthy()
+    // Value & roster fit is the default view (ADR-045 amended); switch to
+    // the points view first to check it.
+    expect(screen.getByText('Best pick by projections')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Points only' }))
+    expect(screen.getByText('Your projected points')).toBeTruthy()
+    expect(
+      screen.getByText(/FantasyPros baseline \+ your adjustments/),
+    ).toBeTruthy()
+    expect(screen.getAllByText('+15').length).toBeGreaterThan(0)
+    expect(screen.getByText('Top remaining players by season points')).toBeTruthy()
+    expect(
+      screen.getAllByRole('columnheader', { name: 'Projected points' }),
+    ).toHaveLength(2)
+    expect(screen.getByText('390.0')).toBeTruthy()
+    expect(screen.getByText('284.0')).toBeTruthy()
+    // The points view must not add VORP columns; the metric glossary may
+    // still define the term elsewhere on the page.
+    expect(screen.queryByRole('columnheader', { name: 'VORP' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Value & roster fit' }))
+    expect(screen.getByText('Best pick by projections')).toBeTruthy()
     expect(screen.getByText('Value Runner leads the current-turn plan')).toBeTruthy()
     expect(screen.getByText('Replacement: 328.0 pts')).toBeTruthy()
     expect(screen.getByText('Replacement: 210.0 pts')).toBeTruthy()
-    expect(screen.getAllByText('VORP')).toHaveLength(2)
-    expect(screen.getByText(/82.0 roster value now.*61.0 approximate later value through pick 9.*143.0 approximate route value/)).toBeTruthy()
+    // Two position tables plus the overall roster-value table.
+    expect(screen.getAllByRole('columnheader', { name: 'VORP' })).toHaveLength(3)
+    expect(screen.getByText(/Route value 143\.0 ≈ 82\.0 now \+ 61\.0 likely later through pick 9/)).toBeTruthy()
     expect(screen.queryByRole('columnheader', { name: 'WORP' })).toBeNull()
     expect(screen.getByText(/WORP pending for 12-team PPR: candidate/)).toBeTruthy()
-    expect(screen.getByText(/not a full expected-value distribution/)).toBeTruthy()
+    expect(screen.getByText(/Not a full expected-value distribution/)).toBeTruthy()
+    const overall = screen.getByRole('region', { name: 'Overall ranking' })
+    const overallRows = within(overall).getAllByRole('row').slice(1)
+    expect(overallRows[0].textContent).toContain('Value Runner')
+    expect(overallRows[1].textContent).toContain('Patient Quarterback')
+    // Sortable headings carry ASD-STE100 hover help on their header cells.
+    expect(
+      screen.getByRole('button', { name: 'VORP' }).closest('th')?.getAttribute('data-help'),
+    ).toMatch(/Value over replacement player/)
+    expect(
+      screen.getByRole('button', { name: 'ADP' }).closest('th')?.getAttribute('data-help'),
+    ).toMatch(/Average draft position/)
+    // Clicking a metric heading re-sorts the overall table; QB leads on
+    // projected points (390 vs 284) and ADP (7 vs 8), RB on roster value.
+    fireEvent.click(screen.getByRole('button', { name: 'Projected' }))
+    const overallRegion = () => screen.getByRole('region', { name: 'Overall ranking' })
+    const firstOverallRow = () => within(overallRegion()).getAllByRole('row')[1]
+    expect(firstOverallRow().textContent).toContain('Patient Quarterback')
+    fireEvent.click(screen.getByRole('button', { name: 'ADP' }))
+    expect(firstOverallRow().textContent).toContain('Patient Quarterback')
+    fireEvent.click(screen.getByRole('button', { name: 'Roster value' }))
+    expect(firstOverallRow().textContent).toContain('Value Runner')
     fireEvent.click(screen.getByRole('button', { name: 'RB' }))
     expect(screen.queryByText('Replacement: 328.0 pts')).toBeNull()
     expect(screen.getByText('Replacement: 210.0 pts')).toBeTruthy()
+    expect(screen.queryByRole('region', { name: 'Overall ranking' })).toBeNull()
+  })
+
+  it('keeps the last board mounted with an updating chip when a pick advances', async () => {
+    mockMonitor({
+      status: 'running',
+      recommendation_mode: 'projection',
+      projection_board: {
+        model_status: 'deterministic_projection_lookahead',
+        model_version: 2,
+        route_model_status: 'approximate_adp_opponent_choice_lookahead',
+        worp_calibration: {
+          status: 'candidate',
+          team_count: 12,
+          scoring_format: 'PPR',
+          training_games: 1000,
+          validation_games: 250,
+        },
+        // Board still belongs to pick 6 while the room is on pick 7.
+        pick_no: 6,
+        next_user_pick_no: 9,
+        recommended_player_id: null,
+        recommended_position: null,
+        plans: [],
+        points_source: 'fantasypros_primary_offense',
+        special_teams_points_source: 'pff',
+        points_players: [
+          {
+            player_id: 'rb1',
+            name: 'Value Runner',
+            position: 'RB',
+            team: 'ATL',
+            position_rank: 1,
+            projected_points: 284,
+            personal_offset: 0,
+          },
+        ],
+        players: [],
+      },
+      state: monitorState([pick(1, 'Alpha One')], 7),
+    })
+
+    await act(async () => {
+      render(<DraftIntel currentDraftId="real" />)
+    })
+    // The stale points board stays reachable behind the value default.
+    fireEvent.click(screen.getByRole('button', { name: 'Points only' }))
+
+    // The stale board stays visible instead of unmounting between picks.
+    expect(screen.getByText('Value Runner')).toBeTruthy()
+    expect(screen.getByText(/updating for pick\s*7/)).toBeTruthy()
+    expect(screen.queryByText(/Updating the board for pick/)).toBeNull()
   })
 
   it('labels an in-progress board as a first look with pipeline steps', async () => {
@@ -585,6 +821,8 @@ describe('DraftIntel', () => {
             name: 'Second Wideout',
             position: 'WR',
             projected_roster_value: 810.2,
+            personal_offset: 10,
+            preference_adjusted_value: 825.4,
             championship_probability: 0.15,
             playoff_probability: 0.5,
             expected_wins: 8,
@@ -611,20 +849,22 @@ describe('DraftIntel', () => {
     expect(screen.getByText('+5.2 pts vs next')).toBeTruthy()
     expect(screen.getByText('-5.2 pts')).toBeTruthy()
     expect(screen.getByText('810.2 proj pts')).toBeTruthy()
-    expect(screen.getByText('3 options shown.')).toBeTruthy()
+    expect(screen.getByText('yours 825.4')).toBeTruthy()
+    expect(screen.getByText('+10')).toBeTruthy()
     expect(screen.getByText('Refined contenders')).toBeTruthy()
-    expect(screen.getByText('Screened watchlist')).toBeTruthy()
+    expect(screen.getByText('Rough early estimates · not ranked with contenders')).toBeTruthy()
     expect(screen.getByText('Screened Quarterback')).toBeTruthy()
     expect(screen.getByText('802.7 proj pts · 25 continuations')).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: 'QB' }))
-    expect(screen.queryByText('Lead Back')).toBeNull()
+    // The command strip keeps the recommendation visible while the board filters.
+    expect(screen.getAllByText('Lead Back')).toHaveLength(1)
     expect(screen.getByText('Screened Quarterback')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'WR' }))
-    expect(screen.queryByText('Lead Back')).toBeNull()
+    expect(screen.getAllByText('Lead Back')).toHaveLength(1)
     expect(screen.getByText('Second Wideout')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'All' }))
-    expect(screen.getByText('Lead Back')).toBeTruthy()
+    expect(screen.getAllByText('Lead Back')).toHaveLength(2)
   })
 
   it('separates paired value, alternative-root availability, selection, and local opportunity evidence', async () => {
@@ -792,7 +1032,9 @@ describe('DraftIntel', () => {
     expect(screen.getAllByText('T1')).toHaveLength(2)
     expect(screen.getAllByText(/urgency \+0\.0/)).toHaveLength(2)
     expect(screen.queryByText('+0.0 pts vs next')).toBeNull()
-    expect(page).not.toMatch(/VONA|99\.0|statistical equality/i)
+    // The glossary defines VONA-style evidence; the board itself must still
+    // never present raw VONA numbers or fake statistical-equality claims.
+    expect(page).not.toMatch(/99\.0|statistical equality/i)
     expect(screen.getByText(/run 1234567890ab/)).toBeTruthy()
     expect(screen.getByText(/model sleeper-adp:t0.11:vor2/)).toBeTruthy()
     expect(page).not.toMatch(/runner-up with your next pick/)
@@ -847,6 +1089,21 @@ describe('DraftIntel', () => {
     await act(async () => {
       render(<DraftIntel currentDraftId="real" />)
     })
+    expect(screen.getByText(expected)).toBeTruthy()
+  })
+
+  it.each([
+    ['pending', 'Computing return lanes and the manager shadow…', null],
+    ['stale', 'The draft advanced. Waiting for the current pick’s shadow.', null],
+    ['failed', 'Shadow failed: model unavailable', 'model unavailable'],
+    ['disabled', 'Shadow unavailable: artifact missing', 'artifact missing'],
+  ] as const)('renders alpha shadow state %s', (status, expected, error) => {
+    const monitor: DraftMonitor = {
+      status: 'running',
+      alpha_shadow_status: status,
+      alpha_shadow_error: error,
+    }
+    render(<AlphaShadowPanel monitor={monitor} currentPickNo={6} />)
     expect(screen.getByText(expected)).toBeTruthy()
   })
 })

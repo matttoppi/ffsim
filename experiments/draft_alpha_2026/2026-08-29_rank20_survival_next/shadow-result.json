@@ -1,0 +1,86 @@
+{
+  "candidate_count": 136,
+  "experiment": "rank-20 offline shadow boundary",
+  "gate": {
+    "passes": true
+  },
+  "limitations": [
+    "rank-20 is explicit offline shadow only",
+    "one-turn route leaders remain diagnostic",
+    "no live artifact default or recommendation changed"
+  ],
+  "live_default_is_rank_10": true,
+  "measured_candidates": 120,
+  "rank_10_manifest_hash": "0ee13d56a87c5c8206a5c437879b3a8c1419dfd4d4d7c0dc591905d58faf9d91",
+  "rank_20_manifest_hash": "055517e675b968c32da4af629bc38b7c1ae335152639df86c648e007e02e3437",
+  "reports": [
+    {
+      "candidate_count": 21,
+      "decision_active": false,
+      "draft_id": "1393628519644286976",
+      "fallback_breadth": 20,
+      "market_window_capture_complete": true,
+      "measured_candidates": 21,
+      "pick_no": 1,
+      "route_leader": "9509",
+      "top_ten_capture_complete": true
+    },
+    {
+      "candidate_count": 21,
+      "decision_active": false,
+      "draft_id": "1393634461312106496",
+      "fallback_breadth": 20,
+      "market_window_capture_complete": true,
+      "measured_candidates": 21,
+      "pick_no": 24,
+      "route_leader": "10229",
+      "top_ten_capture_complete": true
+    },
+    {
+      "candidate_count": 23,
+      "decision_active": false,
+      "draft_id": "1393656492011315200",
+      "fallback_breadth": 20,
+      "market_window_capture_complete": true,
+      "measured_candidates": 17,
+      "pick_no": 73,
+      "route_leader": "7523",
+      "top_ten_capture_complete": true
+    },
+    {
+      "candidate_count": 21,
+      "decision_active": false,
+      "draft_id": "1393721396240080896",
+      "fallback_breadth": 20,
+      "market_window_capture_complete": true,
+      "measured_candidates": 21,
+      "pick_no": 1,
+      "route_leader": "9509",
+      "top_ten_capture_complete": true
+    },
+    {
+      "candidate_count": 24,
+      "decision_active": false,
+      "draft_id": "1393746402558881792",
+      "fallback_breadth": 20,
+      "market_window_capture_complete": true,
+      "measured_candidates": 20,
+      "pick_no": 16,
+      "route_leader": "11604",
+      "top_ten_capture_complete": true
+    },
+    {
+      "candidate_count": 26,
+      "decision_active": false,
+      "draft_id": "1394035775644913664",
+      "fallback_breadth": 20,
+      "market_window_capture_complete": true,
+      "measured_candidates": 20,
+      "pick_no": 49,
+      "route_leader": "4217",
+      "top_ten_capture_complete": true
+    }
+  ],
+  "return_coverage": 0.8823529411764706,
+  "status": "research"
+}

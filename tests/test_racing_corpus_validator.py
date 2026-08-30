@@ -5,10 +5,14 @@ from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
 
+from ffsim.draft_intel.live import PreparedDraft
+from ffsim.draft_intel.synthetic import SyntheticTemplate
+
 from tools.validate_racing_corpus import (
     SCHEMA_VERSION,
     _evaluate_state,
     _prepare_snapshot,
+    _pin_recorded_market_snapshots,
     _read_checkpoint,
     _rebuild_states,
     _run_identity,
@@ -83,6 +87,51 @@ class RacingCorpusValidatorTest(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "league evaluator changed"):
             _rebuild_states(session, template, set())
+
+    def test_recorded_market_snapshot_replaces_the_current_template_snapshot(self):
+        prepared = PreparedDraft(
+            summary={"market_snapshot_id": "current", "market_players": 1},
+            live_draft_id="draft",
+            league_id="league",
+            standalone=False,
+            user_roster_id=None,
+            market_snapshot={"snapshot_id": "current", "observations": [{}]},
+            evaluator=None,
+            player_details={},
+        )
+        template = SyntheticTemplate(
+            prepared,
+            SimpleNamespace(),
+            {"template_league_id": "league"},
+        )
+        sessions = [{
+            "config": {
+                "scenario": {"template_league_id": "league"},
+                "prepared": {"market_snapshot_id": "recorded"},
+            }
+        }]
+        recorded = {
+            "snapshot_id": "recorded",
+            "observations": [{"canonical_player_id": "sleeper:1"}],
+        }
+
+        with (
+            patch(
+                "tools.validate_racing_corpus.load_market_snapshot_by_id",
+                return_value=recorded,
+            ),
+            patch(
+                "tools.validate_racing_corpus._live_market_snapshot",
+                side_effect=lambda snapshot: snapshot,
+            ),
+        ):
+            pinned = _pin_recorded_market_snapshots((template,), sessions)
+
+        self.assertEqual(pinned[0].prepared.market_snapshot, recorded)
+        self.assertEqual(
+            pinned[0].prepared.summary["market_snapshot_id"], "recorded"
+        )
+        self.assertEqual(pinned[0].prepared.summary["market_players"], 1)
 
     def test_checkpoint_and_snapshot_paths_must_differ(self):
         with TemporaryDirectory() as directory:

@@ -139,8 +139,26 @@ export interface LeagueInfo {
   draft_id: string | null
   name: string | null
   draft: DraftSummary | null
+  recent_trades: RecentTrade[]
   ready: boolean
   refresh: RefreshState
+}
+
+export interface RecentTrade {
+  transaction_id: string
+  completed_at: number | null
+  sides: Array<{
+    roster_id: number
+    name: string
+    players: Array<{
+      player_id: string
+      name: string
+      position: string | null
+      team: string | null
+    }>
+    draft_picks: Array<{ season: string; round: number }>
+    faab: number
+  }>
 }
 
 export interface WorkProgress {
@@ -182,6 +200,7 @@ export interface DraftPreparation {
     }>
   }
   world_bank?: { version: string | null; worlds: number; players: number }
+  personal_ranks?: { players: number; hash: string | null }
 }
 
 export interface DraftRecommendationCandidate {
@@ -190,6 +209,9 @@ export interface DraftRecommendationCandidate {
   position: string | null
   projected_roster_value: number
   projected_roster_value_standard_error: number
+  personal_offset: number
+  preference_adjusted_value: number | null
+  preference_adjusted_value_standard_error: number | null
   championship_probability: number
   playoff_probability: number
   expected_wins: number
@@ -274,6 +296,17 @@ export interface DraftProjectionBoard {
     route_value: number
     adp: number | null
   }>
+  points_source: 'fantasypros_primary_offense'
+  special_teams_points_source: 'pff'
+  points_players: Array<{
+    player_id: string
+    name: string
+    position: string
+    team: string | null
+    position_rank: number
+    projected_points: number
+    personal_offset: number
+  }>
   players: Array<{
     player_id: string
     name: string
@@ -286,7 +319,139 @@ export interface DraftProjectionBoard {
     wins_over_replacement: number | null
     current_roster_value: number
     adp: number | null
+    personal_offset: number
   }>
+  position_outlook?: {
+    availability_model: string
+    roster_assumption: string
+    edge_basis: string
+    value_basis: string
+    reach_rate: number
+    future_turn_pick_nos: number[]
+    positions: PositionFalloff[]
+  }
+}
+
+export interface PositionFalloff {
+  position: string
+  open_dedicated_slots: number
+  eligible_open_flex_slots: number
+  remaining_starting_opportunities: number
+  best_now_player_id: string
+  best_now_name: string
+  best_now_marginal_value: number
+  best_now_points: number
+  best_now_personal_offset?: number
+  best_now_adp: number | null
+  take_now_edge: number
+  turns: Array<{
+    pick_no: number
+    player_id: string | null
+    name: string | null
+    marginal_value: number
+    projected_points: number | null
+    personal_offset?: number
+    adp: number | null
+    drop_from_now: number
+  }>
+  top_players: Array<{
+    player_id: string
+    name: string
+    position_rank: number
+    marginal_value: number
+    projected_points: number
+    personal_offset?: number
+    adp: number | null
+    edge_vs_next_turn: number
+  }>
+}
+
+export interface DraftAlphaShadowCandidate {
+  player_id: string
+  name: string
+  position: string | null
+  team: string | null
+  engine_rank: number
+  market_rank: number | null
+  return_probability: number | null
+  return_interval_95: [number, number] | null
+  direct_support: number
+  pooled_support: number | null
+  support_status: string
+  timing_label: 'safe_to_wait' | 'urgent' | 'uncertain' | 'outside_model'
+  current_roster_value: number
+  wait_delta: number | null
+}
+
+export interface DraftAlphaShadow {
+  status: 'ready'
+  decision_active: false
+  draft_id: string
+  pick_no: number
+  terminal_recommendation_id: string | null
+  terminal_q_leader_id: string | null
+  terminal_co_leader_candidate_ids: string[]
+  survival_model_version: string
+  survival_manifest_hash: string
+  manager_model_version: string | null
+  manager_manifest_hash: string | null
+  manager_probability_blend: number | null
+  top_ten_capture_complete: boolean
+  candidates: DraftAlphaShadowCandidate[]
+  recommended_branch_next_turn: Array<{
+    player_id: string
+    market_rank: number
+    position: string | null
+    eligible_next_turn: boolean
+    return_probability: number | null
+    return_interval_95: [number, number] | null
+    direct_support: number
+    pooled_support: number | null
+    timing_label: 'safe_to_wait' | 'urgent' | 'uncertain' | 'outside_model'
+  }>
+  manager_support: {
+    supported_rosters: number
+    population_fallback_rosters: number
+    total_opponent_rosters: number
+  }
+  manager_shadow: {
+    status: 'ready' | 'unavailable'
+    reason?: string
+    rollouts?: number
+    probability_blend?: number
+    terminal_leader_candidate_id?: string | null
+    shadow_leader_candidate_id?: string
+    shadow_leader_in_terminal_practical_tier?: boolean
+    ranking?: string[]
+    callback_calls?: Record<string, number>
+  }
+  duration_seconds: number
+  limitations: string[]
+}
+
+
+
+export interface DraftAlphaShadowAudit {
+  audit_version: string
+  status: 'research'
+  metrics: {
+    sessions: number
+    ready_states: number
+    failed_events: number
+    discarded_events: number
+    failure_rate: number | null
+    duration_seconds: {
+      median: number | null
+      p95: number | null
+      maximum: number | null
+    }
+    top_ten_capture_rate: number | null
+    manager_practical_retention_rate: number | null
+    manager_exact_agreement_rate: number | null
+    manager_callback_calls: Record<string, number>
+  }
+  development_gate: Record<string, boolean>
+  live_evidence_gate: Record<string, boolean>
 }
 
 
@@ -308,6 +473,12 @@ export interface DraftMonitor {
   league_equity_pick_no?: number | null
   league_equity_error?: string | null
   league_equity_calculation_count?: number
+  alpha_shadow_status?: 'disabled' | 'idle' | 'pending' | 'ready' | 'stale' | 'failed'
+  alpha_shadow_pick_no?: number | null
+  alpha_shadow?: DraftAlphaShadow | null
+  alpha_shadow_error?: string | null
+  alpha_shadow_duration_seconds?: number | null
+  alpha_shadow_calculation_count?: number
   projection_board?: DraftProjectionBoard | null
   projection_board_error?: string | null
   error?: string | null
@@ -421,6 +592,7 @@ export const prepareDraft = (params: {
   draft_id: string
   username: string
   mock_draft_id?: string
+  force_refresh?: boolean
 }) =>
   request<DraftPreparation>('/api/draft-intel/prepare', {
     method: 'POST',
@@ -440,6 +612,59 @@ export const startDraftMonitor = (recommendationMode: DraftRecommendationMode = 
 
 export const getDraftMonitor = () =>
   request<DraftMonitor>('/api/draft-intel/monitor')
+
+export const getDraftAlphaShadow = () =>
+  request<{
+    status: DraftMonitor['alpha_shadow_status']
+    pick_no: number | null
+    evidence: DraftAlphaShadow | null
+    error: string | null
+    duration_seconds: number | null
+    calculation_count?: number
+  }>('/api/draft-intel/alpha-shadow')
+
+export const getDraftAlphaShadowAudit = () =>
+  request<DraftAlphaShadowAudit>('/api/draft-intel/alpha-shadow/audit')
+
+export interface ManagerHistoryProfile {
+  draft_count: number
+  pick_count: number
+  weighted_draft_count: number
+  qb_te_timing: Record<string, {
+    selected_drafts: number
+    not_selected_drafts: number
+    first_round_counts: Record<string, number>
+    sample_weight: number
+    selected_weight: number
+    weighted_first_rounds: Record<string, number>
+  }>
+  four_round_starts: {
+    sample_size: number
+    rb_shape: Record<string, number>
+    wr_heavy: number
+    sample_weight: number
+    weighted_rb_shape: Record<string, number>
+    weighted_wr_heavy: number
+  }
+  position_picks: Record<string, number>
+}
+
+export interface ManagerScoutingReport {
+  model_status: { use: string; decision_eligible: boolean }
+  target_context: { season: number; scoring_type: string | null; team_count: number }
+  observation_count: number
+  managers: Array<{
+    user_id: string | null
+    roster_id: number | null
+    display_name: string
+    team_name: string | null
+    draft_slot: number | null
+    history: ManagerHistoryProfile | null
+  }>
+}
+
+export const getManagerScouting = () =>
+  request<ManagerScoutingReport>('/api/draft-intel/managers')
 
 export const stopDraftMonitor = () =>
   request<DraftMonitor>('/api/draft-intel/monitor/stop', { method: 'POST' })
@@ -462,3 +687,33 @@ export const getResults = (id: string) =>
 
 export const eventsUrl = (id: string) =>
   `${API_BASE}/api/simulations/${id}/events`
+
+export interface PersonalRankPlayer {
+  player_id: string
+  name: string
+  position: string
+  team: string | null
+  adp: number | null
+  offset: number
+}
+
+export interface PersonalRanksBoard {
+  allowed_offsets: number[]
+  count: number
+  players: PersonalRankPlayer[]
+}
+
+export const fetchPersonalRanks = () =>
+  request<PersonalRanksBoard>('/api/personal-ranks')
+
+export const savePersonalRank = (playerId: string, offset: number) =>
+  request<{
+    player_id: string
+    offset: number
+    count: number
+    applied: 'live' | 'next_prepare'
+  }>('/api/personal-ranks', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ player_id: playerId, offset }),
+  })

@@ -1,0 +1,59 @@
+{
+  "baseline_leader": "7523",
+  "baseline_paired_leader_minus_shadow": {
+    "estimate": 0.0,
+    "interval": [
+      0.0,
+      0.0
+    ],
+    "standard_error": 0.0
+  },
+  "baseline_ranking": [
+    "7523",
+    "8167",
+    "8228",
+    "8142",
+    "7021",
+    "11628",
+    "6819",
+    "5846",
+    "6797",
+    "13294"
+  ],
+  "callback_calls": {
+    "personalized": 376496,
+    "population": 141186
+  },
+  "draft_id": "1393656492011315200",
+  "experiment": "conservative roster-aware manager rollout blend",
+  "gate": {
+    "live_callback_changed": false,
+    "passes": true,
+    "personalized_callback_used": true,
+    "population_fallback_used": true,
+    "shadow_leader_is_baseline_practical_co_leader": true
+  },
+  "limitations": [
+    "one cached mock state",
+    "100-rollout diagnostic budget",
+    "fixed 10% manager mixture",
+    "shadow callback only; live rollout distribution is unchanged"
+  ],
+  "manager_probability_blend": 0.1,
+  "pick_no": 73,
+  "rollouts": 100,
+  "shadow_leader": "7523",
+  "shadow_ranking": [
+    "7523",
+    "8167",
+    "8228",
+    "8142",
+    "6819",
+    "11628",
+    "5846",
+    "7021",
+    "6797",
+    "13294"
+  ],
+  "status": "research"
+}

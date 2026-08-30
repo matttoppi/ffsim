@@ -1,0 +1,57 @@
+{
+  "experiment": "position-count manager residual",
+  "folds": {
+    "train-2021-2022_validate-2023": {
+      "gate": {
+        "improvement": 0.013963191279421031,
+        "paired_roster_minus_phase": {
+          "drafts": 1498,
+          "estimate": -0.013963191279434796,
+          "high": -0.01159610009733149,
+          "low": -0.0163967706999861,
+          "samples": 200,
+          "seed": 20260829
+        },
+        "passes": true
+      },
+      "improvement": 0.013963191279421031,
+      "phase_log_loss": 5.067565475355249,
+      "picks": 87472,
+      "roster_log_loss": 5.0536022840758275
+    },
+    "train-2021_validate-2022": {
+      "gate": {
+        "improvement": 0.0141455784748415,
+        "paired_roster_minus_phase": {
+          "drafts": 807,
+          "estimate": -0.014145578474838357,
+          "high": -0.010099866663382664,
+          "low": -0.018273825078355326,
+          "samples": 200,
+          "seed": 20260828
+        },
+        "passes": true
+      },
+      "improvement": 0.0141455784748415,
+      "phase_log_loss": 5.033805322643245,
+      "picks": 30074,
+      "roster_log_loss": 5.019659744168403
+    }
+  },
+  "gate": {
+    "passes": true
+  },
+  "limitations": [
+    "position counts do not encode league-specific starting slots",
+    "2024 and 2025 were not queried",
+    "offline research only"
+  ],
+  "locked_test_loaded": false,
+  "status": "research",
+  "train_development_seasons": [
+    2021,
+    2022,
+    2023
+  ],
+  "validation_2024_loaded": false
+}

@@ -1,0 +1,395 @@
+{
+  "comparator": "Beta(2,2) exact rank-gap-round",
+  "experiment": "frozen hierarchical survival versus exact population baseline",
+  "folds": {
+    "train-2021-2022_validate-2023": {
+      "baseline": {
+        "brier": 0.07894291021173952,
+        "calibration": [
+          {
+            "count": 39605,
+            "lower": 0.0,
+            "mean_prediction": 0.040126256176376884,
+            "observed_rate": 0.11602070445650801,
+            "upper": 0.1
+          },
+          {
+            "count": 20605,
+            "lower": 0.1,
+            "mean_prediction": 0.16751120104853076,
+            "observed_rate": 0.21189031788400872,
+            "upper": 0.2
+          },
+          {
+            "count": 24876,
+            "lower": 0.2,
+            "mean_prediction": 0.24413322869803653,
+            "observed_rate": 0.26543656536420646,
+            "upper": 0.3
+          },
+          {
+            "count": 41529,
+            "lower": 0.3,
+            "mean_prediction": 0.3641358868683296,
+            "observed_rate": 0.38462279371041924,
+            "upper": 0.4
+          },
+          {
+            "count": 61650,
+            "lower": 0.4,
+            "mean_prediction": 0.4516027844767153,
+            "observed_rate": 0.4266504460665045,
+            "upper": 0.5
+          },
+          {
+            "count": 66144,
+            "lower": 0.5,
+            "mean_prediction": 0.5481637684804386,
+            "observed_rate": 0.527349419448476,
+            "upper": 0.6
+          },
+          {
+            "count": 142345,
+            "lower": 0.6,
+            "mean_prediction": 0.6518064114751706,
+            "observed_rate": 0.5888229302047842,
+            "upper": 0.7
+          },
+          {
+            "count": 200200,
+            "lower": 0.7,
+            "mean_prediction": 0.750509696068078,
+            "observed_rate": 0.7201348651348651,
+            "upper": 0.8
+          },
+          {
+            "count": 480331,
+            "lower": 0.8,
+            "mean_prediction": 0.8596304700416716,
+            "observed_rate": 0.8463767693528005,
+            "upper": 0.9
+          },
+          {
+            "count": 1937155,
+            "lower": 0.9,
+            "mean_prediction": 0.9622025682944859,
+            "observed_rate": 0.9747227248206778,
+            "upper": 1.0
+          }
+        ],
+        "count": 3014440,
+        "false_safe_rate": 0.06829887159880903,
+        "false_urgent_rate": 0.18294846935777662,
+        "log_loss": 0.261608289602321,
+        "safe_coverage": 0.8683821870728892,
+        "urgent_coverage": 0.028229123817359113
+      },
+      "counts": {
+        "drafts": 1878,
+        "samples": 3014440
+      },
+      "gate": {
+        "brier_improvement": 0.0047543763819268975,
+        "paired_brier_difference": {
+          "drafts": 1878,
+          "estimate": -0.004754376381985342,
+          "high": -0.003959903429406998,
+          "low": -0.005608452301236742,
+          "samples": 200,
+          "seed": 20260829
+        },
+        "passes": true
+      },
+      "hierarchical": {
+        "brier": 0.07418853382981262,
+        "calibration": [
+          {
+            "count": 84836,
+            "lower": 0.0,
+            "mean_prediction": 0.041071821102672705,
+            "observed_rate": 0.13003913432976566,
+            "upper": 0.1
+          },
+          {
+            "count": 41291,
+            "lower": 0.1,
+            "mean_prediction": 0.14925579597188457,
+            "observed_rate": 0.3065801264198009,
+            "upper": 0.2
+          },
+          {
+            "count": 42413,
+            "lower": 0.2,
+            "mean_prediction": 0.24959434280470272,
+            "observed_rate": 0.3675288237097116,
+            "upper": 0.3
+          },
+          {
+            "count": 69545,
+            "lower": 0.3,
+            "mean_prediction": 0.3474585778308944,
+            "observed_rate": 0.4059961176216838,
+            "upper": 0.4
+          },
+          {
+            "count": 65471,
+            "lower": 0.4,
+            "mean_prediction": 0.45127491898171174,
+            "observed_rate": 0.5337477661865558,
+            "upper": 0.5
+          },
+          {
+            "count": 86621,
+            "lower": 0.5,
+            "mean_prediction": 0.5547549669696644,
+            "observed_rate": 0.6287389893905635,
+            "upper": 0.6
+          },
+          {
+            "count": 112708,
+            "lower": 0.6,
+            "mean_prediction": 0.6532653181598636,
+            "observed_rate": 0.6911576817972105,
+            "upper": 0.7
+          },
+          {
+            "count": 200002,
+            "lower": 0.7,
+            "mean_prediction": 0.7538720933103659,
+            "observed_rate": 0.7921720782792172,
+            "upper": 0.8
+          },
+          {
+            "count": 398483,
+            "lower": 0.8,
+            "mean_prediction": 0.857406500885763,
+            "observed_rate": 0.8795682626360473,
+            "upper": 0.9
+          },
+          {
+            "count": 1913070,
+            "lower": 0.9,
+            "mean_prediction": 0.9709608190381913,
+            "observed_rate": 0.9783693226071184,
+            "upper": 1.0
+          }
+        ],
+        "count": 3014440,
+        "false_safe_rate": 0.05213383740352093,
+        "false_urgent_rate": 0.23305446778212888,
+        "log_loss": 0.24825546515600083,
+        "safe_coverage": 0.8331746526718063,
+        "urgent_coverage": 0.05591088228659386
+      },
+      "train_years": [
+        2021,
+        2022
+      ],
+      "validation_years": [
+        2023
+      ]
+    },
+    "train-2021_validate-2022": {
+      "baseline": {
+        "brier": 0.08368777593332186,
+        "calibration": [
+          {
+            "count": 44082,
+            "lower": 0.0,
+            "mean_prediction": 0.02990443718000178,
+            "observed_rate": 0.15158114423120547,
+            "upper": 0.1
+          },
+          {
+            "count": 20231,
+            "lower": 0.1,
+            "mean_prediction": 0.14054884851241592,
+            "observed_rate": 0.3472888141960358,
+            "upper": 0.2
+          },
+          {
+            "count": 23230,
+            "lower": 0.2,
+            "mean_prediction": 0.2556646858772768,
+            "observed_rate": 0.39401635815755487,
+            "upper": 0.3
+          },
+          {
+            "count": 17636,
+            "lower": 0.3,
+            "mean_prediction": 0.3510395225473944,
+            "observed_rate": 0.5094125652075301,
+            "upper": 0.4
+          },
+          {
+            "count": 44314,
+            "lower": 0.4,
+            "mean_prediction": 0.4514013684006386,
+            "observed_rate": 0.5282303560951392,
+            "upper": 0.5
+          },
+          {
+            "count": 72470,
+            "lower": 0.5,
+            "mean_prediction": 0.5546015739461088,
+            "observed_rate": 0.6340416724161723,
+            "upper": 0.6
+          },
+          {
+            "count": 106083,
+            "lower": 0.6,
+            "mean_prediction": 0.6527009530454917,
+            "observed_rate": 0.7234429644712159,
+            "upper": 0.7
+          },
+          {
+            "count": 168975,
+            "lower": 0.7,
+            "mean_prediction": 0.757070498834983,
+            "observed_rate": 0.80776446219855,
+            "upper": 0.8
+          },
+          {
+            "count": 354789,
+            "lower": 0.8,
+            "mean_prediction": 0.8605119610643122,
+            "observed_rate": 0.8905462119738774,
+            "upper": 0.9
+          },
+          {
+            "count": 1247110,
+            "lower": 0.9,
+            "mean_prediction": 0.9679755458044005,
+            "observed_rate": 0.9651313837592513,
+            "upper": 1.0
+          }
+        ],
+        "count": 2098920,
+        "false_safe_rate": 0.06482731125986377,
+        "false_urgent_rate": 0.26149349833890834,
+        "log_loss": 0.28998022940480916,
+        "safe_coverage": 0.8437072399138604,
+        "urgent_coverage": 0.04173241476568902
+      },
+      "counts": {
+        "drafts": 1299,
+        "samples": 2098920
+      },
+      "gate": {
+        "brier_improvement": 0.013158238978119297,
+        "paired_brier_difference": {
+          "drafts": 1299,
+          "estimate": -0.013158238977948955,
+          "high": -0.012584055564838896,
+          "low": -0.013779361957344137,
+          "samples": 200,
+          "seed": 20260828
+        },
+        "passes": true
+      },
+      "hierarchical": {
+        "brier": 0.07052953695520256,
+        "calibration": [
+          {
+            "count": 56762,
+            "lower": 0.0,
+            "mean_prediction": 0.03082334035313213,
+            "observed_rate": 0.10859377752721891,
+            "upper": 0.1
+          },
+          {
+            "count": 22630,
+            "lower": 0.1,
+            "mean_prediction": 0.15352565662209103,
+            "observed_rate": 0.2734865223155104,
+            "upper": 0.2
+          },
+          {
+            "count": 28581,
+            "lower": 0.2,
+            "mean_prediction": 0.26148822540047795,
+            "observed_rate": 0.29851999580140653,
+            "upper": 0.3
+          },
+          {
+            "count": 40247,
+            "lower": 0.3,
+            "mean_prediction": 0.34955020834354206,
+            "observed_rate": 0.3817924317340423,
+            "upper": 0.4
+          },
+          {
+            "count": 46202,
+            "lower": 0.4,
+            "mean_prediction": 0.44755162645705965,
+            "observed_rate": 0.4943508939006969,
+            "upper": 0.5
+          },
+          {
+            "count": 55235,
+            "lower": 0.5,
+            "mean_prediction": 0.549194619559451,
+            "observed_rate": 0.6218339820765819,
+            "upper": 0.6
+          },
+          {
+            "count": 79393,
+            "lower": 0.6,
+            "mean_prediction": 0.6548414157755653,
+            "observed_rate": 0.7425465721159297,
+            "upper": 0.7
+          },
+          {
+            "count": 140361,
+            "lower": 0.7,
+            "mean_prediction": 0.7558739183190091,
+            "observed_rate": 0.822087331951183,
+            "upper": 0.8
+          },
+          {
+            "count": 291220,
+            "lower": 0.8,
+            "mean_prediction": 0.8579657953480637,
+            "observed_rate": 0.9031728590069363,
+            "upper": 0.9
+          },
+          {
+            "count": 1338289,
+            "lower": 0.9,
+            "mean_prediction": 0.9736142547453014,
+            "observed_rate": 0.9737941505907917,
+            "upper": 1.0
+          }
+        ],
+        "count": 2098920,
+        "false_safe_rate": 0.04985733415448592,
+        "false_urgent_rate": 0.19343545668401652,
+        "log_loss": 0.25094861565148324,
+        "safe_coverage": 0.8432288986716978,
+        "urgent_coverage": 0.0514426466944905
+      },
+      "train_years": [
+        2021
+      ],
+      "validation_years": [
+        2022
+      ]
+    }
+  },
+  "gate": {
+    "passes": true
+  },
+  "limitations": [
+    "comparison uses rolling development folds only",
+    "2024 and 2025 were not queried",
+    "no live VONA, WORP, rollout, API, or UI integration"
+  ],
+  "locked_test_loaded": false,
+  "status": "research",
+  "train_development_seasons": [
+    2021,
+    2022,
+    2023
+  ],
+  "validation_2024_loaded": false
+}

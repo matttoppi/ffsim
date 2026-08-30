@@ -11,6 +11,7 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 
 from ffsim.api import (
+    PersonalRankRequest,
     DraftMonitorRequest,
     DraftPrepareRequest,
     LeagueRequest,
@@ -25,6 +26,7 @@ from ffsim.api import (
 )
 from ffsim.config import AppConfig
 from ffsim.draft_intel.decision import _state_signature
+from ffsim.draft_intel.telemetry import DraftTelemetry
 from tests.test_decision import draft_state
 
 
@@ -92,6 +94,8 @@ class ApiTest(unittest.TestCase):
         self.assertIn("/api/draft-intel/monitor/stop", paths)
         self.assertIn("/api/draft-intel/simulation", paths)
         self.assertIn("/api/draft-intel/telemetry", paths)
+        self.assertIn("/api/draft-intel/alpha-shadow", paths)
+        self.assertIn("/api/draft-intel/alpha-shadow/audit", paths)
         with self.assertRaises(ValidationError):
             SimulationRequest(simulations=0)
         with self.assertRaises(ValidationError):
@@ -120,6 +124,20 @@ class ApiTest(unittest.TestCase):
             DraftMonitorRequest(recommendation_mode="invalid")
         with self.assertRaises(ValidationError):
             DraftMonitorRequest(rollout_count=1)
+
+    def test_alpha_shadow_audit_endpoint_is_read_only_on_empty_telemetry(self):
+        with tempfile.TemporaryDirectory() as directory:
+            app = create_app("config.json")
+            app.state.draft_telemetry = DraftTelemetry(
+                Path(directory) / "telemetry.sqlite3"
+            )
+            audit = endpoint(
+                app, "/api/draft-intel/alpha-shadow/audit", "GET"
+            )()
+
+        self.assertEqual(audit["metrics"]["ready_states"], 0)
+        self.assertFalse(audit["development_gate"]["passes"])
+        self.assertFalse(audit["live_evidence_gate"]["passes"])
 
     def test_refresh_runner_updates_state_on_success_and_failure(self):
         state = SimpleNamespace(refresh={
@@ -228,6 +246,7 @@ class ApiTest(unittest.TestCase):
                 current = current_league()
             self.assertTrue(current["ready"])
             self.assertEqual(current["draft_id"], "draft")
+            self.assertEqual(current["recent_trades"], [])
             self.assertEqual(current["market_context"]["status"], "proxy")
             self.assertEqual(current["market_context"]["scoring"], "STD")
             self.assertEqual(current["market_context"]["team_count"], 8)
@@ -279,6 +298,9 @@ class ApiTest(unittest.TestCase):
             prepare_status = endpoint(app, "/api/draft-intel/prepare", "GET")
             start_monitor = endpoint(app, "/api/draft-intel/monitor", "POST")
             monitor_status = endpoint(app, "/api/draft-intel/monitor", "GET")
+            alpha_shadow = endpoint(
+                app, "/api/draft-intel/alpha-shadow", "GET"
+            )
             stop_monitor = endpoint(app, "/api/draft-intel/monitor/stop", "POST")
 
             request = DraftPrepareRequest(
@@ -301,13 +323,105 @@ class ApiTest(unittest.TestCase):
             )
             app.state.prepared_draft = prepared
             app.state.draft_preparation = dict(prepared.summary)
-            with patch("ffsim.api.Thread") as thread:
+            collector = object()
+            with (
+                patch("ffsim.api.Thread") as thread,
+                patch(
+                    "ffsim.draft_intel.alpha_shadow.load_default_alpha_shadow_collector",
+                    return_value=(collector, None),
+                ),
+            ):
                 monitoring = start_monitor(DraftMonitorRequest())
             self.assertEqual(monitoring["status"], "starting")
             self.assertEqual(monitor_status()["draft_id"], "mock")
+            self.assertEqual(alpha_shadow()["status"], "idle")
+            self.assertIsNone(alpha_shadow()["evidence"])
+            self.assertIs(
+                app.state.live_monitor.alpha_shadow_collector, collector
+            )
             thread.return_value.start.assert_called_once_with()
             self.assertEqual(stop_monitor()["status"], "starting")
             self.assertTrue(app.state.live_monitor.stopped.is_set())
+
+    def test_manager_scouting_endpoint_joins_league_rosters_with_history(self):
+        snapshot = {
+            "draft": {
+                "draft_id": "draft",
+                "league_id": "league",
+                "season": "2026",
+                "draft_order": {"u1": 3, "u2": 7},
+            },
+            "users": [
+                {
+                    "user_id": "u1",
+                    "display_name": "Chris",
+                    "metadata": {"team_name": "Team C"},
+                },
+                {"user_id": "u2", "display_name": "Ryan", "metadata": {}},
+            ],
+            "rosters": [
+                {"roster_id": 1, "owner_id": "u2"},
+                {"roster_id": 2, "owner_id": "u1"},
+            ],
+        }
+        profile = {
+            "display_name": "Chris",
+            "draft_count": 7,
+            "pick_count": 98,
+            "qb_te_timing": {"QB": {"selected_drafts": 6}},
+            "four_round_starts": {"sample_size": 5},
+            "position_picks": {"RB": 30},
+            "context": {"weighted_draft_count": 4.2},
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            config_path = Path(directory) / "config.json"
+            config_path.write_text('{"league_id": "league", "draft_id": "draft"}\n')
+            (Path(directory) / "league_league.json").write_text(
+                json.dumps(snapshot)
+            )
+            app = create_app(config_path)
+            managers_route = endpoint(app, "/api/draft-intel/managers", "GET")
+            with (
+                patch("ffsim.api.CACHE_DIR", Path(directory)),
+                patch(
+                    "ffsim.draft_intel.profiles.load_pick_observations",
+                    return_value=("observation",),
+                ),
+                patch(
+                    "ffsim.draft_intel.profiles.load_target_context",
+                    return_value={
+                        "season": 2026,
+                        "scoring_type": "ppr",
+                        "team_count": 12,
+                    },
+                ),
+                patch(
+                    "ffsim.draft_intel.profiles.summarize_manager_profiles",
+                    return_value={"u1": profile},
+                ) as summarize,
+            ):
+                payload = managers_route()
+
+            self.assertEqual(
+                summarize.call_args.kwargs,
+                {
+                    "target_season": 2026,
+                    "target_scoring_type": "ppr",
+                    "target_team_count": 12,
+                },
+            )
+            self.assertEqual(
+                [row["display_name"] for row in payload["managers"]],
+                ["Chris", "Ryan"],
+            )
+            self.assertEqual(payload["managers"][0]["draft_slot"], 3)
+            self.assertEqual(payload["managers"][0]["team_name"], "Team C")
+            self.assertEqual(
+                payload["managers"][0]["history"]["weighted_draft_count"], 4.2
+            )
+            self.assertIsNone(payload["managers"][1]["history"])
+            self.assertFalse(payload["model_status"]["decision_eligible"])
+            self.assertEqual(payload["observation_count"], 1)
 
     def test_completed_draft_simulation_syncs_and_scores_final_rosters(self):
         app = create_app("config.json")
@@ -349,17 +463,121 @@ class ApiTest(unittest.TestCase):
                 simulate()
         self.assertEqual(raised.exception.status_code, 409)
 
+    def test_personal_ranks_board_and_offset_round_trip(self):
+        from ffsim.draft_intel.live import PreparedDraft
+
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            config_path = directory / "config.json"
+            config_path.write_text(json.dumps({
+                "league_id": "league", "draft_id": "draft",
+            }))
+            (directory / "league_league.json").write_text(json.dumps({
+                "league": {"league_id": "league", "season": 2026},
+            }))
+            (directory / "sleeper_players.json").write_text(json.dumps({
+                "4046": {
+                    "full_name": "Josh Allen", "position": "QB", "team": "BUF",
+                },
+                "6786": {
+                    "full_name": "CeeDee Lamb", "position": "WR", "team": "DAL",
+                },
+            }))
+            app = create_app(config_path)
+            board_route = endpoint(app, "/api/personal-ranks", "GET")
+            rank_route = endpoint(app, "/api/personal-ranks", "POST")
+            app.state.prepared_draft = PreparedDraft(
+                summary={"status": "ready"},
+                live_draft_id="draft",
+                league_id="league",
+                standalone=False,
+                user_roster_id=1,
+                market_snapshot=None,
+                evaluator=None,
+                player_details={},
+            )
+            snapshot = {
+                "snapshot_id": "snap",
+                "observations": [
+                    {"canonical_player_id": "sleeper:6786", "adp": 3.2},
+                    {"canonical_player_id": "sleeper:4046", "adp": 22.4},
+                ],
+            }
+            with (
+                patch("ffsim.api.CACHE_DIR", directory),
+                patch("ffsim.draft_intel.personal_ranks.CACHE_DIR", directory),
+                patch(
+                    "ffsim.draft_intel.market_model.load_league_market_snapshot",
+                    return_value={"context": {}, "snapshot": snapshot},
+                ),
+                patch(
+                    "ffsim.draft_intel.live.load_sleeper_identity_map",
+                    return_value={"4046": "sleeper:4046", "6786": "sleeper:6786"},
+                ),
+            ):
+                saved = rank_route(PersonalRankRequest(player_id="4046", offset=-10))
+                self.assertEqual(saved["offset"], -10)
+                self.assertEqual(saved["count"], 1)
+                self.assertEqual(saved["applied"], "live")
+                self.assertEqual(
+                    app.state.prepared_draft.personal_ranks, {"4046": -10}
+                )
+                self.assertEqual(
+                    app.state.prepared_draft.summary["personal_ranks"]["players"],
+                    1,
+                )
+
+                board = board_route()
+                self.assertEqual(board["count"], 1)
+                self.assertEqual(
+                    [row["player_id"] for row in board["players"]],
+                    ["6786", "4046"],
+                )
+                allen = board["players"][1]
+                self.assertEqual(allen["name"], "Josh Allen")
+                self.assertEqual(allen["adp"], 22.4)
+                self.assertEqual(allen["offset"], -10)
+
+                cleared = rank_route(PersonalRankRequest(player_id="4046", offset=0))
+                self.assertEqual(cleared["count"], 0)
+                self.assertEqual(app.state.prepared_draft.personal_ranks, {})
+
+                with self.assertRaises(HTTPException) as raised:
+                    rank_route(PersonalRankRequest(player_id="4046", offset=-12))
+                self.assertEqual(raised.exception.status_code, 422)
+
+    def test_personal_ranks_requires_a_selected_league(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            config_path = directory / "config.json"
+            config_path.write_text("{}\n")
+            app = create_app(config_path)
+            board_route = endpoint(app, "/api/personal-ranks", "GET")
+            with patch("ffsim.api.CACHE_DIR", directory):
+                with self.assertRaises(HTTPException) as raised:
+                    board_route()
+            self.assertEqual(raised.exception.status_code, 409)
+
     def test_draft_preparation_runner_publishes_success_and_failure(self):
         state = SimpleNamespace(
             prepare_lock=__import__("threading").Lock(),
             prepared_draft=None,
             draft_preparation={"status": "running", "stage": "Starting"},
         )
-        request = DraftPrepareRequest(draft_id="real", username="matt")
+        request = DraftPrepareRequest(
+            draft_id="real", username="matt", force_refresh=True
+        )
         prepared = SimpleNamespace(summary={"status": "ready", "monitor_ready": True})
-        with patch("ffsim.draft_intel.live.prepare_draft", return_value=prepared):
+        with patch(
+            "ffsim.draft_intel.live.prepare_draft", return_value=prepared
+        ) as prepare:
             _run_draft_preparation(state, "config.json", request)
         self.assertIs(state.prepared_draft, prepared)
+        # The forced-FantasyPros-refresh request flag reaches prepare_draft.
+        self.assertIs(prepare.call_args.kwargs["force_refresh"], True)
+        self.assertFalse(DraftPrepareRequest(
+            draft_id="real", username="matt",
+        ).force_refresh)
         self.assertEqual(state.draft_preparation["stage"], "Ready")
 
         with patch(
@@ -432,9 +650,11 @@ class ApiTest(unittest.TestCase):
             recommendation_mode="projection",
         )
 
-        def publish_board(_prepared, _state, _temperature):
-            self.assertEqual(monitor.state, {"status": "drafting"})
-            return {"pick_no": 1, "players": [], "plans": []}
+        def publish_board(_prepared, state, _temperature):
+            # The real function returns None once the pick sheet is complete.
+            if state.current_pick_no is None:
+                return None
+            return {"pick_no": state.current_pick_no, "players": [], "plans": []}
 
         with (
             patch(
@@ -456,7 +676,14 @@ class ApiTest(unittest.TestCase):
 
         self.assertEqual(monitor.status, "completed")
         self.assertEqual(monitor.sync_count, 3)
-        projection_board.assert_called_once_with(prepared, states[0], None)
+        # The board now recomputes for every changed state, including
+        # opponent picks and the completed sheet.
+        self.assertEqual(projection_board.call_count, 3)
+        projection_board.assert_any_call(prepared, states[1], None)
+        # No swallowed publication error, and the completed-state None
+        # result clears the board without setting an error.
+        self.assertIsNone(monitor.projection_board_error)
+        self.assertIsNone(monitor.projection_board)
         executor.assert_not_called()
         evaluate.assert_not_called()
         self.assertEqual(monitor.calculation_count, 0)
@@ -597,7 +824,21 @@ class ApiTest(unittest.TestCase):
 
     def test_calculation_publishes_a_preliminary_pass_then_refines(self):
         prepared = SimpleNamespace(live_draft_id="mock", user_roster_id=1)
-        monitor = LiveDraftMonitor(prepared, 0, 1_000, 5)
+        shadow_called = Event()
+        collector = SimpleNamespace(
+            collect=lambda *_args: (
+                shadow_called.set()
+                or {"status": "ready", "decision_active": False}
+            )
+        )
+        monitor = LiveDraftMonitor(
+            prepared,
+            0,
+            1_000,
+            5,
+            alpha_shadow_collector=collector,
+            alpha_shadow_status="idle",
+        )
         state = SimpleNamespace(
             status="drafting",
             completed_picks=(),
@@ -636,6 +877,11 @@ class ApiTest(unittest.TestCase):
             and time.time() < deadline
         ):
             time.sleep(0.001)
+        while (
+            monitor.snapshot()["alpha_shadow_status"] != "ready"
+            and time.time() < deadline
+        ):
+            time.sleep(0.001)
         monitor.stop()
         worker.join(5)
 
@@ -656,6 +902,9 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(monitor.recommendation["rollout_count"], 1_000)
         self.assertEqual(monitor.recommendation_status, "ready")
         self.assertEqual(monitor.calculation_count, 1)
+        self.assertTrue(shadow_called.is_set())
+        self.assertEqual(monitor.alpha_shadow_status, "ready")
+        self.assertFalse(monitor.alpha_shadow["decision_active"])
         # 5 candidates * 100 screen rollouts + 5 finalists * 900 extension rollouts
         self.assertEqual(
             monitor.recommendation_progress, {"done": 5_000, "total": 5_000}

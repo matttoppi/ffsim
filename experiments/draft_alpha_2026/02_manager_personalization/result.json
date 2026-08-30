@@ -1,0 +1,175 @@
+{
+  "experiment": "manager position personalization over inverse ADP",
+  "folds": {
+    "train-2021-2022_validate-2023": {
+      "counts": {
+        "drafts": 1878,
+        "missing_board_picks": 1181,
+        "picks": 321423,
+        "seen_manager_coverage": 0.2721398282014666,
+        "seen_manager_picks": 87472
+      },
+      "gate": {
+        "all_pick_log_loss_difference": -0.043420596622192775,
+        "paired_seen_log_loss_difference": {
+          "drafts": 1498,
+          "estimate": -0.15955252455728433,
+          "high": -0.15333563418337007,
+          "low": -0.16447709859435183,
+          "samples": 200,
+          "seed": 20260829
+        },
+        "passes": true,
+        "seen_manager_log_loss_improvement": 0.15955252455731994
+      },
+      "personalized_all": {
+        "count": 321423,
+        "log_loss": 5.3007773394142115,
+        "multiclass_brier": 0.9969724655565612,
+        "top_5_accuracy": 0.13934908205075555
+      },
+      "personalized_seen": {
+        "count": 87472,
+        "log_loss": 5.133937493216246,
+        "multiclass_brier": 0.994459308279056,
+        "top_5_accuracy": 0.18413892445582586
+      },
+      "population_all": {
+        "count": 321423,
+        "log_loss": 5.344197936036404,
+        "multiclass_brier": 0.99746983900172,
+        "top_5_accuracy": 0.12423504229628869
+      },
+      "population_seen": {
+        "count": 87472,
+        "log_loss": 5.293490017773566,
+        "multiclass_brier": 0.9962869475792187,
+        "top_5_accuracy": 0.128601152368758
+      },
+      "support_buckets": {
+        "100+": {
+          "mean_log_loss_difference": -0.23292618262346293,
+          "picks": 28825
+        },
+        "20-49": {
+          "mean_log_loss_difference": -0.10604597910769943,
+          "picks": 37160
+        },
+        "50-99": {
+          "mean_log_loss_difference": -0.15365628660638134,
+          "picks": 21487
+        }
+      },
+      "train_years": [
+        2021,
+        2022
+      ],
+      "training_counts": {
+        "drafts": 1956,
+        "eligible_managers": 3750,
+        "managers": 12880,
+        "missing_board_picks": 1806,
+        "missing_manager_picks": 5051,
+        "picks": 335898
+      },
+      "validation_years": [
+        2023
+      ]
+    },
+    "train-2021_validate-2022": {
+      "counts": {
+        "drafts": 1299,
+        "missing_board_picks": 1040,
+        "picks": 223546,
+        "seen_manager_coverage": 0.13453159528687608,
+        "seen_manager_picks": 30074
+      },
+      "gate": {
+        "all_pick_log_loss_difference": -0.02414673918257293,
+        "paired_seen_log_loss_difference": {
+          "drafts": 807,
+          "estimate": -0.1794874960868621,
+          "high": -0.17280986262476677,
+          "low": -0.1853997830396218,
+          "samples": 200,
+          "seed": 20260828
+        },
+        "passes": true,
+        "seen_manager_log_loss_improvement": 0.17948749608689507
+      },
+      "personalized_all": {
+        "count": 223546,
+        "log_loss": 5.30455042796229,
+        "multiclass_brier": 0.9937201415290919,
+        "top_5_accuracy": 0.12945881384591987
+      },
+      "personalized_seen": {
+        "count": 30074,
+        "log_loss": 5.1446401727411,
+        "multiclass_brier": 0.9914214395301996,
+        "top_5_accuracy": 0.1493648999135466
+      },
+      "population_all": {
+        "count": 223546,
+        "log_loss": 5.328697167144863,
+        "multiclass_brier": 0.9940835702825224,
+        "top_5_accuracy": 0.12524491603517846
+      },
+      "population_seen": {
+        "count": 30074,
+        "log_loss": 5.3241276688279955,
+        "multiclass_brier": 0.994122877453811,
+        "top_5_accuracy": 0.11804216266542529
+      },
+      "support_buckets": {
+        "100+": {
+          "mean_log_loss_difference": -0.2532314424854018,
+          "picks": 6457
+        },
+        "20-49": {
+          "mean_log_loss_difference": -0.13845386934720053,
+          "picks": 15787
+        },
+        "50-99": {
+          "mean_log_loss_difference": -0.20140744544109948,
+          "picks": 7830
+        }
+      },
+      "train_years": [
+        2021
+      ],
+      "training_counts": {
+        "drafts": 657,
+        "eligible_managers": 858,
+        "managers": 5478,
+        "missing_board_picks": 766,
+        "missing_manager_picks": 1717,
+        "picks": 112352
+      },
+      "validation_years": [
+        2022
+      ]
+    }
+  },
+  "gate": {
+    "passes": true
+  },
+  "limitations": [
+    "offline opponent-choice research only",
+    "manager effect is position preference, not player identity affinity",
+    "evaluation covers only managers observed in prior seasons",
+    "2024 and 2025 were not queried",
+    "no live VONA, WORP, rollout, API, or UI integration"
+  ],
+  "locked_test_loaded": false,
+  "minimum_manager_picks": 20,
+  "population_comparator": "inverse_adp",
+  "shrinkage_opportunities": 50.0,
+  "status": "research",
+  "train_development_seasons": [
+    2021,
+    2022,
+    2023
+  ],
+  "validation_2024_loaded": false
+}

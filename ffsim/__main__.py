@@ -15,6 +15,7 @@ def parse_args():
             "setup", "simulate", "refresh", "serve", "draft-audit", "market-import",
             "market-refresh", "market-backtest", "mock-attach", "mock-refresh",
             "manager-audit", "synthetic-drafts", "worp-calibrate", "worp-approve",
+            "draft-timing-report", "alpha-shadow-audit",
         ),
         nargs="?",
         default="simulate",
@@ -34,9 +35,16 @@ def parse_args():
     )
     parser.add_argument("--output")
     parser.add_argument("--database")
+    parser.add_argument("--session-id")
     parser.add_argument("--worp-team-count", type=int)
     parser.add_argument("--worp-scoring")
     parser.add_argument("--decision-reference")
+    parser.add_argument("--league-cache")
+    parser.add_argument("--draft-cache")
+    parser.add_argument("--roster-id", type=int)
+    parser.add_argument("--survival-manifest")
+    parser.add_argument("--world-count", type=int, default=50)
+    parser.add_argument("--candidate-breadth", type=int, default=20)
     parser.add_argument("--scenario")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8000)
@@ -272,6 +280,31 @@ def main():
         print(json.dumps(result, indent=2))
         return
 
+    if args.command == "alpha-shadow-audit":
+        from ffsim.draft_intel.alpha_audit import (
+            build_alpha_shadow_audit,
+            write_alpha_shadow_audit,
+        )
+        from ffsim.paths import CACHE_DIR
+
+        telemetry_path = (
+            Path(args.database)
+            if args.database
+            else CACHE_DIR / "draft_intel" / "telemetry.sqlite3"
+        )
+        try:
+            report = build_alpha_shadow_audit(
+                telemetry_path,
+                draft_id=args.draft_id,
+                session_id=args.session_id,
+            )
+            if args.output:
+                report = write_alpha_shadow_audit(report, args.output)
+        except (FileNotFoundError, OSError, ValueError) as error:
+            raise SystemExit(str(error)) from error
+        print(json.dumps(report, indent=2))
+        return
+
     if args.command == "manager-audit":
         from ffsim.draft_intel.profiles import (
             MANAGER_PROFILE_MODEL_STATUS,
@@ -303,6 +336,45 @@ def main():
             "profiles": profiles,
         }, indent=2))
         return
+    if args.command == "draft-timing-report":
+        from ffsim.draft_intel.timing_report import (
+            build_cached_timing_context,
+            build_timing_report,
+            write_timing_report,
+        )
+
+        required = {
+            "--league-cache": args.league_cache,
+            "--roster-id": args.roster_id,
+            "--survival-manifest": args.survival_manifest,
+            "--output": args.output,
+        }
+        missing = [name for name, value in required.items() if value is None]
+        if missing:
+            raise SystemExit(
+                f"draft-timing-report requires {', '.join(missing)}"
+            )
+        try:
+            context = build_cached_timing_context(
+                args.config,
+                args.league_cache,
+                roster_id=args.roster_id,
+                draft_cache=args.draft_cache,
+                world_count=args.world_count,
+            )
+            report = build_timing_report(
+                context["prepared"],
+                context["state"],
+                args.survival_manifest,
+                input_hashes=context["input_hashes"],
+                candidate_breadth=args.candidate_breadth,
+            )
+            write_timing_report(report, args.output)
+        except (OSError, ValueError) as error:
+            raise SystemExit(str(error)) from error
+        print(json.dumps(report, indent=2))
+        return
+
 
     config = AppConfig.from_file(args.config)
     league_id = args.league_id or config.league_id

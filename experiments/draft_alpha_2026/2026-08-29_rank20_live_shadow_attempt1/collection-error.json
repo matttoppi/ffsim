@@ -1,0 +1,10 @@
+{
+  "status": "command_failed_before_policy_evaluation",
+  "policy_attempt_counted": false,
+  "draft_id": "1393628519644286976",
+  "pick_no": 1,
+  "error": "rank-20 timing report omitted survival_manifest_hash, causing alpha shadow collection to fail before state one completed",
+  "partial_sessions": 1,
+  "partial_ready_states": 0,
+  "action": "restore the required manifest field, remove the partial generated telemetry, and rerun the unchanged frozen gate"
+}
