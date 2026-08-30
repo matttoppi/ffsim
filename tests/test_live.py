@@ -892,7 +892,7 @@ class LiveDraftTest(unittest.TestCase):
         self.assertEqual(row["opportunity_sample_count"], 20)
         self.assertEqual(
             row["opportunity_model_version"],
-            "next-turn-vona-v2:terminal-marginal",
+            "next-turn-vona-v3:terminal-marginal-flex-streamer",
         )
         self.assertIsNotNone(row["current_marginal_value"])
         self.assertIsNotNone(row["expected_best_later_value"])

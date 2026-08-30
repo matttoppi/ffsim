@@ -11,7 +11,7 @@ from ffsim.models.team import FLEX_ELIGIBILITY
 from ffsim.simulation.evaluator import BENCH_ASSET_FACTOR
 
 
-VONA_MODEL_VERSION = "next-turn-vona-v2:terminal-marginal"
+VONA_MODEL_VERSION = "next-turn-vona-v3:terminal-marginal-flex-streamer"
 
 # Orders terminal-equivalent (mostly zero-marginal late) picks by raw
 # projection instead of lexicographic player ID. Small enough that it can
@@ -329,7 +329,9 @@ def _seat_summary(mine, projection, values, position_of, slots, weekly_cut, avai
     ``FLEX_ELIGIBILITY`` order. Gains are priced in the scorer's floored
     flat-score units: a seat's opportunity cost is its weekly streamer level
     (the position cutline for dedicated seats, the best eligible cutline for
-    flex seats) over the occupant's available weeks.
+    flex seats) over the occupant's available weeks. A player whose floored
+    flat sits below a flex seat's streamer is benched, never seated — the
+    scorer's ``seat_floors`` rule.
 
     Returns per position ``(dedicated_open, open_flex_weekly_cutline,
     displaced_player_id, displaced_seat_weekly_cutline)``.
@@ -356,16 +358,22 @@ def _seat_summary(mine, projection, values, position_of, slots, weekly_cut, avai
         count = slots.get(slot, 0)
         if not count:
             continue
+        seat_cut = max(
+            weekly_cut.get(position, 0.0) for position in eligible
+        )
         occupants = [
             player_id for player_id in ranked
-            if player_id not in used and position_of.get(player_id) in eligible
+            if player_id not in used
+            and position_of.get(player_id) in eligible
+            # Scorer seat floor: floored flat >= seat streamer, expressed in
+            # season value units (value >= weeks * cutline gap).
+            and values.get(player_id, 0.0) >= available_weeks.get(player_id, 0)
+            * (seat_cut - weekly_cut.get(position_of[player_id], 0.0))
         ][:count]
         used.update(occupants)
         occupants_by_slot[slot] = occupants
         open_seats[slot] = count - len(occupants)
-        seat_cutlines[slot] = max(
-            weekly_cut.get(position, 0.0) for position in eligible
-        )
+        seat_cutlines[slot] = seat_cut
 
     summary = {}
     for position in ("QB", "RB", "WR", "TE", "K", "DEF"):
@@ -403,8 +411,10 @@ def _terminal_marginal(player_id, summary, value_model):
 
     Exactly the scorer's cases: an open dedicated seat pays value over the
     position cutline; an open flex seat pays the availability-adjusted value
-    over the flex streamer; a player who outranks a current starter in raw
-    projection is seated by the greedy lineup (decision by raw projection,
+    over the flex streamer when the player's floored flat clears the seat's
+    streamer (the scorer's ``seat_floors`` rule) and bench value otherwise;
+    a player who outranks a current starter in raw projection and clears the
+    seat streamer is seated by the greedy lineup (decision by raw projection,
     ``_lineup_order`` semantics) and pays the seat-adjusted value difference
     while the displaced starter keeps ``BENCH_ASSET_FACTOR`` of his value —
     honestly negative when the greedy seats a raw-better but floored-worse
@@ -428,15 +438,20 @@ def _terminal_marginal(player_id, summary, value_model):
     if dedicated_open:
         return value
     if flex_cut is not None:
-        return seat_adjusted(player_id, flex_cut)
+        seated = seat_adjusted(player_id, flex_cut)
+        # seated >= 0 is exactly "floored flat >= seat streamer": below it
+        # the scorer benches the player instead of starting him.
+        return seated if seated >= 0 else BENCH_ASSET_FACTOR * value
     if displaced is not None and (
         projection.get(player_id, 0.0) > projection.get(displaced, 0.0)
     ):
-        return (
-            seat_adjusted(player_id, displaced_seat_cut)
-            - seat_adjusted(displaced, displaced_seat_cut)
-            + BENCH_ASSET_FACTOR * values.get(displaced, 0.0)
-        )
+        seated = seat_adjusted(player_id, displaced_seat_cut)
+        if seated >= 0:
+            return (
+                seated
+                - seat_adjusted(displaced, displaced_seat_cut)
+                + BENCH_ASSET_FACTOR * values.get(displaced, 0.0)
+            )
     return BENCH_ASSET_FACTOR * value
 
 
@@ -505,9 +520,12 @@ def _roster_feasible_values(
         if mode == 0:
             marginal = value
         elif mode == 1:
-            marginal = value - available_weeks[player_id] * gap
+            seated = value - available_weeks[player_id] * gap
+            # Below the flex streamer (seated < 0) the scorer benches him.
+            marginal = seated if seated >= 0 else bench * value
         elif mode == 2 and raw > displaced_projection:
-            marginal = value - available_weeks[player_id] * gap + base
+            seated = value - available_weeks[player_id] * gap
+            marginal = seated + base if seated >= 0 else bench * value
         else:
             marginal = bench * value
         result[player_id] = marginal + tiebreak * raw

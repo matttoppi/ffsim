@@ -419,16 +419,53 @@ class TerminalMarginalAlignmentTest(unittest.TestCase):
             if player_id not in roster
         ]
         utilities = self._current_values(subject, roster, available)
-        # Open dedicated seat (rb2), open flex seat (te1), and a bench asset
-        # behind the flex (rb3 once te1 outranks it) all price exactly like
-        # adding the player to the terminal scorer's roster.
-        for candidate in ("rb2", "te1", "wr2", "rb3"):
+        # Open dedicated seat (rb2), open flex seat (te1), a bench asset
+        # behind the flex (rb3 once te1 outranks it), and a sub-streamer
+        # flex candidate (tef0, benched instead of force-seated) all price
+        # exactly like adding the player to the terminal scorer's roster.
+        for candidate in ("rb2", "te1", "wr2", "rb3", "tef0"):
             self.assertAlmostEqual(
                 utilities[candidate],
                 value(subject, (*roster, candidate)) - base,
                 places=5,
                 msg=candidate,
             )
+
+    def test_availability_limited_sub_streamer_flex_parity(self):
+        # Willis inversion regression: a sub-streamer TE available one week
+        # used to price -1 x flex gap while a full-season one priced -3 x,
+        # so the least-available player won "best now". Both are benched.
+        from tests.test_roster_value import mixed_evaluator, mixed_players, value
+
+        players = mixed_players()
+        player_ids = [player_id for player_id, _, _ in players]
+        subject = mixed_evaluator(("QB", "RB", "RB", "WR", "FLEX"), players)
+        scores = subject.bank.scores.copy()
+        available = subject.bank.available.copy()
+        row = player_ids.index("tef1")
+        available[:, row, 1:] = False
+        scores[:, row, 1:] = 0.0
+        for array in (scores, available):
+            array.flags.writeable = False
+        object.__setattr__(subject.bank, "scores", scores)
+        object.__setattr__(subject.bank, "available", available)
+        roster = ("qb1", "rb1", "wr1")
+        base = value(subject, roster)
+        utilities = self._current_values(
+            subject,
+            roster,
+            [player_id for player_id in player_ids if player_id not in roster],
+        )
+        for candidate in ("tef0", "tef1"):
+            self.assertAlmostEqual(
+                utilities[candidate],
+                value(subject, (*roster, candidate)) - base,
+                places=5,
+                msg=candidate,
+            )
+        self.assertAlmostEqual(
+            utilities["tef1"], utilities["tef0"], places=5
+        )
 
     def test_flex_worthy_te_outranks_backup_qb_when_lineup_is_full(self):
         # Regression for the 7ae93a0e QB pile-up and the ADR-030 phantom

@@ -164,6 +164,41 @@ class RosterValueScorerTest(unittest.TestCase):
         # cutline streamer instead of crediting the bye as zero starters.
         self.assertAlmostEqual(value(bye_subject, ("rb1",)), 2 * (20 - 5))
 
+    def test_open_flex_never_starts_a_sub_streamer_player(self):
+        # Live pick-72 regression: greedy seating forced any added TE into
+        # the open flex at his TE-cutline floor (4) below the flex streamer
+        # (6), so adding a player cost points. Sub-streamer players are
+        # benched and the seat streams.
+        base = ("rb1", "rb2", "wr1")
+        self.assertEqual(
+            value(self.subject, (*base, "tef0")), value(self.subject, base)
+        )
+        # A flex-worthy TE still takes the seat at full seat-adjusted credit.
+        self.assertAlmostEqual(
+            value(self.subject, (*base, "te1")) - value(self.subject, base),
+            3 * (15 - 6),
+        )
+
+    def test_availability_cannot_rank_a_worse_flex_player_higher(self):
+        # The Willis inversion: fewer available weeks used to shrink the
+        # forced flex loss, ranking the least-available sub-streamer player
+        # above every startable one.
+        players = mixed_players()
+        player_ids = [player_id for player_id, _, _ in players]
+        limited = mixed_evaluator(("QB", "RB", "RB", "WR", "FLEX"), players)
+        scores = limited.bank.scores.copy()
+        available = limited.bank.available.copy()
+        tef1 = player_ids.index("tef1")
+        available[:, tef1, 1:] = False
+        scores[:, tef1, 1:] = 0.0
+        for array in (scores, available):
+            array.flags.writeable = False
+        object.__setattr__(limited.bank, "scores", scores)
+        object.__setattr__(limited.bank, "available", available)
+        base = ("rb1", "rb2", "wr1")
+        self.assertEqual(value(limited, (*base, "tef0")), value(limited, base))
+        self.assertEqual(value(limited, (*base, "tef1")), value(limited, base))
+
     def test_scorer_is_deterministic_and_versioned(self):
         roster = ("qb1", "rb1", "rb2", "wr1", "te1")
         self.assertEqual(value(self.subject, roster), value(self.subject, roster))

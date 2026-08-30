@@ -2387,3 +2387,70 @@ ADR-031 alignment is preserved and strengthened.
 - API tests cover the board join, round-trip, prepared-draft hot-swap, and
   the no-league 409; a live browser session verified save, badge, and
   persistence with the point-semantics copy.
+
+## ADR-047 — Flex seats never start a player below the seat's streamer level
+
+### Status
+
+Accepted (2026-08-30). `ROSTER_VALUE_VERSION` advances to 5; the VONA
+model tag advances to `next-turn-vona-v3:terminal-marginal-flex-streamer`.
+
+### Decision
+
+The deterministic roster-value lineup (`projected_roster_value` through
+`_lineup_totals`) seats a player in a flex slot only when his floored flat
+weekly score is at least the seat's streamer level (the best eligible
+position cutline). A player below it is benched and the seat streams at
+its replacement credit, exactly like an unfilled seat. The stochastic
+`_evaluate` path passes no seat floors and is bit-unchanged.
+
+The future-user policy mirrors the rule (ADR-031 alignment):
+`_seat_summary` seats flex occupants only when their season value clears
+`available_weeks x (seat cutline - own cutline)`, and both
+`_terminal_marginal` and `_roster_feasible_values` price a candidate whose
+seat-adjusted value is negative as a discounted bench asset instead of a
+forced starter.
+
+### Rationale
+
+ADR-027 floors rostered players at their own position cutline, but a flex
+seat's streamer is the best eligible cutline, which can sit above it (a TE
+in a RB/WR/TE flex). Greedy seating without the streamer option therefore
+scored adding such a player strictly negative — the seat lost the cutline
+gap for every available week — and the loss scaled with availability, so
+the least-available player ranked best. Measured live at pick 72 of the
+owner's 12-team PPR mock (bank `c56c1800…`, replayed bit-exactly against
+the running server: 534 board rows, max value difference 0.0): the exact
+scorer priced adding Brayden Willis (TE101, 10.4 season points, 8
+available weeks) at -8.44 while Likely/Kittle/Kelce priced -18.09, so the
+projection board's TE "Best now" was Willis and every startable TE carried
+a -19.3 wall. You would bench him and stream the seat, so no seated player
+scores below the seat's streamer.
+
+### Consequences
+
+- Adding a player through an open flex seat can no longer reduce
+  `projected_roster_value`; sub-streamer flex candidates price at their
+  bench-asset value (>= 0).
+- Values are not comparable across `ROSTER_VALUE_VERSION`s; cached
+  evaluations key on the version.
+- The ADR-027 note that a below-cutline player "can score slightly
+  negative on bye-coverage weeks" no longer applies to flex seats.
+
+### Validation
+
+- Scorer tests: a sub-streamer TE added through the open flex leaves the
+  roster value unchanged while a flex-worthy TE still earns the full
+  seat-adjusted credit, and an availability-limited sub-streamer TE no
+  longer outscores a full-season one
+  (`test_open_flex_never_starts_a_sub_streamer_player`,
+  `test_availability_cannot_rank_a_worse_flex_player_higher`).
+- Policy parity tests: sub-streamer and availability-limited flex
+  candidates price exactly as terminal scorer marginals
+  (`test_policy_values_equal_terminal_scorer_marginals`,
+  `test_availability_limited_sub_streamer_flex_parity`).
+- Replayed live pick-72 state after the fix: no negative marginal on the
+  board, Willis prices 0.0 with every sub-streamer TE, the best-now TE is
+  a startable TE (Andrews +0.09), and policy values match exact scorer
+  deltas.
+- Full Python suite passes 256/256.

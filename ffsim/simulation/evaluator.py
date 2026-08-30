@@ -14,7 +14,7 @@ from ffsim.models.team import FLEX_ELIGIBILITY
 EVALUATOR_VERSION = 1
 # Deterministic projected roster-value scorer revision. Kept separate from
 # EVALUATOR_VERSION because that constant also seeds streamer randomness.
-ROSTER_VALUE_VERSION = 4
+ROSTER_VALUE_VERSION = 5
 # Discounted bench asset value (ADR-029): a benched player is worth this
 # fraction of his points over the starter cutline — trade/upside value that
 # keeps late rounds chasing the best remaining player instead of treating
@@ -289,11 +289,18 @@ class LeagueEvaluator:
             key=lambda player: (-expected[player], str(player_ids[player])),
         )
 
-    def _lineup_totals(self, order, available, scores, replacement, team_cum):
+    def _lineup_totals(
+        self, order, available, scores, replacement, team_cum, seat_floors=None
+    ):
         """Greedy legal lineup totals for one team over (world, week) cells.
 
         ``available``/``scores`` are (worlds, len(order), weeks) in lineup
         order; ``team_cum`` is the per-slot cumulative streamer factor.
+        ``seat_floors`` (deterministic scorer only) maps a flex slot to its
+        streamer level: a candidate below it is benched instead of seated,
+        because starting him would score less than leaving the seat to the
+        streamer. The stochastic ``_evaluate`` path passes nothing and is
+        unchanged.
         """
         team_positions = self._position_array[order]
         chosen = np.zeros(available.shape, dtype=bool)
@@ -316,6 +323,9 @@ class LeagueEvaluator:
                 len(team_positions),
             )
             candidates = available & member[None, :, None] & ~chosen
+            floor = (seat_floors or {}).get(slot)
+            if floor is not None:
+                candidates &= scores >= floor
             take = candidates & (np.cumsum(candidates, axis=1) <= count)
             chosen |= take
             filled[slot] = take.sum(axis=1)
@@ -359,6 +369,14 @@ class LeagueEvaluator:
           slightly-negative ones (measured: all-WR late boards over 20
           available RBs). You would bench him and stream, so no rostered
           player scores below replacement.
+        - Flex seats never start a player below the seat's streamer level: a
+          rostered player is floored at his own position cutline, which can
+          sit below a flex seat's cross-position streamer (a TE in a RB/WR/TE
+          flex). Greedy seating without the streamer option scored adding
+          such a player strictly negative — scaled by his available weeks, so
+          a half-season TE3 outranked every startable TE (measured live at
+          pick 72: Brayden Willis -8.4 versus Likely/Kittle/Kelce -18.1).
+          You would bench him and stream the seat, so he stays a bench asset.
 
         Bench players (available but not chosen in a week's lineup) add
         ``BENCH_ASSET_FACTOR`` times their points over the position cutline —
@@ -386,6 +404,14 @@ class LeagueEvaluator:
             scores,
             replacement,
             self._unit_cum,
+            seat_floors={
+                slot: max(
+                    (replacement.get(position, 0.0) for position in eligible),
+                    default=0.0,
+                )
+                for slot, eligible in FLEX_ELIGIBILITY.items()
+                if self.slot_counts.get(slot)
+            },
         )
         cutline = np.asarray([
             replacement.get(position, 0.0)
