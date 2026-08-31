@@ -68,6 +68,26 @@ export function BoostChip({ offset }: { offset: number }) {
   )
 }
 
+/** F8: a lone non-consensus projection among consensus rows is an artifact
+ * risk (e.g. a PFF starter-level fallback), not extra signal. */
+export function SourceChip({
+  source,
+  outlier,
+}: {
+  source?: string | null
+  outlier?: boolean
+}) {
+  if (!outlier || !source) return null
+  return (
+    <span
+      className="source-chip"
+      title={`Single-source projection (${source}) — no consensus row backs this number; consider a fade offset before trusting it`}
+    >
+      {source.toUpperCase()}
+    </span>
+  )
+}
+
 /** Memoized: the monitor poll reuses board references between real changes. */
 export const ProjectionBoard = memo(function ProjectionBoard({
   board,
@@ -171,6 +191,10 @@ export const ProjectionBoard = memo(function ProjectionBoard({
                           <th scope="row">
                             {player.name}
                             {player.team && <small>{player.team}</small>}
+                            <SourceChip
+                              source={player.projection_source}
+                              outlier={player.projection_source_outlier}
+                            />
                           </th>
                           <td>
                             <strong>{player.projected_points.toFixed(1)}</strong>
@@ -357,6 +381,10 @@ export const ProjectionBoard = memo(function ProjectionBoard({
                         </span>
                         {player.name}
                         {player.team && <small>{player.team}</small>}
+                        <SourceChip
+                          source={player.projection_source}
+                          outlier={player.projection_source_outlier}
+                        />
                       </th>
                       <td>
                         {player.projected_points.toFixed(1)}
@@ -413,6 +441,10 @@ export const ProjectionBoard = memo(function ProjectionBoard({
                         <th scope="row">
                           {player.name}
                           {player.team && <small>{player.team}</small>}
+                          <SourceChip
+                            source={player.projection_source}
+                            outlier={player.projection_source_outlier}
+                          />
                         </th>
                         <td>
                           {player.projected_points.toFixed(1)}

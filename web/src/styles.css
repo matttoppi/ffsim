@@ -1331,6 +1331,22 @@ code {
   background: rgba(167, 139, 250, 0.14);
 }
 
+.source-chip {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--display);
+  font-size: 0.63rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 0 4px;
+  margin-left: 6px;
+  vertical-align: 1px;
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.12);
+  cursor: help;
+}
+
 .market-chip {
   display: inline-flex;
   align-items: center;

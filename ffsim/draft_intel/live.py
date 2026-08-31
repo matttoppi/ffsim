@@ -255,6 +255,13 @@ def prepare_draft(
         blockers.append("season_worlds_unavailable")
     blockers = list(dict.fromkeys(blockers))
     player_details = _player_details(player_loader.sleeper_players_file)
+    # F8: name each row's projection source so a cross-source artifact
+    # (e.g. a PFF starter-level fallback beside consensus-sourced rivals)
+    # is visible on the board instead of silently inflating one player.
+    for player in player_loader.enriched_players:
+        detail = player_details.get(str(player.sleeper_id))
+        if detail is not None:
+            detail["projection_source"] = player.projection_source
     personal_offsets = load_personal_offsets()
     relevant_managers = [
         manager
@@ -1089,6 +1096,14 @@ def projection_value_board(prepared, state, temperature=None):
             "current_roster_value": current_values[player_id],
             "adp": adp.get(player_id),
             "personal_offset": my_board.get(player_id, 0),
+            "projection_source": details.get("projection_source"),
+            # F8: consensus (FantasyPros) is the primary offense source;
+            # a lone PFF row among consensus rivals is a cross-source
+            # artifact worth a fade check, not extra signal.
+            "projection_source_outlier": (
+                position not in ("K", "DEF")
+                and details.get("projection_source") == "pff"
+            ),
         })
 
     points_position_ranks = Counter()
@@ -1120,6 +1135,11 @@ def projection_value_board(prepared, state, temperature=None):
             "position_rank": points_position_ranks[position],
             "projected_points": projection[player_id],
             "personal_offset": my_board.get(player_id, 0),
+            "projection_source": details.get("projection_source"),
+            "projection_source_outlier": (
+                position not in ("K", "DEF")
+                and details.get("projection_source") == "pff"
+            ),
         })
 
     best_route_by_position = {}

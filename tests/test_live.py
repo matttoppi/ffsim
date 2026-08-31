@@ -279,7 +279,15 @@ class LiveDraftTest(unittest.TestCase):
                 ],
             },
             player_details={
-                player_id: {"name": player_id.upper(), "team": "TST"}
+                player_id: {
+                    "name": player_id.upper(),
+                    "team": "TST",
+                    # F8: qb2's number comes from a lone PFF fallback; every
+                    # other row is consensus-sourced.
+                    "projection_source": (
+                        "pff" if player_id == "qb2" else "fantasypros"
+                    ),
+                }
                 for player_id in player_ids
             },
         )
@@ -352,6 +360,19 @@ class LiveDraftTest(unittest.TestCase):
         self.assertEqual(qb_rows[0]["replacement_points"], 30.0)
         self.assertEqual(qb_rows[0]["value_over_replacement"], 60.0)
         self.assertAlmostEqual(qb_rows[0]["wins_over_replacement"], 0.6)
+        # F8: the board names each row's projection source and flags the
+        # lone non-consensus offensive row as an outlier.
+        self.assertEqual(
+            [
+                (player["projection_source"], player["projection_source_outlier"])
+                for player in qb_rows
+            ],
+            [("fantasypros", False), ("pff", True), ("fantasypros", False)],
+        )
+        self.assertEqual(
+            [(row["projection_source_outlier"]) for row in points_qb],
+            [False, True, False],
+        )
         self.assertEqual(
             board["recommended_player_id"],
             board["plans"][0]["player_id"],
