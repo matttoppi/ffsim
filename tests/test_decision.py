@@ -166,6 +166,62 @@ class DecisionEvaluationTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "duplicate candidates"):
             merge_evaluations([combined, combined])
 
+    def test_adjacent_companions_come_from_the_per_pick_rollout_record(self):
+        # Roster 4 owns back-to-back snake picks 4 and 5 (F6). Each
+        # continuation retains its per-pick record, so the companion at the
+        # adjacent pick is counted exactly; merged disjoint rollout ranges
+        # equal one combined evaluation bit-for-bit.
+        state = draft_state().with_pick("p1").with_pick("p2").with_pick("p3")
+        self.assertEqual(state.current_pick_no, 4)
+        self.assertEqual(state.current_roster_id, 4)
+        kwargs = dict(
+            user_roster_id=4,
+            opponent_choice=market_utility,
+            user_policy=market_utility,
+            league_evaluator=evaluator(),
+            draft_model_version="manual-test-v1",
+            seed=19,
+        )
+        combined = evaluate_candidates(
+            state, ("p4", "p5"), rollout_ids=range(8), **kwargs
+        )
+
+        for candidate in combined.candidates:
+            counts = candidate.adjacent_companion_counts
+            self.assertIsNotNone(counts)
+            # Every continuation contributes exactly one companion, and the
+            # root candidate cannot be his own companion.
+            self.assertEqual(sum(count for _, count in counts), 8)
+            self.assertNotIn(
+                candidate.candidate_id,
+                {player_id for player_id, _ in counts},
+            )
+
+        merged = merge_rollout_ranges([
+            evaluate_candidates(
+                state, ("p4", "p5"), rollout_ids=range(4), **kwargs
+            ),
+            evaluate_candidates(
+                state, ("p4", "p5"), rollout_ids=range(4, 8), **kwargs
+            ),
+        ])
+        self.assertEqual(merged, combined)
+
+        # A non-adjacent turn tracks no companions.
+        non_adjacent = evaluate_candidates(
+            draft_state(),
+            ("p1", "p2"),
+            user_roster_id=1,
+            rollout_ids=range(4),
+            opponent_choice=market_utility,
+            user_policy=market_utility,
+            league_evaluator=evaluator(),
+            draft_model_version="manual-test-v1",
+            seed=19,
+        )
+        for candidate in non_adjacent.candidates:
+            self.assertIsNone(candidate.adjacent_companion_counts)
+
     def test_personal_offsets_shift_the_preference_utility_only(self):
         kwargs = dict(
             user_roster_id=1,

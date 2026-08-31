@@ -1,5 +1,6 @@
 """Joint draft-continuation and season-world candidate evaluation."""
 
+from collections import Counter
 from dataclasses import dataclass, replace
 from hashlib import sha256
 import math
@@ -75,6 +76,11 @@ class CandidateEvaluation:
     continuation_preference_values: tuple[float, ...] | None = None
     preference_adjusted_value: float | None = None
     preference_adjusted_value_standard_error: float | None = None
+    # Back-to-back turns only (F6): the user's modeled selection at the
+    # immediately-adjacent next pick, counted per continuation from the
+    # retained per-pick rollout record. None when the user does not own
+    # the next pick. Sorted by (-count, player_id).
+    adjacent_companion_counts: tuple[tuple[str, int], ...] | None = None
 
     @property
     def preference_value(self):
@@ -353,6 +359,17 @@ def evaluate_candidates(
     user_index = league_evaluator.roster_index[user_roster_id]
     future_turns = state.future_turn_pick_nos(user_roster_id, count=1)
     next_user_pick_no = future_turns[0] if future_turns else None
+    # F6: the user's own next pick when it is immediately adjacent (snake
+    # back-to-back turn). The turn-level opportunity evidence groups
+    # adjacent picks into one turn, so the companion selection is read
+    # from each continuation's authoritative per-pick record instead.
+    adjacent_pick_no = (
+        state.current_pick_no + 1
+        if state.current_pick_no is not None
+        and state.current_pick_no < len(state.pick_owners)
+        and state.pick_owners[state.current_pick_no] == user_roster_id
+        else None
+    )
     evaluations = []
     for candidate_id in candidate_ids:
         completions = complete_drafts(
@@ -373,6 +390,7 @@ def evaluate_candidates(
         continuation_probabilities = []
         roster_values = []
         preference_values = []
+        companions = Counter()
         for completion, completion_worlds in zip(completions, world_indices):
             try:
                 assignment = {
@@ -413,6 +431,16 @@ def evaluate_candidates(
             continuation_probabilities.append(
                 sum(completion_championships) / len(completion_championships)
             )
+            if adjacent_pick_no is not None:
+                companion = next(
+                    (
+                        pick.player_id for pick in completion.picks
+                        if pick.pick_no == adjacent_pick_no and pick.user_pick
+                    ),
+                    None,
+                )
+                if companion is not None:
+                    companions[companion] += 1
 
         championship_probability, championship_error = _mean_and_error(
             continuation_probabilities
@@ -460,6 +488,11 @@ def evaluate_candidates(
             ),
             preference_adjusted_value=preference_value,
             preference_adjusted_value_standard_error=preference_error,
+            adjacent_companion_counts=(
+                _sorted_counts(companions)
+                if adjacent_pick_no is not None
+                else None
+            ),
         ))
 
     return DecisionEvaluation(
@@ -478,6 +511,10 @@ def evaluate_candidates(
         league_evaluator_version=league_evaluator.version,
         candidates=tuple(evaluations),
     )
+
+
+def _sorted_counts(counter):
+    return tuple(sorted(counter.items(), key=lambda item: (-item[1], item[0])))
 
 
 def evaluate_league_equity(
@@ -790,6 +827,9 @@ def merge_rollout_ranges(evaluations):
             opportunity_cost=_merge_opportunity_costs(
                 tuple(part.opportunity_cost for part in parts)
             ),
+            adjacent_companion_counts=_merge_companion_counts(
+                tuple(part.adjacent_companion_counts for part in parts)
+            ),
         ))
     return replace(
         base,
@@ -799,6 +839,17 @@ def merge_rollout_ranges(evaluations):
         ),
         candidates=tuple(candidates),
     )
+
+
+def _merge_companion_counts(parts):
+    if all(part is None for part in parts):
+        return None
+    if any(part is None for part in parts):
+        raise ValueError("Cannot merge partially tracked companion counts")
+    merged = Counter()
+    for part in parts:
+        merged.update(dict(part))
+    return _sorted_counts(merged)
 
 
 def _merge_opportunity_costs(costs):

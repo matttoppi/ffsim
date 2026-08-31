@@ -529,6 +529,16 @@ export interface DraftMonitor {
     co_leader_candidate_ids: string[]
     order_symmetric_candidate_ids?: string[]
     paired_value_delta_basis?: string
+    pair_plan?: {
+      next_pick_no: number
+      sample_count: number
+      companions: Array<{
+        player_id: string
+        name: string
+        position: string | null
+        share: number
+      }>
+    } | null
     recommended_candidate_id?: string
     runner_up_candidate_id?: string | null
     projected_roster_value?: number

@@ -1613,6 +1613,39 @@ def live_recommendation_payload(prepared, state, evaluations, candidate_pool_cou
             evaluation, co_leaders, recommendation["recommended_candidate_id"]
         )
     )
+    # F6: at a back-to-back turn the second pick is already modeled inside
+    # every continuation. Surface the headline branch's companion
+    # distribution at the adjacent pick as an explicit two-pick plan.
+    headline = next(
+        (
+            candidate for candidate in ranked
+            if candidate.candidate_id
+            == recommendation["recommended_candidate_id"]
+        ),
+        None,
+    )
+    companion_counts = getattr(headline, "adjacent_companion_counts", None)
+    pair_plan = None
+    if companion_counts:
+        total = sum(count for _, count in companion_counts)
+        pair_plan = {
+            "next_pick_no": evaluation.state_pick_no + 1,
+            "sample_count": total,
+            "companions": [
+                {
+                    "player_id": player_id,
+                    "name": prepared.player_details.get(player_id, {}).get(
+                        "name", player_id
+                    ),
+                    "position": prepared.player_details.get(player_id, {}).get(
+                        "position"
+                    ),
+                    "share": count / total,
+                }
+                for player_id, count in companion_counts[:3]
+            ],
+        }
+    recommendation["pair_plan"] = pair_plan
     tie_break_basis = None
     if recommendation["decision_status"] == "toss_up":
         max_urgency = max(map(effective_tie_break_urgency, co_leaders))

@@ -1038,6 +1038,60 @@ class LiveDraftTest(unittest.TestCase):
         )
         self.assertEqual(merged, flat)
 
+    def test_payload_emits_a_pair_plan_at_back_to_back_turns(self):
+        # F6: roster 4 owns snake picks 4 and 5; the headline's modeled
+        # companion at the adjacent pick becomes an explicit two-pick plan.
+        state = draft_state().with_pick("p1").with_pick("p2").with_pick("p3")
+        prepared = PreparedDraft(
+            summary={},
+            live_draft_id="draft",
+            league_id=None,
+            standalone=True,
+            user_roster_id=4,
+            market_snapshot={
+                "source": SLEEPER_ADP_SOURCE,
+                "snapshot_id": "snap",
+                "observations": [
+                    {"canonical_player_id": f"p{index}", "adp": float(index)}
+                    for index in range(1, 13)
+                ],
+            },
+            evaluator=evaluator(),
+            player_details={
+                f"p{index}": {"name": f"Player {index}", "position": "WR"}
+                for index in range(1, 13)
+            },
+        )
+        evaluation = evaluate_live_candidates(prepared, state, 8, ("p4", "p5"))
+
+        payload = live_recommendation_payload(prepared, state, [evaluation], 2)
+
+        plan = payload["pair_plan"]
+        self.assertEqual(plan["next_pick_no"], 5)
+        self.assertEqual(plan["sample_count"], 8)
+        self.assertAlmostEqual(
+            sum(row["share"] for row in plan["companions"]),
+            1.0,
+            places=6,
+        )
+        headline = payload["recommended_candidate_id"]
+        self.assertNotIn(
+            headline,
+            {row["player_id"] for row in plan["companions"]},
+        )
+        for row in plan["companions"]:
+            self.assertEqual(row["name"], f"Player {row['player_id'][1:]}")
+
+        # Non-adjacent turns publish no plan.
+        non_adjacent_prepared = replace(prepared, user_roster_id=1)
+        non_adjacent = evaluate_live_candidates(
+            non_adjacent_prepared, draft_state(), 8, ("p1", "p8")
+        )
+        non_adjacent_payload = live_recommendation_payload(
+            non_adjacent_prepared, draft_state(), [non_adjacent], 2
+        )
+        self.assertIsNone(non_adjacent_payload["pair_plan"])
+
     def test_recommendation_uses_the_best_alternative_branch_for_return_chance(self):
         state = draft_state()
         prepared = PreparedDraft(

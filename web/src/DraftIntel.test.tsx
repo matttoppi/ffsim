@@ -1072,6 +1072,14 @@ describe('DraftIntel', () => {
         co_leader_candidate_ids: ['p1', 'p2'],
         order_symmetric_candidate_ids: ['p2'],
         recommended_candidate_id: 'p1',
+        pair_plan: {
+          next_pick_no: 73,
+          sample_count: 300,
+          companions: [
+            { player_id: 'p2', name: 'Rams Defense', position: 'DEF', share: 0.72 },
+            { player_id: 'p3', name: 'Backup Plan', position: 'RB', share: 0.28 },
+          ],
+        },
         pick_no: 72,
         candidates: [
           {
@@ -1111,6 +1119,8 @@ describe('DraftIntel', () => {
       /Taking Rams Defense now or at your next pick builds the exact same final roster — order does not matter; the scarcer player is listed first\./,
     )
     expect(page).not.toMatch(/Top tier — take either/)
+    // F6: the headline names the modeled second pick of the pair.
+    expect(page).toMatch(/then Rams Defense at pick 73 \(72% of sims\)/)
   })
 
   it('labels the first-board leader as a provisional headline while screening', async () => {

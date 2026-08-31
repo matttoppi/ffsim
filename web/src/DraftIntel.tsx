@@ -660,6 +660,17 @@ export function DraftIntel({
                       ? 'provisional — first board'
                       : 'refining…'}
                 </p>
+                {(() => {
+                  const pairPlan = monitor.recommendation?.pair_plan
+                  const companion = pairPlan?.companions[0]
+                  if (!pairPlan || !companion) return null
+                  return (
+                    <p className="command-rec-meta">
+                      then {companion.name} at pick {pairPlan.next_pick_no} (
+                      {(companion.share * 100).toFixed(0)}% of sims)
+                    </p>
+                  )
+                })()}
               </div>
             )}
             {!(simEngine && leader && recommendationCurrent) && projectionBoard && (() => {
