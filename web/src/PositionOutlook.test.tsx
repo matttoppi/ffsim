@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { PositionOutlook } from './PositionOutlook'
 
 const outlook = {
-  availability_model: 'adp_order_with_reach_cushion',
+  availability_model: 'market_mixture_mean_field_survival',
   roster_assumption: 'current_roster_marginal_value',
   edge_basis: 'first_marginal_seat',
   value_basis: 'raw_projection',
@@ -29,6 +29,7 @@ const outlook = {
           marginal_value: 63.6,
           projected_points: 240.1,
           adp: 22.0,
+          survival_probability: 0.62,
           drop_from_now: 18.4,
         },
       ],
@@ -40,7 +41,7 @@ const outlook = {
           marginal_value: 82.0,
           projected_points: 310.2,
           adp: 3.1,
-          edge_vs_next_turn: 18.4,
+          edge_vs_waiting: 18.4,
         },
       ],
     },
@@ -93,6 +94,8 @@ describe('PositionOutlook', () => {
     expect(screen.getAllByText('Bijan Robinson').length).toBeGreaterThan(0)
     expect(screen.getByText('Pick 19')).toBeTruthy()
     expect(screen.getByText('Kenneth Walker')).toBeTruthy()
+    // Later-turn targets show their chance of lasting.
+    expect(screen.getByText('62%')).toBeTruthy()
     expect(screen.getByText(/starters filled/)).toBeTruthy()
     expect(screen.getByText('market view · your boosts excluded')).toBeTruthy()
     expect(screen.getByText(/simulation advice stays the final ranking/)).toBeTruthy()

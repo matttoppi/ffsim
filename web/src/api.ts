@@ -323,6 +323,7 @@ export interface DraftProjectionBoard {
   }>
   position_outlook?: {
     availability_model: string
+    survival_model?: string
     roster_assumption: string
     edge_basis: string
     value_basis: string
@@ -352,6 +353,8 @@ export interface PositionFalloff {
     projected_points: number | null
     personal_offset?: number
     adp: number | null
+    survival_probability?: number
+    probability_best?: number
     drop_from_now: number
   }>
   top_players: Array<{
@@ -362,7 +365,7 @@ export interface PositionFalloff {
     projected_points: number
     personal_offset?: number
     adp: number | null
-    edge_vs_next_turn: number
+    edge_vs_waiting: number
   }>
 }
 

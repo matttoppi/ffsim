@@ -8,6 +8,7 @@ from unittest.mock import call, patch
 from ffsim.draft_intel.live import (
     PreparedDraft,
     _draft_id,
+    _future_turn_survival,
     _manager_slot,
     _projection_user_policy,
     _refresh_history,
@@ -29,6 +30,76 @@ from ffsim.draft_intel.market_model import SLEEPER_ADP_SOURCE
 from ffsim.draft_intel.state import DraftPick
 from ffsim.draft_intel.worp import WORPCurve
 from tests.test_decision import draft_state, evaluator
+
+
+class FutureTurnSurvivalTest(unittest.TestCase):
+    """Mean-field survival against exact without-replacement enumeration."""
+
+    @staticmethod
+    def _exact_survival(utilities, picks, temperature):
+        from itertools import permutations
+        from math import exp as _exp
+
+        from ffsim.draft_intel.live import LIVE_REACH_RATE
+        from ffsim.draft_intel.market_model import REACH_TEMPERATURE
+
+        ids = sorted(utilities)
+        components = (
+            (1.0 - LIVE_REACH_RATE, temperature),
+            (LIVE_REACH_RATE, REACH_TEMPERATURE),
+        )
+
+        def pick_probability(player_id, available):
+            total = 0.0
+            for rate, component_temperature in components:
+                weights = {
+                    other: _exp(utilities[other] / component_temperature)
+                    for other in available
+                }
+                total += rate * weights[player_id] / sum(weights.values())
+            return total
+
+        survival = dict.fromkeys(ids, 0.0)
+        for sequence in permutations(ids, picks):
+            probability = 1.0
+            available = set(ids)
+            for player_id in sequence:
+                probability *= pick_probability(player_id, available)
+                available.remove(player_id)
+            for player_id in available:
+                survival[player_id] += probability
+        return survival
+
+    def test_matches_exact_enumeration_and_conserves_picks(self):
+        # Sharp ADP-like board: the adversarial case for mean-field.
+        utilities = {
+            f"p{index}": -0.35 * index for index in range(8)
+        }
+        temperature = 0.11
+        picks = 4
+        snapshots = _future_turn_survival(
+            utilities, frozenset(utilities), 1, [1 + picks + 1], temperature,
+        )
+        approximate = snapshots[1 + picks + 1]
+        # One expected pick left the board per intervening pick... the
+        # snapshot is taken BEFORE the turn's own pick, after `picks` picks.
+        self.assertAlmostEqual(
+            sum(approximate.values()), len(utilities) - picks, places=6
+        )
+        exact = self._exact_survival(utilities, picks, temperature)
+        for player_id, exact_survival in exact.items():
+            self.assertAlmostEqual(
+                approximate[player_id], exact_survival, delta=0.13,
+                msg=player_id,
+            )
+
+    def test_players_without_market_observations_always_survive(self):
+        utilities = {"p0": 0.0, "p1": -0.5}
+        snapshots = _future_turn_survival(
+            utilities, frozenset({"p0", "p1", "unlisted"}), 1, [3], 0.11,
+        )
+        self.assertNotIn("unlisted", snapshots[3])
+        self.assertLess(snapshots[3]["p0"], snapshots[3]["p1"])
 
 
 class LiveDraftTest(unittest.TestCase):
@@ -137,7 +208,7 @@ class LiveDraftTest(unittest.TestCase):
             board = projection_value_board(prepared, state)
 
         self.assertEqual(board["pick_no"], 1)
-        self.assertEqual(board["model_version"], 2)
+        self.assertEqual(board["model_version"], 3)
         self.assertEqual(
             board["route_model_status"],
             "approximate_adp_opponent_choice_lookahead",
@@ -265,7 +336,10 @@ class LiveDraftTest(unittest.TestCase):
         outlook = board["position_outlook"]
         self.assertEqual(outlook["edge_basis"], "first_marginal_seat")
         self.assertEqual(
-            outlook["availability_model"], "adp_order_with_reach_cushion"
+            outlook["availability_model"], "market_mixture_mean_field_survival"
+        )
+        self.assertEqual(
+            outlook["survival_model"], "mean_field_without_replacement"
         )
         # Off the clock at pick 2, the user's future turns are 3, 5, 7.
         self.assertEqual(outlook["future_turn_pick_nos"], [3, 5, 7])
@@ -293,11 +367,14 @@ class LiveDraftTest(unittest.TestCase):
             self.assertAlmostEqual(
                 row["take_now_edge"],
                 row["best_now_marginal_value"]
-                - row["turns"][0]["marginal_value"],
+                - max(turn["marginal_value"] for turn in row["turns"]),
             )
+            for turn in row["turns"]:
+                self.assertGreaterEqual(turn["survival_probability"], 0.0)
+                self.assertLessEqual(turn["survival_probability"], 1.0)
             self.assertLessEqual(len(row["top_players"]), 5)
             self.assertAlmostEqual(
-                row["top_players"][0]["edge_vs_next_turn"], row["take_now_edge"]
+                row["top_players"][0]["edge_vs_waiting"], row["take_now_edge"]
             )
 
         completed_state = SimpleNamespace(

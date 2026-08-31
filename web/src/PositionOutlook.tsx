@@ -23,16 +23,26 @@ function TurnHead() {
 
 function TurnRow({ turn }: { turn: Turn }) {
   const cost = turn.drop_from_now
+  const chance = turn.survival_probability
   return (
     <li>
       <span>Pick {turn.pick_no}</span>
       <span>
         {turn.name ?? 'No projected player'}
+        {turn.name != null && chance != null && (
+          <small
+            className="turn-chance"
+            title="Chance this player is still on the board at that pick under the market pick model"
+          >
+            {' '}
+            {Math.round(chance * 100)}%
+          </small>
+        )}
         <BoostChip offset={turn.personal_offset ?? 0} />
       </span>
       <span
         className="turn-value"
-        title="Expected roster value of the best player still there at that pick"
+        title="Expected roster value of the best player still there at that pick, weighted by each player's chance of lasting"
       >
         {turn.marginal_value.toFixed(1)}
       </span>
@@ -91,7 +101,7 @@ export const PositionOutlook = memo(function PositionOutlook({
               <span className={`pos-badge pos-${row.position}`}>{row.position}</span>
             <strong
               className="falloff-edge"
-              title={`Roster value you give up if you pass on ${row.position} now and take the best ${row.position} still there at your next turn`}
+              title={`Roster value you give up if you pass on ${row.position} now and take the best ${row.position} you can expect at your best later turn`}
             >
               {row.take_now_edge.toFixed(1)}
             </strong>
@@ -131,7 +141,7 @@ export const PositionOutlook = memo(function PositionOutlook({
                       <tr>
                         <th scope="col">Target now</th>
                         <th scope="col">Value</th>
-                        <th scope="col" title="Roster value kept by taking this player now instead of waiting for your next turn">vs next turn</th>
+                        <th scope="col" title="Roster value kept by taking this player now instead of waiting for your best later turn">vs waiting</th>
                         <th scope="col">ADP</th>
                       </tr>
                     </thead>
@@ -143,7 +153,7 @@ export const PositionOutlook = memo(function PositionOutlook({
                             <BoostChip offset={player.personal_offset ?? 0} />
                           </th>
                           <td>{player.marginal_value.toFixed(1)}</td>
-                          <td>{signedValue(player.edge_vs_next_turn)}</td>
+                          <td>{signedValue(player.edge_vs_waiting)}</td>
                           <td>{player.adp == null ? '—' : player.adp.toFixed(0)}</td>
                         </tr>
                       ))}
@@ -177,9 +187,10 @@ export const PositionOutlook = memo(function PositionOutlook({
       )}
       <p className="board-footnote">
         Roster value = projected points a player adds to your best starting
-        lineup over what your roster already covers. Market view: availability
-        follows ADP order with the live reach cushion. The simulation advice
-        stays the final ranking.
+        lineup over what your roster already covers. Market view: later-pick
+        values are expectations over who lasts under the calibrated market
+        pick model (sharp board-followers plus occasional reaches). The
+        simulation advice stays the final ranking.
       </p>
     </section>
   )
