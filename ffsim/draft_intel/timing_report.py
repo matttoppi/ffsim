@@ -246,6 +246,21 @@ def _load_survival_predictor(manifest_path):
     raise ValueError(f"unsupported survival model version: {model_version}")
 
 
+def _value_loss(target_later, fallback):
+    """Positive value lost if the target is gone at the later turn; None-safe.
+
+    ``marginal_value`` is ``later_values.get(player_id)`` and is None when
+    the target is roster-infeasible at the later turn (late K/QB2-heavy
+    pools), so the subtraction must not run (live crash at picks 120/121).
+    """
+    if target_later is None or fallback is None:
+        return None
+    marginal = target_later["marginal_value"]
+    if marginal is None:
+        return None
+    return max(0.0, marginal - fallback)
+
+
 def build_timing_report(
     prepared,
     state,
@@ -410,11 +425,7 @@ def build_timing_report(
                 target_later["marginal_value"] if target_later else None
             ),
             "expected_fallback_value": fallback,
-            "value_loss_if_target_gone": (
-                max(0.0, target_later["marginal_value"] - fallback)
-                if target_later and fallback is not None
-                else None
-            ),
+            "value_loss_if_target_gone": _value_loss(target_later, fallback),
             "support_status": (
                 target_later["lookup_status"] if target_later else "outside_top_ten"
             ),

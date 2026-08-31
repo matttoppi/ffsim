@@ -10,6 +10,7 @@ from ffsim.draft_intel.live import PreparedDraft
 from ffsim.draft_intel.market_model import SLEEPER_ADP_SOURCE
 from ffsim.draft_intel.timing_report import (
     _expected_best,
+    _value_loss,
     build_timing_report,
     load_timing_report,
     write_timing_report,
@@ -130,6 +131,15 @@ class TimingReportTest(unittest.TestCase):
                 "survival_probability": None,
             }
         ]))
+
+    def test_value_loss_guards_roster_infeasible_target(self):
+        # marginal_value is None when the target is roster-infeasible at the
+        # later turn (live alpha_shadow_error at picks 120/121).
+        self.assertIsNone(_value_loss({"marginal_value": None}, 1.0))
+        self.assertIsNone(_value_loss(None, 1.0))
+        self.assertIsNone(_value_loss({"marginal_value": 5.0}, None))
+        self.assertEqual(_value_loss({"marginal_value": 5.0}, 3.0), 2.0)
+        self.assertEqual(_value_loss({"marginal_value": 1.0}, 3.0), 0.0)
 
     def test_report_requires_roster_on_clock(self):
         prepared = self.prepared()
