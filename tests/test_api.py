@@ -618,6 +618,7 @@ class ApiTest(unittest.TestCase):
             live_draft_id="mock",
             user_roster_id=1,
             evaluator=object(),
+            summary={},
         )
         states = [
             SimpleNamespace(
@@ -642,19 +643,38 @@ class ApiTest(unittest.TestCase):
                 pick_owners=(1, 2),
             ),
         ]
+        records = []
+
+        def record(_session_id, _draft_id, event_type, payload, **kwargs):
+            records.append((event_type, payload, kwargs))
+
         monitor = LiveDraftMonitor(
             prepared,
             0,
             2,
             2,
             recommendation_mode="projection",
+            telemetry=SimpleNamespace(
+                record=record,
+                start_session=lambda *args, **kwargs: None,
+                finish_session=lambda *args, **kwargs: None,
+            ),
         )
 
         def publish_board(_prepared, state, _temperature):
             # The real function returns None once the pick sheet is complete.
             if state.current_pick_no is None:
                 return None
-            return {"pick_no": state.current_pick_no, "players": [], "plans": []}
+            return {
+                "model_version": 3,
+                "pick_no": state.current_pick_no,
+                "next_user_pick_no": None,
+                "recommended_player_id": None,
+                "recommended_position": None,
+                "players": [],
+                "plans": [],
+                "position_outlook": {"positions": []},
+            }
 
         with (
             patch(
@@ -684,6 +704,17 @@ class ApiTest(unittest.TestCase):
         # result clears the board without setting an error.
         self.assertIsNone(monitor.projection_board_error)
         self.assertIsNone(monitor.projection_board)
+        # F9: the board surface persists per synchronized pick — one compact
+        # event per published board, none for the completed-sheet None.
+        board_events = [row for row in records if row[0] == "projection_board"]
+        self.assertEqual(
+            [(payload["pick_no"], kwargs["stage"]) for _, payload, kwargs in board_events],
+            [(1, "board"), (2, "board")],
+        )
+        for _, payload, _ in board_events:
+            self.assertEqual(payload["model_version"], 3)
+            self.assertEqual(payload["plans"], [])
+            self.assertEqual(payload["position_outlook"], [])
         executor.assert_not_called()
         evaluate.assert_not_called()
         self.assertEqual(monitor.calculation_count, 0)

@@ -1325,6 +1325,7 @@ class LiveDraftMonitor:
 
     def run(self):
         from ffsim.draft_intel.live import (
+            compact_projection_board,
             create_live_executor,
             evaluate_live_candidates,
             evaluate_live_league_equity,
@@ -1500,6 +1501,23 @@ class LiveDraftMonitor:
                             if self.state_fingerprint == current:
                                 self.projection_board = board
                                 self.projection_board_error = board_error
+                        # F9: persist the board surface per synchronized
+                        # pick — the display payload was never recorded, so
+                        # live board complaints could not be audited.
+                        if self.telemetry is not None and board is not None:
+                            self._record(
+                                "projection_board",
+                                compact_projection_board(board),
+                                pick_no=state.current_pick_no,
+                                stage="board",
+                            )
+                        elif self.telemetry is not None and board_error is not None:
+                            self._record(
+                                "projection_board",
+                                {"error": board_error},
+                                pick_no=state.current_pick_no,
+                                stage="error",
+                            )
                 if complete:
                     if not simulation_enabled:
                         with self.lock:

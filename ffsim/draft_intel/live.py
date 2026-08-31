@@ -1380,6 +1380,50 @@ def projection_value_board(prepared, state, temperature=None):
     }
 
 
+def compact_projection_board(board):
+    """Compact telemetry summary of one projection board (F9).
+
+    The full board is display payload and was never persisted, so the
+    surface behind live board complaints could not be audited after the
+    fact. Keep only what a retroactive audit needs: identity, the plan
+    leaders, and each position's best-now pricing.
+    """
+    return {
+        "model_version": board["model_version"],
+        "pick_no": board["pick_no"],
+        "next_user_pick_no": board["next_user_pick_no"],
+        "recommended_player_id": board["recommended_player_id"],
+        "recommended_position": board["recommended_position"],
+        "plans": [
+            {
+                key: plan.get(key)
+                for key in (
+                    "player_id",
+                    "position",
+                    "route_value",
+                    "current_roster_value",
+                    "adp",
+                )
+            }
+            for plan in board["plans"][:5]
+        ],
+        "position_outlook": [
+            {
+                key: row.get(key)
+                for key in (
+                    "position",
+                    "best_now_player_id",
+                    "best_now_marginal_value",
+                    "best_now_points",
+                    "best_now_adp",
+                    "take_now_edge",
+                )
+            }
+            for row in board["position_outlook"]["positions"]
+        ],
+    }
+
+
 def position_timing_outlook(prepared, state, positions=("QB", "TE")):
     """Projected positional value at the user's next three non-adjacent turns."""
     if prepared.market_snapshot is None or prepared.evaluator is None:
