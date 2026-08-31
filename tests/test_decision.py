@@ -166,6 +166,38 @@ class DecisionEvaluationTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "duplicate candidates"):
             merge_evaluations([combined, combined])
 
+    def test_adjacent_companion_counts_are_exact_per_branch(self):
+        # Deterministic constructed completions (F6): exact per-branch count
+        # tuples, so accidentally reusing one branch's counts for another
+        # candidate cannot pass. Only user picks at exactly the adjacent
+        # pick number count; an opponent pick there contributes nothing.
+        from types import SimpleNamespace
+
+        from ffsim.draft_intel.decision import adjacent_companion_counts
+
+        def completion(*picks):
+            return SimpleNamespace(picks=tuple(
+                SimpleNamespace(pick_no=pick_no, player_id=player_id, user_pick=user)
+                for pick_no, player_id, user in picks
+            ))
+
+        take_a = (
+            completion((4, "a", True), (5, "x", True)),
+            completion((4, "a", True), (5, "x", True)),
+            completion((4, "a", True), (5, "y", True)),
+        )
+        take_b = (
+            completion((4, "b", True), (5, "z", True)),
+            completion((4, "b", True), (5, "q", False)),
+            completion((4, "b", True), (5, "z", True)),
+        )
+
+        self.assertEqual(
+            adjacent_companion_counts(take_a, 5), (("x", 2), ("y", 1))
+        )
+        self.assertEqual(adjacent_companion_counts(take_b, 5), (("z", 2),))
+        self.assertIsNone(adjacent_companion_counts(take_a, None))
+
     def test_adjacent_companions_come_from_the_per_pick_rollout_record(self):
         # Roster 4 owns back-to-back snake picks 4 and 5 (F6). Each
         # continuation retains its per-pick record, so the companion at the

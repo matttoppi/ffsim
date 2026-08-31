@@ -390,7 +390,7 @@ def evaluate_candidates(
         continuation_probabilities = []
         roster_values = []
         preference_values = []
-        companions = Counter()
+        companions = adjacent_companion_counts(completions, adjacent_pick_no)
         for completion, completion_worlds in zip(completions, world_indices):
             try:
                 assignment = {
@@ -431,16 +431,6 @@ def evaluate_candidates(
             continuation_probabilities.append(
                 sum(completion_championships) / len(completion_championships)
             )
-            if adjacent_pick_no is not None:
-                companion = next(
-                    (
-                        pick.player_id for pick in completion.picks
-                        if pick.pick_no == adjacent_pick_no and pick.user_pick
-                    ),
-                    None,
-                )
-                if companion is not None:
-                    companions[companion] += 1
 
         championship_probability, championship_error = _mean_and_error(
             continuation_probabilities
@@ -488,11 +478,7 @@ def evaluate_candidates(
             ),
             preference_adjusted_value=preference_value,
             preference_adjusted_value_standard_error=preference_error,
-            adjacent_companion_counts=(
-                _sorted_counts(companions)
-                if adjacent_pick_no is not None
-                else None
-            ),
+            adjacent_companion_counts=companions,
         ))
 
     return DecisionEvaluation(
@@ -515,6 +501,30 @@ def evaluate_candidates(
 
 def _sorted_counts(counter):
     return tuple(sorted(counter.items(), key=lambda item: (-item[1], item[0])))
+
+
+def adjacent_companion_counts(completions, adjacent_pick_no):
+    """Exact companion counts at the user's adjacent pick; None otherwise.
+
+    Counts each continuation's retained per-pick record at exactly
+    ``adjacent_pick_no``, and only user picks — an opponent pick at that
+    number (traded-slot geometry) contributes nothing. Sorted by
+    ``(-count, player_id)``.
+    """
+    if adjacent_pick_no is None:
+        return None
+    companions = Counter()
+    for completion in completions:
+        companion = next(
+            (
+                pick.player_id for pick in completion.picks
+                if pick.pick_no == adjacent_pick_no and pick.user_pick
+            ),
+            None,
+        )
+        if companion is not None:
+            companions[companion] += 1
+    return _sorted_counts(companions)
 
 
 def evaluate_league_equity(
