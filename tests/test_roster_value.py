@@ -12,7 +12,7 @@ from ffsim.draft_intel.decision import (
 )
 from ffsim.draft_intel.state import replay_sleeper_draft
 from ffsim.models.league import League
-from ffsim.simulation.evaluator import LeagueEvaluator
+from ffsim.simulation.evaluator import BENCH_ASSET_FACTOR, LeagueEvaluator
 from ffsim.simulation.world_bank import SeasonWorldBank
 from tests.test_decision import draft_state, evaluator, market_utility
 
@@ -114,7 +114,7 @@ class RosterValueScorerTest(unittest.TestCase):
         )
         self.assertAlmostEqual(
             value(self.subject, with_backup_qb) - value(self.subject, base),
-            0.25 * (28 - 20) * 3,
+            BENCH_ASSET_FACTOR * (28 - 20) * 3,
         )
 
     def test_flex_credits_eligible_positions_only(self):
@@ -137,7 +137,7 @@ class RosterValueScorerTest(unittest.TestCase):
         # K and a weaker flex option.
         self.assertAlmostEqual(
             value(self.subject, (*base, "qb2")) - value(self.subject, base),
-            0.25 * (28 - 20) * 3,
+            BENCH_ASSET_FACTOR * (28 - 20) * 3,
         )
         self.assertGreater(
             value(superflex, (*base, "qb2")), value(superflex, (*base, "kbig"))
