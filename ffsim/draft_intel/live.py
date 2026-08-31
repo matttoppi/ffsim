@@ -794,10 +794,14 @@ def predicted_next_state(prepared, state, temperature=None):
 
 
 def select_finalists(prepared, state, screened_rows, count):
-    """Screen co-leaders plus guaranteed chalk/value and minimum breadth.
+    """Screen co-leaders plus guaranteed chalk/value/skill and minimum breadth.
 
     A noisy screen must not discard a candidate whose paired interval still
-    overlaps the leader. Market chalk and top value also always advance.
+    overlaps the leader. Market chalk and top value always advance, and so
+    does the screen's best skill player (RB/WR/TE): a streamable-led screen
+    otherwise refines zero skill candidates (replayed live pick 120: five
+    K/QB/DEF finalists with the best skill player ranked 7, ~2 points back),
+    leaving every skill row at screen precision on the user's clock.
     """
     del state
     rows = [str(row["player_id"]) for row in screened_rows]
@@ -815,6 +819,15 @@ def select_finalists(prepared, state, screened_rows, count):
             key=lambda player_id: projection[player_id]
             - replacement.get(position_of[player_id], 0.0),
         ))
+    skill = next(
+        (
+            player_id for player_id in rows
+            if position_of.get(player_id) in ("RB", "WR", "TE")
+        ),
+        None,
+    )
+    if skill is not None:
+        forced.append(skill)
     keep = dict.fromkeys((
         *forced,
         *(

@@ -5,6 +5,8 @@ from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import call, patch
 
+import numpy as np
+
 from ffsim.draft_intel.live import (
     PreparedDraft,
     _draft_id,
@@ -29,6 +31,9 @@ from ffsim.draft_intel.live import (
 from ffsim.draft_intel.market_model import SLEEPER_ADP_SOURCE
 from ffsim.draft_intel.state import DraftPick
 from ffsim.draft_intel.worp import WORPCurve
+from ffsim.models.league import League
+from ffsim.simulation.evaluator import LeagueEvaluator
+from ffsim.simulation.world_bank import SeasonWorldBank
 from tests.test_decision import draft_state, evaluator
 
 
@@ -1477,6 +1482,53 @@ class LiveDraftTest(unittest.TestCase):
         # it at ADP 50), and p5 is the best remaining market pick; both are
         # guaranteed finalists so screen noise can only cost depth.
         self.assertEqual(finalists, ("p5", "p6", "p7", "p8", "p3"))
+
+    def test_finalists_always_include_the_best_screened_skill_player(self):
+        # Replayed live pick 120: a streamable-led screen advanced five
+        # K/QB/DEF finalists and refined zero skill players. The screen's
+        # best skill row (RB/WR/TE) must always advance.
+        player_ids = ("k1", "k2", "qb1", "wr1", "def1", "wr2")
+        positions = ("K", "K", "QB", "WR", "DEF", "WR")
+        expected = np.asarray([50.0, 49.0, 48.0, 47.0, 46.0, 45.0])
+        scores = np.repeat(expected[None, :, None], 2, axis=0)
+        scores = np.repeat(scores, 3, axis=2).astype(np.float32)
+        available = np.ones_like(scores, dtype=bool)
+        for array in (scores, available, expected):
+            array.flags.writeable = False
+        bank = SeasonWorldBank(
+            version="skill-finalist-bank",
+            seed=1,
+            player_ids=player_ids,
+            player_positions=positions,
+            expected_scores=expected,
+            weeks=(1, 2, 3),
+            input_hash="skill-finalist-inputs",
+            scores=scores,
+            available=available,
+        )
+        league = League({
+            "league_id": "skill-finalist",
+            "roster_positions": ["QB", "WR", "K", "DEF"],
+            "settings": {
+                "playoff_teams": 4,
+                "playoff_round_type": 0,
+                "playoff_seed_type": 0,
+            },
+        })
+        prepared = SimpleNamespace(
+            evaluator=LeagueEvaluator(league, bank, range(1, 5), 1, seed=31)
+        )
+        # Screen order is streamable-led; wr1 is the first skill row.
+        rows = [
+            {"player_id": player_id, "adp": float(index)}
+            for index, player_id in enumerate(
+                ("k1", "k2", "qb1", "def1", "wr1", "wr2"), 1
+            )
+        ]
+
+        finalists = select_finalists(prepared, None, rows, 3)
+
+        self.assertIn("wr1", finalists)
 
     def test_all_statistically_tied_screen_leaders_advance(self):
         prepared = SimpleNamespace(evaluator=evaluator())
