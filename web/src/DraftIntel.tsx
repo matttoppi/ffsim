@@ -571,6 +571,18 @@ export function DraftIntel({
   const coLeaderNames = candidates.flatMap((candidate) =>
     coLeaderIds.has(candidate.player_id) ? [candidate.name] : [],
   )
+  const orderSymmetricIds = new Set(
+    monitor.recommendation?.order_symmetric_candidate_ids ?? [],
+  )
+  const orderSymmetricNames = candidates.flatMap((candidate) =>
+    orderSymmetricIds.has(candidate.player_id) ? [candidate.name] : [],
+  )
+  // Every non-headline co-leader completes to the exact same final roster
+  // in either take order — the "co-leader" is a later pick shown early.
+  const orderSymmetricTier =
+    tossUp &&
+    orderSymmetricNames.length > 0 &&
+    coLeaderIds.size === orderSymmetricIds.size + 1
   const feed = [...(monitor.state?.recent_picks ?? [])].reverse()
   const leagueRows = simulation?.rosters ?? monitor.league_equity?.rosters ?? []
   const leagueEquityCurrent =
@@ -624,7 +636,11 @@ export function DraftIntel({
             {simEngine && leader && recommendationCurrent && (
               <div className="command-rec">
                 <p className="command-rec-label">
-                  {tossUp ? 'Top tier — take either' : 'Draft'}
+                  {tossUp
+                    ? orderSymmetricTier
+                      ? 'Either order — same final roster'
+                      : 'Top tier — take either'
+                    : 'Draft'}
                 </p>
                 <p className="command-rec-player">
                   <span className={`pos-badge pos-${leader.position ?? 'NA'}`}>
@@ -638,7 +654,11 @@ export function DraftIntel({
                     <> · +{leaderEdge.toFixed(1)} vs next</>
                   )}
                   {' · '}
-                  {recStatus === 'ready' ? 'final' : 'refining…'}
+                  {recStatus === 'ready'
+                    ? 'final'
+                    : recStatus === 'expanding'
+                      ? 'provisional — first board'
+                      : 'refining…'}
                 </p>
               </div>
             )}
@@ -835,6 +855,13 @@ export function DraftIntel({
                     {monitor.recommendation?.practical_tie_points.toFixed(1)}-point gate.
                   </strong>{' '}
                   {coLeaderNames.join(', ')} form the top tier.{' '}
+                  {orderSymmetricNames.length > 0 && (
+                    <>
+                      Taking {orderSymmetricNames.join(' or ')} now or at your
+                      next pick builds the exact same final roster — order does
+                      not matter; the scarcer player is listed first.{' '}
+                    </>
+                  )}
                   {leader && monitor.recommendation &&
                     tieBreakText(monitor.recommendation.headline_tie_break_basis, leader.name)}
                 </p>

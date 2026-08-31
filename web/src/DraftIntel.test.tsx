@@ -1047,6 +1047,127 @@ describe('DraftIntel', () => {
     expect(page).not.toMatch(/runner-up with your next pick/)
   })
 
+  it('labels order-symmetric co-leaders as the same final roster instead of advice', async () => {
+    mockMonitor({
+      status: 'running',
+      recommendation_status: 'ready',
+      recommendation_pick_no: 72,
+      recommendation: {
+        model_status: 'baseline',
+        rollout_count: 300,
+        joint_outcome_count: 300,
+        seed: 2026,
+        decision_engine_version: 9,
+        draft_model_version: 'sleeper-adp:t0.11:vor2',
+        world_bank_version: 'abcdef1234567890',
+        league_evaluator_version: 'league-v1',
+        state_signature: 'state-signature',
+        run_signature: '1234567890abcdef',
+        decision_status: 'toss_up',
+        practical_tie_points: 0.1,
+        headline_tie_break_basis: 'market_adp',
+        bench_asset_factor: 0.25,
+        q_leader_candidate_id: 'p1',
+        reason_codes: ['MARKET_ADP_TIEBREAK'],
+        co_leader_candidate_ids: ['p1', 'p2'],
+        order_symmetric_candidate_ids: ['p2'],
+        recommended_candidate_id: 'p1',
+        pick_no: 72,
+        candidates: [
+          {
+            player_id: 'p1',
+            name: 'Marvin Harrison',
+            position: 'WR',
+            projected_roster_value: 405.2,
+            championship_probability: 0.3,
+            playoff_probability: 0.92,
+            expected_wins: 9.7,
+            adp: 70,
+          },
+          {
+            player_id: 'p2',
+            name: 'Rams Defense',
+            position: 'DEF',
+            projected_roster_value: 405.2,
+            championship_probability: 0.3,
+            playoff_probability: 0.9,
+            expected_wins: 9.8,
+            adp: 160,
+          },
+        ],
+      },
+      state: {
+        ...monitorState([pick(1, 'Alpha One')], 72),
+        user_on_clock: true,
+        user_next_pick_no: 73,
+      },
+    })
+    await act(async () => {
+      render(<DraftIntel currentDraftId="real" />)
+    })
+    const page = document.body.textContent ?? ''
+    expect(page).toMatch(/Either order — same final roster/)
+    expect(page).toMatch(
+      /Taking Rams Defense now or at your next pick builds the exact same final roster — order does not matter; the scarcer player is listed first\./,
+    )
+    expect(page).not.toMatch(/Top tier — take either/)
+  })
+
+  it('labels the first-board leader as a provisional headline while screening', async () => {
+    mockMonitor({
+      status: 'running',
+      recommendation_status: 'expanding',
+      recommendation_pick_no: 24,
+      recommendation: {
+        model_status: 'baseline',
+        rollout_count: 50,
+        joint_outcome_count: 50,
+        seed: 2026,
+        decision_engine_version: 9,
+        draft_model_version: 'sleeper-adp:t0.11:vor2',
+        world_bank_version: 'abcdef1234567890',
+        league_evaluator_version: 'league-v1',
+        state_signature: 'state-signature',
+        run_signature: '1234567890abcdef',
+        decision_status: 'clear_leader',
+        practical_tie_points: 0.1,
+        headline_tie_break_basis: null,
+        bench_asset_factor: 0.25,
+        q_leader_candidate_id: 'p1',
+        reason_codes: ['PROJECTED_VALUE_LEADER'],
+        co_leader_candidate_ids: ['p1'],
+        recommended_candidate_id: 'p1',
+        pick_no: 24,
+        candidates_evaluated: 13,
+        candidate_pool: 40,
+        candidates: [
+          {
+            player_id: 'p1',
+            name: 'Screen Leader',
+            position: 'WR',
+            projected_roster_value: 401.5,
+            championship_probability: 0.3,
+            playoff_probability: 0.9,
+            expected_wins: 9.5,
+            adp: 22,
+          },
+        ],
+      },
+      state: {
+        ...monitorState([pick(1, 'Alpha One')], 24),
+        user_on_clock: true,
+        user_next_pick_no: 25,
+      },
+    })
+    await act(async () => {
+      render(<DraftIntel currentDraftId="real" />)
+    })
+    const page = document.body.textContent ?? ''
+    expect(page).toMatch(/Screen Leader/)
+    expect(page).toMatch(/provisional — first board/)
+    expect(page).not.toMatch(/· final/)
+  })
+
   it.each([
     [
       { status: 'running', recommendation_status: 'calculating', recommendation_pick_no: 7 },

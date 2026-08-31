@@ -1474,6 +1474,27 @@ def position_timing_outlook(prepared, state, positions=("QB", "TE")):
     return outlook
 
 
+def order_symmetric_co_leader_ids(evaluation, co_leaders, headline_id):
+    """Co-leaders that tie the headline exactly in every continuation (F2).
+
+    At back-to-back turns "A then B" and "B then A" can produce bitwise-
+    identical completions. Such a co-leader is a later pick shown early —
+    label it "same final roster, order does not matter" instead of letting
+    a streamable position read as round-6 advice.
+    """
+    paired_preference = getattr(evaluation, "paired_preference_delta", None)
+    if paired_preference is None:
+        paired_preference = evaluation.paired_value_delta
+    return [
+        candidate.candidate_id
+        for candidate in co_leaders
+        if candidate.candidate_id != headline_id
+        and paired_preference(
+            headline_id, candidate.candidate_id
+        ).tied_continuation_probability == 1.0
+    ]
+
+
 def live_recommendation_payload(prepared, state, evaluations, candidate_pool_count):
     evaluation = merge_evaluations(evaluations)
     adp = {
@@ -1509,6 +1530,11 @@ def live_recommendation_payload(prepared, state, evaluations, candidate_pool_cou
     ranked = rank_candidates(evaluation)
     co_leaders = tuple(
         candidate for candidate in ranked if candidate.candidate_id in top_tier
+    )
+    recommendation["order_symmetric_candidate_ids"] = (
+        order_symmetric_co_leader_ids(
+            evaluation, co_leaders, recommendation["recommended_candidate_id"]
+        )
     )
     tie_break_basis = None
     if recommendation["decision_status"] == "toss_up":

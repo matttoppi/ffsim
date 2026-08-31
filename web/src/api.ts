@@ -523,6 +523,8 @@ export interface DraftMonitor {
     q_leader_candidate_id: string
     reason_codes: string[]
     co_leader_candidate_ids: string[]
+    order_symmetric_candidate_ids?: string[]
+    paired_value_delta_basis?: string
     recommended_candidate_id?: string
     runner_up_candidate_id?: string | null
     projected_roster_value?: number

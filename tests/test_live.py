@@ -865,6 +865,33 @@ class LiveDraftTest(unittest.TestCase):
                 self.assertEqual(survivors, expected_survivors)
                 self.assertEqual(needs_refinement, expected_refinement)
 
+    def test_order_symmetric_co_leaders_use_the_exact_tie_signal(self):
+        from ffsim.draft_intel.live import order_symmetric_co_leader_ids
+
+        leader = SimpleNamespace(candidate_id="leader")
+        symmetric = SimpleNamespace(candidate_id="symmetric")
+        near_tie = SimpleNamespace(candidate_id="near_tie")
+        ties = {"symmetric": 1.0, "near_tie": 0.97}
+
+        def paired_preference_delta(candidate_id, baseline_candidate_id):
+            self.assertEqual(candidate_id, "leader")
+            return SimpleNamespace(
+                tied_continuation_probability=ties[baseline_candidate_id]
+            )
+
+        evaluation = SimpleNamespace(
+            paired_preference_delta=paired_preference_delta,
+        )
+
+        # Only the bitwise-identical completion tie is order-symmetric; the
+        # headline itself and merely-practical ties are excluded.
+        self.assertEqual(
+            order_symmetric_co_leader_ids(
+                evaluation, (leader, symmetric, near_tie), "leader"
+            ),
+            ["symmetric"],
+        )
+
     def test_predicted_next_state_applies_the_model_argmax_pick(self):
         state = draft_state()
         prepared = PreparedDraft(
