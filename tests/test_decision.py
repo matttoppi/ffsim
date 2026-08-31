@@ -197,6 +197,17 @@ class DecisionEvaluationTest(unittest.TestCase):
                 {player_id for player_id, _ in counts},
             )
 
+        # The pair is branch-specific and asymmetric: taking p4 leaves p5
+        # as the branch's dominant companion and vice versa, so the two
+        # roots must not share one companion distribution.
+        by_id = {
+            candidate.candidate_id: dict(candidate.adjacent_companion_counts)
+            for candidate in combined.candidates
+        }
+        self.assertIn("p5", by_id["p4"])
+        self.assertIn("p4", by_id["p5"])
+        self.assertNotEqual(by_id["p4"], by_id["p5"])
+
         merged = merge_rollout_ranges([
             evaluate_candidates(
                 state, ("p4", "p5"), rollout_ids=range(4), **kwargs
