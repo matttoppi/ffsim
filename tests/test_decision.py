@@ -236,6 +236,48 @@ class DecisionEvaluationTest(unittest.TestCase):
         ])
         self.assertEqual(merged, adjusted)
 
+    def test_headline_delta_and_edge_reason_use_the_ranking_basis(self):
+        # F3: leadership ranks on the preference-adjusted utility, so the
+        # published delta and PAIRED_VALUE_EDGE must use the same basis —
+        # a negative raw delta beside clear_leader is a contradiction.
+        kwargs = dict(
+            user_roster_id=1,
+            rollout_ids=range(8),
+            opponent_choice=market_utility,
+            user_policy=market_utility,
+            league_evaluator=evaluator(),
+            draft_model_version="manual-test-v1",
+            seed=19,
+        )
+        raw = evaluate_candidates(draft_state(), ("p1", "p2"), **kwargs)
+        adjusted = evaluate_candidates(
+            draft_state(), ("p1", "p2"), personal_values={"p2": 50}, **kwargs
+        )
+        summary = recommendation_summary(adjusted)
+        raw_delta = adjusted.paired_value_delta(
+            "p2", "p1"
+        ).projected_value_delta
+
+        self.assertLess(raw_delta, 0)
+        self.assertEqual(summary.recommended_candidate_id, "p2")
+        self.assertEqual(summary.decision_status, "clear_leader")
+        self.assertEqual(
+            summary.paired_value_delta_basis, "preference_adjusted"
+        )
+        self.assertAlmostEqual(
+            summary.paired_value_delta_vs_runner_up.projected_value_delta,
+            raw_delta + 50.0,
+        )
+        self.assertGreater(
+            summary.paired_value_delta_vs_runner_up.projected_value_delta, 0
+        )
+        self.assertIn("PAIRED_VALUE_EDGE", summary.reason_codes)
+
+        # Without offsets the basis is the raw paired delta, unchanged.
+        self.assertEqual(
+            recommendation_summary(raw).paired_value_delta_basis, "raw_value"
+        )
+
     def test_bench_offsets_pass_through_the_lineup_scorer(self):
         kwargs = dict(
             user_roster_id=1,

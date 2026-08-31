@@ -283,6 +283,8 @@ class RecommendationSummary:
     league_evaluator_version: str
     reason_codes: tuple[str, ...]
     preference_adjusted_value: float | None = None
+    # Basis of paired_value_delta_vs_runner_up: the ranking utility.
+    paired_value_delta_basis: str = "raw_value"
 
 
 def evaluate_candidates(
@@ -976,14 +978,20 @@ def recommendation_summary(evaluation, tier_key=None):
         if runner_up
         else None
     )
+    # Headline delta on the SAME basis that ranks candidates and gates
+    # co-leadership (preference-adjusted utility, ADR-046; bit-identical to
+    # the raw paired delta when no offsets are stored). Publishing the raw
+    # delta while ranking on the preference basis shipped clear_leader /
+    # PAIRED_VALUE_EDGE beside a negative displayed delta (live picks
+    # 73/96), and a bare truthiness test credited negative deltas as edges.
     value_delta = (
-        evaluation.paired_value_delta(best.candidate_id, runner_up.candidate_id)
+        paired_preference(best.candidate_id, runner_up.candidate_id)
         if runner_up
         else None
     )
     if decision_status == "toss_up":
         reasons.append("LOW_CONFIDENCE_TOSS_UP")
-    elif value_delta:
+    elif value_delta is not None and value_delta.projected_value_delta > 0:
         reasons.append("PAIRED_VALUE_EDGE")
     availability = None
     if runner_up and runner_up.survival:
@@ -1022,6 +1030,11 @@ def recommendation_summary(evaluation, tier_key=None):
         projected_roster_value=best.projected_roster_value,
         projected_roster_value_interval=best.projected_roster_value_interval,
         paired_value_delta_vs_runner_up=value_delta,
+        paired_value_delta_basis=(
+            "preference_adjusted"
+            if getattr(best, "preference_adjusted_value", None) is not None
+            else "raw_value"
+        ),
         championship_probability=best.championship_probability,
         championship_interval=best.championship_interval,
         playoff_probability=best.playoff_probability,
