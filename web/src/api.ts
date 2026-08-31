@@ -307,7 +307,7 @@ export interface DraftProjectionBoard {
     projected_points: number
     personal_offset: number
     projection_source?: string | null
-    projection_source_outlier?: boolean
+    projection_source_fallback?: boolean
   }>
   players: Array<{
     player_id: string
@@ -323,7 +323,7 @@ export interface DraftProjectionBoard {
     adp: number | null
     personal_offset: number
     projection_source?: string | null
-    projection_source_outlier?: boolean
+    projection_source_fallback?: boolean
   }>
   position_outlook?: {
     availability_model: string

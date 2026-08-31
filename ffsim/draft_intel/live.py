@@ -1110,10 +1110,10 @@ def projection_value_board(prepared, state, temperature=None):
             "adp": adp.get(player_id),
             "personal_offset": my_board.get(player_id, 0),
             "projection_source": details.get("projection_source"),
-            # F8: consensus (FantasyPros) is the primary offense source;
-            # a lone PFF row among consensus rivals is a cross-source
-            # artifact worth a fade check, not extra signal.
-            "projection_source_outlier": (
+            # F8: FantasyPros consensus is the primary offense source; a
+            # PFF-sourced offense row has no consensus backing (the Dart
+            # artifact) and is marked so the owner can weigh a fade.
+            "projection_source_fallback": (
                 position not in ("K", "DEF")
                 and details.get("projection_source") == "pff"
             ),
@@ -1149,7 +1149,7 @@ def projection_value_board(prepared, state, temperature=None):
             "projected_points": projection[player_id],
             "personal_offset": my_board.get(player_id, 0),
             "projection_source": details.get("projection_source"),
-            "projection_source_outlier": (
+            "projection_source_fallback": (
                 position not in ("K", "DEF")
                 and details.get("projection_source") == "pff"
             ),

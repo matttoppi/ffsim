@@ -68,20 +68,20 @@ export function BoostChip({ offset }: { offset: number }) {
   )
 }
 
-/** F8: a lone non-consensus projection among consensus rows is an artifact
- * risk (e.g. a PFF starter-level fallback), not extra signal. */
+/** F8: an offense projection with no FantasyPros consensus backing (PFF
+ * fallback). Not a rarity claim — several rows can share the fallback. */
 export function SourceChip({
   source,
-  outlier,
+  fallback,
 }: {
   source?: string | null
-  outlier?: boolean
+  fallback?: boolean
 }) {
-  if (!outlier || !source) return null
+  if (!fallback || !source) return null
   return (
     <span
       className="source-chip"
-      title={`Single-source projection (${source}) — no consensus row backs this number; consider a fade offset before trusting it`}
+      title={`${source.toUpperCase()} fallback projection — no FantasyPros consensus row backs this number; consider a fade offset if you doubt it`}
     >
       {source.toUpperCase()}
     </span>
@@ -193,7 +193,7 @@ export const ProjectionBoard = memo(function ProjectionBoard({
                             {player.team && <small>{player.team}</small>}
                             <SourceChip
                               source={player.projection_source}
-                              outlier={player.projection_source_outlier}
+                              fallback={player.projection_source_fallback}
                             />
                           </th>
                           <td>
@@ -383,7 +383,7 @@ export const ProjectionBoard = memo(function ProjectionBoard({
                         {player.team && <small>{player.team}</small>}
                         <SourceChip
                           source={player.projection_source}
-                          outlier={player.projection_source_outlier}
+                          fallback={player.projection_source_fallback}
                         />
                       </th>
                       <td>
@@ -443,7 +443,7 @@ export const ProjectionBoard = memo(function ProjectionBoard({
                           {player.team && <small>{player.team}</small>}
                           <SourceChip
                             source={player.projection_source}
-                            outlier={player.projection_source_outlier}
+                            fallback={player.projection_source_fallback}
                           />
                         </th>
                         <td>

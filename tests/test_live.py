@@ -366,16 +366,16 @@ class LiveDraftTest(unittest.TestCase):
         self.assertEqual(qb_rows[0]["value_over_replacement"], 60.0)
         self.assertAlmostEqual(qb_rows[0]["wins_over_replacement"], 0.6)
         # F8: the board names each row's projection source and flags the
-        # lone non-consensus offensive row as an outlier.
+        # PFF-fallback offense row; several rows can share the fallback.
         self.assertEqual(
             [
-                (player["projection_source"], player["projection_source_outlier"])
+                (player["projection_source"], player["projection_source_fallback"])
                 for player in qb_rows
             ],
             [("fantasypros", False), ("pff", True), ("fantasypros", False)],
         )
         self.assertEqual(
-            [(row["projection_source_outlier"]) for row in points_qb],
+            [(row["projection_source_fallback"]) for row in points_qb],
             [False, True, False],
         )
         self.assertEqual(
