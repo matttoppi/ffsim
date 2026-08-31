@@ -81,6 +81,8 @@ export const ProjectionBoard = memo(function ProjectionBoard({
   // Owner default (ADR-045 amended): open on value & roster fit.
   const [view, setView] = useState<'points' | 'value'>('value')
   const [overallSort, setOverallSort] = useState<keyof typeof OVERALL_SORTS>('value')
+  // Hovered/focused heading explanation, shown above the overall table.
+  const [overallHelp, setOverallHelp] = useState<string | null>(null)
   const positions = POSITION_ORDER.filter((position) =>
     board.players.some((player) => player.position === position),
   )
@@ -274,9 +276,17 @@ export const ProjectionBoard = memo(function ProjectionBoard({
               <div>
                 <strong>Overall · next best pick</strong>
               </div>
-              <small>
-                Top {overallPlayers.length} across positions · sorted by{' '}
-                {OVERALL_SORTS[overallSort].label}
+              <small
+                className={overallHelp ? 'projection-overall-help' : undefined}
+                aria-live="polite"
+              >
+                {overallHelp ?? (
+                  <>
+                    Top {overallPlayers.length} across positions · sorted by{' '}
+                    {OVERALL_SORTS[overallSort].label} · hover a heading for its
+                    meaning
+                  </>
+                )}
               </small>
             </header>
             <div className="projection-table-wrap">
@@ -296,13 +306,22 @@ export const ProjectionBoard = memo(function ProjectionBoard({
                           type="button"
                           className={overallSort === key ? 'is-active' : ''}
                           onClick={() => setOverallSort(key)}
+                          onMouseEnter={() => setOverallHelp(OVERALL_SORTS[key].help)}
+                          onMouseLeave={() => setOverallHelp(null)}
+                          onFocus={() => setOverallHelp(OVERALL_SORTS[key].help)}
+                          onBlur={() => setOverallHelp(null)}
                         >
                           {OVERALL_SORTS[key].label}
                         </button>
                       </th>
                     ))}
                     {worpReady && (
-                      <th scope="col" data-help={WORP_HELP}>
+                      <th
+                        scope="col"
+                        data-help={WORP_HELP}
+                        onMouseEnter={() => setOverallHelp(WORP_HELP)}
+                        onMouseLeave={() => setOverallHelp(null)}
+                      >
                         WORP
                       </th>
                     )}
@@ -317,6 +336,10 @@ export const ProjectionBoard = memo(function ProjectionBoard({
                           type="button"
                           className={overallSort === key ? 'is-active' : ''}
                           onClick={() => setOverallSort(key)}
+                          onMouseEnter={() => setOverallHelp(OVERALL_SORTS[key].help)}
+                          onMouseLeave={() => setOverallHelp(null)}
+                          onFocus={() => setOverallHelp(OVERALL_SORTS[key].help)}
+                          onBlur={() => setOverallHelp(null)}
                         >
                           {OVERALL_SORTS[key].label}
                         </button>

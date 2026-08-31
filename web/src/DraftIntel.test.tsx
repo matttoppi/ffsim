@@ -680,6 +680,13 @@ describe('DraftIntel', () => {
     expect(
       screen.getByRole('button', { name: 'ADP' }).closest('th')?.getAttribute('data-help'),
     ).toMatch(/Average draft position/)
+    // Hovering a heading swaps the subtitle above the table for its help.
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'VORP' }))
+    expect(
+      screen.getByText(/Value over replacement player\. This value is the projected points/),
+    ).toBeTruthy()
+    fireEvent.mouseLeave(screen.getByRole('button', { name: 'VORP' }))
+    expect(screen.getByText(/sorted by Roster value · hover a heading/)).toBeTruthy()
     // Clicking a metric heading re-sorts the overall table; QB leads on
     // projected points (390 vs 284) and ADP (7 vs 8), RB on roster value.
     fireEvent.click(screen.getByRole('button', { name: 'Projected' }))

@@ -1821,40 +1821,14 @@ code {
   color: var(--gold);
 }
 
-/* Instant hover/focus tooltip for header explanations: the native title
-   tooltip is slow and easy to miss, so the help text renders as a styled
-   card anchored under the sticky header cell. */
-.projection-overall thead th[data-help]::after {
-  content: attr(data-help);
-  position: absolute;
-  top: calc(100% + 4px);
-  right: 0;
-  z-index: 4;
-  width: 250px;
-  padding: 8px 10px;
-  border: 1px solid var(--line);
-  background: var(--booth-raised);
+/* Heading explanation shown ABOVE the table: hovering or focusing a
+   heading swaps the section subtitle for the metric's help text. A
+   below-anchored tooltip would cover the top rows, and an above-anchored
+   one would clip at the scroll wrapper's edge. */
+.projection-overall-help {
   color: var(--chalk);
-  font-family: var(--body);
-  font-size: 0.74rem;
-  font-weight: 400;
-  letter-spacing: normal;
-  text-transform: none;
-  text-align: left;
-  white-space: normal;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 120ms ease;
-}
-
-.projection-overall thead th[data-help]:hover,
-.projection-overall thead th[data-help]:focus-within {
-  z-index: 3;
-}
-
-.projection-overall thead th[data-help]:hover::after,
-.projection-overall thead th[data-help]:focus-within::after {
-  opacity: 1;
+  text-align: right;
+  max-width: 46ch;
 }
 
 .projection-position tbody th small {
