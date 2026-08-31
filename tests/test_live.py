@@ -36,6 +36,51 @@ class FutureTurnSurvivalTest(unittest.TestCase):
     """Mean-field survival against exact without-replacement enumeration."""
 
     @staticmethod
+    def _expected_best(values, survival):
+        out, better_gone = 0.0, 1.0
+        for player_id in sorted(values, key=values.get, reverse=True):
+            chance = survival.get(player_id, 0.0)
+            out += values[player_id] * chance * better_gone
+            better_gone *= 1.0 - chance
+        return out
+
+    @staticmethod
+    def _exact_expected_best(utilities, values, picks, temperature):
+        from itertools import permutations
+        from math import exp as _exp
+
+        from ffsim.draft_intel.live import LIVE_REACH_RATE
+        from ffsim.draft_intel.market_model import REACH_TEMPERATURE
+
+        ids = sorted(utilities)
+        components = (
+            (1.0 - LIVE_REACH_RATE, temperature),
+            (LIVE_REACH_RATE, REACH_TEMPERATURE),
+        )
+
+        def pick_probability(player_id, available):
+            total = 0.0
+            for rate, component_temperature in components:
+                weights = {
+                    other: _exp(utilities[other] / component_temperature)
+                    for other in available
+                }
+                total += rate * weights[player_id] / sum(weights.values())
+            return total
+
+        expected = 0.0
+        for sequence in permutations(ids, picks):
+            probability = 1.0
+            available = set(ids)
+            for player_id in sequence:
+                probability *= pick_probability(player_id, available)
+                available.remove(player_id)
+            expected += probability * max(
+                (values[player_id] for player_id in available), default=0.0
+            )
+        return expected
+
+    @staticmethod
     def _exact_survival(utilities, picks, temperature):
         from itertools import permutations
         from math import exp as _exp
@@ -92,6 +137,54 @@ class FutureTurnSurvivalTest(unittest.TestCase):
                 approximate[player_id], exact_survival, delta=0.13,
                 msg=player_id,
             )
+
+    def test_expected_best_tracks_exact_enumeration(self):
+        # Values fall with ADP rank; the independent-survival expected best
+        # must track the exact without-replacement expectation and stay
+        # conservative (never inflate the value of waiting).
+        utilities = {f"p{index}": -0.35 * index for index in range(8)}
+        values = {f"p{index}": 20.0 - 2.0 * index for index in range(8)}
+        temperature = 0.11
+        picks = 4
+        snapshots = _future_turn_survival(
+            utilities, frozenset(utilities), 1, [1 + picks + 1], temperature,
+        )
+        approximate = self._expected_best(values, snapshots[1 + picks + 1])
+        exact = self._exact_expected_best(utilities, values, picks, temperature)
+        self.assertLessEqual(approximate, exact + 1e-9)
+        self.assertGreater(approximate, exact * 0.90)
+
+    def test_deep_tier_waits_cheaper_than_one_player_cliff(self):
+        # The motivating behavior: a one-player cliff loses most of its value
+        # to waiting, while a deep tier of near-equals keeps the expected
+        # best high even though the single top name is likely gone.
+        temperature = 0.11
+        picks = 6
+        cliff_utilities = {"stud": 0.0}
+        tier_utilities = {}
+        cliff_values = {"stud": 20.0}
+        tier_values = {}
+        for index in range(8):
+            cliff_utilities[f"c{index}"] = -0.1 * (index + 1)
+            cliff_values[f"c{index}"] = 1.0
+            tier_utilities[f"t{index}"] = -0.1 * (index + 1)
+            tier_values[f"t{index}"] = 19.0 - 0.5 * index
+        tier_utilities["t_top"] = 0.0
+        tier_values["t_top"] = 20.0
+        turn = 1 + picks + 1
+        cliff_survival = _future_turn_survival(
+            cliff_utilities, frozenset(cliff_utilities), 1, [turn], temperature,
+        )[turn]
+        tier_survival = _future_turn_survival(
+            tier_utilities, frozenset(tier_utilities), 1, [turn], temperature,
+        )[turn]
+        cliff_edge = 20.0 - self._expected_best(cliff_values, cliff_survival)
+        tier_edge = 20.0 - self._expected_best(tier_values, tier_survival)
+        # Both studs face the same market pressure, but the deep tier backs
+        # its stud up, so waiting costs far less.
+        self.assertGreater(cliff_edge, 3 * tier_edge)
+        self.assertGreater(cliff_edge, 10.0)
+        self.assertLess(tier_edge, 5.0)
 
     def test_players_without_market_observations_always_survive(self):
         utilities = {"p0": 0.0, "p1": -0.5}
