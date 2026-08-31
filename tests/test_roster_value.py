@@ -199,6 +199,26 @@ class RosterValueScorerTest(unittest.TestCase):
         self.assertEqual(value(limited, (*base, "tef0")), value(limited, base))
         self.assertEqual(value(limited, (*base, "tef1")), value(limited, base))
 
+    def test_injury_worlds_stream_the_seat_not_zero_the_player(self):
+        # ADR-048: a starter out in half the worlds keeps half his edge over
+        # the streamer — the seat streams at the cutline in the worlds he
+        # misses — instead of having his whole flat diluted below the
+        # cutline and floored to zero value.
+        players = mixed_players()
+        player_ids = [player_id for player_id, _, _ in players]
+        subject = mixed_evaluator(("QB", "RB", "RB", "WR", "FLEX"), players)
+        scores = subject.bank.scores.copy()
+        available = subject.bank.available.copy()
+        rb1 = player_ids.index("rb1")
+        available[0, rb1, :] = False
+        scores[0, rb1, :] = 0.0
+        for array in (scores, available):
+            array.flags.writeable = False
+        object.__setattr__(subject.bank, "scores", scores)
+        object.__setattr__(subject.bank, "available", available)
+        # RB cutline is 5: value = 3 weeks x 0.5 x (20 - 5).
+        self.assertAlmostEqual(value(subject, ("rb1",)), 3 * 0.5 * (20 - 5))
+
     def test_scorer_is_deterministic_and_versioned(self):
         roster = ("qb1", "rb1", "rb2", "wr1", "te1")
         self.assertEqual(value(self.subject, roster), value(self.subject, roster))

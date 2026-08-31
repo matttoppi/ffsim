@@ -216,8 +216,11 @@ def _run_one_draft(
         SYNTHETIC_CANDIDATE_COUNT,
         SYNTHETIC_CANDIDATE_BREADTH,
         LIVE_TEMPERATURE,
-        trace,
-        session_id,
+        # Keyword-only from here: ADR-037 inserted recommendation_mode into
+        # the dataclass field order and positional trace/session_id landed on
+        # the wrong fields (session_id became the telemetry sink).
+        telemetry=trace,
+        session_id=session_id,
     )
     monitor.executor = create_live_executor(prepared)
     calculation = Thread(

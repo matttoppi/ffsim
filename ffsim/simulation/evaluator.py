@@ -14,7 +14,7 @@ from ffsim.models.team import FLEX_ELIGIBILITY
 EVALUATOR_VERSION = 1
 # Deterministic projected roster-value scorer revision. Kept separate from
 # EVALUATOR_VERSION because that constant also seeds streamer randomness.
-ROSTER_VALUE_VERSION = 5
+ROSTER_VALUE_VERSION = 6
 # Discounted bench asset value (ADR-029): a benched player is worth this
 # fraction of his points over the starter cutline — trade/upside value that
 # keeps late rounds chasing the best remaining player instead of treating
@@ -436,10 +436,18 @@ class LeagueEvaluator:
     def flat_season_scores(self):
         """Floored flat per-week scores and availability the value scorer uses.
 
-        ``scores[player, week]`` is the across-world, across-available-weeks
-        mean, floored at the player's position cutline, zero where the player
-        is never available; ``available[player, week]`` is the any-world
-        availability mask. This is the exact per-player input to
+        ``scores[player, week]`` is the across-world mean with streamer
+        coverage (ADR-048): in worlds where the player misses an
+        otherwise-playable week, the seat is credited at his position
+        cutline — what the per-world ``_evaluate`` lineup does with a bench
+        or waiver streamer — then averaged across available weeks, floored
+        at the position cutline, zero where the player is never available;
+        ``available[player, week]`` is the any-world availability mask.
+        Without the coverage term, cross-world injury risk diluted every
+        skill flat below the healthy-expectation cutline and zeroed whole
+        positions mid-draft while injury-free K/DEF kept full value, so
+        availability now discounts the edge over the streamer instead of
+        the whole score. This is the exact per-player input to
         ``projected_roster_value`` and the authoritative value basis for the
         rollout future-user policy (ADR-031).
         """
@@ -447,16 +455,20 @@ class LeagueEvaluator:
             replacement = self._starter_cutline_replacement()
             weeks = self.total_weeks
             mean_scores = self.bank.scores[:, :, :weeks].mean(axis=0, dtype=float)
+            played_share = self.bank.available[:, :, :weeks].mean(
+                axis=0, dtype=float
+            )
             available = self.bank.available[:, :, :weeks].any(axis=0)
-            available_weeks = np.maximum(available.sum(axis=1, keepdims=True), 1)
-            flat = (mean_scores * available).sum(
-                axis=1, keepdims=True
-            ) / available_weeks
-            self._mean_scores_raw = flat * available
             floor = np.asarray([
                 replacement.get(position, 0.0)
                 for position in self.bank.player_positions
             ])[:, None]
+            covered = mean_scores + (1.0 - played_share) * floor
+            available_weeks = np.maximum(available.sum(axis=1, keepdims=True), 1)
+            flat = (covered * available).sum(
+                axis=1, keepdims=True
+            ) / available_weeks
+            self._mean_scores_raw = flat * available
             self._mean_scores = np.where(available, np.maximum(flat, floor), 0.0)
             self._mean_available = available
             slot_count = sum(count for _, count in self.slots)

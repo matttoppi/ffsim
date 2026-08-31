@@ -137,8 +137,8 @@ class SyntheticDraftTest(unittest.TestCase):
         first = {"schema_version": 1, "phase": "first_board"}
         ready = {"schema_version": 1, "phase": "ready"}
 
-        def make_monitor(*args):
-            captured["trace"] = args[6]
+        def make_monitor(*args, **kwargs):
+            captured["trace"] = kwargs["telemetry"]
             return monitor
 
         def recommend(*args):

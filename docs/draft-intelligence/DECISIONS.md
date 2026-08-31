@@ -2454,3 +2454,77 @@ scores below the seat's streamer.
   a startable TE (Andrews +0.09), and policy values match exact scorer
   deltas.
 - Full Python suite passes 256/256.
+
+## ADR-048 — Missed-world weeks stream at the cutline in the value basis
+
+### Status
+
+Accepted (2026-08-30), owner-directed ("just make it work correctly")
+after the measured pick-72 finding. `ROSTER_VALUE_VERSION` advances to 6.
+
+### Decision
+
+`flat_season_scores` credits streamer coverage before flattening: for
+each otherwise-playable week, a player's across-world mean becomes
+`mean + (1 - played_share) x position cutline` — in worlds where he
+misses the week, his seat scores the cutline streamer, exactly what the
+per-world `_evaluate` greedy lineup does with a bench or waiver player.
+The flat average across available weeks, the position-cutline floor, the
+any-world availability mask, bye handling, and the ADR-046 pre-floor
+offset transform are unchanged and apply on the covered basis. The
+cutline itself stays on the healthy `expected_scores` basis (ADR-027):
+measured across the 300-world bank, healthy conditional world means match
+`expected_scores` within +/-2-4% sampling noise (position means
+0.991-1.000), so no cutline-basis change is justified.
+
+### Rationale
+
+Availability previously discounted the player's whole score while the
+cutline stayed at the healthy expectation, so cross-world injury risk
+(4-17% for skill players) exceeded nearly every mid-round edge: flats
+floored to exactly the cutline and whole positions priced 0.0, while
+injury-free K/DEF kept full value. Measured live at pick 72 of the
+owner's 12-team PPR mock: board RB1 Jaylen Warren (VORP +12.8) had
+`starter_points` 179.3 = 16 x 11.206, exactly the floored cutline, value
+0.0 — indistinguishable from RB60 — while five K/DEF held the top five
+roster values and led the round-7 plan. A drafted starter's missed weeks
+do not score zero in the true per-world objective; his seat streams.
+Availability now discounts the edge over the streamer
+(`available_weeks x share x (healthy - cutline)` for above-cutline
+players), which restores mid-round ordering and prices bench depth.
+
+### Consequences
+
+- Values are not comparable across `ROSTER_VALUE_VERSION`s; cached
+  evaluations key on the version.
+- Sub-cutline players still price 0 (covered flat stays below the floor
+  when the healthy mean is below the cutline); K/DEF with full
+  availability are bit-unchanged.
+- Bench credit becomes `BENCH_ASSET_FACTOR x share x (healthy -
+  cutline)+`, so late-round skill depth carries real value against a K/DEF
+  reach — the owner's requested behavior.
+- The policy/scorer parity band is the pre-existing POL-02 gap
+  (bye-complement seating: the scalar policy prices one seat per player
+  and cannot credit a second TE starting on the rostered TE's bye week),
+  not a new approximation: measured on the same pick-72 state the gap is
+  at most one bye week times the seat's cutline gap in both directions —
+  pre-fix Likely/Kittle/Kelce scorer -18.085 versus policy -19.291
+  (1.206 = one week x the 11.235-10.028 flex-TE gap), post-fix Likely
+  +1.568 versus +0.362 and Kittle +4.356 versus +3.669, all within the
+  same one-week band while every non-TE candidate matches exactly.
+
+### Validation
+
+- Unit test: a starter out in half the worlds keeps half his edge over
+  the streamer instead of flooring to zero
+  (`test_injury_worlds_stream_the_seat_not_zero_the_player`); bye-week,
+  floor, ADR-046 offset, parity, and cached/uncached equivalence tests
+  all pass unchanged. Full Python suite 257/257.
+- Replayed live pick-72 state (bit-paired bank `c56c1800…`, owner's 93
+  offsets): Warren 0.0 -> +8.8, Pierce +18.7, Harrison +16.5, Purdy
+  +14.7, Caleb +13.8; K/DEF drop from holding the top five values to
+  honest mid-board (LAR +10.9, Aubrey +9.6); Willis stays 0.0; policy
+  values match exact scorer deltas within the documented band.
+- Synthetic draft batch under the new scorer completes without errors
+  with mixed late-round benches and K/DEF outside the early-mid rounds
+  (see ledger entry for the batch id and measurements).
