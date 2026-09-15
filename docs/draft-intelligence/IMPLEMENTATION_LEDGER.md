@@ -15,22 +15,23 @@ week upgrades, and $0–$5 marginal depth. Roster fit, survival urgency, and tea
 remaining adjust upgrade ranges. These are declared heuristics, not learned
 auction prices. The blanket $5 weekly limit has been removed.
 
-The automatic weekly allowance funds the largest range plus $10 for depth.
-Completed purchases reduce it; explicit weekly caps and player bids remain
-available. Valuation ranges and funded claim ranges are separate. Shared drops
-count once at the largest offer; independent claims count separately. New input
-snapshots include current rest-of-season rankings and their source metadata.
-Older snapshots without rankings require a refresh. See ADR-049 and README.
+Reports now show one exact bid: the rounded-up range midpoint, or the upper end
+in the final week. Repeated `--bid` options select only named players and label
+their prices as user choices. The automatic weekly allowance funds the largest
+default bid plus $10, or the maximum cost of the selected user claims. Explicit
+weekly caps remain hard limits. Shared drops count once at the largest offer;
+independent claims count separately. A held bid retains its valuation. Source
+snapshots include current rest-of-season rankings; older inputs require a
+refresh. See ADR-049 and README.
 
-Validation: all 276 Python tests pass, including eight focused calculator tests
-for lasting value, roster fit, risk and stage adjustments, separate valuation
-and allocation limits, source validation, and weekly spend carryover. A final
-focused check also verifies that final-week spending can use the funds remaining
-after earlier purchases. The fresh Week 2 report completed 5,000 simulations:
-Puka $50–$150, Nico $30–$105, Corum/Worthy $0–$5, and a $160 automatic allowance.
-The input snapshot preserves all 408 source ranks; offline replay exactly matches
-the fresh report. Claims that can succeed together remain within the allowance.
-No claims are submitted.
+Validation: `pytest -q` passes all 365 tests and 700 subtests, including nine
+focused calculator tests. Checks cover exact bids, exhaustive selected lists,
+shared-drop spending, $0 bids, source validation, and weekly spend carryover.
+The 5,000-simulation Week 2 replay uses the owner's eight choices: Puka $105,
+Nico $35, Hampton $55, Breece $35, Kelce $5, Ferguson $10, Odunze $4, and Maye $5.
+Their maximum combined cost is $180 with the listed drops. Other players are
+excluded from the claim table. The JSON retains default bids for comparison;
+the owner's choices do not become permanent player prices. No claims are submitted.
 
 ## Current status
 

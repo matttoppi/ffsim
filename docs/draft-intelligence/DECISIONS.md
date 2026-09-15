@@ -2565,12 +2565,19 @@ risk improvement. README owns the exact thresholds, shares, and rounding rules.
 The policy is intentionally heuristic; do not claim learned auction prices or
 optimal bidding.
 
-Keep valuations separate from claim allocation. The automatic weekly allowance
-funds the largest player range plus $10 for depth, within available funds.
-Completed purchases reduce it. An explicit weekly cap overrides the allowance;
-explicit player bids override individual offers. Fund explicit bids first, then
-automatic ranges by descending upper bound. A held claim retains its original
-valuation. A small allowance cannot turn an elite valuation into a $5 valuation.
+Amended again 2026-09-15: the owner needs an exact dollar bid, not a range.
+Use each value range's midpoint rounded up to a whole dollar, or its upper end
+in the final week. Cap bids at remaining funds. Keep ranges in JSON diagnostics.
+Repeated `--bid` options define the complete selected claim list at user-chosen
+prices. Label these choices separately from defaults; do not present eight
+subjective examples as a learned pricing model or apply them to future weeks.
+
+Keep valuations separate from claim allocation. Without chosen bids, the
+automatic weekly allowance funds the largest default bid plus $10 for depth,
+within available funds. Completed purchases reduce it. Fund default bids in
+descending order; hold any bid that cannot fit without reducing its valuation.
+With chosen bids, the automatic allowance covers completed weekly spending
+plus those claims' maximum cost. An explicit weekly cap overrides either rule.
 
 Maximum plan cost sums the largest offer per shared drop. Claims without a drop
 count separately. This bounds monetary exposure; simulations still evaluate

@@ -217,7 +217,9 @@ position ranks. Ranks are a proxy for lasting value; they are not a championship
 simulation and do not include your league's tight-end premium. The weekly
 simulation does include your actual scoring and lineup slots.
 
-The bid ranges are **explicit rules of thumb, not predicted winning prices**:
+The report gives one exact bid per player. Default bids use the midpoint of
+these value ranges, rounded up to a whole dollar. With two teams left, they use
+the upper end. These are **rules of thumb, not predicted winning prices**:
 
 | Category | Qualification | Base range |
 |---|---|---|
@@ -238,17 +240,17 @@ These coefficients express a spending preference; they have not been fitted
 to auction results or validated as optimal.
 
 Percentages use remaining budget plus completed spending in this Sleeper week.
-Ranges round outward to $5 once their upper amount reaches $10, then stay within
-available funds. The automatic weekly allowance is the largest range plus $10
-for depth, bounded by funds available at the start of the week. Completed weekly
-purchases reduce that allowance. Use `--weekly-cap` to choose a different total.
+Ranges round outward to $5 once their upper amount reaches $10. The exact bid
+is then capped at remaining funds. The automatic weekly allowance is the largest
+default bid plus $10 for depth, bounded by funds available at the start of the
+week. Completed weekly purchases reduce that allowance. Use `--weekly-cap` to
+choose a different total.
 
-**Bid range** shows the player's valuation. **Plan** shows the funded range.
-Explicit bids reserve allowance first; automatic ranges are funded from largest
-to smallest. The automatic plan holds a claim if its full range cannot fit.
-An explicit weekly limit can fund a narrower range if it reaches the lower end.
-A held claim keeps its valuation visible. A small weekly limit never changes an
-elite valuation into a $5 valuation.
+**Bid** shows the exact offer. **Source** identifies your choice or the default
+calculation. Default bids receive allowance from largest to smallest. **Hold**
+means the allowance cannot fund that bid. A held claim keeps its valuation
+visible; a small weekly limit never changes an elite valuation into a $5 bid.
+The JSON report retains the underlying value range and default bid for review.
 
 Claims with the same drop are alternatives: only the largest offer in each group
 counts toward maximum spending. Different drops and claims without a drop count
@@ -256,9 +258,12 @@ separately. Other pending claims are not visible through the public data; accoun
 for them before submitting. Keep the listed drops and order equal bids by your
 preference. You do not need to submit every row.
 
-Use `--bid SLEEPER_ID=AMOUNT` to choose an offer yourself. It can be below the
-range, or above it with a sufficient weekly limit. Repeat the option for multiple
-players. The following example records a user choice, not a recommended price:
+Use `--bid SLEEPER_ID=AMOUNT` to select an exact offer yourself. Repeat the option
+for every player you want: when supplied, **only named players are selected**.
+These choices apply to this report and can be outside the default value range.
+The automatic allowance then equals completed weekly spending plus the maximum
+cost of the selected claims. An explicit `--weekly-cap` remains a hard limit.
+The following example selects one claim at the user's chosen price:
 
 ```bash
 python -m ffsim.guillotine --snapshot PATH_TO_SAVED_INPUTS.json \

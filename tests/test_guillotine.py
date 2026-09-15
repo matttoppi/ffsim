@@ -86,10 +86,9 @@ class GuillotineTest(unittest.TestCase):
                      rest_of_season_position_rank=2 if i < 2 else 60)
                 for i, drop in enumerate(["mayer", "mayer", "black", None, None])]
         plan = spending_plan(rows, 1000, .05, 11)
-        self.assertEqual([r["bid_range"] for r in plan["recommendations"]],
-                         [[50, 150], [50, 150], [0, 5], [0, 5], None])
-        self.assertEqual((plan["weekly_cap"], plan["maximum_plan_spend"]), (160, 160))
-        self.assertNotIn("bid_range", rows[0])  # Do not mutate simulation results.
+        self.assertEqual([r["planned_bid"] for r in plan["recommendations"]], [100, 100, 3, 3, 3])
+        self.assertEqual((plan["weekly_cap"], plan["maximum_plan_spend"]), (110, 109))
+        self.assertNotIn("planned_bid", rows[0])  # Do not mutate simulation results.
         # Two bids sharing a drop cost at most the higher bid, not their sum.
         chosen = {"0": 20, "1": 15, "2": 3, "3": 1, "4": 1}
         plan = spending_plan(rows, 1000, .05, 11, 25, chosen)
@@ -98,7 +97,7 @@ class GuillotineTest(unittest.TestCase):
             winners = [r for r, wins in zip(plan["recommendations"], subset) if wins]
             groups = [r["claim_group"] for r in winners]
             if len(groups) == len(set(groups)):
-                self.assertLessEqual(sum(r["bid_range"][1] for r in winners), 25)
+                self.assertLessEqual(sum(r["planned_bid"] for r in winners), 25)
         with self.assertRaisesRegex(ValueError, "can spend.*weekly limit"):
             spending_plan(rows, 1000, .05, 11, 24, chosen)
         with self.assertRaisesRegex(ValueError, "not available"):
@@ -109,12 +108,38 @@ class GuillotineTest(unittest.TestCase):
         self.assertLessEqual(spending_plan(rows, 2, .05, 11)["maximum_plan_spend"], 2)
         self.assertEqual(spending_plan(rows, 0, .05, 11)["maximum_plan_spend"], 0)
         limited = spending_plan(rows, 1000, .05, 11, weekly_cap=5, spent=3)
-        self.assertEqual(limited["maximum_plan_spend"], 2)
+        self.assertEqual(limited["maximum_plan_spend"], 0)
         self.assertEqual(limited["recommendations"][0]["recommended_bid_range"], [50, 155])
-        self.assertIsNone(limited["recommendations"][0]["bid_range"])
+        self.assertEqual(limited["recommendations"][0]["recommended_bid"], 103)
+        self.assertEqual(limited["recommendations"][0]["plan_status"], "Hold")
+        self.assertIsNone(limited["recommendations"][0]["planned_bid"])
+        self.assertEqual(spending_plan(rows, 1000, .05, 11, weekly_cap=5, bids={"2": 2}, spent=3)["maximum_plan_spend"], 2)
         self.assertEqual(spending_plan(rows, 1000, .05, 11, weekly_cap=5, spent=9)["maximum_plan_spend"], 0)
         with self.assertRaisesRegex(ValueError, "remaining weekly limit"):
             spending_plan(rows, 1000, .05, 11, weekly_cap=5, bids={"0": 3}, spent=3)
+
+    def test_exact_user_bids_select_only_named_claims_and_count_shared_drops_once(self):
+        amounts = [105, 35, 55, 35, 5, 10, 4, 5]
+        drops = ["black", "mayer", "black", "allgeier", "allgeier", "allgeier", "allgeier", "lawrence", None]
+        rows = [dict(player_id=str(i), drop_id=drop, action="consider", position="WR",
+                     rest_of_season_position_rank=2, points_gain=10,
+                     risk_reduction=.02, risk_reduction_standard_error=.001)
+                for i, drop in enumerate(drops)]
+        bids = {str(i): amount for i, amount in enumerate(amounts)}
+        plan = spending_plan(rows, 1000, .05, 11, bids=bids)
+        self.assertEqual((plan["weekly_cap"], plan["maximum_plan_spend"]), (180, 180))
+        self.assertEqual(plan["weekly_cap_source"], "chosen_claims")
+        self.assertEqual({r["player_id"]: r["planned_bid"] for r in plan["recommendations"] if r["selected"]}, bids)
+        self.assertTrue(all(r["bid_source"] == "user" and r["recommended_bid"] == r["chosen_bid"]
+                            for r in plan["recommendations"] if r["selected"]))
+        omitted = plan["recommendations"][-1]
+        self.assertEqual((omitted["player_id"], omitted["plan_status"], omitted["planned_bid"]), ("8", "Not selected", None))
+        # An explicit $0 bid still selects exactly that one player.
+        free = spending_plan(rows, 1000, .05, 11, bids={"0": 0}, spent=3)
+        self.assertEqual((free["weekly_cap"], free["maximum_plan_spend"]), (3, 0))
+        self.assertEqual([r["player_id"] for r in free["recommendations"] if r["selected"]], ["0"])
+        with self.assertRaisesRegex(ValueError, "remaining weekly limit"):
+            spending_plan(rows, 100, .05, 11, bids=bids)
 
     def test_lasting_value_roster_fit_urgency_and_stage_change_ranges(self):
         elite = dict(player_id="1", drop_id="mayer", action="consider", position="WR",
@@ -142,7 +167,7 @@ class GuillotineTest(unittest.TestCase):
         unranked = {**temporary, "rest_of_season_position_rank": None}
         self.assertEqual(player_bid_range(unranked, 1000, .05, 11)[0], "Short-term upgrade")
         elite["action"] = "pass"
-        self.assertIsNone(spending_plan([elite], 1000, .05, 11)["recommendations"][0]["bid_range"])
+        self.assertIsNone(spending_plan([elite], 1000, .05, 11)["recommendations"][0]["planned_bid"])
         with self.assertRaisesRegex(ValueError, "pass candidate"):
             spending_plan([elite], 1000, .05, 11, bids={"1": 0})
 
@@ -228,20 +253,26 @@ class GuillotineTest(unittest.TestCase):
         self.assertEqual(row["points_gain"], 10)
         self.assertEqual(row["drop_id"], "2")
         self.assertEqual(row["risk_reduction_standard_error"], 0)
-        self.assertEqual(row["bid_range"], [450, 900])
+        self.assertEqual((row["recommended_bid"], row["planned_bid"]), (900, 900))
         self.assertEqual(first["maximum_plan_spend"], 900)
         rendered = format_report(first)
         self.assertIn("Weekly limit: $900 total", rendered)
-        self.assertIn("$450–$900", rendered)
-        self.assertNotIn("Suggested", rendered)
-        self.assertNotIn("suggested_bid", row)
+        self.assertIn("| $900 | Default calculation | Bid |", rendered)
+        self.assertNotIn("$450–$900", rendered)
+        selected = analyze(snapshot, simulations=100, bids={"4": 105})
+        self.assertIn("| $105 | Your choice | Bid |", format_report(selected))
+        hidden = {**selected, "recommendations": selected["recommendations"] + [{"selected": False}]}
+        self.assertEqual(format_report(hidden), format_report(selected))
         snapshot["transactions"].extend([
             {"type": "waiver", "status": "complete", "leg": leg,
              "roster_ids": [roster], "settings": {"waiver_bid": bid}}
             for leg, roster, bid in [(2, 1, 3), (2, 2, 10), (1, 1, 10)]
         ])
         refreshed = analyze(snapshot, simulations=100, weekly_cap=500)
-        self.assertEqual((refreshed["weekly_spent"], refreshed["maximum_plan_spend"]), (3, 497))
+        self.assertEqual((refreshed["weekly_spent"], refreshed["maximum_plan_spend"]), (3, 0))
+        self.assertEqual(refreshed["recommendations"][0]["plan_status"], "Hold")
+        chosen = analyze(snapshot, simulations=100, weekly_cap=500, bids={"4": 497})
+        self.assertEqual(chosen["maximum_plan_spend"], 497)
         # nflverse uses LA while Sleeper uses LAR. This is not a bye.
         snapshot["players"]["1"]["team"] = "LAR"
         schedule.return_value.loc[0, "away_team"] = "LA"
@@ -250,7 +281,7 @@ class GuillotineTest(unittest.TestCase):
         self.assertIsNone(analyze(snapshot, simulations=100)["recommendations"][0]["drop_id"])
         snapshot["players"]["4"]["injury_status"] = "Out"
         row = analyze(snapshot, simulations=100)["recommendations"][0]
-        self.assertEqual((row["bid_range"], row["points_gain"]), (None, 0))
+        self.assertEqual((row["planned_bid"], row["points_gain"]), (None, 0))
         snapshot["projections"]["players"] = []
         with self.assertRaisesRegex(ValueError, "Missing weekly projection"):
             analyze(snapshot, simulations=100)

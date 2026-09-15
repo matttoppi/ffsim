@@ -274,7 +274,7 @@ def player_bid_range(row, budget, risk, teams):
 
 
 def spending_plan(recommendations, budget, risk, teams, weekly_cap=None, bids=None, spent=0):
-    """Keep player valuations separate from limits on simultaneous claims."""
+    """Recommend exact bids and bound the cost of claims that can win together."""
     bids = dict(bids or {})
     budget, spent = _dollars(budget), _dollars(spent)
     for value in bids.values():
@@ -288,51 +288,63 @@ def spending_plan(recommendations, budget, risk, teams, weekly_cap=None, bids=No
     if unknown:
         raise ValueError(f"Bid IDs are not available chop candidates: {sorted(unknown)}")
     largest = 0
-    for row in rows:
-        row["category"], row["recommended_bid_range"] = player_bid_range(row, budget + spent, risk, teams)
-        if row["recommended_bid_range"] is not None:
-            largest = max(largest, row["recommended_bid_range"][1])
-            row["recommended_bid_range"] = [min(budget, amount) for amount in row["recommended_bid_range"]]
-    # Fund one main upgrade plus two small depth additions. An explicit cap can
-    # fund more; do not change a player's valuation to fit the total allowance.
-    automatic = weekly_cap is None
-    if automatic:
-        weekly_cap = min(budget + spent, largest + 10) if largest else spent
-    available = min(max(0, int(weekly_cap) - int(spent)), int(budget))
     groups = defaultdict(int)
     for row in rows:
+        row["category"], row["recommended_bid_range"] = player_bid_range(row, budget + spent, risk, teams)
+        value_range = row["recommended_bid_range"]
+        model_bid = None
+        if value_range is not None:
+            lower, upper = value_range
+            model_bid = upper if teams == 2 else (lower + upper + 1) // 2
+            largest = max(largest, model_bid)
+            model_bid = min(budget, model_bid)
+            row["recommended_bid_range"] = [min(budget, amount) for amount in value_range]
         # Only claims dropping the SAME owned player are mutually exclusive.
         row["claim_group"] = f"drop:{row['drop_id']}" if row["drop_id"] else f"add:{row['player_id']}"
-        row["chosen_bid"] = bids.get(row["player_id"])
+        row["chosen_bid"] = _dollars(bids[row["player_id"]]) if row["player_id"] in bids else None
+        row["model_bid"] = model_bid
+        row["recommended_bid"] = row["chosen_bid"] if row["chosen_bid"] is not None else model_bid
+        row["bid_source"] = "user" if row["chosen_bid"] is not None else "heuristic"
+        row["selected"] = row["player_id"] in bids if bids else row["action"] != "pass"
+        row["planned_bid"] = None
         if row["chosen_bid"] is not None:
             if row["action"] == "pass":
                 raise ValueError(f"Cannot bid on a pass candidate: {row['player_id']}")
             group = row["claim_group"]
             groups[group] = max(groups[group], int(row["chosen_bid"]))
+    cap_source = "user"
+    if weekly_cap is None:
+        if bids:
+            weekly_cap, cap_source = spent + sum(groups.values()), "chosen_claims"
+        else:
+            weekly_cap = min(budget + spent, largest + 10) if largest else spent
+            cap_source = "automatic"
+    available = min(max(0, int(weekly_cap) - int(spent)), int(budget))
     if sum(groups.values()) > available:
         raise ValueError(f"Chosen claims can spend ${sum(groups.values())}; remaining weekly limit is ${available}")
     remaining = available - sum(groups.values())
-    for row in sorted(rows, key=lambda row: -(row["recommended_bid_range"] or [0, 0])[1]):
+    rows.sort(key=lambda row: (not row["selected"], -(row["recommended_bid"] or 0), -row["risk_reduction"]))
+    for row in rows:
         group = row["claim_group"]
+        if not row["selected"]:
+            row["plan_status"] = "Pass" if row["action"] == "pass" else "Not selected"
+            continue
         if row["chosen_bid"] is not None:
-            row["bid_range"] = [int(row["chosen_bid"])] * 2
+            row["planned_bid"] = row["chosen_bid"]
+            row["plan_status"] = "Bid"
             continue
-        suggested = row["recommended_bid_range"]
-        if suggested is None:
-            row["bid_range"] = None
+        amount = row["recommended_bid"]
+        extra = max(0, amount - groups[group])
+        if extra > remaining:
+            row["plan_status"] = "Hold"
             continue
-        lower, upper = suggested
-        ceiling = min(upper, groups[group] + remaining)
-        if ceiling < lower or (automatic and ceiling < upper):
-            row["bid_range"] = None  # The weekly limit cannot fund this range.
-            continue
-        extra = max(0, ceiling - groups[group])
         remaining -= extra
         groups[group] += extra
-        row["bid_range"] = [lower, ceiling]
+        row["planned_bid"] = amount
+        row["plan_status"] = "Bid"
     return {
-        "pricing": "player_value_policy_v2", "weekly_cap": int(weekly_cap),
-        "weekly_cap_source": "automatic" if automatic else "user",
+        "pricing": "exact_bid_policy_v3", "weekly_cap": int(weekly_cap),
+        "weekly_cap_source": cap_source, "user_bids": bids,
         "weekly_spent": int(spent), "weekly_remaining": available,
         "maximum_plan_spend": sum(groups.values()),
         "recommendations": rows,
@@ -475,7 +487,7 @@ def analyze(snapshot, *, simulations=5000, seed=2026, weekly_cap=None, bids=None
         **plan,
         "completed_waiver_bids": [t["settings"]["waiver_bid"] for t in transactions if t["type"] == "waiver" and t["status"] == "complete" and "waiver_bid" in (t.get("settings") or {})],
         "assumptions": [
-            "Bid ranges are value-based rules of thumb, not forecasts of winning bids.",
+            "Default bids are value-based rules of thumb, not forecasts of winning bids. User bids are explicit choices for this report.",
             "Elite position ranks: QB3/RB8/WR8/TE3 or better; core ranks: QB8/RB24/WR30/TE8 or better. Kickers receive no lasting-starter premium.",
             "A lasting starter must also add at least 3 expected best ball points next week. Elite base range: 5–15% of budget; core: 2–7%.",
             "Starter ranges scale by roster fit: points gained / 10, bounded to 0.5–1. Short-term upgrades use 0.5–2% without this factor.",
@@ -483,8 +495,10 @@ def analyze(snapshot, *, simulations=5000, seed=2026, weekly_cap=None, bids=None
             "Urgency scales paid upgrade ranges by risk × teams, bounded to 1–2, only when the risk reduction clears the noise screen.",
             "Stage scales upgrade ranges by 6 / teams, bounded to 1–3. With two teams left, clear upgrades use 50–100% of remaining budget.",
             "Ranges use budget at the start of this Sleeper week, rounded outward to $5 when the upper amount reaches $10, then capped at available funds.",
-            "The automatic weekly allowance funds the largest range plus $10 for depth. Highest-value ranges receive allowance first. --weekly-cap overrides it.",
-            "Bid range shows player value; Plan shows the funded range. Hold means the weekly allowance cannot fund that range. --bid records your own offer.",
+            "The default bid is the value range midpoint, rounded up to a whole dollar; with two teams left it uses the upper end. Bids cannot exceed remaining funds.",
+            "Without chosen bids, the automatic weekly allowance funds the largest default bid plus $10 for depth. Highest bids receive allowance first. --weekly-cap overrides it.",
+            "Repeat --bid for an exact selected claim list. Unlisted players are excluded; the automatic allowance covers only the chosen claims' maximum cost.",
+            "Bid shows the exact offer. Hold means the weekly allowance cannot fund it; the algorithm does not reduce its valuation to fit the allowance.",
             "Maximum plan spend sums the largest offer per shared drop; claims without a drop count separately.",
             "Completed waiver spending for your roster in this Sleeper week is deducted from the weekly limit.",
             "The remaining limit covers only this report's claims. Include any other pending claims in your spending limit.",
@@ -510,25 +524,19 @@ def format_report(report):
         f"modeled chop risk {report['baseline_chop_risk']:.1%}", "",
         f"**Weekly limit: ${report['weekly_cap']} total. Already spent: ${report['weekly_spent']}. "
         f"Available: ${report['weekly_remaining']}. Maximum spend for these claims: ${report['maximum_plan_spend']}.**", "",
-        "Bid ranges reflect player value, roster fit, urgency, and teams remaining. They are rules of thumb, not predicted winning prices.",
-        "Plan shows what fits the weekly allowance. Hold keeps the player's value range visible without adding another paid claim.",
-        "Choose the claims you want and keep their listed drops. Review upcoming byes and injury outlook before submitting.", "",
-        "| Player | Drop | Points gained | Risk reduction | Rest-of-season rank | Category | Bid range | Plan |",
-        "|---|---|---:|---:|---|---|---:|---:|",
+        "Each row gives one exact bid. Your choices override the default calculation for this report.",
+        "Keep the listed drops: claims sharing a drop are alternatives; claims with different drops can win together.",
+        "Hold means the weekly allowance cannot fund that bid. This report does not submit claims.", "",
+        "| Player | Drop | Points gained | Bid | Source | Plan |",
+        "|---|---|---:|---:|---|---|",
     ]
     for row in report["recommendations"]:
+        if report["user_bids"] and not row["selected"]:
+            continue
         name = row["player"] + (f" ({row['status']})" if row["status"] != "Active" else "")
-        offer = "Pass" if row["action"] == "pass" else "Hold"
-        if row["chosen_bid"] is not None:
-            offer = f"${row['chosen_bid']} (your choice)"
-        elif row["bid_range"] is not None:
-            lower, ceiling = row["bid_range"]
-            offer = f"${lower}–${ceiling}" if lower != ceiling else f"${ceiling}"
-        suggested = row["recommended_bid_range"]
-        value_range = f"${suggested[0]}–${suggested[1]}" if suggested else "Pass"
-        rank = row["rest_of_season_position_rank"]
-        rank_label = f"{row['position']}{rank}" if rank else "Unranked"
-        lines.append(f"| {name} | {row['drop'] or 'Open roster spot'} | {row['points_gain']:+.2f} | {row['risk_reduction'] * 100:+.2f} pp | {rank_label} | {row['category']} | {value_range} | {offer} |")
+        offer = f"${row['recommended_bid']}" if row["recommended_bid"] is not None else "—"
+        source = "Your choice" if row["bid_source"] == "user" else "Default calculation"
+        lines.append(f"| {name} | {row['drop'] or 'Open roster spot'} | {row['points_gain']:+.2f} | {offer} | {source} | {row['plan_status']} |")
     source = report["rest_of_season_source"]
     lines.extend(["", f"Rest-of-season ranks: FantasyPros {source['scoring']}, updated {source['last_updated']}; {source['total_experts']} experts. "
                   f"Weekly allowance: {report['weekly_cap_source']}."])
@@ -544,9 +552,9 @@ def main():
     parser.add_argument("--snapshot", type=Path, help="Replay a saved input snapshot without network calls")
     parser.add_argument("--simulations", type=int, default=5000)
     parser.add_argument("--seed", type=int, default=2026)
-    parser.add_argument("--weekly-cap", type=int, help="Override automatic weekly allowance (largest range plus $10)")
+    parser.add_argument("--weekly-cap", type=int, help="Override the automatic total weekly spending allowance")
     parser.add_argument("--bid", action="append", default=[], metavar="SLEEPER_ID=AMOUNT",
-                        help="Your chosen bid, not a model price; repeat for multiple players")
+                        help="Select an exact bid; repeat for multiple players. Unlisted players are not selected")
     parser.add_argument("--drop-player", help="Sleeper ID to use instead of the automatic drop search")
     parser.add_argument("--output", type=Path, help="JSON report path; also writes a Markdown table")
     args = parser.parse_args()
