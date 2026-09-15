@@ -2528,3 +2528,38 @@ players), which restores mid-round ordering and prices bench depth.
 - Synthetic draft batch under the new scorer completes without errors
   with mixed late-round benches and K/DEF outside the early-mid rounds
   (see ledger entry for the batch id and measurements).
+
+## ADR-049 — Keep guillotine bids separate from draft valuation
+
+Accepted 2026-09-15 for the owner's Sleeper Chopped best ball calculator.
+
+`python -m ffsim.guillotine` uses current weekly FantasyPros counting statistics
+with `Player` and `EmpiricalLibrary`. Each projected player represents one game;
+no preseason total, random season absence, or additional matchup multiplier is
+applied to a weekly mean. Confirmed unavailable players score zero. Unpublished
+targets, fumble-loss shares, kicking distance, and extra-point misses use
+explicit historical ratios. Player eligibility comes from Sleeper's
+`fantasy_positions`, including WR-eligible Travis Hunter despite his primary DB
+label. Missing active-player projections stop analysis.
+
+The scorer selects actual simulated best ball outcomes from the owned roster.
+It neither credits hypothetical streamers nor adds the draft scorer's bench
+asset value. It supports single offensive player positions and nested/disjoint
+slot eligibility. Each candidate/drop pair uses the same seeded player draws;
+opponent rosters remain fixed. Chop ties use accumulated season points (draft
+position in Week 1); unresolved ties split probability evenly.
+
+The price conversion is an uncalibrated rule with one aggression multiplier.
+The report publishes its formula and separates it from simulated chop risk.
+Rows are alternative single purchases, not a simultaneous bid allocation.
+Automatic drops protect unavailable players; long-term roster value, future
+waivers, opponent bid prediction, and championship simulation are outside this
+first version. No draft engine, world-bank cache version, or existing
+best-ball compatibility guard changes. The standalone command saves raw input
+snapshots for offline replay and does not change the configured draft.
+
+Sources verified 2026-09-15: Sleeper league/roster/transaction data for the
+owner-provided league, including `eliminated` and `chopped`; FantasyPros Premium
+weekly NFL projection and player-ID responses using existing personal access;
+Sleeper's Chopped support article for weekly elimination and tiebreaks.
+The weekly Sleeper projections endpoint returned HTTP 403 and is not used.

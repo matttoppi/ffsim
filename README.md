@@ -183,6 +183,59 @@ skips bench-player score generation and omits the `players` result object when
 only standings and playoff probabilities are needed. Simulations use up to
 four worker processes by default; `--workers 1` disables multiprocessing.
 
+## Guillotine best ball bids
+
+Run a read-only weekly bid report for a Sleeper Chopped league:
+
+```bash
+python -m ffsim.guillotine --league-id LEAGUE_ID --username YOUR_USERNAME
+```
+
+The command refreshes the league and FantasyPros weekly projections, then
+compares each unclaimed player from the latest chop with your current roster.
+It uses FFSIM's empirical player sampler and selects the highest-scoring legal
+best ball lineup in each of 5,000 shared simulations. Opponent rosters stay
+fixed. Each row proposes one addition and drop; rows are alternative purchases,
+not a combined spending plan. No bids or roster changes are submitted.
+
+Results are saved as JSON and a Markdown table under `output/guillotine/`.
+Inputs are saved under `data/cache/guillotine/`. Reproduce a report without
+network calls:
+
+```bash
+python -m ffsim.guillotine --snapshot PATH_TO_SAVED_INPUTS.json
+```
+
+The report's `input_snapshot` field gives the exact input file. Fresh snapshots
+have content-based filenames, so later refreshes preserve earlier inputs.
+Use `--aggression 0.7` to reduce bid limits by 30%, `--drop-player SLEEPER_ID`
+to select a particular drop, or `--output PATH.json` to choose the report path.
+The command does not change the draft attachment or the season projection cache.
+
+The price rule is an **uncalibrated heuristic**:
+
+```text
+cap = remaining budget / remaining chops
+    * min(extra best ball points / 5, 3)
+    * clip(current chop probability * remaining teams, 0.5, 2)
+    * aggression
+```
+
+The cap cannot exceed your budget or the largest rival budget plus $1.
+The suggested bid is 75% of the cap, not an estimate of the winning price.
+Remaining chops means surviving teams minus one. The report targets the next
+week only; it does not estimate championship probability or future player value.
+Automatic drop selection protects players without a game or with a confirmed
+unavailable status. Review drop suggestions for future-week value.
+
+Weekly FantasyPros projections provide scoring means. Historical 2024–2025
+position ratios supply unpublished targets and fumble-loss shares; historical
+kicker ratios supply distance buckets and extra-point misses. Questionable
+players use the supplied projection without an invented injury probability.
+Missing projections for otherwise active players stop the report. The initial
+command supports offensive positions and kickers, nested FLEX slots, automatic
+weekly chops, $0 minimum bids, and leagues without FAAB transfers.
+
 ## Backend API
 
 Start the local backend without a frontend:

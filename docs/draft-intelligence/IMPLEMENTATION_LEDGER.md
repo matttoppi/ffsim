@@ -2,6 +2,26 @@
 
 This file is the current operational state of the project. Keep it short, factual, and updated after every meaningful milestone.
 
+## Guillotine calculator — 2026-09-15
+
+Owner-requested standalone `python -m ffsim.guillotine` command. It reads
+Sleeper Chopped best ball rosters, elimination flags, budgets, and chop
+transactions; imports current FantasyPros weekly projections by stable ID;
+and reuses the empirical player sampler for paired next-week chop comparisons.
+The new best ball scorer has no hypothetical waiver replacements. A separate,
+explicit spending heuristic produces bid suggestions and caps. Draft behavior
+and its existing compatibility checks remain unchanged. See ADR-049 and the
+README for assumptions, supported formats, and replay commands.
+
+Validation: baseline 22 focused tests passed; six new calculator tests and all
+274 Python tests pass. A live Week 2 snapshot for the owner's league completed
+5,000 paired simulations across all 17 unclaimed chop candidates. Puka Nacua
+leads the current-week report. Checks cover exhaustive legal-lineup parity,
+chop tiebreaks, budget caps, TE premium, kicker means, stable player identity,
+LA/LAR schedule aliases, inactive players, open spots, and missing projections.
+The command saves JSON/Markdown results plus replayable raw inputs. The next
+step is owner use of the weekly report; no bids are submitted automatically.
+
 ## Current status
 
 **Phase:** Phase 8 — offline coupled draft rollouts and nested evaluation
