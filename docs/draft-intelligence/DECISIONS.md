@@ -2549,9 +2549,27 @@ slot eligibility. Each candidate/drop pair uses the same seeded player draws;
 opponent rosters remain fixed. Chop ties use accumulated season points (draft
 position in Week 1); unresolved ties split probability evenly.
 
-The price conversion is an uncalibrated rule with one aggression multiplier.
-The report publishes its formula and separates it from simulated chop risk.
-Rows are alternative single purchases, not a simultaneous bid allocation.
+Amended 2026-09-15 after the owner reviewed the initial prices: remove the
+points-to-dollars conversion and aggression multiplier. Keep player comparisons
+separate from an explicit spending policy. Default bargain offers range from
+$0 to $5 under one $5 weekly allowance, reduced by completed weekly purchases.
+Only explicit player bids can exceed $5, within a chosen weekly limit and the
+remaining season budget. The report rejects over-budget combinations and
+unavailable/passing player bids. No value or market model produces these prices.
+
+Maximum plan cost sums the largest offer per shared drop. Claims without a drop
+count separately. Explicit bids reserve allowance before default bargain ranges.
+This bounds monetary exposure; the simulation still evaluates one acquisition
+per row. Pending claims outside the report are not observable and must be
+included by the owner when setting the limit.
+
+Review labels use paired risk reduction: at most two standard errors is free
+only; a larger reduction below one percentage point is marginal depth; at least
+one point flags upgrade review. Baseline risk above `1 / surviving teams` flags
+survival review for those upgrades. These thresholds organize review, do not
+prove probability calibration, and never raise a bid. Future player value and
+alternative free agents require owner review before a larger offer.
+
 Automatic drops protect unavailable players; long-term roster value, future
 waivers, opponent bid prediction, and championship simulation are outside this
 first version. No draft engine, world-bank cache version, or existing

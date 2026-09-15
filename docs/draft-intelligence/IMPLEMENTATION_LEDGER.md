@@ -8,19 +8,30 @@ Owner-requested standalone `python -m ffsim.guillotine` command. It reads
 Sleeper Chopped best ball rosters, elimination flags, budgets, and chop
 transactions; imports current FantasyPros weekly projections by stable ID;
 and reuses the empirical player sampler for paired next-week chop comparisons.
-The new best ball scorer has no hypothetical waiver replacements. A separate,
-explicit spending heuristic produces bid suggestions and caps. Draft behavior
+The best ball scorer has no hypothetical waiver replacements. The initial
+points-to-dollars rule was removed after owner review. A separate spending
+policy uses $0–$5 bargain ranges under a $5 total weekly limit. Completed weekly
+purchases reduce the allowance. Explicit player bids can raise individual offers
+within a chosen total limit. Shared-drop alternatives count once at the largest
+offer; independent claims count separately. Risk-reduction labels identify depth,
+upgrade review, and survival review without setting a market price. Draft behavior
 and its existing compatibility checks remain unchanged. See ADR-049 and the
 README for assumptions, supported formats, and replay commands.
 
-Validation: baseline 22 focused tests passed; six new calculator tests and all
-274 Python tests pass. A live Week 2 snapshot for the owner's league completed
+Initial validation: baseline 22 focused tests passed; six new calculator tests
+and all 274 Python tests passed. A live Week 2 snapshot for the owner's league completed
 5,000 paired simulations across all 17 unclaimed chop candidates. Puka Nacua
 leads the current-week report. Checks cover exhaustive legal-lineup parity,
 chop tiebreaks, budget caps, TE premium, kicker means, stable player identity,
 LA/LAR schedule aliases, inactive players, open spots, and missing projections.
 The command saves JSON/Markdown results plus replayable raw inputs. The next
 step is owner use of the weekly report; no bids are submitted automatically.
+
+Policy revision validation: all 275 Python tests pass, including seven focused
+calculator tests for simultaneous claim cost bounds, weekly spend carryover,
+manual limits, zero budget, noise screening, and removal of automatic prices.
+The saved Week 2 snapshot replay completed 5,000 simulations with unchanged
+roster comparisons. Its revised JSON/Markdown report limits total spending to $5.
 
 ## Current status
 

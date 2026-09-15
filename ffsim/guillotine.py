@@ -1,4 +1,4 @@
-"""Read-only Sleeper best ball chop analysis and an explicit FAAB heuristic."""
+"""Read-only Sleeper best ball comparisons with an explicit spending limit."""
 
 import argparse
 from collections import Counter, defaultdict
@@ -78,6 +78,12 @@ def _number(value):
     if not math.isfinite(number) or number < 0:
         raise ValueError(f"Expected a finite nonnegative number, got {value!r}")
     return number
+
+
+def _dollars(value):
+    if isinstance(value, bool) or not _number(value).is_integer():
+        raise ValueError("Spending limits and bids must be nonnegative whole dollars")
+    return int(value)
 
 
 def projection_map(snapshot, player_ids):
@@ -194,24 +200,68 @@ def chop_shares(totals, rosters, week):
     return tied / tied.sum(axis=1, keepdims=True)
 
 
-def bid_limits(budget, rival_budgets, rounds_left, risk, teams, gain, aggression=1.0):
-    """Transparent heuristic; this is not a learned market price."""
-    for value in (budget, gain, aggression, *rival_budgets):
-        _number(value)
-    if rounds_left < 1 or teams < 2 or not 0 <= risk <= 1:
-        raise ValueError("Invalid bidding horizon or elimination risk")
-    # ponytail: 5 extra lineup points buys one budget unit; calibrate on league outcomes.
-    upgrade = min(gain / 5, 3)
-    urgency = float(np.clip(risk * teams, 0.5, 2))
-    cap = min(budget, max(rival_budgets, default=0) + 1,
-              round(budget / rounds_left * upgrade * urgency * aggression))
-    return round(cap * 0.75), int(cap)
+def spending_plan(recommendations, budget, risk, teams, weekly_cap=5, bids=None, spent=0):
+    """Allocate bargain ranges; never infer a market price from projected points."""
+    bids = dict(bids or {})
+    for value in (budget, weekly_cap, spent, *bids.values()):
+        _dollars(value)
+    if teams < 2 or not 0 <= risk <= 1:
+        raise ValueError("Invalid team count or chop risk")
+    rows = [dict(row) for row in recommendations]
+    unknown = set(bids) - {row["player_id"] for row in rows}
+    if unknown:
+        raise ValueError(f"Bid IDs are not available chop candidates: {sorted(unknown)}")
+    available = min(max(0, int(weekly_cap) - int(spent)), int(budget))
+    groups = defaultdict(int)
+    for row in rows:
+        # Only claims dropping the SAME owned player are mutually exclusive.
+        row["claim_group"] = f"drop:{row['drop_id']}" if row["drop_id"] else f"add:{row['player_id']}"
+        reduction = row["risk_reduction"]
+        clear_gain = reduction > 2 * row["risk_reduction_standard_error"]
+        # ponytail: review thresholds, not calibrated probabilities or prices.
+        # Use validated guillotine outcomes before treating these as predictions.
+        if row["action"] == "pass":
+            row["category"] = "Pass"
+        elif not clear_gain:
+            row["category"] = "Free only"
+        elif reduction < 0.01:
+            row["category"] = "Marginal depth"
+        else:
+            row["category"] = "Review survival need" if risk > 1 / teams else "Review upgrade"
+        row["chosen_bid"] = bids.get(row["player_id"])
+        if row["chosen_bid"] is not None:
+            if row["action"] == "pass":
+                raise ValueError(f"Cannot bid on a pass candidate: {row['player_id']}")
+            group = row["claim_group"]
+            groups[group] = max(groups[group], int(row["chosen_bid"]))
+    if sum(groups.values()) > available:
+        raise ValueError(f"Chosen claims can spend ${sum(groups.values())}; remaining weekly limit is ${available}")
+    remaining = available - sum(groups.values())
+    for row in rows:
+        group = row["claim_group"]
+        if row["chosen_bid"] is not None:
+            row["bid_range"] = [int(row["chosen_bid"])] * 2
+            continue
+        if row["category"] in {"Pass", "Free only"}:
+            row["bid_range"] = None if row["category"] == "Pass" else [0, 0]
+            continue
+        ceiling = min(5, groups[group] + remaining)
+        extra = max(0, ceiling - groups[group])
+        remaining -= extra
+        groups[group] += extra
+        row["bid_range"] = [0, ceiling]
+    return {
+        "pricing": "spending_policy_v1", "weekly_cap": int(weekly_cap),
+        "weekly_spent": int(spent), "weekly_remaining": available,
+        "maximum_plan_spend": sum(groups.values()),
+        "recommendations": rows,
+    }
 
 
-def analyze(snapshot, *, simulations=5000, seed=2026, aggression=1.0, drop_player=None):
+def analyze(snapshot, *, simulations=5000, seed=2026, weekly_cap=5, bids=None, drop_player=None):
     if not isinstance(simulations, int) or simulations < 100:
         raise ValueError("Use at least 100 simulations")
-    _number(aggression)
+    _dollars(weekly_cap)
     league = snapshot["league"]
     settings = league["settings"]
     if settings.get("type") != 3 or settings.get("best_ball") != 1:
@@ -314,12 +364,6 @@ def analyze(snapshot, *, simulations=5000, seed=2026, aggression=1.0, drop_playe
             options.append((float(after.mean()), -gain, drop_mean, str(drop), drop, after))
         risk, negative_gain, _, _, drop, after = min(options, key=lambda option: option[:4])
         gain = -negative_gain
-        suggested, maximum = bid_limits(
-            budgets[mine], budgets[:mine] + budgets[mine + 1:], len(rosters) - 1,
-            float(before.mean()), len(rosters), max(0.0, gain), aggression,
-        )
-        if candidate in inactive or gain <= 0:
-            suggested = maximum = 0
         delta = before - after
         recommendations.append({
             "player_id": candidate, "player": players[candidate]["full_name"],
@@ -328,10 +372,13 @@ def analyze(snapshot, *, simulations=5000, seed=2026, aggression=1.0, drop_playe
             "points_gain": round(gain, 2), "chop_risk": round(risk, 5),
             "risk_reduction": round(float(delta.mean()), 5),
             "risk_reduction_standard_error": round(float(delta.std(ddof=1) / math.sqrt(simulations)), 5),
-            "suggested_bid": suggested, "max_bid": maximum,
-            "action": "bid" if candidate not in inactive and gain > 0 else "pass",
+            "action": "consider" if candidate not in inactive and (gain > 0 or delta.mean() > 0) else "pass",
         })
     recommendations.sort(key=lambda row: (-row["risk_reduction"], -row["points_gain"], row["player"]))
+    spent = sum(_dollars(t["settings"]["waiver_bid"]) for t in transactions
+                if t["type"] == "waiver" and t["status"] == "complete"
+                and t["leg"] == week and rosters[mine]["roster_id"] in t["roster_ids"])
+    plan = spending_plan(recommendations, budgets[mine], float(before.mean()), len(rosters), weekly_cap, bids, spent)
     return {
         "league_id": league["league_id"], "league": league["name"],
         "username": snapshot["user"]["display_name"], "week": week,
@@ -339,17 +386,24 @@ def analyze(snapshot, *, simulations=5000, seed=2026, aggression=1.0, drop_playe
         "teams_remaining": len(rosters), "bidding_rounds_remaining": len(rosters) - 1,
         "faab_remaining": budgets[mine], "baseline_chop_risk": round(float(before.mean()), 5),
         "baseline_expected_points": round(float(totals[:, mine].mean()), 2),
-        "aggression": aggression, "pricing": "uncalibrated_heuristic",
+        **plan,
         "completed_waiver_bids": [t["settings"]["waiver_bid"] for t in transactions if t["type"] == "waiver" and t["status"] == "complete" and "waiver_bid" in (t.get("settings") or {})],
-        "recommendations": recommendations,
         "assumptions": [
-            "One purchase per row; rows are alternatives, not a combined spending plan.",
+            "Bid ranges are spending limits, not estimates of winning prices. It is OK to lose every claim.",
+            "Default weekly limit: $5 total. Larger bids require an explicit player bid and a sufficient weekly limit.",
+            "Maximum plan spend sums the largest offer per shared drop; claims without a drop count separately.",
+            "Completed waiver spending for your roster in this Sleeper week is deducted from the weekly limit.",
+            "The remaining limit covers only this report's claims. Include any other pending claims in your spending limit.",
+            "Use the listed drop on every claim. Do not drop that player separately. Order equal bids by this table.",
+            "Each roster comparison assumes one acquisition. Refresh after a win; gains from multiple wins are not additive.",
             "Current-week outcomes with opponents' current rosters; no future acquisitions or title probabilities.",
             "Drop suggestions use current-week value; injured/bye players require an explicit drop override.",
             "Healthy and questionable players use the projection as given; Out/IR/PUP/Sus/Inactive and no-game players score zero.",
             "Unresolved exact chop ties split elimination probability evenly.",
-            "FAAB cap = budget / remaining chops * min(points gain / 5, 3) * clip(chop risk * teams, 0.5, 2) * aggression.",
-            "Caps cannot exceed available FAAB or the largest rival budget plus $1; suggested bids are 75% of caps, not price forecasts.",
+            "No paid default when risk reduction is within two simulation standard errors of zero; this is only a noise screen.",
+            "A reduction of at least 1 percentage point flags an upgrade for review. Above-average baseline risk flags survival review.",
+            "Review categories do not raise bids: assess future roster value and other available players before choosing a larger offer.",
+            "Remaining teams affect the comparison and urgency flag, not a dollars-per-point formula.",
             "Historical position ratios supply targets and fumble-loss share; historical kicker ratios supply distance and extra-point misses.",
             "FFSIM's independent empirical weekly draws are model estimates, not calibrated guillotine probabilities.",
         ],
@@ -361,14 +415,23 @@ def format_report(report):
         f"# {report['league']} — Week {report['week']}", "",
         f"{report['username']} · {report['teams_remaining']} teams · ${report['faab_remaining']} FAAB · "
         f"modeled chop risk {report['baseline_chop_risk']:.1%}", "",
-        "Each row is one alternative purchase. Bid amounts use an adjustable rule, not a market forecast.", "",
-        "| Player | Drop | Points gained | Chop risk after | Suggested | Maximum |",
-        "|---|---|---:|---:|---:|---:|",
+        f"**Weekly limit: ${report['weekly_cap']} total. Already spent: ${report['weekly_spent']}. "
+        f"Available: ${report['weekly_remaining']}. Maximum spend for these claims: ${report['maximum_plan_spend']}.**", "",
+        "Ranges are bargain offers, not predicted winning prices. You may lose every claim.",
+        "Review upgrades for lasting value before choosing a larger bid. Raising the weekly limit does not price players.",
+        "Choose the claims you want. The ranges share one budget; some $0-only rows have no paid allowance left.", "",
+        "| Player | Drop | Points gained | Chop risk after | Risk reduction | Category | Offer |",
+        "|---|---|---:|---:|---:|---|---|",
     ]
     for row in report["recommendations"]:
         name = row["player"] + (f" ({row['status']})" if row["status"] != "Active" else "")
-        suggested = f"${row['suggested_bid']}" if row["action"] == "bid" else "Pass"
-        lines.append(f"| {name} | {row['drop'] or 'Open roster spot'} | {row['points_gain']:+.2f} | {row['chop_risk']:.1%} | {suggested} | ${row['max_bid']} |")
+        offer = "Pass"
+        if row["chosen_bid"] is not None:
+            offer = f"${row['chosen_bid']} (your choice)"
+        elif row["bid_range"] is not None:
+            ceiling = row["bid_range"][1]
+            offer = f"$0–${ceiling}" if ceiling else "$0 only"
+        lines.append(f"| {name} | {row['drop'] or 'Open roster spot'} | {row['points_gain']:+.2f} | {row['chop_risk']:.1%} | {row['risk_reduction'] * 100:+.2f} pp | {row['category']} | {offer} |")
     lines.extend(["", f"Source snapshot: {report['retrieved_at']}. Simulations: {report['simulations']}; seed: {report['seed']}.", ""])
     lines.extend(f"- {assumption}" for assumption in report["assumptions"])
     return "\n".join(lines) + "\n"
@@ -381,11 +444,20 @@ def main():
     parser.add_argument("--snapshot", type=Path, help="Replay a saved input snapshot without network calls")
     parser.add_argument("--simulations", type=int, default=5000)
     parser.add_argument("--seed", type=int, default=2026)
-    parser.add_argument("--aggression", type=float, default=1.0, help="Multiply bid limits; default 1")
+    parser.add_argument("--weekly-cap", type=int, default=5, help="Total limit for this report's claims; default $5")
+    parser.add_argument("--bid", action="append", default=[], metavar="SLEEPER_ID=AMOUNT",
+                        help="Your chosen bid, not a model price; repeat for multiple players")
     parser.add_argument("--drop-player", help="Sleeper ID to use instead of the automatic drop search")
     parser.add_argument("--output", type=Path, help="JSON report path; also writes a Markdown table")
     args = parser.parse_args()
     try:
+        _dollars(args.weekly_cap)
+        bids = {}
+        for value in args.bid:
+            sid, separator, amount = value.partition("=")
+            if not separator or not sid.isdigit() or not amount.isdigit() or sid in bids:
+                raise ValueError("Use --bid SLEEPER_ID=WHOLE_DOLLARS once per player")
+            bids[sid] = int(amount)
         if args.snapshot:
             if args.league_id or args.username:
                 parser.error("Use --snapshot alone, or --league-id with --username")
@@ -400,7 +472,7 @@ def main():
             path = CACHE_DIR / "guillotine" / f"{args.league_id}-week{snapshot['week']}-{digest}.json"
             path.write_text(payload)
         report = analyze(snapshot, simulations=args.simulations, seed=args.seed,
-                         aggression=args.aggression, drop_player=args.drop_player)
+                         weekly_cap=args.weekly_cap, bids=bids, drop_player=args.drop_player)
         report["input_snapshot"] = str(path.resolve())
         output = args.output or OUTPUT_DIR / "guillotine" / f"{report['league_id']}-week{report['week']}.json"
         output.parent.mkdir(parents=True, exist_ok=True)

@@ -195,8 +195,8 @@ The command refreshes the league and FantasyPros weekly projections, then
 compares each unclaimed player from the latest chop with your current roster.
 It uses FFSIM's empirical player sampler and selects the highest-scoring legal
 best ball lineup in each of 5,000 shared simulations. Opponent rosters stay
-fixed. Each row proposes one addition and drop; rows are alternative purchases,
-not a combined spending plan. No bids or roster changes are submitted.
+fixed. Each row evaluates one addition and drop. A separate spending policy
+limits the claims that can succeed together. No bids or roster changes are submitted.
 
 Results are saved as JSON and a Markdown table under `output/guillotine/`.
 Inputs are saved under `data/cache/guillotine/`. Reproduce a report without
@@ -208,23 +208,56 @@ python -m ffsim.guillotine --snapshot PATH_TO_SAVED_INPUTS.json
 
 The report's `input_snapshot` field gives the exact input file. Fresh snapshots
 have content-based filenames, so later refreshes preserve earlier inputs.
-Use `--aggression 0.7` to reduce bid limits by 30%, `--drop-player SLEEPER_ID`
-to select a particular drop, or `--output PATH.json` to choose the report path.
+Use `--drop-player SLEEPER_ID` to select a particular drop, or `--output PATH.json`
+to choose the report path. Player IDs are included in the JSON report.
 The command does not change the draft attachment or the season projection cache.
 
-The price rule is an **uncalibrated heuristic**:
+The spending policy starts with a **$5 total weekly limit** and $0–$5 bargain
+offers. These are deliberate spending limits, not predicted winning prices.
+Completed waiver purchases by your roster in the report's Sleeper week reduce
+the weekly allowance. Your remaining season budget also limits spending.
+Other pending claims are not visible through this public data: account for
+them before submitting claims in Sleeper.
 
-```text
-cap = remaining budget / remaining chops
-    * min(extra best ball points / 5, 3)
-    * clip(current chop probability * remaining teams, 0.5, 2)
-    * aggression
+The report groups alternatives that drop the same player. Only the largest
+offer in each group counts toward maximum spending; different drops and claims
+without a drop count separately. Chosen bids reserve allowance first. Remaining
+allowance funds bargain ranges in report order. A $0-only range can therefore
+mean that another claim group uses the paid allowance. Keep the listed drops;
+order equal bids by your preference. You do not need to submit every row.
+
+Review labels use the paired change in chop risk:
+
+- **Free only:** the reduction does not exceed two simulation standard errors.
+- **Marginal depth:** the reduction clears that noise screen but is below one
+  percentage point. The default offer never exceeds $5.
+- **Review upgrade:** the reduction is at least one percentage point. Review
+  future roster value and other available players before choosing a larger bid.
+- **Review survival need:** the same upgrade threshold, with baseline chop
+  risk above `1 / remaining teams`.
+
+These are review thresholds, not calibrated probabilities. They do not convert
+points to dollars or increase a bid automatically. Passing candidates have no
+offer. Increasing the weekly limit alone keeps default offers at $0–$5.
+
+To enter your own larger bid, set both the total weekly limit and the player
+amount. Repeat `--bid` for more players. This example records a user decision;
+it is not a recommended price:
+
+```bash
+python -m ffsim.guillotine --snapshot PATH_TO_SAVED_INPUTS.json \
+  --weekly-cap 20 --bid SLEEPER_ID=20
 ```
 
-The cap cannot exceed your budget or the largest rival budget plus $1.
-The suggested bid is 75% of the cap, not an estimate of the winning price.
+Claims that can exceed the remaining limit fail with an error. Invalid, duplicate,
+unavailable, and passing player bids also fail. A report refresh does not reset
+completed weekly spending. Refresh after a win: player gains from separate rows
+are not additive, and opponent rosters can change.
+
 Remaining chops means surviving teams minus one. The report targets the next
-week only; it does not estimate championship probability or future player value.
+week only; it does not estimate championship probability, future player value,
+or prices for other available players. The old points-to-dollars formula and
+`--aggression` option have been removed.
 Automatic drop selection protects players without a game or with a confirmed
 unavailable status. Review drop suggestions for future-week value.
 
