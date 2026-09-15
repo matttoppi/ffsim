@@ -6,8 +6,8 @@ import numpy as np
 import pandas as pd
 
 from ffsim.guillotine import (
-    analyze, best_ball_totals, chop_shares, format_report, projection_map,
-    spending_plan, weekly_player,
+    analyze, best_ball_totals, chop_shares, format_report, player_bid_range,
+    projection_map, rest_of_season_ranks, spending_plan, weekly_player,
 )
 from ffsim.models.team import FLEX_ELIGIBILITY
 from ffsim.scoring import ScoringSettings
@@ -41,6 +41,11 @@ def fixture():
         "projection_players": {"players": [
             {"player_id": sid, "sportsdata_player_id": f"external-{sid}"} for sid in ids
         ]},
+        "rest_of_season_rankings": {
+            "year": "2026", "ranking_type_name": "ros", "scoring": "PPR",
+            "position_id": "ALL", "last_updated": "9/15", "total_experts": 1,
+            "players": [{"player_id": sid, "player_position_id": "WR", "pos_rank": f"WR{sid}"} for sid in ids],
+        },
         "transactions": [{"type": "chopped", "status": "complete", "leg": 1,
                           "drops": {"4": 3}}],
     }
@@ -76,12 +81,14 @@ class GuillotineTest(unittest.TestCase):
 
     def test_spending_limit_covers_all_claims_that_can_win_together(self):
         rows = [dict(player_id=str(i), drop_id=drop, action="consider",
-                     risk_reduction=.02, risk_reduction_standard_error=.001)
+                     risk_reduction=.02 if i < 2 else .007, risk_reduction_standard_error=.001,
+                     position="WR", points_gain=10 if i < 2 else 1,
+                     rest_of_season_position_rank=2 if i < 2 else 60)
                 for i, drop in enumerate(["mayer", "mayer", "black", None, None])]
         plan = spending_plan(rows, 1000, .05, 11)
         self.assertEqual([r["bid_range"] for r in plan["recommendations"]],
-                         [[0, 5], [0, 5], [0, 0], [0, 0], [0, 0]])
-        self.assertEqual(plan["maximum_plan_spend"], 5)
+                         [[50, 150], [50, 150], [0, 5], [0, 5], None])
+        self.assertEqual((plan["weekly_cap"], plan["maximum_plan_spend"]), (160, 160))
         self.assertNotIn("bid_range", rows[0])  # Do not mutate simulation results.
         # Two bids sharing a drop cost at most the higher bid, not their sum.
         chosen = {"0": 20, "1": 15, "2": 3, "3": 1, "4": 1}
@@ -99,33 +106,61 @@ class GuillotineTest(unittest.TestCase):
         for invalid in (-1, 1.5, float("nan"), float("inf"), True):
             with self.subTest(invalid=invalid), self.assertRaises(ValueError):
                 spending_plan(rows, 1000, .05, 11, invalid)
-        self.assertEqual(spending_plan(rows, 2, .05, 11)["maximum_plan_spend"], 2)
+        self.assertLessEqual(spending_plan(rows, 2, .05, 11)["maximum_plan_spend"], 2)
         self.assertEqual(spending_plan(rows, 0, .05, 11)["maximum_plan_spend"], 0)
-        self.assertEqual(spending_plan(rows, 1000, .05, 11, spent=3)["maximum_plan_spend"], 2)
-        self.assertEqual(spending_plan(rows, 1000, .05, 11, spent=9)["maximum_plan_spend"], 0)
+        limited = spending_plan(rows, 1000, .05, 11, weekly_cap=5, spent=3)
+        self.assertEqual(limited["maximum_plan_spend"], 2)
+        self.assertEqual(limited["recommendations"][0]["recommended_bid_range"], [50, 155])
+        self.assertIsNone(limited["recommendations"][0]["bid_range"])
+        self.assertEqual(spending_plan(rows, 1000, .05, 11, weekly_cap=5, spent=9)["maximum_plan_spend"], 0)
         with self.assertRaisesRegex(ValueError, "remaining weekly limit"):
-            spending_plan(rows, 1000, .05, 11, bids={"0": 3}, spent=3)
+            spending_plan(rows, 1000, .05, 11, weekly_cap=5, bids={"0": 3}, spent=3)
 
-    def test_review_categories_do_not_create_prices_or_a_spending_floor(self):
-        rows = [dict(player_id=str(i), drop_id="mayer", action="consider",
-                     risk_reduction=reduction, risk_reduction_standard_error=.001,
-                     points_gain=50)
-                for i, reduction in enumerate([.02, .007, .0006, 0])]
-        plan = spending_plan(rows, 1000, .05, 11)
-        self.assertEqual([r["category"] for r in plan["recommendations"]],
-                         ["Review upgrade", "Marginal depth", "Free only", "Free only"])
-        self.assertEqual([r["bid_range"] for r in plan["recommendations"]],
-                         [[0, 5], [0, 5], [0, 0], [0, 0]])
-        urgent = spending_plan(rows, 1000, .5, 2, 100)
-        self.assertEqual(urgent["recommendations"][0]["category"], "Review upgrade")
-        urgent = spending_plan(rows, 1000, .6, 2, 100)
-        self.assertEqual(urgent["recommendations"][0]["category"], "Review survival need")
-        self.assertEqual(urgent["maximum_plan_spend"], 5)
-        self.assertEqual(spending_plan([rows[-1]], 1000, 0, 11)["maximum_plan_spend"], 0)
-        rows[0]["action"] = "pass"
-        self.assertIsNone(spending_plan(rows, 1000, .05, 11)["recommendations"][0]["bid_range"])
+    def test_lasting_value_roster_fit_urgency_and_stage_change_ranges(self):
+        elite = dict(player_id="1", drop_id="mayer", action="consider", position="WR",
+                     rest_of_season_position_rank=2, points_gain=11.2,
+                     risk_reduction=.0296, risk_reduction_standard_error=.0025)
+        self.assertEqual(player_bid_range(elite, 1000, .05, 11), ("Elite starter", [50, 150]))
+        core = {**elite, "rest_of_season_position_rank": 20, "points_gain": 5}
+        self.assertEqual(player_bid_range(core, 1000, .05, 11), ("Core starter", [10, 35]))
+        temporary = {**core, "rest_of_season_position_rank": 50}
+        self.assertEqual(player_bid_range(temporary, 1000, .05, 11), ("Short-term upgrade", [5, 20]))
+        depth = {**elite, "points_gain": 1.5, "risk_reduction": .0076, "risk_reduction_standard_error": .0017}
+        self.assertEqual(player_bid_range(depth, 1000, .05, 11), ("Marginal depth", [0, 5]))
+        self.assertEqual(player_bid_range(depth, 1000, .4, 4), ("Marginal depth", [0, 5]))
+        self.assertEqual(player_bid_range(elite, 1000, .2, 11), ("Elite starter", [100, 300]))
+        self.assertEqual(player_bid_range(elite, 1000, .05, 4), ("Elite starter", [75, 225]))
+        self.assertEqual(player_bid_range(elite, 1000, .5, 2), ("Final-week upgrade", [500, 1000]))
+        final_week = spending_plan([elite], 50, .5, 2, spent=950)
+        self.assertEqual((final_week["weekly_cap"], final_week["weekly_remaining"], final_week["maximum_plan_spend"]),
+                         (1000, 50, 50))
+        uncertain = {**depth, "risk_reduction": .0006}
+        self.assertEqual(player_bid_range(uncertain, 1000, .05, 11), ("Free only", [0, 0]))
+        self.assertEqual(player_bid_range({**uncertain, "risk_reduction": 0}, 1000, 0, 11)[1], [0, 0])
+        # Future value survives a quiet weekly risk estimate; urgency does not.
+        self.assertEqual(player_bid_range({**elite, "risk_reduction": 0}, 1000, 0, 11)[1], [50, 150])
+        unranked = {**temporary, "rest_of_season_position_rank": None}
+        self.assertEqual(player_bid_range(unranked, 1000, .05, 11)[0], "Short-term upgrade")
+        elite["action"] = "pass"
+        self.assertIsNone(spending_plan([elite], 1000, .05, 11)["recommendations"][0]["bid_range"])
         with self.assertRaisesRegex(ValueError, "pass candidate"):
-            spending_plan(rows, 1000, .05, 11, bids={"0": 0})
+            spending_plan([elite], 1000, .05, 11, bids={"1": 0})
+
+    def test_rest_of_season_identity_and_missing_or_wrong_source(self):
+        snapshot = fixture()
+        self.assertEqual(rest_of_season_ranks(snapshot)["4"], 4)
+        snapshot["players"]["4"].update(position="DB", fantasy_positions=["DB", "WR"])
+        self.assertEqual(rest_of_season_ranks(snapshot)["4"], 4)
+        for field, invalid in (("year", "2025"), ("ranking_type_name", "weekly"), ("scoring", "STD"), ("players", [])):
+            changed = {**snapshot, "rest_of_season_rankings": {**snapshot["rest_of_season_rankings"], field: invalid}}
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                rest_of_season_ranks(changed)
+        snapshot["rest_of_season_rankings"]["players"].append(snapshot["rest_of_season_rankings"]["players"][-1])
+        with self.assertRaisesRegex(ValueError, "duplicate"):
+            rest_of_season_ranks(snapshot)
+        del snapshot["rest_of_season_rankings"]
+        with self.assertRaisesRegex(ValueError, "refresh league inputs"):
+            rest_of_season_ranks(snapshot)
 
     def test_stable_identity_accepts_hunter_wr_eligibility_and_rejects_bad_data(self):
         snapshot = fixture()
@@ -193,11 +228,11 @@ class GuillotineTest(unittest.TestCase):
         self.assertEqual(row["points_gain"], 10)
         self.assertEqual(row["drop_id"], "2")
         self.assertEqual(row["risk_reduction_standard_error"], 0)
-        self.assertEqual(row["bid_range"], [0, 5])
-        self.assertEqual(first["maximum_plan_spend"], 5)
+        self.assertEqual(row["bid_range"], [450, 900])
+        self.assertEqual(first["maximum_plan_spend"], 900)
         rendered = format_report(first)
-        self.assertIn("Weekly limit: $5 total", rendered)
-        self.assertIn("$0–$5", rendered)
+        self.assertIn("Weekly limit: $900 total", rendered)
+        self.assertIn("$450–$900", rendered)
         self.assertNotIn("Suggested", rendered)
         self.assertNotIn("suggested_bid", row)
         snapshot["transactions"].extend([
@@ -205,8 +240,8 @@ class GuillotineTest(unittest.TestCase):
              "roster_ids": [roster], "settings": {"waiver_bid": bid}}
             for leg, roster, bid in [(2, 1, 3), (2, 2, 10), (1, 1, 10)]
         ])
-        refreshed = analyze(snapshot, simulations=100)
-        self.assertEqual((refreshed["weekly_spent"], refreshed["maximum_plan_spend"]), (3, 2))
+        refreshed = analyze(snapshot, simulations=100, weekly_cap=500)
+        self.assertEqual((refreshed["weekly_spent"], refreshed["maximum_plan_spend"]), (3, 497))
         # nflverse uses LA while Sleeper uses LAR. This is not a bye.
         snapshot["players"]["1"]["team"] = "LAR"
         schedule.return_value.loc[0, "away_team"] = "LA"

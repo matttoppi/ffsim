@@ -212,54 +212,71 @@ Use `--drop-player SLEEPER_ID` to select a particular drop, or `--output PATH.js
 to choose the report path. Player IDs are included in the JSON report.
 The command does not change the draft attachment or the season projection cache.
 
-The spending policy starts with a **$5 total weekly limit** and $0–$5 bargain
-offers. These are deliberate spending limits, not predicted winning prices.
-Completed waiver purchases by your roster in the report's Sleeper week reduce
-the weekly allowance. Your remaining season budget also limits spending.
-Other pending claims are not visible through this public data: account for
-them before submitting claims in Sleeper.
+The report combines current-week best ball gains with FantasyPros rest-of-season
+position ranks. Ranks are a proxy for lasting value; they are not a championship
+simulation and do not include your league's tight-end premium. The weekly
+simulation does include your actual scoring and lineup slots.
 
-The report groups alternatives that drop the same player. Only the largest
-offer in each group counts toward maximum spending; different drops and claims
-without a drop count separately. Chosen bids reserve allowance first. Remaining
-allowance funds bargain ranges in report order. A $0-only range can therefore
-mean that another claim group uses the paid allowance. Keep the listed drops;
-order equal bids by your preference. You do not need to submit every row.
+The bid ranges are **explicit rules of thumb, not predicted winning prices**:
 
-Review labels use the paired change in chop risk:
+| Category | Qualification | Base range |
+|---|---|---|
+| Elite starter | Top 3 QB/TE or top 8 RB/WR, plus at least 3 added weekly best ball points | 5–15% |
+| Core starter | Top 8 QB/TE, top 24 RB, or top 30 WR, plus at least 3 added points | 2–7% |
+| Short-term upgrade | At least 1 percentage point of chop-risk reduction, above two simulation standard errors | 0.5–2% |
+| Marginal depth | Smaller risk reduction above that noise screen | $0–$5 |
+| Free only | No lasting-starter qualification or clear current-week risk improvement | $0 |
 
-- **Free only:** the reduction does not exceed two simulation standard errors.
-- **Marginal depth:** the reduction clears that noise screen but is below one
-  percentage point. The default offer never exceeds $5.
-- **Review upgrade:** the reduction is at least one percentage point. Review
-  future roster value and other available players before choosing a larger bid.
-- **Review survival need:** the same upgrade threshold, with baseline chop
-  risk above `1 / remaining teams`.
+Passing candidates have no bid. Kickers and unranked players receive no lasting
+starter premium. Stronger tiers take precedence. Starter percentages scale by
+`min(1, max(0.5, points_gain / 10))` for roster fit. Upgrade ranges also scale by
+`min(2, max(1, chop_risk * teams_remaining))` when the risk improvement clears
+the noise screen, and by `min(3, max(1, 6 / teams_remaining))` for league stage.
+Depth stays at $0–$5. With two teams left, only current-week risk improvement
+matters: clear upgrades use 50–100% of the budget because no future round remains.
+These coefficients express a spending preference; they have not been fitted
+to auction results or validated as optimal.
 
-These are review thresholds, not calibrated probabilities. They do not convert
-points to dollars or increase a bid automatically. Passing candidates have no
-offer. Increasing the weekly limit alone keeps default offers at $0–$5.
+Percentages use remaining budget plus completed spending in this Sleeper week.
+Ranges round outward to $5 once their upper amount reaches $10, then stay within
+available funds. The automatic weekly allowance is the largest range plus $10
+for depth, bounded by funds available at the start of the week. Completed weekly
+purchases reduce that allowance. Use `--weekly-cap` to choose a different total.
 
-To enter your own larger bid, set both the total weekly limit and the player
-amount. Repeat `--bid` for more players. This example records a user decision;
-it is not a recommended price:
+**Bid range** shows the player's valuation. **Plan** shows the funded range.
+Explicit bids reserve allowance first; automatic ranges are funded from largest
+to smallest. The automatic plan holds a claim if its full range cannot fit.
+An explicit weekly limit can fund a narrower range if it reaches the lower end.
+A held claim keeps its valuation visible. A small weekly limit never changes an
+elite valuation into a $5 valuation.
+
+Claims with the same drop are alternatives: only the largest offer in each group
+counts toward maximum spending. Different drops and claims without a drop count
+separately. Other pending claims are not visible through the public data; account
+for them before submitting. Keep the listed drops and order equal bids by your
+preference. You do not need to submit every row.
+
+Use `--bid SLEEPER_ID=AMOUNT` to choose an offer yourself. It can be below the
+range, or above it with a sufficient weekly limit. Repeat the option for multiple
+players. The following example records a user choice, not a recommended price:
 
 ```bash
 python -m ffsim.guillotine --snapshot PATH_TO_SAVED_INPUTS.json \
-  --weekly-cap 20 --bid SLEEPER_ID=20
+  --weekly-cap 100 --bid SLEEPER_ID=75
 ```
 
-Claims that can exceed the remaining limit fail with an error. Invalid, duplicate,
-unavailable, and passing player bids also fail. A report refresh does not reset
-completed weekly spending. Refresh after a win: player gains from separate rows
-are not additive, and opponent rosters can change.
+Claims that can exceed the remaining allowance fail. Invalid, duplicate,
+unavailable, and passing player bids also fail. Refresh after a win: gains from
+separate rows are not additive, and opponent rosters can change. Review upcoming
+byes, injury outlook, alternative available players, and future value before
+accepting a drop. The current automatic drop search still uses next-week value
+and protects unavailable players.
 
-Remaining chops means surviving teams minus one. The report targets the next
-week only; it does not estimate championship probability, future player value,
-or prices for other available players. The old points-to-dollars formula and
-`--aggression` option have been removed.
-Automatic drop selection protects players without a game or with a confirmed
-unavailable status. Review drop suggestions for future-week value.
+New snapshots include rest-of-season rankings. Older snapshots without those
+rankings fail with a request to refresh inputs; they never silently substitute
+preseason or weekly ranks. The FantasyPros API requires `type=ROS` with its default
+week for the current rest-of-season list. Each report records the source date,
+scoring format, and expert count. See the [official API reference](https://api.fantasypros.com/v2/docs).
 
 Weekly FantasyPros projections provide scoring means. Historical 2024–2025
 position ratios supply unpublished targets and fumble-loss shares; historical

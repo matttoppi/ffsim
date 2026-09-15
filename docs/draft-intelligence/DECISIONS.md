@@ -2549,29 +2549,42 @@ slot eligibility. Each candidate/drop pair uses the same seeded player draws;
 opponent rosters remain fixed. Chop ties use accumulated season points (draft
 position in Week 1); unresolved ties split probability evenly.
 
-Amended 2026-09-15 after the owner reviewed the initial prices: remove the
-points-to-dollars conversion and aggression multiplier. Keep player comparisons
-separate from an explicit spending policy. Default bargain offers range from
-$0 to $5 under one $5 weekly allowance, reduced by completed weekly purchases.
-Only explicit player bids can exceed $5, within a chosen weekly limit and the
-remaining season budget. The report rejects over-budget combinations and
-unavailable/passing player bids. No value or market model produces these prices.
+Amended 2026-09-15 after owner feedback: use player-specific ranges, with $0–$5
+reserved for marginal depth. The former blanket $5 weekly limit did not meet
+the owner's objective. Add current FantasyPros rest-of-season position ranks
+through the existing authenticated API and stable identity mapping. Store them
+in each snapshot. Reject missing or incompatible sources; never replace them
+with preseason ranks. Ranks are a lasting-value proxy, not custom best ball or
+tight-end-premium projections.
+
+The declared policy uses elite/core positional tiers, requires a meaningful
+weekly roster gain for those premiums, and adjusts percentage ranges for
+roster fit, survival urgency, and remaining teams. Current-week upgrades and
+depth use smaller ranges. Final-week decisions use only clear current-week
+risk improvement. README owns the exact thresholds, shares, and rounding rules.
+The policy is intentionally heuristic; do not claim learned auction prices or
+optimal bidding.
+
+Keep valuations separate from claim allocation. The automatic weekly allowance
+funds the largest player range plus $10 for depth, within available funds.
+Completed purchases reduce it. An explicit weekly cap overrides the allowance;
+explicit player bids override individual offers. Fund explicit bids first, then
+automatic ranges by descending upper bound. A held claim retains its original
+valuation. A small allowance cannot turn an elite valuation into a $5 valuation.
 
 Maximum plan cost sums the largest offer per shared drop. Claims without a drop
-count separately. Explicit bids reserve allowance before default bargain ranges.
-This bounds monetary exposure; the simulation still evaluates one acquisition
-per row. Pending claims outside the report are not observable and must be
-included by the owner when setting the limit.
+count separately. This bounds monetary exposure; simulations still evaluate
+one acquisition per row. Pending claims outside the report are not observable
+and must be included by the owner when setting the allowance.
 
-Review labels use paired risk reduction: at most two standard errors is free
-only; a larger reduction below one percentage point is marginal depth; at least
-one point flags upgrade review. Baseline risk above `1 / surviving teams` flags
-survival review for those upgrades. These thresholds organize review, do not
-prove probability calibration, and never raise a bid. Future player value and
-alternative free agents require owner review before a larger offer.
+Source check: the public FantasyPros consensus-rankings endpoint returns 408
+2026 PPR rest-of-season ranks from four experts, updated 9/15, with `type=ROS`
+and its default week. Sending `week=2` returns an empty list and is not the
+rest-of-season request contract used here. Future player rankings inform tiers;
+future weekly scores and championship probabilities remain unmodeled.
 
-Automatic drops protect unavailable players; long-term roster value, future
-waivers, opponent bid prediction, and championship simulation are outside this
+Automatic drops protect unavailable players; future waiver transactions,
+opponent bid prediction, and championship simulation are outside this
 first version. No draft engine, world-bank cache version, or existing
 best-ball compatibility guard changes. The standalone command saves raw input
 snapshots for offline replay and does not change the configured draft.

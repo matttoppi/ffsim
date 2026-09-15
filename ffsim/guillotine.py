@@ -31,6 +31,9 @@ POSITIONS = {"QB", "RB", "WR", "TE", "K"}
 OUT_STATUSES = {"Out", "IR", "PUP", "Sus", "Inactive"}
 KICK_BUCKETS = ("019", "2029", "3039", "4049", "50plus")
 RAW_KICK_BUCKETS = ("0_19", "20_29", "30_39", "40_49", "50_plus")
+REST_OF_SEASON_RANKINGS_URL = "https://api.fantasypros.com/public/v2/json/nfl/{season}/consensus-rankings"
+ELITE_POSITION_LIMITS = {"QB": 3, "RB": 8, "WR": 8, "TE": 3, "K": 0}
+CORE_POSITION_LIMITS = {"QB": 8, "RB": 24, "WR": 30, "TE": 8, "K": 0}
 
 
 def fetch_snapshot(league_id, username):
@@ -63,13 +66,19 @@ def fetch_snapshot(league_id, username):
     )
     time.sleep(1)  # Existing FantasyPros personal access: one request per second.
     metadata = fetch_fantasypros(FANTASYPROS_PLAYERS_URL, key)
+    scoring = {0: "STD", 0.5: "HALF", 1: "PPR"}.get(league["scoring_settings"].get("rec", 0))
+    if scoring is None:
+        raise ValueError("Rest-of-season tiers require standard, half-PPR, or PPR reception scoring")
+    time.sleep(1)
+    rankings = fetch_fantasypros(REST_OF_SEASON_RANKINGS_URL.format(season=season), key,
+                               {"position": "ALL", "type": "ROS", "scoring": scoring})
     return {
         "retrieved_at": now.isoformat(), "week": week, "league": league,
         "user": fetch_sleeper(f"user/{quote(username, safe='')}"),
         "rosters": fetch_sleeper(f"league/{league_id}/rosters"),
         "players": json.loads(player_path.read_text()),
         "transactions": transactions, "projections": projections,
-        "projection_players": metadata,
+        "projection_players": metadata, "rest_of_season_rankings": rankings,
     }
 
 
@@ -86,12 +95,8 @@ def _dollars(value):
     return int(value)
 
 
-def projection_map(snapshot, player_ids):
-    """Match stable external IDs, including Sleeper's offensive eligibility."""
-    response = snapshot["projections"]
-    if (int(response["season"]) != int(snapshot["league"]["season"])
-            or int(response["week"]) != snapshot["week"]):
-        raise ValueError("Projection season/week does not match the league snapshot")
+def provider_player_ids(snapshot):
+    """Map FantasyPros IDs through unique stable external identities."""
     external = defaultdict(list)
     for sid, player in snapshot["players"].items():
         if player.get("sportradar_id"):
@@ -100,12 +105,20 @@ def projection_map(snapshot, player_ids):
         str(player["player_id"]): str(player.get("sportsdata_player_id") or "")
         for player in snapshot["projection_players"]["players"]
     }
+    return {fpid: external[external_id][0] for fpid, external_id in provider_ids.items()
+            if len(external.get(external_id, ())) == 1}
+
+
+def projection_map(snapshot, player_ids):
+    """Match stable external IDs, including Sleeper's offensive eligibility."""
+    response = snapshot["projections"]
+    if (int(response["season"]) != int(snapshot["league"]["season"])
+            or int(response["week"]) != snapshot["week"]):
+        raise ValueError("Projection season/week does not match the league snapshot")
+    identities = provider_player_ids(snapshot)
     result = {}
     for row in response["players"]:
-        matches = external.get(provider_ids.get(str(row["fpid"])), ())
-        if len(matches) != 1:
-            continue
-        sid = matches[0]
+        sid = identities.get(str(row["fpid"]))
         if sid not in player_ids:
             continue
         player = snapshot["players"][sid]
@@ -115,6 +128,33 @@ def projection_map(snapshot, player_ids):
         if sid in result:
             raise ValueError(f"Duplicate projection for Sleeper player {sid}")
         result[sid] = row
+    return result
+
+
+def rest_of_season_ranks(snapshot):
+    response = snapshot.get("rest_of_season_rankings")
+    if not response:
+        raise ValueError("Snapshot lacks rest-of-season rankings; refresh league inputs")
+    scoring = {0: "STD", 0.5: "HALF", 1: "PPR"}.get(snapshot["league"]["scoring_settings"].get("rec", 0))
+    if (int(response["year"]) != int(snapshot["league"]["season"])
+            or response["ranking_type_name"] != "ros" or response["scoring"] != scoring
+            or response["position_id"] != "ALL" or not response["players"]):
+        raise ValueError("Invalid rest-of-season rankings for this league")
+    identities = provider_player_ids(snapshot)
+    result = {}
+    for row in response["players"]:
+        sid = identities.get(str(row["player_id"]))
+        position = row["player_position_id"]
+        if sid is None or position not in POSITIONS:
+            continue
+        label = row["pos_rank"]
+        if not label.startswith(position) or not label[len(position):].isdigit():
+            raise ValueError(f"Invalid rest-of-season position rank: {label}")
+        rank = int(label[len(position):])
+        eligible = snapshot["players"][sid].get("fantasy_positions") or [snapshot["players"][sid]["position"]]
+        if rank < 1 or sid in result or position not in eligible:
+            raise ValueError(f"Invalid or duplicate rest-of-season rank for {sid}")
+        result[sid] = rank
     return result
 
 
@@ -200,34 +240,69 @@ def chop_shares(totals, rosters, week):
     return tied / tied.sum(axis=1, keepdims=True)
 
 
-def spending_plan(recommendations, budget, risk, teams, weekly_cap=5, bids=None, spent=0):
-    """Allocate bargain ranges; never infer a market price from projected points."""
+def player_bid_range(row, budget, risk, teams):
+    """A declared value heuristic: lasting role first, roster fit second."""
+    reduction = row["risk_reduction"]
+    clear_gain = reduction > 2 * row["risk_reduction_standard_error"]
+    if row["action"] == "pass":
+        return "Pass", None
+    if teams == 2:
+        return ("Final-week upgrade", [budget // 2, budget]) if clear_gain else ("Free only", [0, 0])
+    rank = row["rest_of_season_position_rank"]
+    position = row["position"]
+    lasting_fit = rank is not None and row["points_gain"] >= 3
+    # ponytail: explicit tier cutoffs and budget shares, not fitted auction prices.
+    # Calibrate against league bid results before claiming market accuracy.
+    if lasting_fit and rank <= ELITE_POSITION_LIMITS[position]:
+        category, shares = "Elite starter", (0.05, 0.15)
+    elif lasting_fit and rank <= CORE_POSITION_LIMITS[position]:
+        category, shares = "Core starter", (0.02, 0.07)
+    elif clear_gain and reduction >= 0.01:
+        category, shares = "Short-term upgrade", (0.005, 0.02)
+    elif clear_gain:
+        return "Marginal depth", [0, min(5, budget)]
+    else:
+        return "Free only", [0, 0]
+    fit = min(1, max(0.5, row["points_gain"] / 10)) if category in {"Elite starter", "Core starter"} else 1
+    urgency = min(2, max(1, risk * teams)) if clear_gain else 1
+    stage = min(3, max(1, 6 / teams))
+    amounts = [budget * share * fit * urgency * stage for share in shares]
+    increment = 5 if amounts[1] >= 10 else 1
+    upper = min(budget, increment * math.ceil(amounts[1] / increment))
+    lower = min(upper, increment * math.floor(amounts[0] / increment))
+    return category, [lower, upper]
+
+
+def spending_plan(recommendations, budget, risk, teams, weekly_cap=None, bids=None, spent=0):
+    """Keep player valuations separate from limits on simultaneous claims."""
     bids = dict(bids or {})
-    for value in (budget, weekly_cap, spent, *bids.values()):
+    budget, spent = _dollars(budget), _dollars(spent)
+    for value in bids.values():
         _dollars(value)
+    if weekly_cap is not None:
+        _dollars(weekly_cap)
     if teams < 2 or not 0 <= risk <= 1:
         raise ValueError("Invalid team count or chop risk")
     rows = [dict(row) for row in recommendations]
     unknown = set(bids) - {row["player_id"] for row in rows}
     if unknown:
         raise ValueError(f"Bid IDs are not available chop candidates: {sorted(unknown)}")
+    largest = 0
+    for row in rows:
+        row["category"], row["recommended_bid_range"] = player_bid_range(row, budget + spent, risk, teams)
+        if row["recommended_bid_range"] is not None:
+            largest = max(largest, row["recommended_bid_range"][1])
+            row["recommended_bid_range"] = [min(budget, amount) for amount in row["recommended_bid_range"]]
+    # Fund one main upgrade plus two small depth additions. An explicit cap can
+    # fund more; do not change a player's valuation to fit the total allowance.
+    automatic = weekly_cap is None
+    if automatic:
+        weekly_cap = min(budget + spent, largest + 10) if largest else spent
     available = min(max(0, int(weekly_cap) - int(spent)), int(budget))
     groups = defaultdict(int)
     for row in rows:
         # Only claims dropping the SAME owned player are mutually exclusive.
         row["claim_group"] = f"drop:{row['drop_id']}" if row["drop_id"] else f"add:{row['player_id']}"
-        reduction = row["risk_reduction"]
-        clear_gain = reduction > 2 * row["risk_reduction_standard_error"]
-        # ponytail: review thresholds, not calibrated probabilities or prices.
-        # Use validated guillotine outcomes before treating these as predictions.
-        if row["action"] == "pass":
-            row["category"] = "Pass"
-        elif not clear_gain:
-            row["category"] = "Free only"
-        elif reduction < 0.01:
-            row["category"] = "Marginal depth"
-        else:
-            row["category"] = "Review survival need" if risk > 1 / teams else "Review upgrade"
         row["chosen_bid"] = bids.get(row["player_id"])
         if row["chosen_bid"] is not None:
             if row["action"] == "pass":
@@ -237,31 +312,39 @@ def spending_plan(recommendations, budget, risk, teams, weekly_cap=5, bids=None,
     if sum(groups.values()) > available:
         raise ValueError(f"Chosen claims can spend ${sum(groups.values())}; remaining weekly limit is ${available}")
     remaining = available - sum(groups.values())
-    for row in rows:
+    for row in sorted(rows, key=lambda row: -(row["recommended_bid_range"] or [0, 0])[1]):
         group = row["claim_group"]
         if row["chosen_bid"] is not None:
             row["bid_range"] = [int(row["chosen_bid"])] * 2
             continue
-        if row["category"] in {"Pass", "Free only"}:
-            row["bid_range"] = None if row["category"] == "Pass" else [0, 0]
+        suggested = row["recommended_bid_range"]
+        if suggested is None:
+            row["bid_range"] = None
             continue
-        ceiling = min(5, groups[group] + remaining)
+        lower, upper = suggested
+        ceiling = min(upper, groups[group] + remaining)
+        if ceiling < lower or (automatic and ceiling < upper):
+            row["bid_range"] = None  # The weekly limit cannot fund this range.
+            continue
         extra = max(0, ceiling - groups[group])
         remaining -= extra
         groups[group] += extra
-        row["bid_range"] = [0, ceiling]
+        row["bid_range"] = [lower, ceiling]
     return {
-        "pricing": "spending_policy_v1", "weekly_cap": int(weekly_cap),
+        "pricing": "player_value_policy_v2", "weekly_cap": int(weekly_cap),
+        "weekly_cap_source": "automatic" if automatic else "user",
         "weekly_spent": int(spent), "weekly_remaining": available,
         "maximum_plan_spend": sum(groups.values()),
         "recommendations": rows,
     }
 
 
-def analyze(snapshot, *, simulations=5000, seed=2026, weekly_cap=5, bids=None, drop_player=None):
+def analyze(snapshot, *, simulations=5000, seed=2026, weekly_cap=None, bids=None, drop_player=None):
     if not isinstance(simulations, int) or simulations < 100:
         raise ValueError("Use at least 100 simulations")
-    _dollars(weekly_cap)
+    if weekly_cap is not None:
+        _dollars(weekly_cap)
+    season_ranks = rest_of_season_ranks(snapshot)
     league = snapshot["league"]
     settings = league["settings"]
     if settings.get("type") != 3 or settings.get("best_ball") != 1:
@@ -368,6 +451,7 @@ def analyze(snapshot, *, simulations=5000, seed=2026, weekly_cap=5, bids=None, d
         recommendations.append({
             "player_id": candidate, "player": players[candidate]["full_name"],
             "position": position_by_id[candidate], "status": inactive.get(candidate) or players[candidate].get("injury_status") or "Active",
+            "rest_of_season_position_rank": season_ranks.get(candidate),
             "drop_id": drop, "drop": players[drop]["full_name"] if drop else None,
             "points_gain": round(gain, 2), "chop_risk": round(risk, 5),
             "risk_reduction": round(float(delta.mean()), 5),
@@ -386,24 +470,33 @@ def analyze(snapshot, *, simulations=5000, seed=2026, weekly_cap=5, bids=None, d
         "teams_remaining": len(rosters), "bidding_rounds_remaining": len(rosters) - 1,
         "faab_remaining": budgets[mine], "baseline_chop_risk": round(float(before.mean()), 5),
         "baseline_expected_points": round(float(totals[:, mine].mean()), 2),
+        "rest_of_season_source": {key: snapshot["rest_of_season_rankings"][key]
+                                  for key in ("scoring", "last_updated", "total_experts")},
         **plan,
         "completed_waiver_bids": [t["settings"]["waiver_bid"] for t in transactions if t["type"] == "waiver" and t["status"] == "complete" and "waiver_bid" in (t.get("settings") or {})],
         "assumptions": [
-            "Bid ranges are spending limits, not estimates of winning prices. It is OK to lose every claim.",
-            "Default weekly limit: $5 total. Larger bids require an explicit player bid and a sufficient weekly limit.",
+            "Bid ranges are value-based rules of thumb, not forecasts of winning bids.",
+            "Elite position ranks: QB3/RB8/WR8/TE3 or better; core ranks: QB8/RB24/WR30/TE8 or better. Kickers receive no lasting-starter premium.",
+            "A lasting starter must also add at least 3 expected best ball points next week. Elite base range: 5–15% of budget; core: 2–7%.",
+            "Starter ranges scale by roster fit: points gained / 10, bounded to 0.5–1. Short-term upgrades use 0.5–2% without this factor.",
+            "Short-term upgrades need at least 1 percentage point of risk reduction above two simulation standard errors; other clear gains receive $0–$5 depth bids.",
+            "Urgency scales paid upgrade ranges by risk × teams, bounded to 1–2, only when the risk reduction clears the noise screen.",
+            "Stage scales upgrade ranges by 6 / teams, bounded to 1–3. With two teams left, clear upgrades use 50–100% of remaining budget.",
+            "Ranges use budget at the start of this Sleeper week, rounded outward to $5 when the upper amount reaches $10, then capped at available funds.",
+            "The automatic weekly allowance funds the largest range plus $10 for depth. Highest-value ranges receive allowance first. --weekly-cap overrides it.",
+            "Bid range shows player value; Plan shows the funded range. Hold means the weekly allowance cannot fund that range. --bid records your own offer.",
             "Maximum plan spend sums the largest offer per shared drop; claims without a drop count separately.",
             "Completed waiver spending for your roster in this Sleeper week is deducted from the weekly limit.",
             "The remaining limit covers only this report's claims. Include any other pending claims in your spending limit.",
             "Use the listed drop on every claim. Do not drop that player separately. Order equal bids by this table.",
             "Each roster comparison assumes one acquisition. Refresh after a win; gains from multiple wins are not additive.",
-            "Current-week outcomes with opponents' current rosters; no future acquisitions or title probabilities.",
+            "Risk estimates cover next week with opponents' current rosters. Rest-of-season ranks are a lasting-value proxy, not a championship simulation.",
+            "Rest-of-season ranks use standard reception scoring; weekly simulations include your league's tight-end premium and best ball lineup.",
+            "An unranked player gets no lasting-starter premium. Check upcoming byes, injury outlook, and other available players before submitting bids.",
             "Drop suggestions use current-week value; injured/bye players require an explicit drop override.",
             "Healthy and questionable players use the projection as given; Out/IR/PUP/Sus/Inactive and no-game players score zero.",
             "Unresolved exact chop ties split elimination probability evenly.",
-            "No paid default when risk reduction is within two simulation standard errors of zero; this is only a noise screen.",
-            "A reduction of at least 1 percentage point flags an upgrade for review. Above-average baseline risk flags survival review.",
-            "Review categories do not raise bids: assess future roster value and other available players before choosing a larger offer.",
-            "Remaining teams affect the comparison and urgency flag, not a dollars-per-point formula.",
+            "Players without a lasting-starter role or a clear current-week risk improvement receive $0-only bids. The noise screen does not prove calibration.",
             "Historical position ratios supply targets and fumble-loss share; historical kicker ratios supply distance and extra-point misses.",
             "FFSIM's independent empirical weekly draws are model estimates, not calibrated guillotine probabilities.",
         ],
@@ -417,21 +510,28 @@ def format_report(report):
         f"modeled chop risk {report['baseline_chop_risk']:.1%}", "",
         f"**Weekly limit: ${report['weekly_cap']} total. Already spent: ${report['weekly_spent']}. "
         f"Available: ${report['weekly_remaining']}. Maximum spend for these claims: ${report['maximum_plan_spend']}.**", "",
-        "Ranges are bargain offers, not predicted winning prices. You may lose every claim.",
-        "Review upgrades for lasting value before choosing a larger bid. Raising the weekly limit does not price players.",
-        "Choose the claims you want. The ranges share one budget; some $0-only rows have no paid allowance left.", "",
-        "| Player | Drop | Points gained | Chop risk after | Risk reduction | Category | Offer |",
-        "|---|---|---:|---:|---:|---|---|",
+        "Bid ranges reflect player value, roster fit, urgency, and teams remaining. They are rules of thumb, not predicted winning prices.",
+        "Plan shows what fits the weekly allowance. Hold keeps the player's value range visible without adding another paid claim.",
+        "Choose the claims you want and keep their listed drops. Review upcoming byes and injury outlook before submitting.", "",
+        "| Player | Drop | Points gained | Risk reduction | Rest-of-season rank | Category | Bid range | Plan |",
+        "|---|---|---:|---:|---|---|---:|---:|",
     ]
     for row in report["recommendations"]:
         name = row["player"] + (f" ({row['status']})" if row["status"] != "Active" else "")
-        offer = "Pass"
+        offer = "Pass" if row["action"] == "pass" else "Hold"
         if row["chosen_bid"] is not None:
             offer = f"${row['chosen_bid']} (your choice)"
         elif row["bid_range"] is not None:
-            ceiling = row["bid_range"][1]
-            offer = f"$0–${ceiling}" if ceiling else "$0 only"
-        lines.append(f"| {name} | {row['drop'] or 'Open roster spot'} | {row['points_gain']:+.2f} | {row['chop_risk']:.1%} | {row['risk_reduction'] * 100:+.2f} pp | {row['category']} | {offer} |")
+            lower, ceiling = row["bid_range"]
+            offer = f"${lower}–${ceiling}" if lower != ceiling else f"${ceiling}"
+        suggested = row["recommended_bid_range"]
+        value_range = f"${suggested[0]}–${suggested[1]}" if suggested else "Pass"
+        rank = row["rest_of_season_position_rank"]
+        rank_label = f"{row['position']}{rank}" if rank else "Unranked"
+        lines.append(f"| {name} | {row['drop'] or 'Open roster spot'} | {row['points_gain']:+.2f} | {row['risk_reduction'] * 100:+.2f} pp | {rank_label} | {row['category']} | {value_range} | {offer} |")
+    source = report["rest_of_season_source"]
+    lines.extend(["", f"Rest-of-season ranks: FantasyPros {source['scoring']}, updated {source['last_updated']}; {source['total_experts']} experts. "
+                  f"Weekly allowance: {report['weekly_cap_source']}."])
     lines.extend(["", f"Source snapshot: {report['retrieved_at']}. Simulations: {report['simulations']}; seed: {report['seed']}.", ""])
     lines.extend(f"- {assumption}" for assumption in report["assumptions"])
     return "\n".join(lines) + "\n"
@@ -444,14 +544,15 @@ def main():
     parser.add_argument("--snapshot", type=Path, help="Replay a saved input snapshot without network calls")
     parser.add_argument("--simulations", type=int, default=5000)
     parser.add_argument("--seed", type=int, default=2026)
-    parser.add_argument("--weekly-cap", type=int, default=5, help="Total limit for this report's claims; default $5")
+    parser.add_argument("--weekly-cap", type=int, help="Override automatic weekly allowance (largest range plus $10)")
     parser.add_argument("--bid", action="append", default=[], metavar="SLEEPER_ID=AMOUNT",
                         help="Your chosen bid, not a model price; repeat for multiple players")
     parser.add_argument("--drop-player", help="Sleeper ID to use instead of the automatic drop search")
     parser.add_argument("--output", type=Path, help="JSON report path; also writes a Markdown table")
     args = parser.parse_args()
     try:
-        _dollars(args.weekly_cap)
+        if args.weekly_cap is not None:
+            _dollars(args.weekly_cap)
         bids = {}
         for value in args.bid:
             sid, separator, amount = value.partition("=")

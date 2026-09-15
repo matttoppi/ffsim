@@ -8,30 +8,29 @@ Owner-requested standalone `python -m ffsim.guillotine` command. It reads
 Sleeper Chopped best ball rosters, elimination flags, budgets, and chop
 transactions; imports current FantasyPros weekly projections by stable ID;
 and reuses the empirical player sampler for paired next-week chop comparisons.
-The best ball scorer has no hypothetical waiver replacements. The initial
-points-to-dollars rule was removed after owner review. A separate spending
-policy uses $0–$5 bargain ranges under a $5 total weekly limit. Completed weekly
-purchases reduce the allowance. Explicit player bids can raise individual offers
-within a chosen total limit. Shared-drop alternatives count once at the largest
-offer; independent claims count separately. Risk-reduction labels identify depth,
-upgrade review, and survival review without setting a market price. Draft behavior
-and its existing compatibility checks remain unchanged. See ADR-049 and the
-README for assumptions, supported formats, and replay commands.
+The best ball scorer has no hypothetical waiver replacements. Current
+FantasyPros rest-of-season position ranks now identify lasting starter tiers.
+Explicit percentage ranges distinguish elite starters, core starters, current
+week upgrades, and $0–$5 marginal depth. Roster fit, survival urgency, and teams
+remaining adjust upgrade ranges. These are declared heuristics, not learned
+auction prices. The blanket $5 weekly limit has been removed.
 
-Initial validation: baseline 22 focused tests passed; six new calculator tests
-and all 274 Python tests passed. A live Week 2 snapshot for the owner's league completed
-5,000 paired simulations across all 17 unclaimed chop candidates. Puka Nacua
-leads the current-week report. Checks cover exhaustive legal-lineup parity,
-chop tiebreaks, budget caps, TE premium, kicker means, stable player identity,
-LA/LAR schedule aliases, inactive players, open spots, and missing projections.
-The command saves JSON/Markdown results plus replayable raw inputs. The next
-step is owner use of the weekly report; no bids are submitted automatically.
+The automatic weekly allowance funds the largest range plus $10 for depth.
+Completed purchases reduce it; explicit weekly caps and player bids remain
+available. Valuation ranges and funded claim ranges are separate. Shared drops
+count once at the largest offer; independent claims count separately. New input
+snapshots include current rest-of-season rankings and their source metadata.
+Older snapshots without rankings require a refresh. See ADR-049 and README.
 
-Policy revision validation: all 275 Python tests pass, including seven focused
-calculator tests for simultaneous claim cost bounds, weekly spend carryover,
-manual limits, zero budget, noise screening, and removal of automatic prices.
-The saved Week 2 snapshot replay completed 5,000 simulations with unchanged
-roster comparisons. Its revised JSON/Markdown report limits total spending to $5.
+Validation: all 276 Python tests pass, including eight focused calculator tests
+for lasting value, roster fit, risk and stage adjustments, separate valuation
+and allocation limits, source validation, and weekly spend carryover. A final
+focused check also verifies that final-week spending can use the funds remaining
+after earlier purchases. The fresh Week 2 report completed 5,000 simulations:
+Puka $50–$150, Nico $30–$105, Corum/Worthy $0–$5, and a $160 automatic allowance.
+The input snapshot preserves all 408 source ranks; offline replay exactly matches
+the fresh report. Claims that can succeed together remain within the allowance.
+No claims are submitted.
 
 ## Current status
 
