@@ -2,6 +2,28 @@
 
 This file is the current operational state of the project. Keep it short, factual, and updated after every meaningful milestone.
 
+## League history web app — 2026-09-16
+
+Added standalone `league-history/` React/Vite app for public Sleeper NFL
+history. It follows retained prior-season links, imports completed roster
+changes and drafts, and reconstructs all-team player membership at a selected
+date. It includes date/season navigation, event stepping, search, transaction
+asset details, and share links. Deployment uses static files on Vercel; the
+Python API and licensed projections are not required. See ADR-050 and
+`league-history/README.md`.
+
+Validation: 13 Node tests and the production build pass. Existing historical
+collector tests pass 24/24. The live Dynasty - Triton sample covers five seasons
+and 1,776 transaction/draft event boundaries without player replay conflicts.
+Two renewal boundaries have one unexplained player membership each; the app
+hides those intervals. Browser checks verified trade ownership, draft and
+renewal gaps, copied date links, and a 390-pixel mobile layout without overflow
+or browser errors. Dependency audit reports zero vulnerabilities. React Doctor
+reports 92/100 with one maintainability warning for the main viewer's conditional
+rendering; no correctness warning remains. No deployment has been made. Next
+step: create a Vercel project with Root Directory `league-history` and deploy
+the branch containing the app.
+
 ## Guillotine calculator — 2026-09-15
 
 Owner-requested standalone `python -m ffsim.guillotine` command. It reads

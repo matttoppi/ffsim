@@ -2601,3 +2601,48 @@ owner-provided league, including `eliminated` and `chopped`; FantasyPros Premium
 weekly NFL projection and player-ID responses using existing personal access;
 Sleeper's Chopped support article for weekly elimination and tiebreaks.
 The weekly Sleeper projections endpoint returned HTTP 403 and is not used.
+
+
+## ADR-050 — Deploy league history as an independent static web app
+
+Accepted and implemented (2026-09-16).
+
+The owner requested a standalone dynasty history viewer in this repository,
+with free Vercel hosting for league mates. `league-history/` is a separate
+React/Vite package. It makes read-only browser requests to Sleeper and has no
+Python service, database, API keys, or dependency on the main web package.
+The Vercel project root is `league-history`; its build output is `dist`.
+
+The importer follows `previous_league_id`, scans NFL transaction buckets 0–22,
+deduplicates transaction IDs, and retains completed changes. Requests are spaced
+by 150 ms with at most three league requests in flight. The player catalog is
+cached daily when browser storage is available. Import errors remain visible.
+No paid projection data is distributed.
+
+Replay starts from each season's retrieved roster and reverses later player
+changes. Trade sides reverse atomically. Ownership conflicts hide the affected
+reconstruction. Draft results are grouped at draft start only for replay outside
+the draft interval; rosters stay hidden during drafts without pick timestamps.
+This preserves trades during slow drafts without inventing acquisition times.
+Keepers are excluded from new acquisitions. Conflicting simultaneous player
+changes remain unresolved.
+
+Closing rosters are compared with the next reconstructed opening rosters.
+Unexplained differences hide the intervening interval. Consistency checks cannot
+prove that the provider retained every event. Team names/managers are retrieved
+season snapshots; historical lineup/reserve/taxi slots, complete pick inventories,
+and budget balances are not reconstructed. Pick and budget transfers appear in
+activity. Shared links contain the league and date and trigger each visitor's
+own import.
+
+Checked 2026-09-16: Sleeper allows browser origins; Dynasty - Triton links
+2022–2026; its 1,776 completed event boundaries reverse without player conflicts;
+two renewal boundaries differ by one player membership. The app passes 13 Node
+tests and a production build. Existing historical collector tests pass 24/24.
+Desktop/mobile browser checks cover trades, draft/gap states, and shared links.
+
+Sources: [Sleeper API](https://docs.sleeper.com/),
+[Vite on Vercel](https://vercel.com/docs/frameworks/frontend/vite), and
+[Vercel Hobby](https://vercel.com/docs/plans/hobby). No deployment was created.
+Vercel Hobby and Sleeper's API use without a commercial agreement cover personal,
+non-commercial use within their respective limits.

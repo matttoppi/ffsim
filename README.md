@@ -2,6 +2,13 @@
 
 Run repeatable Monte Carlo simulations for a Sleeper fantasy football league. Data refreshes are explicit, so simulations use stable local snapshots instead of changing API responses.
 
+## League history web app
+
+The independent [League History app](league-history/README.md) imports Sleeper
+dynasty seasons and reconstructs player rosters on a date timeline. It runs in
+the browser and deploys to Vercel with `league-history` as the project root.
+No Python service or API key is required.
+
 ## Project layout
 
 ```text
@@ -9,6 +16,7 @@ ffsim/              Application package and command-line entry point
   loaders/          Sleeper, FantasyCalc, PFF, and injury ingestion
   models/           League, team, and player models
   simulation/       Season, matchup, playoff, tracking, and plotting logic
+league-history/     Standalone Sleeper roster timeline web app
 data/               Active runtime inputs and ignored generated snapshots
 tests/              Automated tests
 tools/              Maintained data-preparation utilities
