@@ -1,7 +1,10 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import {
+  compareRosters,
   parseLeagueId,
+  playerContext,
+  playerHistory,
   rosterAt,
   rosterDifference,
   seasonAt,
@@ -67,6 +70,94 @@ function players(source: Season, at: number) {
   assert.deepEqual(state.issues, [])
   return state.teams.map((team) => team.players.sort())
 }
+
+describe('player history and roster comparisons', () => {
+  function history(source = season()): LeagueHistory {
+    return { leagueId: source.id, seasons: [source], players: {} }
+  }
+
+  it('shows both sides of a trade and preserves the direction when viewing an earlier date', () => {
+    const source = history()
+    const at = start + 2 * day
+    const forward = compareRosters(source, at - 1, at)
+    assert.equal(forward.issue, null)
+    assert.deepEqual(forward.changes.get(1), { added: ['b'], removed: ['a'] })
+    assert.deepEqual(forward.changes.get(2), { added: ['a'], removed: ['b'] })
+    assert.deepEqual(compareRosters(source, at, at - 1).changes.get(1), { added: ['a'], removed: ['b'] })
+    assert.deepEqual(compareRosters(source, at, at).changes.get(1), { added: [], removed: [] })
+  })
+
+  it('reports net membership changes, without counting a player who leaves and returns', () => {
+    const source = season()
+    source.events.push(event('drop', start + 3 * day + 1, [], [{ player: 'b', roster: 1 }]))
+    source.events.push(event('return', start + 3 * day + 2, [{ player: 'b', roster: 1 }]))
+    assert.deepEqual(compareRosters(history(source), start + 2 * day, source.fetchedAt).changes.get(1), {
+      added: ['c'],
+      removed: [],
+    })
+  })
+
+  it('blocks comparisons at draft intervals, replay failures, and unverified renewal gaps', () => {
+    const source = history()
+    assert.ok(compareRosters(source, start, start + 2 * day).issue)
+    source.seasons[0].issues.push('Missing source record')
+    assert.ok(compareRosters(source, start + day, start + 2 * day).issue)
+    source.seasons[0].issues = []
+    const newer = {
+      ...season(),
+      id: '123456789012345679',
+      year: '2025',
+      drafts: [],
+      events: [],
+      fetchedAt: start + 100 * day,
+    }
+    newer.teams[0].players.push('unexplained')
+    source.seasons.push(newer)
+    assert.ok(compareRosters(source, start + 50 * day, newer.fetchedAt).issue)
+    newer.teams.pop()
+    assert.ok(compareRosters(source, start + 3 * day, newer.fetchedAt).issue?.includes('roster slots'))
+  })
+
+  it('keeps complete trade assets and draft intervals in a player history across seasons', () => {
+    const source = history()
+    source.seasons[0].events[0].picks.push({ season: '2025', round: 1, original: 1, from: 1, to: 2 })
+    const newer = {
+      ...season(),
+      id: '123456789012345679',
+      year: '2025',
+      drafts: [],
+      events: [
+        event('return', start + 100 * day, [{ player: 'a', roster: 1 }], [{ player: 'a', roster: 2 }]),
+      ],
+    }
+    source.seasons.push(newer)
+    const moves = playerHistory(source, 'a')
+    assert.deepEqual(
+      moves.map((move) => move.event.id),
+      ['draft:draft', 'swap', 'return'],
+    )
+    assert.equal(moves[0].start, start)
+    assert.equal(moves[0].event.at, start + day)
+    assert.equal(moves[1].event.picks.length, 1)
+    assert.equal(moves[2].season, newer)
+    assert.deepEqual(playerHistory(source, 'unknown'), [])
+  })
+
+  it('selects the latest arrival for a returning player and the next departure after the viewed date', () => {
+    const source = history()
+    source.seasons[0].events.push(
+      event('return', start + 3 * day, [{ player: 'a', roster: 1 }], [{ player: 'a', roster: 2 }]),
+    )
+    const moves = playerHistory(source, 'a')
+    const firstStay = playerContext(moves, 'a', 1, start + day)
+    assert.equal(firstStay.arrival?.event.id, 'draft:draft')
+    assert.equal(firstStay.departure?.event.id, 'swap')
+    const secondStay = playerContext(moves, 'a', 1, start + 3 * day)
+    assert.equal(secondStay.arrival?.event.id, 'return')
+    assert.equal(secondStay.departure, undefined)
+    assert.equal(playerContext(moves, 'a', 1, start).arrival, undefined)
+  })
+})
 
 describe('roster reconstruction', () => {
   it('reverses a multi-team swap atomically and includes the transaction at its exact completion time', () => {

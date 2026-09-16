@@ -145,6 +145,72 @@ export function playerInfo(history: LeagueHistory, id: string): Player {
   return history.players[id] ?? { id, name: `Player ${id}`, position: '—' }
 }
 
+export type PlayerMove = { event: HistoryEvent; season: Season; start: number }
+
+export function playerHistory(history: LeagueHistory, player: string): PlayerMove[] {
+  return history.seasons
+    .flatMap((season) =>
+      timelineEvents(season)
+        .filter((event) => [...event.adds, ...event.drops].some((move) => move.player === player))
+        .map((event) => ({
+          event,
+          season,
+          // A draft is an interval, not a fabricated individual pick timestamp.
+          start: season.drafts.find((draft) => `draft:${draft.id}` === event.id)?.start ?? event.at,
+        })),
+    )
+    .sort((a, b) => a.start - b.start || a.event.id.localeCompare(b.event.id))
+}
+
+export function playerContext(moves: PlayerMove[], player: string, roster: number, at: number) {
+  const arrival = moves.findLast(
+    ({ event }) =>
+      event.at <= at && event.adds.some((move) => move.player === player && move.roster === roster),
+  )
+  const departure = moves.find(
+    ({ event, start }) =>
+      start > at && event.drops.some((move) => move.player === player && move.roster === roster),
+  )
+  return { arrival, departure }
+}
+
+export type TeamChange = { added: string[]; removed: string[] }
+export type RosterComparison = { changes: Map<number, TeamChange>; issue: string | null }
+
+export function compareRosters(history: LeagueHistory, from: number, to: number): RosterComparison {
+  const before = seasonAt(history, from)
+  const after = seasonAt(history, to)
+  const left = rosterAt(before.season, from)
+  const right = rosterAt(after.season, to)
+  if (before.gap || after.gap || left.draft || right.draft || left.issues.length || right.issues.length) {
+    return { changes: new Map(), issue: 'Choose two dates with verified rosters to compare changes.' }
+  }
+  if (
+    left.teams.length !== right.teams.length ||
+    left.teams.some((team) => !right.teams.some((other) => other.id === team.id))
+  ) {
+    return {
+      changes: new Map(),
+      issue: 'The roster slots changed between these dates. Choose dates within one season.',
+    }
+  }
+  return {
+    changes: new Map(
+      right.teams.map((team) => {
+        const previous = left.teams.find((other) => other.id === team.id)!
+        return [
+          team.id,
+          {
+            added: team.players.filter((id) => !previous.players.includes(id)),
+            removed: previous.players.filter((id) => !team.players.includes(id)),
+          },
+        ]
+      }),
+    ),
+    issue: null,
+  }
+}
+
 export function parseLeagueId(input: string): string {
   const value = input.trim()
   if (/^\d{15,22}$/.test(value)) return value

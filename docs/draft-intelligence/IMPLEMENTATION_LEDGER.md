@@ -2,6 +2,30 @@
 
 This file is the current operational state of the project. Keep it short, factual, and updated after every meaningful milestone.
 
+## League history exploration — 2026-09-16
+
+Added player history dialogs with the last recorded arrival, next recorded
+departure, complete trade assets, and direct links to each move's details.
+Dialogs support keyboard dismissal and restore focus to the selected player.
+The timeline stays visible while scrolling. A team selector filters rosters,
+activity, and event stepping by roster slot.
+
+Compare from a fixed date, or compare immediately before and after a player
+transaction. Team cards show net incoming and outgoing players; outgoing
+players remain searchable and clickable. Draft intervals, replay failures,
+renewal gaps at either endpoint, and changed roster slots block comparisons.
+Recorded player events do not assert uninterrupted tenure across source gaps.
+Shared view URLs preserve the focused team and comparison date.
+
+Validation: all 18 Node tests and the production build pass. Browser checks
+cover trade assets, both sides of a player transfer, outgoing-player details,
+dialog dismissal/focus restoration, sticky controls, desktop and mobile
+layouts, and restored comparison links. No browser errors were observed.
+React Doctor reports maintainability and small-array lookup warnings; the
+player-dialog assertion warning was resolved. No dependencies were added.
+The existing local and Tailscale previews serve the updated production build.
+Next step: deploy `league-history` as a Vercel project when requested.
+
 ## League history web app — 2026-09-16
 
 Added standalone `league-history/` React/Vite app for public Sleeper NFL

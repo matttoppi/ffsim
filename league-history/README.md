@@ -49,11 +49,28 @@ limits still apply. See [Vercel Hobby](https://vercel.com/docs/plans/hobby) and
 ## What the viewer shows
 
 - All available linked seasons, followed through `previous_league_id`.
-- A continuous date slider, date picker, season shortcuts, and event stepping.
-- Every team's owned players, with player and team search.
+- A sticky date slider, date picker, season shortcuts, and event stepping.
+- Every team's owned players, with player search and a team focus selector.
+- Clickable players with recorded arrivals, departures, and complete trade details.
+- Roster comparisons with incoming and outgoing players on each team.
 - Completed trades, waivers, free-agent moves, commissioner moves, and drafts.
 - Player, draft-pick, and waiver-budget transfers in the activity details.
-- Share links that preserve the league ID and selected timestamp.
+- Share links that preserve the league ID, selected timestamp, comparison date, and focused team.
+
+Select a team in the timeline to keep that roster in view. The event arrows and
+activity list then follow that team's moves. Select **Compare from here** to
+fix a comparison date, then move the timeline. **IN** means a player is present
+in the viewed roster but absent at the comparison date; **OUT** means the
+reverse. These are net membership changes, including when you move backward.
+A player who leaves and returns between the two dates has no net change.
+
+Select any player to inspect their recorded moves across all seasons. Expand
+a trade to see all player, pick, and waiver-budget transfers. **Compare this
+move** selects the moments immediately before and after that transaction.
+Departed players remain clickable in the **OUT** list. Comparisons require
+verified rosters at both dates and matching roster slots across seasons.
+They do not prove that every intervening transaction is available. Player
+arrival and departure summaries identify recorded events, not verified tenure.
 
 The app makes read-only requests directly to `https://api.sleeper.app/v1`.
 Requests start at least 150 milliseconds apart, with at most three concurrent

@@ -1,170 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { EventDetails, date, label, timeFormat } from './EventDetails.tsx'
+import { TeamRoster } from './TeamRoster.tsx'
+import { PlayerHistory, type PlayerSelection } from './PlayerHistory.tsx'
 import { importHistory } from './sleeper.ts'
 import {
+  compareRosters,
   parseLeagueId,
   playerInfo,
   rosterAt,
   seasonAt,
   seasonStart,
   timelineEvents,
-  type HistoryEvent,
   type LeagueHistory,
-  type Season,
-  type Team,
 } from './history.ts'
 
 const DAY = 86_400_000
-const dateFormat = new Intl.DateTimeFormat('en-US', {
-  month: 'short',
-  day: 'numeric',
-  year: 'numeric',
-  timeZone: 'UTC',
-})
-const timeFormat = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'UTC' })
-const eventLabels: Record<string, string> = {
-  trade: 'Trade',
-  waiver: 'Waiver',
-  free_agent: 'Free agent',
-  commissioner: 'Commissioner',
-  draft: 'Draft',
-}
-const positions = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF']
-
-function date(at: number) {
-  return dateFormat.format(at)
-}
-function label(event: HistoryEvent) {
-  return eventLabels[event.type] ?? 'Roster change'
-}
-function teamName(season: Season, id: number) {
-  return season.teams.find((team) => team.id === id)?.name ?? `Roster ${id}`
-}
-
-function TeamRoster({
-  team,
-  history,
-  query,
-  event,
-}: {
-  team: Team
-  history: LeagueHistory
-  query: string
-  event?: HistoryEvent
-}) {
-  const teamMatch = `${team.name} ${team.manager}`.toLocaleLowerCase().includes(query)
-  const players = team.players
-    .map((id) => playerInfo(history, id))
-    .filter((player) => teamMatch || player.name.toLocaleLowerCase().includes(query))
-    .sort((a, b) => {
-      const aPosition = positions.includes(a.position) ? positions.indexOf(a.position) : 99
-      const bPosition = positions.includes(b.position) ? positions.indexOf(b.position) : 99
-      return aPosition - bPosition || a.name.localeCompare(b.name)
-    })
-  if (query && !teamMatch && !players.length) return null
-  const incoming = new Set(event?.adds.filter((add) => add.roster === team.id).map((add) => add.player))
-  return (
-    <article className="team-card">
-      <header className="team-heading">
-        <span className="team-number" aria-hidden="true">
-          {String(team.id).padStart(2, '0')}
-        </span>
-        <div>
-          <h3>{team.name}</h3>
-          <p>{team.manager}</p>
-        </div>
-        <span className="roster-count" title="Total players on this roster">
-          {team.players.length}
-        </span>
-      </header>
-      <div className="position-counts" aria-label="Roster composition">
-        {positions
-          .filter((position) => team.players.some((id) => playerInfo(history, id).position === position))
-          .map((position) => (
-            <span key={position}>
-              {position}{' '}
-              <b>{team.players.filter((id) => playerInfo(history, id).position === position).length}</b>
-            </span>
-          ))}
-      </div>
-      <div className="roster-scroll" tabIndex={0} aria-label={`${team.name} players`}>
-        <ul className="player-list">
-          {players.map((player) => (
-            <li key={player.id} className={incoming.has(player.id) ? 'incoming' : ''}>
-              <span className={`position position-${player.position.toLowerCase()}`}>{player.position}</span>
-              <span>{player.name}</span>
-              {incoming.has(player.id) && <span className="arrival">IN</span>}
-            </li>
-          ))}
-        </ul>
-        {!players.length && <p className="empty-roster">No players at this point.</p>}
-      </div>
-    </article>
-  )
-}
-
-function EventDetails({
-  event,
-  season,
-  history,
-}: {
-  event: HistoryEvent
-  season: Season
-  history: LeagueHistory
-}) {
-  const rosterIds = [
-    ...new Set([
-      ...event.adds.map((move) => move.roster),
-      ...event.drops.map((move) => move.roster),
-      ...event.picks.flatMap((pick) => [pick.from, pick.to]),
-      ...event.budget.flatMap((budget) => [budget.from, budget.to]),
-    ]),
-  ]
-  return (
-    <div className="event-detail">
-      <p className="event-time">
-        {timeFormat.format(event.at)} UTC{event.type === 'draft' ? ' · completed draft' : ''}
-      </p>
-      {rosterIds.map((id) => (
-        <div key={id} className="event-team">
-          <strong>{teamName(season, id)}</strong>
-          {event.adds
-            .filter((move) => move.roster === id)
-            .map((move) => (
-              <p key={`add:${move.player}`}>
-                <span className="plus">+ </span>
-                {playerInfo(history, move.player).name}
-              </p>
-            ))}
-          {event.drops
-            .filter((move) => move.roster === id)
-            .map((move) => (
-              <p key={`drop:${move.player}`}>
-                <span className="minus">− </span>
-                {playerInfo(history, move.player).name}
-              </p>
-            ))}
-          {event.picks
-            .filter((pick) => pick.to === id || pick.from === id)
-            .map((pick) => (
-              <p key={`${pick.season}:${pick.round}:${pick.original}`}>
-                <span className={pick.to === id ? 'plus' : 'minus'}>{pick.to === id ? '+ ' : '− '}</span>
-                {pick.season} round {pick.round} · originally {teamName(season, pick.original)}
-              </p>
-            ))}
-          {event.budget
-            .filter((budget) => budget.to === id || budget.from === id)
-            .map((budget) => (
-              <p key={`${budget.from}:${budget.to}:${budget.amount}`}>
-                {budget.to === id ? '+' : '−'}${budget.amount} waiver budget
-              </p>
-            ))}
-        </div>
-      ))}
-      {!rosterIds.length && <p>No player or draft-pick changes in this record.</p>}
-    </div>
-  )
-}
-
 function HistoryViewer({
   history,
   initialAt,
@@ -180,6 +30,15 @@ function HistoryViewer({
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState('all')
   const [shareStatus, setShareStatus] = useState('')
+  const [compareAt, setCompareAt] = useState<number | null>(() => {
+    const value = Number(new URLSearchParams(window.location.search).get('compare'))
+    return Number.isSafeInteger(value) && value >= first && value <= last ? value : null
+  })
+  const [focusedTeam, setFocusedTeam] = useState(() => {
+    const value = Number(new URLSearchParams(window.location.search).get('team'))
+    return history.seasons.some((season) => season.teams.some((team) => team.id === value)) ? value : 0
+  })
+  const [player, setPlayer] = useState<PlayerSelection | null>(null)
   const { season, gap } = seasonAt(history, at)
   const state = useMemo(() => rosterAt(season, at), [season, at])
   const allEvents = useMemo(
@@ -188,33 +47,52 @@ function HistoryViewer({
   )
   const events = useMemo(() => timelineEvents(season).reverse(), [season])
   const selected = events.find((event) => event.at === at)
-  const previous = allEvents.findLast((event) => event.at < at)
-  const next = allEvents.find((event) => event.at > at)
-  const visibleEvents = events.filter((event) => filter === 'all' || event.type === filter)
+  const involvesFocus = (event: (typeof allEvents)[number]) =>
+    !focusedTeam ||
+    [...event.adds, ...event.drops].some((move) => move.roster === focusedTeam) ||
+    [...event.picks, ...event.budget].some((move) => move.from === focusedTeam || move.to === focusedTeam)
+  const teamEvents = allEvents.filter(involvesFocus)
+  const previous = teamEvents.findLast((event) => event.at < at)
+  const next = teamEvents.find((event) => event.at > at)
+  const visibleEvents = events.filter(
+    (event) => involvesFocus(event) && (filter === 'all' || event.type === filter),
+  )
   const search = query.trim().toLocaleLowerCase()
-  const matchCount = state.teams.filter(
+  const comparison = useMemo(
+    () => (compareAt === null ? null : compareRosters(history, compareAt, at)),
+    [history, compareAt, at],
+  )
+  const shownTeams = state.teams.filter((team) => !focusedTeam || team.id === focusedTeam)
+  const matchCount = shownTeams.filter(
     (team) =>
       `${team.name} ${team.manager}`.toLocaleLowerCase().includes(search) ||
-      team.players.some((id) => playerInfo(history, id).name.toLocaleLowerCase().includes(search)),
+      [...team.players, ...(comparison?.changes.get(team.id)?.removed ?? [])].some((id) =>
+        playerInfo(history, id).name.toLocaleLowerCase().includes(search),
+      ),
   ).length
   const unavailable = gap || state.issues.length > 0 || state.draft !== null
 
-  function selectDate(value: number) {
+  function selectDate(value: number, from = compareAt, team = focusedTeam) {
     if (!Number.isFinite(value)) return
     const selectedAt = Math.min(last, Math.max(first, value))
     setAt(selectedAt)
+    setCompareAt(from)
+    setFocusedTeam(team)
     setShareStatus('')
     const url = new URL(window.location.href)
-    url.search = new URLSearchParams({ league: history.leagueId, at: String(selectedAt) }).toString()
+    url.search = new URLSearchParams({
+      league: history.leagueId,
+      at: String(selectedAt),
+      ...(from === null ? {} : { compare: String(from) }),
+      ...(team ? { team: String(team) } : {}),
+    }).toString()
     window.history.replaceState(null, '', url)
   }
 
   async function share() {
-    const url = new URL(window.location.href)
-    url.search = new URLSearchParams({ league: history.leagueId, at: String(at) }).toString()
-    window.history.replaceState(null, '', url)
+    selectDate(at)
     try {
-      await navigator.clipboard.writeText(url.href)
+      await navigator.clipboard.writeText(window.location.href)
       setShareStatus('Link copied')
     } catch {
       setShareStatus('Copy the link from your address bar')
@@ -300,6 +178,7 @@ function HistoryViewer({
               ))}
           </div>
           <input
+            id="league-date"
             aria-label="League date"
             aria-valuetext={`${date(at)}, ${timeFormat.format(at)} UTC`}
             type="range"
@@ -328,13 +207,50 @@ function HistoryViewer({
             </button>
           ))}
         </div>
+        <div className="timeline-explore">
+          <label className="team-focus">
+            <span className="sr-only">Focus on a team</span>
+            <select
+              aria-label="Focus on a team"
+              value={focusedTeam}
+              onChange={(event) => selectDate(at, compareAt, Number(event.target.value))}
+            >
+              <option value={0}>All teams</option>
+              {state.teams.map((team) => (
+                <option key={team.id} value={team.id}>
+                  {team.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            className="compare-button"
+            disabled={unavailable && compareAt === null}
+            onClick={() => selectDate(at, compareAt === null ? at : null)}
+          >
+            {compareAt === null ? (
+              'Compare from here'
+            ) : (
+              <>
+                End comparison<span className="comparison-reference">From {date(compareAt)}</span>
+              </>
+            )}
+          </button>
+        </div>
         <div className="timeline-footer">
           <span>
             <i className="legend trade" />
             Trade <i className="legend draft" />
             Draft
           </span>
-          <span>Drag to travel · arrow keys move one day</span>
+          <span>
+            {compareAt === null
+              ? focusedTeam
+                ? 'Arrows follow this team’s moves'
+                : 'Drag to travel · tap a player for their story'
+              : `Comparing with ${date(compareAt)}`}
+          </span>
         </div>
       </section>
       <div className="history-summary">
@@ -369,6 +285,25 @@ function HistoryViewer({
               />
             </label>
           </div>
+          {compareAt !== null && (
+            <div className="comparison-summary" role="status">
+              <strong>
+                {date(compareAt)} → {date(at)}
+              </strong>
+              <p>
+                {comparison?.issue ??
+                  (compareAt === at
+                    ? 'Move the timeline to see players come in and out. Your comparison date stays fixed.'
+                    : `IN and OUT show net roster changes from the comparison date.${at < compareAt ? ' You are viewing an earlier date.' : ''}`)}
+              </p>
+              {compareAt !== at && date(compareAt) === date(at) && (
+                <p>
+                  Comparing two moments on this date, including changes at{' '}
+                  {timeFormat.format(Math.max(compareAt, at))} UTC.
+                </p>
+              )}
+            </div>
+          )}
           <p className="roster-note">
             All owned players, including reserves and taxi squads. Names reflect the saved season; lineup
             slots and name-change dates are not reconstructed.
@@ -416,9 +351,19 @@ function HistoryViewer({
             </div>
           ) : (
             <>
-              <div className="team-grid">
-                {state.teams.map((team) => (
-                  <TeamRoster key={team.id} team={team} history={history} query={search} event={selected} />
+              <div className={`team-grid ${focusedTeam ? 'team-grid-focused' : ''}`}>
+                {shownTeams.map((team) => (
+                  <TeamRoster
+                    key={team.id}
+                    team={team}
+                    history={history}
+                    query={search}
+                    event={compareAt === null ? selected : undefined}
+                    change={comparison?.changes.get(team.id)}
+                    onPlayer={(id, removed) =>
+                      setPlayer({ player: id, roster: team.id, at: removed ? compareAt! : at })
+                    }
+                  />
                 ))}
               </div>
               {!matchCount && <p className="no-results">No matching player or team at this date.</p>}
@@ -487,6 +432,15 @@ function HistoryViewer({
           </div>
         </aside>
       </div>
+      {player && (
+        <PlayerHistory
+          history={history}
+          selection={player}
+          onClose={() => setPlayer(null)}
+          onView={(value) => selectDate(value)}
+          onCompare={(from, to) => selectDate(to, from)}
+        />
+      )}
       <footer className="source-footer">
         <span>
           Sourced from Sleeper · imported {date(last)} at {timeFormat.format(last)} UTC
@@ -537,7 +491,8 @@ export default function App() {
       setHistory(result)
       setInitialAt(at)
       const url = new URL(window.location.href)
-      url.search = new URLSearchParams({ league: id, ...(at ? { at: String(at) } : {}) }).toString()
+      url.searchParams.set('league', id)
+      if (at) url.searchParams.set('at', String(at))
       window.history.replaceState(null, '', url)
     } catch (error) {
       if (!request.signal.aborted)
